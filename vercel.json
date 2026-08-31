@@ -1,0 +1,28 @@
+{
+  "buildCommand": "npm run build",
+  "installCommand": "npm install",
+  "outputDirectory": ".next",
+  "framework": "nextjs",
+  "crons": [
+    {
+      "path": "/api/cron",
+      "schedule": "*/15 * * * *"
+    }
+  ],
+  "env": {
+    "NEXT_PUBLIC_SUPABASE_URL": "@supabase_url",
+    "NEXT_PUBLIC_SUPABASE_ANON_KEY": "@supabase_anon_key",
+    "SUPABASE_SERVICE_ROLE_KEY": "@supabase_service_role_key",
+    "STRATZ_API_KEY": "@stratz_api_key",
+    "STRATZ_API_URL": "https://api.stratz.com/graphql",
+    "NEXT_PUBLIC_DATA_PROVIDER": "stratz",
+    "CRON_SECRET": "@cron_secret",
+    "ENABLE_PLAYER_SYNC": "true",
+    "ENABLE_TEAM_SYNC": "true",
+    "ENABLE_TOURNAMENT_DISCOVERY": "true",
+    "ENABLE_MATCH_FETCH": "true",
+    "ENABLE_MATCH_DETAILS": "true",
+    "ENABLE_ROSTER_TRACKING": "true",
+    "ENABLE_PROVIDER_FALLBACK": "true"
+  }
+}

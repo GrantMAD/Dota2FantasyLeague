@@ -32,6 +32,9 @@ export interface ProfessionalPlayer {
   secondary_roles: PlayerRole[];
   profile_image_url?: string;
   country?: string;
+  data_provider_id?: string;
+  availability_status?: string;
+  last_synced_at?: string;
   created_at: string;
   updated_at: string;
 }
@@ -66,6 +69,42 @@ export interface Gameweek {
   end_date: string;
   deadline: string;
   is_international_break: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export type TournamentStatus = 'eligible' | 'excluded' | 'provisional' | 'archived';
+
+export interface Tournament {
+  id: number;
+  season_id: number;
+  name: string;
+  slug: string;
+  status: TournamentStatus;
+  tier?: string;
+  start_date: string;
+  end_date: string;
+  eligible: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export type MatchStatus = 'scheduled' | 'in_progress' | 'completed' | 'cancelled' | 'postponed';
+
+export interface Match {
+  id: number;
+  series_id: number;
+  gameweek_id: number;
+  team_a_id: number;
+  team_b_id: number;
+  match_number?: number;
+  status: MatchStatus;
+  scheduled_time: string;
+  start_time?: string;
+  end_time?: string;
+  duration_minutes?: number;
+  winner_team_id?: number;
+  external_match_id?: string;
   created_at: string;
   updated_at: string;
 }
@@ -210,4 +249,98 @@ export interface PlayerPrice {
   price_change: number;
   ownership_percentage: number;
   created_at: string;
+}
+
+// Supabase Database Schema Type
+// NOTE: these jobs use dynamic table names and a permissive schema so the
+// application can interact with multiple tables without a generated type map.
+export interface Database {
+  public: {
+    Tables: Record<
+      string,
+      {
+        Row: Record<string, unknown>;
+        Insert: Record<string, unknown>;
+        Update: Record<string, unknown>;
+        Relationships: Array<Record<string, unknown>>;
+      }
+    >;
+    Views: Record<string, { Row: Record<string, unknown> }>;
+    Functions: Record<
+      string,
+      {
+        Args: Record<string, unknown>;
+        Returns: unknown;
+      }
+    >;
+    Enums: Record<string, string>;
+    CompositeTypes: Record<
+      string,
+      {
+        Row: Record<string, unknown>;
+        Insert: Record<string, unknown>;
+        Update: Record<string, unknown>;
+      }
+    >;
+  };
+}
+
+// Match Statistics Types
+export interface MatchPlayerStats {
+  id: number;
+  match_id: number;
+  player_id: number;
+  team_id: number;
+  hero_id: string;
+  hero_name: string;
+  kills: number;
+  deaths: number;
+  assists: number;
+  gold_per_minute: number;
+  experience_per_minute: number;
+  last_hits: number;
+  denies: number;
+  hero_damage: number;
+  tower_damage: number;
+  healing: number;
+  wards_placed: number;
+  wards_destroyed: number;
+  first_blood_achieved: boolean;
+  roshan_kills: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface GameweekScore {
+  id: number;
+  fantasy_lineup_id: number;
+  player_id: number;
+  match_id: number;
+  gameweek_id: number;
+  fantasy_points: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface TeamRosterHistory {
+  id: number;
+  team_id: number;
+  player_id: number;
+  change_type: string;
+  changed_at: string;
+  previous_team_id?: number;
+  role?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface JobExecutionLog {
+  id: string;
+  job_name: string;
+  status: 'started' | 'completed' | 'failed';
+  started_at: string;
+  completed_at?: string;
+  metadata?: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
 }
