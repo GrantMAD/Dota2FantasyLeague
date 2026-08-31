@@ -168,6 +168,118 @@ export function calculateLeaderboard(entries: Array<{ manager: string; points: n
     }));
 }
 
+export interface LeagueDraft {
+  name: string;
+  type: 'classic' | 'h2h';
+  privacyLevel: 'public' | 'private';
+  maxParticipants: number;
+  description: string;
+  inviteCode: string;
+  createdAt: string;
+  isFull: boolean;
+}
+
+export function createLeagueDraft(params: {
+  name: string;
+  type: 'classic' | 'h2h';
+  privacyLevel: 'public' | 'private';
+  maxParticipants: number;
+  description?: string;
+  currentParticipants?: number;
+}): LeagueDraft {
+  const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  const inviteCode = Array.from({ length: 8 }, () => alphabet[Math.floor(Math.random() * alphabet.length)]).join('');
+
+  return {
+    name: params.name,
+    type: params.type,
+    privacyLevel: params.privacyLevel,
+    maxParticipants: params.maxParticipants,
+    description: params.description || 'League created from the fantasy engine.',
+    inviteCode,
+    createdAt: new Date().toISOString(),
+    isFull: (params.currentParticipants ?? 0) >= params.maxParticipants,
+  };
+}
+
+export function validateLeagueMembership(currentParticipants: number, maxParticipants: number): boolean {
+  return currentParticipants < maxParticipants;
+}
+
+export function joinLeague(currentParticipants: number, maxParticipants: number): {
+  allowed: boolean;
+  reason: string;
+  currentParticipants: number;
+  maxParticipants: number;
+} {
+  const allowed = validateLeagueMembership(currentParticipants, maxParticipants);
+
+  return {
+    allowed,
+    reason: allowed ? 'Invitation accepted.' : 'This league is full and cannot accept more members.',
+    currentParticipants,
+    maxParticipants,
+  };
+}
+
+export interface LeagueStanding {
+  manager: string;
+  points: number;
+  wins: number;
+  losses: number;
+  rank: number;
+  form: string;
+}
+
+export function calculateLeagueStandings(
+  entries: Array<{ manager: string; points: number; wins: number; losses: number; form?: string[] }>,
+): LeagueStanding[] {
+  return entries
+    .sort((a, b) => b.points - a.points || b.wins - a.wins)
+    .map((entry, index) => ({
+      manager: entry.manager,
+      points: entry.points,
+      wins: entry.wins,
+      losses: entry.losses,
+      rank: index + 1,
+      form: entry.form?.join(' ') || '—',
+    }));
+}
+
+export interface HeadToHeadFixture {
+  home: string;
+  away: string;
+  result: string;
+  score: string;
+}
+
+export function generateHeadToHeadFixtures(participants: string[]): HeadToHeadFixture[] {
+  const shuffled = [...participants].sort(() => Math.random() - 0.5);
+
+  return shuffled.map((participant, index) => {
+    const opponent = shuffled[(index + 1) % shuffled.length];
+    if (participant === opponent) {
+      return {
+        home: participant,
+        away: 'BYE',
+        result: 'bye',
+        score: '—',
+      };
+    }
+
+    const homeScore = 70 + Math.round(Math.random() * 25);
+    const awayScore = 60 + Math.round(Math.random() * 25);
+    const winner = homeScore >= awayScore ? participant : opponent;
+
+    return {
+      home: participant,
+      away: opponent,
+      result: winner === participant ? 'home' : 'away',
+      score: `${homeScore}-${awayScore}`,
+    };
+  });
+}
+
 export interface PlayerPerformanceRecord {
   playerName: string;
   matches: number;

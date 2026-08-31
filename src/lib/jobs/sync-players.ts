@@ -10,6 +10,9 @@
 import { getSupabaseServerClient } from '@/lib/db/supabase-server';
 import type { PlayerData } from '@/lib/data-providers/provider-interface';
 import type { ProfessionalPlayer } from '@/types/database';
+import { hasConflict } from '@/lib/data-reconciliation/conflict-resolution';
+import { createVersionRecord, detectFieldChanges } from '@/lib/data-reconciliation/data-versioning';
+import { calculateCompletenessScore, calculateFreshnessScore, calculateReliabilityScore } from '@/lib/data-reconciliation/data-quality';
 
 interface SyncResult {
   created: number;
@@ -104,7 +107,7 @@ export async function syncPlayers(): Promise<SyncResult> {
 }
 
 /**
- * Process a batch of players for sync
+ * Process a batch of players for sync with reconciliation
  */
 async function processSyncBatch(
   players: PlayerData[],
@@ -118,40 +121,178 @@ async function processSyncBatch(
       const existing = existingPlayers.get(player.steamId);
 
       if (existing) {
-        // Update existing player
+        // Prepare update data
+        const updateData = {
+          name: player.name,
+          country: player.country,
+          team_id: player.team?.id,
+          profile_image_url: player.imageUrl,
+          last_synced_at: new Date().toISOString(),
+        };
+
+        // Check for conflicts between existing and new data
+        const existingObj = {
+          name: existing.name,
+          country: existing.country,
+          team_id: existing.team_id,
+          profile_image_url: existing.profile_image_url,
+        };
+
+        if (hasConflict(existingObj, updateData)) {
+          // Store conflict records for admin review
+          const changedFields = detectFieldChanges(existingObj, updateData);
+          for (const fieldName of Object.keys(changedFields.changed)) {
+            try {
+              await supabase.from('data_conflicts').insert({
+                entity_type: 'player',
+                entity_id: existing.id.toString(),
+                field_name: fieldName,
+                value_1: existingObj[fieldName as keyof typeof existingObj],
+                value_2: updateData[fieldName as keyof typeof updateData],
+                provider_1: existing.data_provider_id || 'unknown',
+                provider_2: 'stratz',
+                status: 'unresolved',
+              });
+            } catch (conflictError) {
+              console.warn(`Failed to log conflict for field ${fieldName}: ${conflictError}`);
+            }
+          }
+        }
+
+        // Update player
         const { error } = await supabase
           .from('professional_players')
-          .update({
-            name: player.name,
-            country: player.country,
-            team_id: player.team?.id,
-            profile_image_url: player.imageUrl,
-            last_synced_at: new Date().toISOString(),
-          })
+          .update(updateData)
           .eq('id', existing.id);
 
         if (error) {
           throw error;
         }
+
+        // Create version record for audit trail
+        const changedFields = detectFieldChanges(existingObj, updateData);
+        if (Object.keys(changedFields.changed).length > 0) {
+          try {
+            const versionRecord = createVersionRecord(
+              'player',
+              existing.id.toString(),
+              1,
+              existingObj,
+              updateData,
+              'automated_sync',
+              'Player data updated from STRATZ provider',
+              'stratz',
+              undefined,
+              0.9
+            );
+
+            await supabase.from('data_version_history').insert({
+              entity_type: versionRecord.entity_type,
+              entity_id: versionRecord.entity_id,
+              version_number: versionRecord.version_number,
+              previous_values: versionRecord.previous_values,
+              new_values: versionRecord.new_values,
+              changed_fields: versionRecord.changed_fields,
+              change_reason: versionRecord.change_reason,
+              changed_by_provider: versionRecord.changed_by_provider,
+              change_source: versionRecord.change_source,
+              confidence_score: versionRecord.confidence_score,
+              is_approved: versionRecord.is_approved,
+              created_at: versionRecord.created_at,
+            });
+          } catch (versionError) {
+            console.warn(`Failed to create version record: ${versionError}`);
+          }
+        }
+
         results.updated++;
       } else {
         // Create new player
-        const { error } = await supabase
+        const newPlayerData = {
+          name: player.name,
+          slug: player.steamId.toString(),
+          country: player.country,
+          team_id: player.team?.id,
+          profile_image_url: player.imageUrl,
+          data_provider_id: player.steamId.toString(),
+          last_synced_at: new Date().toISOString(),
+          availability_status: 'available',
+        };
+
+        const { data: insertedPlayer, error } = await supabase
           .from('professional_players')
-          .insert({
-            name: player.name,
-            slug: player.steamId.toString(),
-            country: player.country,
-            team_id: player.team?.id,
-            profile_image_url: player.imageUrl,
-            data_provider_id: player.steamId.toString(),
-            last_synced_at: new Date().toISOString(),
-            availability_status: 'available',
-          });
+          .insert(newPlayerData)
+          .select('id')
+          .single();
 
         if (error) {
           throw error;
         }
+
+        // Create initial version record
+        if (insertedPlayer) {
+          try {
+            const versionRecord = createVersionRecord(
+              'player',
+              insertedPlayer.id.toString(),
+              1,
+              {},
+              newPlayerData,
+              'automated_sync',
+              'New player created from STRATZ provider',
+              'stratz',
+              undefined,
+              0.9
+            );
+
+            await supabase.from('data_version_history').insert({
+              entity_type: versionRecord.entity_type,
+              entity_id: versionRecord.entity_id,
+              version_number: versionRecord.version_number,
+              previous_values: versionRecord.previous_values,
+              new_values: versionRecord.new_values,
+              changed_fields: versionRecord.changed_fields,
+              change_reason: versionRecord.change_reason,
+              changed_by_provider: versionRecord.changed_by_provider,
+              change_source: versionRecord.change_source,
+              confidence_score: versionRecord.confidence_score,
+              is_approved: versionRecord.is_approved,
+              created_at: versionRecord.created_at,
+            });
+          } catch (versionError) {
+            console.warn(`Failed to create version record: ${versionError}`);
+          }
+
+          // Calculate initial quality score
+          try {
+            const completeness = calculateCompletenessScore(newPlayerData, [
+              'name',
+              'country',
+              'profile_image_url',
+              'team_id',
+            ]);
+            const freshness = calculateFreshnessScore(new Date());
+            const reliability = calculateReliabilityScore({ stratz: 0.9 });
+            const consistency = 1.0; // New player has no conflicts
+
+            const overallScore = (completeness * 0.3 + consistency * 0.25 + freshness * 0.2 + reliability * 0.25);
+
+            await supabase.from('data_quality_scores').insert({
+              entity_type: 'player',
+              entity_id: insertedPlayer.id.toString(),
+              overall_score: overallScore,
+              completeness_score: completeness,
+              consistency_score: consistency,
+              freshness_score: freshness,
+              reliability_score: reliability,
+              issues: [],
+              flagged_for_review: overallScore < 0.7,
+            });
+          } catch (qualityError) {
+            console.warn(`Failed to create quality score: ${qualityError}`);
+          }
+        }
+
         results.created++;
       }
     } catch (error) {

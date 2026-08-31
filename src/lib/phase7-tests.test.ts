@@ -3,7 +3,13 @@ import assert from 'node:assert/strict';
 
 import { calculateFantasyScore } from '@/lib/scoring';
 import { resolveCaptainAssignment } from '@/lib/captain-system';
-import { resolveBenchSubstitution, simulatePriceDynamics, simulateHeadToHead } from '@/lib/fantasy-gameplay';
+import {
+  createLeagueDraft,
+  resolveBenchSubstitution,
+  simulatePriceDynamics,
+  simulateHeadToHead,
+  validateLeagueMembership,
+} from '@/lib/fantasy-gameplay';
 
 test('calculateFantasyScore totals positive performance correctly', () => {
   const score = calculateFantasyScore({
@@ -71,4 +77,19 @@ test('head to head simulation returns the proper winner and summary', () => {
 
   assert.equal(result.winner, 'Storm');
   assert.ok(result.summary.includes('Storm'));
+});
+
+test('league drafts can be created with invite codes and respect membership caps', () => {
+  const draft = createLeagueDraft({
+    name: 'Night Raid League',
+    type: 'classic',
+    privacyLevel: 'private',
+    maxParticipants: 12,
+    description: 'Weekly classic challenge',
+  });
+
+  assert.equal(draft.name, 'Night Raid League');
+  assert.match(draft.inviteCode, /^[A-Z0-9-]+$/);
+  assert.equal(validateLeagueMembership(8, 12), true);
+  assert.equal(validateLeagueMembership(13, 12), false);
 });

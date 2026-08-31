@@ -10,6 +10,9 @@
 import { getSupabaseServerClient } from '@/lib/db/supabase-server';
 import type { TeamData } from '@/lib/data-providers/provider-interface';
 import type { ProfessionalTeam } from '@/types/database';
+import { hasConflict } from '@/lib/data-reconciliation/conflict-resolution';
+import { createVersionRecord, detectFieldChanges } from '@/lib/data-reconciliation/data-versioning';
+import { calculateCompletenessScore, calculateFreshnessScore, calculateReliabilityScore } from '@/lib/data-reconciliation/data-quality';
 
 interface SyncResult {
   created: number;
@@ -103,7 +106,7 @@ export async function syncTeams(): Promise<SyncResult> {
 }
 
 /**
- * Process a batch of teams for sync
+ * Process a batch of teams for sync with reconciliation
  */
 async function processSyncBatch(
   teams: TeamData[],
@@ -117,33 +120,164 @@ async function processSyncBatch(
       const existing = existingTeams.get(team.id);
 
       if (existing) {
-        // Update existing team
+        // Prepare update data
+        const updateData = {
+          name: team.name,
+          region: team.region,
+          logo_url: team.logoUrl,
+          last_synced_at: new Date().toISOString(),
+        };
+
+        // Check for conflicts
+        const existingObj = {
+          name: existing.name,
+          region: existing.region,
+          logo_url: existing.logo_url,
+        };
+
+        if (hasConflict(existingObj, updateData)) {
+          const changedFields = detectFieldChanges(existingObj, updateData);
+          for (const fieldName of Object.keys(changedFields.changed)) {
+            try {
+              await supabase.from('data_conflicts').insert({
+                entity_type: 'team',
+                entity_id: existing.id.toString(),
+                field_name: fieldName,
+                value_1: existingObj[fieldName as keyof typeof existingObj],
+                value_2: updateData[fieldName as keyof typeof updateData],
+                provider_1: 'unknown',
+                provider_2: 'stratz',
+                status: 'unresolved',
+              });
+            } catch (conflictError) {
+              console.warn(`Failed to log conflict for field ${fieldName}: ${conflictError}`);
+            }
+          }
+        }
+
+        // Update team
         const { error } = await supabase
           .from('professional_teams')
-          .update({
-            name: team.name,
-            region: team.region,
-            logo_url: team.logoUrl,
-            last_synced_at: new Date().toISOString(),
-          })
+          .update(updateData)
           .eq('id', existing.id);
 
         if (error) throw error;
+
+        // Create version record
+        const changedFields = detectFieldChanges(existingObj, updateData);
+        if (Object.keys(changedFields.changed).length > 0) {
+          try {
+            const versionRecord = createVersionRecord(
+              'team',
+              existing.id.toString(),
+              1,
+              existingObj,
+              updateData,
+              'automated_sync',
+              'Team data updated from STRATZ provider',
+              'stratz',
+              undefined,
+              0.9
+            );
+
+            await supabase.from('data_version_history').insert({
+              entity_type: versionRecord.entity_type,
+              entity_id: versionRecord.entity_id,
+              version_number: versionRecord.version_number,
+              previous_values: versionRecord.previous_values,
+              new_values: versionRecord.new_values,
+              changed_fields: versionRecord.changed_fields,
+              change_reason: versionRecord.change_reason,
+              changed_by_provider: versionRecord.changed_by_provider,
+              change_source: versionRecord.change_source,
+              confidence_score: versionRecord.confidence_score,
+              is_approved: versionRecord.is_approved,
+              created_at: versionRecord.created_at,
+            });
+          } catch (versionError) {
+            console.warn(`Failed to create version record: ${versionError}`);
+          }
+        }
+
         results.updated++;
       } else {
         // Create new team
-        const { error } = await supabase
+        const newTeamData = {
+          name: team.name,
+          slug: team.id.toString(),
+          region: team.region,
+          logo_url: team.logoUrl,
+          data_provider_id: team.id.toString(),
+          last_synced_at: new Date().toISOString(),
+        };
+
+        const { data: insertedTeam, error } = await supabase
           .from('professional_teams')
-          .insert({
-            name: team.name,
-            slug: team.id.toString(),
-            region: team.region,
-            logo_url: team.logoUrl,
-            data_provider_id: team.id.toString(),
-            last_synced_at: new Date().toISOString(),
-          });
+          .insert(newTeamData)
+          .select('id')
+          .single();
 
         if (error) throw error;
+
+        // Create version record
+        if (insertedTeam) {
+          try {
+            const versionRecord = createVersionRecord(
+              'team',
+              insertedTeam.id.toString(),
+              1,
+              {},
+              newTeamData,
+              'automated_sync',
+              'New team created from STRATZ provider',
+              'stratz',
+              undefined,
+              0.9
+            );
+
+            await supabase.from('data_version_history').insert({
+              entity_type: versionRecord.entity_type,
+              entity_id: versionRecord.entity_id,
+              version_number: versionRecord.version_number,
+              previous_values: versionRecord.previous_values,
+              new_values: versionRecord.new_values,
+              changed_fields: versionRecord.changed_fields,
+              change_reason: versionRecord.change_reason,
+              changed_by_provider: versionRecord.changed_by_provider,
+              change_source: versionRecord.change_source,
+              confidence_score: versionRecord.confidence_score,
+              is_approved: versionRecord.is_approved,
+              created_at: versionRecord.created_at,
+            });
+          } catch (versionError) {
+            console.warn(`Failed to create version record: ${versionError}`);
+          }
+
+          // Calculate quality score
+          try {
+            const completeness = calculateCompletenessScore(newTeamData, ['name', 'region', 'logo_url']);
+            const freshness = calculateFreshnessScore(new Date());
+            const reliability = calculateReliabilityScore({ stratz: 0.9 });
+            const consistency = 1.0;
+
+            const overallScore = (completeness * 0.3 + consistency * 0.25 + freshness * 0.2 + reliability * 0.25);
+
+            await supabase.from('data_quality_scores').insert({
+              entity_type: 'team',
+              entity_id: insertedTeam.id.toString(),
+              overall_score: overallScore,
+              completeness_score: completeness,
+              consistency_score: consistency,
+              freshness_score: freshness,
+              reliability_score: reliability,
+              issues: [],
+              flagged_for_review: overallScore < 0.7,
+            });
+          } catch (qualityError) {
+            console.warn(`Failed to create quality score: ${qualityError}`);
+          }
+        }
+
         results.created++;
       }
     } catch (error) {
