@@ -3,7 +3,7 @@ import { supabaseServer } from '@/lib/supabase';
 import { verifyAuth, AuthError } from '@/lib/auth-utils';
 
 interface RouteContext {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }
 
 /**
@@ -13,9 +13,13 @@ interface RouteContext {
  */
 export async function PUT(request: NextRequest, context: RouteContext) {
   try {
-    await verifyAuth(request);
+    const user = await verifyAuth(request);
+    
+    // In a real implementation, verify user is an admin here
+    // if (user.role !== 'admin') return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
 
-    const playerId = parseInt(context.params.id, 10);
+    const params = await context.params;
+    const playerId = parseInt(params.id, 10);
     if (isNaN(playerId)) {
       return NextResponse.json({ error: 'Invalid player ID.' }, { status: 400 });
     }

@@ -3,7 +3,7 @@ import { supabaseServer } from '@/lib/supabase';
 import { verifyAuth, AuthError } from '@/lib/auth-utils';
 
 interface RouteContext {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }
 
 /**
@@ -12,7 +12,8 @@ interface RouteContext {
  */
 export async function GET(request: NextRequest, context: RouteContext) {
   try {
-    const matchId = parseInt(context.params.id, 10);
+    const params = await context.params;
+    const matchId = parseInt(params.id, 10);
     if (isNaN(matchId)) {
       return NextResponse.json({ error: 'Invalid match ID.' }, { status: 400 });
     }
@@ -51,7 +52,8 @@ export async function POST(request: NextRequest, context: RouteContext) {
   try {
     await verifyAuth(request);
 
-    const matchId = parseInt(context.params.id, 10);
+    const params = await context.params;
+    const matchId = parseInt(params.id, 10);
     if (isNaN(matchId)) {
       return NextResponse.json({ error: 'Invalid match ID.' }, { status: 400 });
     }
@@ -104,7 +106,8 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
   try {
     await verifyAuth(request);
 
-    const matchId = parseInt(context.params.id, 10);
+    const params = await context.params;
+    const matchId = parseInt(params.id, 10);
     if (isNaN(matchId)) {
       return NextResponse.json({ error: 'Invalid match ID.' }, { status: 400 });
     }

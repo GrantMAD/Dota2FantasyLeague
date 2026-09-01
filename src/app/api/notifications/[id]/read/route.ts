@@ -3,7 +3,7 @@ import { supabaseServer } from '@/lib/supabase';
 import { verifyAuth, AuthError } from '@/lib/auth-utils';
 
 interface RouteContext {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }
 
 /**
@@ -14,7 +14,8 @@ export async function PUT(request: NextRequest, context: RouteContext) {
   try {
     const user = await verifyAuth(request);
 
-    const notificationId = parseInt(context.params.id, 10);
+    const params = await context.params;
+    const notificationId = parseInt(params.id, 10);
     if (isNaN(notificationId)) {
       return NextResponse.json({ error: 'Invalid notification ID.' }, { status: 400 });
     }

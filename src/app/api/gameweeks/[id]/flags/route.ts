@@ -3,7 +3,7 @@ import { supabaseServer } from '@/lib/supabase';
 import { verifyAuth, AuthError } from '@/lib/auth-utils';
 
 interface RouteContext {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }
 
 /**
@@ -13,7 +13,8 @@ interface RouteContext {
  */
 export async function GET(request: NextRequest, context: RouteContext) {
   try {
-    const gameweekId = parseInt(context.params.id, 10);
+    const params = await context.params;
+    const gameweekId = parseInt(params.id, 10);
     if (isNaN(gameweekId)) {
       return NextResponse.json({ error: 'Invalid gameweek ID.' }, { status: 400 });
     }
@@ -56,7 +57,8 @@ export async function POST(request: NextRequest, context: RouteContext) {
     // Only authenticated users (admins) can set flags
     await verifyAuth(request);
 
-    const gameweekId = parseInt(context.params.id, 10);
+    const params = await context.params;
+    const gameweekId = parseInt(params.id, 10);
     if (isNaN(gameweekId)) {
       return NextResponse.json({ error: 'Invalid gameweek ID.' }, { status: 400 });
     }
@@ -111,7 +113,8 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
   try {
     await verifyAuth(request);
 
-    const gameweekId = parseInt(context.params.id, 10);
+    const params = await context.params;
+    const gameweekId = parseInt(params.id, 10);
     if (isNaN(gameweekId)) {
       return NextResponse.json({ error: 'Invalid gameweek ID.' }, { status: 400 });
     }

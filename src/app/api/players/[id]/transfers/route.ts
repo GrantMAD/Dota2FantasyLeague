@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase';
 
 interface RouteContext {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }
 
 /**
@@ -12,7 +12,8 @@ interface RouteContext {
  */
 export async function GET(request: NextRequest, context: RouteContext) {
   try {
-    const playerId = parseInt(context.params.id, 10);
+    const params = await context.params;
+    const playerId = parseInt(params.id, 10);
     if (isNaN(playerId)) {
       return NextResponse.json({ error: 'Invalid player ID.' }, { status: 400 });
     }
