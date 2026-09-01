@@ -16,6 +16,10 @@ import { discoverTournaments } from './discover-tournaments';
 import { fetchMatches } from './fetch-matches';
 import { fetchMatchDetails } from './fetch-match-details';
 import { trackRosterChanges } from './track-roster-changes';
+import { processCompletedMatches } from './process-completed-matches';
+import { calculateFantasyScores } from './calculate-fantasy-scores';
+import { recalculateGameweeks } from './recalculate-gameweeks';
+import { updatePlayerPrices } from './update-player-prices';
 
 type JobName =
   | 'sync-players'
@@ -23,7 +27,11 @@ type JobName =
   | 'discover-tournaments'
   | 'fetch-matches'
   | 'fetch-match-details'
-  | 'track-roster-changes';
+  | 'track-roster-changes'
+  | 'process-completed-matches'
+  | 'calculate-fantasy-scores'
+  | 'recalculate-gameweeks'
+  | 'update-player-prices';
 
 interface JobDefinition {
   name: JobName;
@@ -85,6 +93,34 @@ const JOBS: JobDefinition[] = [
     handler: trackRosterChanges,
     enabled: process.env.ENABLE_ROSTER_TRACKING !== 'false',
     timeout: 5 * 60 * 1000,
+  },
+  {
+    name: 'process-completed-matches',
+    schedule: '*/45 * * * *', // Every 45 minutes (after match details fetch)
+    handler: processCompletedMatches,
+    enabled: process.env.ENABLE_SCORE_CALCULATION !== 'false',
+    timeout: 10 * 60 * 1000,
+  },
+  {
+    name: 'calculate-fantasy-scores',
+    schedule: '*/50 * * * *', // Every 50 minutes (after processing matches)
+    handler: calculateFantasyScores,
+    enabled: process.env.ENABLE_SCORE_CALCULATION !== 'false',
+    timeout: 15 * 60 * 1000,
+  },
+  {
+    name: 'recalculate-gameweeks',
+    schedule: '*/55 * * * *', // Every 55 minutes (after calculating scores)
+    handler: recalculateGameweeks,
+    enabled: process.env.ENABLE_SCORE_CALCULATION !== 'false',
+    timeout: 10 * 60 * 1000,
+  },
+  {
+    name: 'update-player-prices',
+    schedule: '*/10 * * * *', // Every 10 minutes after the scoring sequence
+    handler: updatePlayerPrices,
+    enabled: process.env.ENABLE_PRICE_UPDATES !== 'false',
+    timeout: 10 * 60 * 1000,
   },
 ];
 

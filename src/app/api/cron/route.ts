@@ -23,6 +23,10 @@ import { discoverTournaments } from '@/lib/jobs/discover-tournaments';
 import { fetchMatches } from '@/lib/jobs/fetch-matches';
 import { fetchMatchDetails } from '@/lib/jobs/fetch-match-details';
 import { trackRosterChanges } from '@/lib/jobs/track-roster-changes';
+import { processCompletedMatches } from '@/lib/jobs/process-completed-matches';
+import { calculateFantasyScores } from '@/lib/jobs/calculate-fantasy-scores';
+import { recalculateGameweeks } from '@/lib/jobs/recalculate-gameweeks';
+import { updatePlayerPrices } from '@/lib/jobs/update-player-prices';
 
 export async function GET(request: NextRequest) {
   // Verify the request is from Vercel
@@ -148,6 +152,78 @@ export async function GET(request: NextRequest) {
       } catch (error) {
         results.push({
           jobName: 'fetch-match-details',
+          status: 'failed',
+          error: (error as Error).message,
+        });
+      }
+    }
+
+    // Every 45 minutes - process completed matches (at :45)
+    if (utcMinute === 45) {
+      try {
+        const result = await processCompletedMatches();
+        results.push({
+          jobName: 'process-completed-matches',
+          status: result.success ? 'success' : 'partial',
+          error: result.errors.length > 0 ? result.errors[0] : undefined,
+        });
+      } catch (error) {
+        results.push({
+          jobName: 'process-completed-matches',
+          status: 'failed',
+          error: (error as Error).message,
+        });
+      }
+    }
+
+    // Every 50 minutes - calculate fantasy scores (at :50)
+    if (utcMinute === 50) {
+      try {
+        const result = await calculateFantasyScores();
+        results.push({
+          jobName: 'calculate-fantasy-scores',
+          status: result.success ? 'success' : 'partial',
+          error: result.errors.length > 0 ? result.errors[0] : undefined,
+        });
+      } catch (error) {
+        results.push({
+          jobName: 'calculate-fantasy-scores',
+          status: 'failed',
+          error: (error as Error).message,
+        });
+      }
+    }
+
+    // Every 55 minutes - recalculate gameweeks (at :55)
+    if (utcMinute === 55) {
+      try {
+        const result = await recalculateGameweeks();
+        results.push({
+          jobName: 'recalculate-gameweeks',
+          status: result.success ? 'success' : 'partial',
+          error: result.errors.length > 0 ? result.errors[0] : undefined,
+        });
+      } catch (error) {
+        results.push({
+          jobName: 'recalculate-gameweeks',
+          status: 'failed',
+          error: (error as Error).message,
+        });
+      }
+    }
+
+    // Every 10 minutes after the score loop - recalculate player pricing (at :10, :20, :30, :40, :50, :00)
+    if (utcMinute % 10 === 0) {
+      try {
+        const result = await updatePlayerPrices();
+        results.push({
+          jobName: 'update-player-prices',
+          status: result.success ? 'success' : 'partial',
+          error: result.errors.length > 0 ? result.errors[0] : undefined,
+        });
+      } catch (error) {
+        results.push({
+          jobName: 'update-player-prices',
           status: 'failed',
           error: (error as Error).message,
         });
