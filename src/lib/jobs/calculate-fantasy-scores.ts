@@ -321,10 +321,21 @@ class FantasyScoreCalculator {
 
           if (playerStats.length === 0) continue;
 
+          // Fetch substitutions for this match (stand-ins)
+          const { data: substitutionsData } = (await this.supabase
+            .from('match_player_substitutions')
+            .select('*')
+            .eq('match_id', match.id)) as any;
+          const substitutions: any[] = Array.isArray(substitutionsData) ? substitutionsData : [];
+
           result.matchesProcessed++;
 
           // Calculate scores for each player in the match
           for (const stats of playerStats) {
+            // Apply stand-in mapping if this player is a stand-in
+            const substitution = substitutions.find((sub) => sub.stand_in_player_id === stats.player_id);
+            const targetPlayerId = substitution ? substitution.rostered_player_id : stats.player_id;
+
             const scoreBreakdown = await this.calculatePlayerMatchScore(
               stats as MatchPlayerStats,
               match as Match,
@@ -345,7 +356,7 @@ class FantasyScoreCalculator {
               .from('fantasy_points_breakdown') as any)
               .upsert(
                 {
-                  player_id: stats.player_id,
+                  player_id: targetPlayerId,
                   match_id: match.id,
                   gameweek_id: match.gameweek_id,
                   combat_points: scoreBreakdown.combat,
@@ -364,7 +375,7 @@ class FantasyScoreCalculator {
 
             if (insertError) {
               result.errors.push(
-                `Failed to insert score for player ${stats.player_id} in match ${match.id}: ${insertError.message}`,
+                `Failed to insert score for player ${targetPlayerId} (played by ${stats.player_id}) in match ${match.id}: ${insertError.message}`,
               );
               continue;
             }
