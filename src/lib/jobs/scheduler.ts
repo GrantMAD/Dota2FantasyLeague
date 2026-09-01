@@ -25,6 +25,7 @@ import { updatePlayerPrices } from './update-player-prices';
 import { sendDeadlineNotifications } from './send-deadline-notifications';
 import { sendPriceChangeNotifications } from './send-price-change-notifications';
 import { sendRankNotifications } from './send-rank-notifications';
+import { transitionGameweeks } from './transition-gameweeks';
 
 type JobName =
   | 'sync-players'
@@ -41,7 +42,8 @@ type JobName =
   | 'update-player-prices'
   | 'send-deadline-notifications'
   | 'send-price-change-notifications'
-  | 'send-rank-notifications';
+  | 'send-rank-notifications'
+  | 'transition-gameweeks';
 
 interface JobDefinition {
   name: JobName;
@@ -166,6 +168,13 @@ const JOBS: JobDefinition[] = [
     handler: sendRankNotifications,
     enabled: process.env.ENABLE_NOTIFICATIONS !== 'false',
     timeout: 5 * 60 * 1000,
+  },
+  {
+    name: 'transition-gameweeks',
+    schedule: '*/5 * * * *', // Every 5 minutes to exactly enforce deadlines
+    handler: transitionGameweeks,
+    enabled: process.env.ENABLE_SCORE_CALCULATION !== 'false',
+    timeout: 10 * 60 * 1000,
   },
 ];
 
