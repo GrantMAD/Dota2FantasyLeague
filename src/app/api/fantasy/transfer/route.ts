@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase';
 import { verifyAuth, AuthError } from '@/lib/auth-utils';
+import { logAuditAction } from '@/lib/audit-logger';
+import { getFriendlyError } from '@/lib/error-messages';
 
 export async function POST(request: NextRequest) {
   try {
@@ -51,7 +53,7 @@ export async function POST(request: NextRequest) {
     if (error) {
       console.error('Supabase RPC Error (process_fantasy_transfer):', error);
       return NextResponse.json(
-        { error: 'Database error occurred during transfer processing.', details: error.message },
+        { error: getFriendlyError(error) },
         { status: 500 }
       );
     }
@@ -63,6 +65,15 @@ export async function POST(request: NextRequest) {
         { status: 400 } // Bad request due to business logic validation
       );
     }
+
+    await logAuditAction({
+      tableName: 'squad_players',
+      recordId: fantasySeasonId,
+      action: 'TRANSFER',
+      changedBy: userId,
+      newValues: { transfers_in: transfersIn, transfers_out: transfersOut },
+      reason: 'User completed transfer',
+    });
 
     return NextResponse.json({
       message: data.message || 'Transfers processed successfully.',

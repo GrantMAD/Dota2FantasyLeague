@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase';
 import { verifyAuth, AuthError } from '@/lib/auth-utils';
+import { logAuditAction } from '@/lib/audit-logger';
 
 /**
  * GET /api/fantasy/lineup
@@ -169,6 +170,15 @@ export async function PUT(request: NextRequest) {
         { status: 500 }
       );
     }
+
+    await logAuditAction({
+      tableName: 'fantasy_lineups',
+      recordId: fantasyTeam.id,
+      action: 'LINEUP_CHANGE',
+      changedBy: user.userId,
+      newValues: { gameweek_id: gameweekId, player_count: rows.length },
+      reason: 'User saved lineup',
+    });
 
     return NextResponse.json({ message: 'Lineup saved successfully.', lineup: data });
   } catch (error: unknown) {

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase';
 import { verifyAuth, AuthError } from '@/lib/auth-utils';
+import { logAuditAction } from '@/lib/audit-logger';
 
 export async function POST(request: NextRequest) {
   try {
@@ -40,6 +41,15 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
+
+    await logAuditAction({
+      tableName: 'fantasy_seasons',
+      recordId: fantasySeasonId,
+      action: 'CHIP_ACTIVATED',
+      changedBy: userId,
+      newValues: { chip: 'bench_boost', gameweek_id: (data as any).gameweek_id },
+      reason: 'User activated Bench Boost chip',
+    });
 
     return NextResponse.json({
       message: (data as any).message || 'Bench Boost activated successfully.',

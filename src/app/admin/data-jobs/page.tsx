@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { CheckCircle, AlertCircle, Clock, Play } from 'lucide-react';
+import { CheckCircle, AlertCircle, Clock, Play, SkipForward } from 'lucide-react';
 
 interface JobStatus {
   job_name: string;
@@ -12,15 +12,27 @@ interface JobStatus {
   metadata?: Record<string, unknown>;
 }
 
+interface FailedJob {
+  id: string;
+  job_name: string;
+  error_message: string;
+  retry_count: number;
+  next_retry_at: string | null;
+  is_dead_letter: boolean;
+  started_at: string;
+}
+
 export default function DataJobsPage() {
   const [jobs, setJobs] = useState<JobStatus[]>([]);
+  const [failedJobs, setFailedJobs] = useState<FailedJob[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [retrying, setRetrying] = useState<string | null>(null);
 
   useEffect(() => {
     fetchJobStatus();
-    // Refresh every 10 seconds
-    const interval = setInterval(fetchJobStatus, 10000);
+    fetchFailedJobs();
+    const interval = setInterval(() => { fetchJobStatus(); fetchFailedJobs(); }, 10000);
     return () => clearInterval(interval);
   }, []);
 
@@ -38,6 +50,18 @@ export default function DataJobsPage() {
     }
   }
 
+  async function fetchFailedJobs() {
+    try {
+      const response = await fetch('/api/admin/jobs/failed');
+      if (response.ok) {
+        const data = await response.json();
+        setFailedJobs(data.failedJobs || []);
+      }
+    } catch {
+      // Silently fail — endpoint may not exist yet
+    }
+  }
+
   async function triggerJob(jobName: string) {
     setRefreshing(true);
     try {
@@ -46,14 +70,27 @@ export default function DataJobsPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ job_name: jobName }),
       });
-
-      if (response.ok) {
-        await fetchJobStatus();
-      }
+      if (response.ok) await fetchJobStatus();
     } catch (error) {
       console.error('Failed to trigger job:', error);
     } finally {
       setRefreshing(false);
+    }
+  }
+
+  async function retryJob(jobId: string, jobName: string) {
+    setRetrying(jobId);
+    try {
+      await fetch('/api/admin/jobs/run', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ job_name: jobName }),
+      });
+      await fetchFailedJobs();
+    } catch (error) {
+      console.error('Failed to retry job:', error);
+    } finally {
+      setRetrying(null);
     }
   }
 
@@ -74,13 +111,52 @@ export default function DataJobsPage() {
           <p className="mt-1 text-gray-400">Monitor and control background data sync jobs</p>
         </div>
         <button
-          onClick={fetchJobStatus}
+          onClick={() => { fetchJobStatus(); fetchFailedJobs(); }}
           disabled={refreshing}
           className="rounded bg-amber-500/20 px-4 py-2 font-medium text-amber-400 hover:bg-amber-500/30 disabled:opacity-50"
         >
           {refreshing ? 'Refreshing...' : 'Refresh'}
         </button>
       </div>
+
+      {/* Failed / Dead-letter Jobs Panel */}
+      {failedJobs.length > 0 && (
+        <div className="rounded-lg border border-red-700/50 bg-red-900/10 p-5">
+          <h2 className="mb-4 flex items-center gap-2 font-semibold text-red-400">
+            <AlertCircle className="h-5 w-5" />
+            Failed Jobs ({failedJobs.length})
+          </h2>
+          <div className="space-y-3">
+            {failedJobs.map((fj) => (
+              <div key={fj.id} className="flex items-center justify-between rounded border border-red-800/30 bg-red-900/20 px-4 py-3">
+                <div className="flex-1">
+                  <div className="flex items-center gap-3">
+                    <span className="font-medium text-white">{fj.job_name}</span>
+                    {fj.is_dead_letter && (
+                      <span className="rounded-full bg-red-900 px-2 py-0.5 text-xs font-bold text-red-300">DEAD LETTER</span>
+                    )}
+                    <span className="text-xs text-slate-500">Attempt {fj.retry_count}/3</span>
+                  </div>
+                  <p className="mt-1 text-xs text-red-300/80">{fj.error_message}</p>
+                  {fj.next_retry_at && !fj.is_dead_letter && (
+                    <p className="mt-0.5 text-xs text-slate-500">
+                      Next retry: {new Date(fj.next_retry_at).toLocaleString()}
+                    </p>
+                  )}
+                </div>
+                <button
+                  onClick={() => retryJob(fj.id, fj.job_name)}
+                  disabled={retrying === fj.id}
+                  className="ml-4 flex items-center gap-2 rounded bg-red-700/30 px-3 py-1.5 text-sm text-red-300 hover:bg-red-700/50 disabled:opacity-50"
+                >
+                  <SkipForward className="h-4 w-4" />
+                  {retrying === fj.id ? 'Retrying...' : 'Retry Now'}
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Jobs List */}
       <div className="space-y-3">
@@ -166,7 +242,6 @@ function JobCard({ job, onTrigger, disabled }: JobCardProps) {
             </div>
           </div>
 
-          {/* Job Details */}
           <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-3">
             <div>
               <p className="text-xs text-gray-400">Last Run</p>
@@ -188,7 +263,6 @@ function JobCard({ job, onTrigger, disabled }: JobCardProps) {
             </div>
           </div>
 
-          {/* Metadata */}
           {job.metadata && (
             <div className="mt-3 rounded bg-gray-700/30 p-3 font-mono text-xs text-gray-400">
               {Object.entries(job.metadata).map(([key, value]) => (
@@ -201,7 +275,6 @@ function JobCard({ job, onTrigger, disabled }: JobCardProps) {
           )}
         </div>
 
-        {/* Actions */}
         <button
           onClick={onTrigger}
           disabled={disabled || isRunning}
