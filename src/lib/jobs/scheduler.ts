@@ -19,6 +19,8 @@ import { trackRosterChanges } from './track-roster-changes';
 import { processCompletedMatches } from './process-completed-matches';
 import { calculateFantasyScores } from './calculate-fantasy-scores';
 import { recalculateGameweeks } from './recalculate-gameweeks';
+import { recalculateLeagues } from './recalculate-leagues';
+import { calculateGlobalRankings } from './calculate-global-rankings';
 import { updatePlayerPrices } from './update-player-prices';
 
 type JobName =
@@ -31,6 +33,8 @@ type JobName =
   | 'process-completed-matches'
   | 'calculate-fantasy-scores'
   | 'recalculate-gameweeks'
+  | 'recalculate-leagues'
+  | 'calculate-global-rankings'
   | 'update-player-prices';
 
 interface JobDefinition {
@@ -114,6 +118,20 @@ const JOBS: JobDefinition[] = [
     handler: recalculateGameweeks,
     enabled: process.env.ENABLE_SCORE_CALCULATION !== 'false',
     timeout: 10 * 60 * 1000,
+  },
+  {
+    name: 'recalculate-leagues',
+    schedule: '*/60 * * * *', // Every 60 minutes
+    handler: recalculateLeagues,
+    enabled: process.env.ENABLE_LEAGUE_RECALCULATION !== 'false',
+    timeout: 15 * 60 * 1000,
+  },
+  {
+    name: 'calculate-global-rankings',
+    schedule: '*/65 * * * *', // Every 65 minutes
+    handler: calculateGlobalRankings,
+    enabled: process.env.ENABLE_GLOBAL_RANKINGS !== 'false',
+    timeout: 15 * 60 * 1000,
   },
   {
     name: 'update-player-prices',
