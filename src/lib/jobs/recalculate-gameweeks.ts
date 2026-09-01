@@ -24,6 +24,8 @@ interface Lineup {
   bench_3_id: number | null;
   captain_player_id: number;
   vice_captain_player_id: number | null;
+  triple_captain_gameweek_id?: number | null;
+  bench_boost_gameweek_id?: number | null;
 }
 
 interface GameweekScore {
@@ -48,21 +50,30 @@ class RecalculateGameweeks {
   private async calculateLineupTotal(lineup: Lineup): Promise<number> {
     let totalPoints = 0;
 
-    // Get all player IDs in the lineup
-    const playerIds = [
+    // Separate starters from bench players
+    const starterIds = [
       lineup.carry_id,
       lineup.mid_id,
       lineup.offlane_id,
       lineup.support_id,
       lineup.hard_support_id,
+    ].filter((id) => id !== null) as number[];
+
+    const benchIds = [
       lineup.bench_1_id,
       lineup.bench_2_id,
       lineup.bench_3_id,
     ].filter((id) => id !== null) as number[];
 
+    // Bench players only score if Bench Boost chip is active this gameweek
+    const isBenchBoostActive = lineup.bench_boost_gameweek_id === lineup.gameweek_id;
+    const playerIds = isBenchBoostActive
+      ? [...starterIds, ...benchIds]
+      : starterIds;
+
     if (playerIds.length === 0) return 0;
 
-    // Get fantasy points for all players in this gameweek
+    // Get fantasy points for all relevant players in this gameweek
     const { data: pointsData } = await this.supabase
       .from('fantasy_points_breakdown')
       .select('player_id, total_points')
@@ -78,15 +89,23 @@ class RecalculateGameweeks {
     playerIds.forEach((playerId) => {
       let playerScore = playerPointsMap.get(playerId) || 0;
 
-      // Apply captain multiplier (2x)
+      // Apply Triple Captain or normal Captain multiplier
       if (playerId === lineup.captain_player_id) {
-        playerScore *= 2.0;
+        if (lineup.triple_captain_gameweek_id === lineup.gameweek_id) {
+          playerScore *= 3.0; // Triple captain
+        } else {
+          playerScore *= 2.0; // Normal captain
+        }
       }
       // Apply vice-captain multiplier (1x unless captain didn't play)
       else if (playerId === lineup.vice_captain_player_id) {
         const captainScore = playerPointsMap.get(lineup.captain_player_id) || 0;
         if (captainScore === 0) {
-          playerScore *= 2.0; // Vice-captain becomes captain if captain didn't play
+          if (lineup.triple_captain_gameweek_id === lineup.gameweek_id) {
+            playerScore *= 3.0; // Vice-captain becomes triple captain if captain didn't play
+          } else {
+            playerScore *= 2.0; // Vice-captain becomes captain if captain didn't play
+          }
         }
       }
 
@@ -249,7 +268,13 @@ class RecalculateGameweeks {
           // Get all lineups for this gameweek
           const { data: lineups, error: lineupsError } = await this.supabase
             .from('fantasy_lineups')
-            .select('*')
+            .select(`
+              *,
+              fantasy_seasons (
+                triple_captain_gameweek_id,
+                bench_boost_gameweek_id
+              )
+            `)
             .eq('gameweek_id', (gameweek as any).id);
 
           if (lineupsError) {
@@ -260,7 +285,12 @@ class RecalculateGameweeks {
           if (!lineups) continue;
 
           // Update each lineup's total points
-          for (const lineup of (lineups as any[])) {
+          for (const rawLineup of (lineups as any[])) {
+            const lineup = {
+              ...rawLineup,
+              triple_captain_gameweek_id: rawLineup.fantasy_seasons?.triple_captain_gameweek_id || null,
+              bench_boost_gameweek_id: rawLineup.fantasy_seasons?.bench_boost_gameweek_id || null,
+            };
             const updated = await this.updateLineupTotal(lineup as Lineup);
             if (updated) {
               result.lineupsUpdated++;
