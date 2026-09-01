@@ -101,6 +101,7 @@ export async function trackRosterChanges(): Promise<TrackingResult> {
                     .from('professional_players')
                     .update({
                       availability_status: 'unavailable',
+                      availability_reason: 'Left team, currently a free agent',
                       last_synced_at: new Date().toISOString(),
                     })
                     .eq('id', player.id);
@@ -121,6 +122,7 @@ export async function trackRosterChanges(): Promise<TrackingResult> {
                     .update({
                       team_id: parseInt(change.teamId),
                       availability_status: 'available',
+                      availability_reason: null,
                       last_synced_at: new Date().toISOString(),
                     })
                     .eq('id', player.id);
