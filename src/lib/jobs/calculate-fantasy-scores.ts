@@ -56,7 +56,7 @@ interface PlayerRole {
   role: string;
 }
 
-class FantasyScoreCalculator {
+export class FantasyScoreCalculator {
   private supabase: ReturnType<typeof createClient>;
   private scoringRules: ScoringRules = {};
 
@@ -69,12 +69,27 @@ class FantasyScoreCalculator {
 
   // Load scoring rules from database for a specific season
   async loadScoringRules(seasonId: number): Promise<void> {
+    // First find the latest published version
+    const { data: versionData, error: versionError } = await this.supabase
+      .from('scoring_rules')
+      .select('version')
+      .eq('season_id', seasonId)
+      .eq('is_published', true)
+      .order('version', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    const version = (versionData as any)?.version || 1;
+
+    // Load enabled rules for that version
     const { data, error } = await this.supabase
       .from('scoring_rules')
       .select('rule_key, value')
-      .eq('season_id', seasonId);
+      .eq('season_id', seasonId)
+      .eq('version', version)
+      .eq('is_enabled', true);
 
-    if (error) {
+    if (error && !versionError) {
       console.warn('Failed to load scoring rules:', error);
       this.setDefaultScoringRules();
       return;
