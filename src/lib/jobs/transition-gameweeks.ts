@@ -37,10 +37,10 @@ class TransitionGameweeks {
         throw error;
       }
 
-      if (data && data.success) {
-        result.gameweeksActivated = data.gameweeks_activated || 0;
-        result.gameweeksClosed = data.gameweeks_closed || 0;
-        result.seasonsRolledOver = data.seasons_rolled_over || 0;
+      if (data && (data as any).success) {
+        result.gameweeksActivated = (data as any).gameweeks_activated || 0;
+        result.gameweeksClosed = (data as any).gameweeks_closed || 0;
+        result.seasonsRolledOver = (data as any).seasons_rolled_over || 0;
       } else {
         result.success = false;
         result.errors.push('RPC returned failure or unexpected format.');
