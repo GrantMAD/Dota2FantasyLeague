@@ -113,6 +113,28 @@ export async function trackRosterChanges(): Promise<TrackingResult> {
                     `[trackRosterChanges] Player ${player.name} left team (temporarily unavailable)`
                   );
                 }
+
+                // If player joined a new team, update their team_id and restore availability
+                if (change.changeType === 'joined') {
+                  const { error: updateError } = await supabase
+                    .from('professional_players')
+                    .update({
+                      team_id: parseInt(change.teamId),
+                      availability_status: 'available',
+                      last_synced_at: new Date().toISOString(),
+                    })
+                    .eq('id', player.id);
+
+                  if (updateError) {
+                    result.errors.push(
+                      `Failed to update team_id for player ${player.id} on join: ${updateError.message}`
+                    );
+                  } else {
+                    console.log(
+                      `[trackRosterChanges] Player ${player.name} joined team ${change.teamId} — team_id updated`
+                    );
+                  }
+                }
               }
             } catch (error) {
               result.errors.push(
