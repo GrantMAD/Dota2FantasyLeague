@@ -22,6 +22,9 @@ import { recalculateGameweeks } from './recalculate-gameweeks';
 import { recalculateLeagues } from './recalculate-leagues';
 import { calculateGlobalRankings } from './calculate-global-rankings';
 import { updatePlayerPrices } from './update-player-prices';
+import { sendDeadlineNotifications } from './send-deadline-notifications';
+import { sendPriceChangeNotifications } from './send-price-change-notifications';
+import { sendRankNotifications } from './send-rank-notifications';
 
 type JobName =
   | 'sync-players'
@@ -35,7 +38,10 @@ type JobName =
   | 'recalculate-gameweeks'
   | 'recalculate-leagues'
   | 'calculate-global-rankings'
-  | 'update-player-prices';
+  | 'update-player-prices'
+  | 'send-deadline-notifications'
+  | 'send-price-change-notifications'
+  | 'send-rank-notifications';
 
 interface JobDefinition {
   name: JobName;
@@ -139,6 +145,27 @@ const JOBS: JobDefinition[] = [
     handler: updatePlayerPrices,
     enabled: process.env.ENABLE_PRICE_UPDATES !== 'false',
     timeout: 10 * 60 * 1000,
+  },
+  {
+    name: 'send-deadline-notifications',
+    schedule: '0 * * * *', // Every hour to catch approaching deadlines
+    handler: sendDeadlineNotifications,
+    enabled: process.env.ENABLE_NOTIFICATIONS !== 'false',
+    timeout: 5 * 60 * 1000,
+  },
+  {
+    name: 'send-price-change-notifications',
+    schedule: '*/15 * * * *', // Shortly after price updates
+    handler: sendPriceChangeNotifications,
+    enabled: process.env.ENABLE_NOTIFICATIONS !== 'false',
+    timeout: 5 * 60 * 1000,
+  },
+  {
+    name: 'send-rank-notifications',
+    schedule: '*/70 * * * *', // After global rankings calc
+    handler: sendRankNotifications,
+    enabled: process.env.ENABLE_NOTIFICATIONS !== 'false',
+    timeout: 5 * 60 * 1000,
   },
 ];
 
