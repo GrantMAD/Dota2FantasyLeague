@@ -20,42 +20,54 @@ interface StatCard {
 export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState<StatCard[]>([]);
+  const [dashboardData, setDashboardData] = useState<any>(null);
 
   useEffect(() => {
-    // Simulate loading stats
-    setTimeout(() => {
-      setStats([
-        {
-          icon: '👥',
-          label: 'Active Squad',
-          value: '1',
-          trend: '+0',
-          trendColor: 'text-slate-400',
-        },
-        {
-          icon: '🏆',
-          label: 'Total Points',
-          value: '0',
-          trend: '+0 this week',
-          trendColor: 'text-slate-400',
-        },
-        {
-          icon: '📊',
-          label: 'Global Rank',
-          value: '-',
-          trend: 'Unranked',
-          trendColor: 'text-slate-400',
-        },
-        {
-          icon: '⚡',
-          label: 'Free Transfers',
-          value: '1',
-          trend: 'Ready to use',
-          trendColor: 'text-amber-500',
-        },
-      ]);
-      setLoading(false);
-    }, 500);
+    const fetchStats = async () => {
+      try {
+        const res = await fetch('/api/dashboard/stats');
+        if (!res.ok) throw new Error('Failed to fetch stats');
+        const data = await res.json();
+        setDashboardData(data);
+        
+        setStats([
+          {
+            icon: '👥',
+            label: 'Active Squad',
+            value: data.gameweek && data.captain ? '1' : '0',
+            trend: data.captain ? 'Ready' : 'Needs setup',
+            trendColor: data.captain ? 'text-green-500' : 'text-amber-500',
+          },
+          {
+            icon: '🏆',
+            label: 'Total Points',
+            value: data.totalPoints || 0,
+            trend: 'Overall',
+            trendColor: 'text-slate-400',
+          },
+          {
+            icon: '📊',
+            label: 'Global Rank',
+            value: data.globalRank || '-',
+            trend: data.globalRank ? 'Active' : 'Unranked',
+            trendColor: data.globalRank ? 'text-green-500' : 'text-slate-400',
+          },
+          {
+            icon: '⚡',
+            label: 'Free Transfers',
+            value: '1',
+            trend: 'Ready to use',
+            trendColor: 'text-amber-500',
+          },
+        ]);
+      } catch (error) {
+        console.error('Error fetching dashboard stats:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    fetchStats();
   }, []);
 
   return (
@@ -181,26 +193,58 @@ export default function DashboardPage() {
               <div className="space-y-3">
                 <div>
                   <p className="text-slate-400 text-sm">Gameweek</p>
-                  <p className="text-2xl font-bold text-white">1</p>
+                  <p className="text-2xl font-bold text-white">
+                    {dashboardData?.gameweek?.gameweek_number || '-'}
+                  </p>
                 </div>
                 <div>
                   <p className="text-slate-400 text-sm">Deadline</p>
-                  <p className="text-sm text-amber-500 font-semibold">Not Set</p>
+                  <p className="text-sm text-amber-500 font-semibold">
+                    {dashboardData?.gameweek?.deadline ? new Date(dashboardData.gameweek.deadline).toLocaleString() : 'Not Set'}
+                  </p>
                 </div>
               </div>
             </div>
 
+            {/* Captain Status */}
+            {dashboardData?.captain && (
+              <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-6">
+                <h3 className="font-semibold text-white mb-4">Leadership</h3>
+                <div className="space-y-3">
+                  <div className="flex justify-between items-center border-b border-slate-700 pb-2">
+                    <span className="text-slate-400 text-sm">Captain (2x)</span>
+                    <span className="font-semibold text-white">{dashboardData.captain.name}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-slate-400 text-sm">Vice-Captain</span>
+                    <span className="font-semibold text-slate-300">{dashboardData.viceCaptain?.name || 'None'}</span>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Leaderboard Preview */}
             <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-6">
-              <h3 className="font-semibold text-white mb-4">Global Leaderboard</h3>
-              <p className="text-slate-400 text-sm text-center py-8">
-                Sign up and join to see global rankings
-              </p>
+              <h3 className="font-semibold text-white mb-4">Leagues Overview</h3>
+              {dashboardData?.leagueStandings?.length > 0 ? (
+                <div className="space-y-3">
+                  {dashboardData.leagueStandings.map((l: any, idx: number) => (
+                    <div key={idx} className="flex justify-between items-center text-sm border-b border-slate-700 pb-2 last:border-0 last:pb-0">
+                      <span className="text-slate-300 truncate pr-2">{l.leagues?.name}</span>
+                      <span className="text-amber-500 font-semibold">Rank {l.rank || '-'}</span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-slate-400 text-sm text-center py-4">
+                  Sign up and join to see global rankings
+                </p>
+              )}
               <Link
                 href="/leagues"
                 className="block text-center text-amber-500 hover:text-orange-600 text-sm font-semibold mt-4"
               >
-                View Leaderboard →
+                View Leaderboards →
               </Link>
             </div>
 

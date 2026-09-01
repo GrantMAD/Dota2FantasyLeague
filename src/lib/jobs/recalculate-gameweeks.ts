@@ -51,42 +51,90 @@ class RecalculateGameweeks {
     let totalPoints = 0;
 
     // Separate starters from bench players
-    const starterIds = [
-      lineup.carry_id,
-      lineup.mid_id,
-      lineup.offlane_id,
-      lineup.support_id,
-      lineup.hard_support_id,
-    ].filter((id) => id !== null) as number[];
+    const starterSlots = [
+      { id: lineup.carry_id, role: 'Carry' },
+      { id: lineup.mid_id, role: 'Mid' },
+      { id: lineup.offlane_id, role: 'Offlane' },
+      { id: lineup.support_id, role: 'Support' },
+      { id: lineup.hard_support_id, role: 'Hard Support' },
+    ];
+    
+    const starterIds = starterSlots.map(s => s.id).filter((id) => id !== null) as number[];
 
     const benchIds = [
       lineup.bench_1_id,
       lineup.bench_2_id,
       lineup.bench_3_id,
     ].filter((id) => id !== null) as number[];
+    
+    const allIds = [...starterIds, ...benchIds];
+    if (allIds.length === 0) return 0;
+
+    // Fetch player performances to see who actually played matches in this gameweek
+    const { data: performances } = await this.supabase
+      .from('player_performance')
+      .select('player_id')
+      .eq('gameweek_id', lineup.gameweek_id)
+      .in('player_id', allIds);
+
+    const playersWhoPlayed = new Set<number>();
+    performances?.forEach((p: any) => playersWhoPlayed.add(p.player_id));
+    
+    // Fetch bench player roles for substitutions
+    const { data: benchPlayersData } = await this.supabase
+      .from('professional_players')
+      .select('id, primary_role')
+      .in('id', benchIds);
+      
+    const benchPlayerRoles = new Map<number, string>();
+    benchPlayersData?.forEach((p: any) => {
+      benchPlayerRoles.set(p.id, p.primary_role);
+    });
+
+    // Auto-bench substitution logic
+    const activeStarters: number[] = [];
+    const usedBench = new Set<number>();
+    const availableBench = benchIds.filter(id => playersWhoPlayed.has(id));
+
+    starterSlots.forEach(slot => {
+      if (slot.id === null) return;
+      
+      if (!playersWhoPlayed.has(slot.id)) {
+        // Starter didn't play, find first eligible bench player with the matching role
+        const subId = availableBench.find(
+          bId => !usedBench.has(bId) && benchPlayerRoles.get(bId) === slot.role
+        );
+        if (subId) {
+          usedBench.add(subId);
+          activeStarters.push(subId);
+        }
+      } else {
+        activeStarters.push(slot.id);
+      }
+    });
 
     // Bench players only score if Bench Boost chip is active this gameweek
     const isBenchBoostActive = lineup.bench_boost_gameweek_id === lineup.gameweek_id;
-    const playerIds = isBenchBoostActive
-      ? [...starterIds, ...benchIds]
-      : starterIds;
+    const finalScoringIds = isBenchBoostActive ? allIds : activeStarters;
 
-    if (playerIds.length === 0) return 0;
+    if (finalScoringIds.length === 0) return 0;
 
     // Get fantasy points for all relevant players in this gameweek
     const { data: pointsData } = await this.supabase
       .from('fantasy_points_breakdown')
       .select('player_id, total_points')
       .eq('gameweek_id', lineup.gameweek_id)
-      .in('player_id', playerIds);
+      .in('player_id', finalScoringIds);
 
     const playerPointsMap = new Map<number, number>();
     pointsData?.forEach((row: any) => {
       playerPointsMap.set(row.player_id, row.total_points || 0);
     });
 
-    // Sum points for each player, applying captain multiplier
-    playerIds.forEach((playerId) => {
+    const captainPlayed = playersWhoPlayed.has(lineup.captain_player_id);
+
+    // Sum points for each scoring player, applying captain multiplier
+    finalScoringIds.forEach((playerId) => {
       let playerScore = playerPointsMap.get(playerId) || 0;
 
       // Apply Triple Captain or normal Captain multiplier
@@ -99,8 +147,7 @@ class RecalculateGameweeks {
       }
       // Apply vice-captain multiplier (1x unless captain didn't play)
       else if (playerId === lineup.vice_captain_player_id) {
-        const captainScore = playerPointsMap.get(lineup.captain_player_id) || 0;
-        if (captainScore === 0) {
+        if (!captainPlayed) {
           if (lineup.triple_captain_gameweek_id === lineup.gameweek_id) {
             playerScore *= 3.0; // Vice-captain becomes triple captain if captain didn't play
           } else {
