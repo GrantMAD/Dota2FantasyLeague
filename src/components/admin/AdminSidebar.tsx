@@ -16,6 +16,8 @@ import {
   Database,
   CheckCircle,
   Activity,
+  Shield,
+  Swords,
 } from 'lucide-react';
 
 const adminMenuItems = [
@@ -25,6 +27,8 @@ const adminMenuItems = [
   { href: '/admin/data-quality', label: 'Data Quality', icon: AlertCircle },
   { href: '/admin/players', label: 'Players', icon: Users },
   { href: '/admin/teams', label: 'Teams', icon: Trophy },
+  { href: '/admin/fantasy-teams', label: 'Fantasy Teams', icon: Swords },
+  { href: '/admin/leagues', label: 'Leagues', icon: Shield },
   { href: '/admin/seasons', label: 'Seasons', icon: Calendar },
   { href: '/admin/gameweeks', label: 'Gameweeks', icon: Gamepad2 },
   { href: '/admin/matches', label: 'Matches', icon: BarChart3 },
