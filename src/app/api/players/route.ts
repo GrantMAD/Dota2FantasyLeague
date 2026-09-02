@@ -17,12 +17,15 @@ export async function GET(request: NextRequest) {
     
     const teamId = searchParams.get('team_id');
     const role = searchParams.get('role');
-    const limit = Math.min(parseInt(searchParams.get('limit') || '100'), 1000);
+    const search = searchParams.get('search');
+    const sortBy = searchParams.get('sort');
+    const sortDesc = searchParams.get('desc') !== 'false'; // default true
+    const limit = Math.min(parseInt(searchParams.get('limit') || '50'), 100);
     const offset = parseInt(searchParams.get('offset') || '0');
     
     let query = supabase
       .from('professional_players')
-      .select('*')
+      .select('*, professional_teams(name, logo_url)', { count: 'exact' })
       .range(offset, offset + limit - 1);
     
     if (teamId) {
@@ -32,8 +35,18 @@ export async function GET(request: NextRequest) {
     if (role) {
       query = query.eq('primary_role', role);
     }
+
+    if (search) {
+      query = query.or(`name.ilike.%${search}%,in_game_name.ilike.%${search}%`);
+    }
+
+    if (sortBy === 'price') {
+      query = query.order('current_price', { ascending: !sortDesc });
+    } else {
+      query = query.order('name', { ascending: true });
+    }
     
-    const { data, error } = await query;
+    const { data, count, error } = await query;
     
     if (error) {
       return NextResponse.json(
@@ -42,7 +55,7 @@ export async function GET(request: NextRequest) {
       );
     }
     
-    return NextResponse.json({ data, count: data?.length || 0 });
+    return NextResponse.json({ data, total: count, limit, offset });
   } catch (error) {
     return NextResponse.json(
       { error: 'Internal server error', details: String(error) },
