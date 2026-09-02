@@ -21,15 +21,24 @@ export async function verifyAuth(request: Request): Promise<{
   role?: string;
 }> {
   const authHeader = request.headers.get('authorization');
+  const cookieHeader = request.headers.get('cookie') ?? '';
+  const cookieToken = cookieHeader
+    .split(';')
+    .map((cookie) => cookie.trim())
+    .find((cookie) => cookie.startsWith('sb-auth-token='))
+    ?.slice('sb-auth-token='.length);
 
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+  const token = authHeader?.startsWith('Bearer ')
+    ? authHeader.substring(7)
+    : cookieToken;
+
+  if (!token) {
     throw {
       status: 401,
       message: 'Missing or invalid authorization header',
     } as AuthError;
   }
 
-  const token = authHeader.substring(7);
   const supabase = supabaseServer();
 
   // Verify the JWT token

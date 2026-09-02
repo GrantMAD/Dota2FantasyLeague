@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { supabase, supabaseServer } from '@/lib/supabase';
 
 /**
  * POST /api/auth/signup - Sign up a new user
@@ -11,11 +11,20 @@ import { supabase } from '@/lib/supabase';
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { email, password, username } = body;
+    const email = typeof body.email === 'string' ? body.email.trim().toLowerCase() : '';
+    const password = typeof body.password === 'string' ? body.password : '';
+    const username = typeof body.username === 'string' ? body.username.trim() : '';
     
     if (!email || !password || !username) {
       return NextResponse.json(
         { error: 'Missing required fields: email, password, username' },
+        { status: 400 }
+      );
+    }
+
+    if (password.length < 8) {
+      return NextResponse.json(
+        { error: 'Password must be at least 8 characters' },
         { status: 400 }
       );
     }
@@ -41,7 +50,7 @@ export async function POST(request: NextRequest) {
     }
     
     // Create user profile
-    const { error: profileError } = await supabase.from('users').insert([
+    const { error: profileError } = await supabaseServer().from('users').insert([
       {
         id: authData.user.id,
         username,
@@ -51,9 +60,13 @@ export async function POST(request: NextRequest) {
     
     if (profileError) {
       // Clean up auth user if profile creation fails
+      const isDuplicateUsername = profileError.code === '23505';
       return NextResponse.json(
-        { error: 'Profile creation failed', details: profileError.message },
-        { status: 500 }
+        {
+          error: isDuplicateUsername ? 'Username is already taken' : 'Profile creation failed',
+          details: profileError.message,
+        },
+        { status: isDuplicateUsername ? 409 : 500 }
       );
     }
     

@@ -25,7 +25,7 @@ export async function GET(request: NextRequest) {
         gameweek_number,
         start_date,
         end_date,
-        deadline_date,
+        deadline,
         status,
         created_at
       `)

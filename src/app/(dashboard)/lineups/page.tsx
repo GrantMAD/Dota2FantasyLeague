@@ -13,15 +13,22 @@ export default function LineupsPage() {
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  // Note: hardcoded fantasySeasonId for demo; in production this comes from user context
-  const fantasySeasonId = 1;
+  const [fantasySeasonId, setFantasySeasonId] = useState<number | null>(null);
 
   useEffect(() => {
     async function fetchChipStatuses() {
       try {
+        const dashboardResponse = await fetch('/api/dashboard/stats');
+        if (!dashboardResponse.ok) throw new Error('Failed to load fantasy season');
+        const dashboardData = await dashboardResponse.json();
+        const currentFantasySeasonId = dashboardData.fantasySeasonId;
+        setFantasySeasonId(currentFantasySeasonId);
+
+        if (!currentFantasySeasonId) return;
+
         const [tcRes, bbRes] = await Promise.all([
-          fetch(`/api/fantasy/triple-captain/status?fantasy_season_id=${fantasySeasonId}`),
-          fetch(`/api/fantasy/bench-boost/status?fantasy_season_id=${fantasySeasonId}`),
+          fetch(`/api/fantasy/triple-captain/status?fantasy_season_id=${currentFantasySeasonId}`),
+          fetch(`/api/fantasy/bench-boost/status?fantasy_season_id=${currentFantasySeasonId}`),
         ]);
         setTcStatus(await tcRes.json());
         setBbStatus(await bbRes.json());
@@ -42,6 +49,10 @@ export default function LineupsPage() {
 
   const handleActivate = async () => {
     if (!activeModal) return;
+    if (!fantasySeasonId) {
+      setError('Create a fantasy squad before activating a chip.');
+      return;
+    }
     setActivating(true);
     setMessage(null);
     setError(null);

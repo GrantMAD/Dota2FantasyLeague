@@ -31,7 +31,7 @@ export async function POST(request: NextRequest) {
       );
     }
     
-    return NextResponse.json(
+    const response = NextResponse.json(
       {
         message: 'Signed in successfully',
         user: data.user,
@@ -39,6 +39,18 @@ export async function POST(request: NextRequest) {
       },
       { status: 200 }
     );
+
+    if (data.session?.access_token) {
+      response.cookies.set('sb-auth-token', data.session.access_token, {
+        httpOnly: true,
+        sameSite: 'lax',
+        secure: process.env.NODE_ENV === 'production',
+        path: '/',
+        maxAge: data.session.expires_in ?? 3600,
+      });
+    }
+
+    return response;
   } catch (error) {
     return NextResponse.json(
       { error: 'Internal server error', details: String(error) },

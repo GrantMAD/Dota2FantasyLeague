@@ -16,6 +16,7 @@ export async function GET(request: NextRequest) {
 
     if (!fantasySeason) {
        return NextResponse.json({
+         fantasySeasonId: null,
           gameweek: null,
           totalPoints: 0,
           globalRank: null,
@@ -69,6 +70,7 @@ export async function GET(request: NextRequest) {
       .limit(3);
 
     return NextResponse.json({
+      fantasySeasonId: fantasySeason.id,
       gameweek,
       totalPoints: fantasySeason.total_points || 0,
       globalRank: fantasySeason.global_rank,

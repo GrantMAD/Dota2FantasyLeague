@@ -2,12 +2,6 @@
 
 import Link from 'next/link';
 import { useState, useEffect } from 'react';
-import { AnalyticsSummary } from '@/components/AnalyticsSummary';
-import { BackendJobsPanel } from '@/components/BackendJobsPanel';
-import { CaptainSystem } from '@/components/CaptainSystem';
-import { FantasyGameweekPanel } from '@/components/FantasyGameweekPanel';
-import { PremiumFeatureGate } from '@/components/PremiumFeatureGate';
-import { ScoringBreakdown } from '@/components/ScoringBreakdown';
 
 interface StatCard {
   icon: React.ReactNode;
@@ -259,12 +253,6 @@ export default function DashboardPage() {
               </div>
             </div>
 
-            <AnalyticsSummary />
-            <PremiumFeatureGate />
-            <ScoringBreakdown />
-            <CaptainSystem />
-            <FantasyGameweekPanel />
-            <BackendJobsPanel />
           </div>
         </div>
       </section>
