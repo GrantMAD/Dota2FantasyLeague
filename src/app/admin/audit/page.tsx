@@ -94,7 +94,7 @@ export default function AdminAuditPage() {
             placeholder="Filter by table name..."
             value={tableFilter}
             onChange={(e) => { setTableFilter(e.target.value); setPage(1); }}
-            className="px-4 py-2 bg-slate-900 border border-slate-600 rounded-lg text-white focus:outline-none focus:border-amber-500 text-sm flex-grow md:max-w-xs"
+            className="px-4 py-2 bg-slate-900 border border-slate-600 rounded-lg text-white focus:outline-none focus:border-amber-500 text-sm grow md:max-w-xs"
           />
 
           <button onClick={fetchLogs} className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white font-medium rounded-lg text-sm transition-colors">

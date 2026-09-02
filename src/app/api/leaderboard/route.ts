@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase';
+import { getCached, setCached } from '@/lib/response-cache';
 
 /**
  * GET /api/leaderboard
@@ -15,6 +16,9 @@ export async function GET(request: NextRequest) {
     const page = Math.max(1, parseInt(searchParams.get('page') ?? '1', 10));
     const limit = Math.min(100, parseInt(searchParams.get('limit') ?? '50', 10));
     const offset = (page - 1) * limit;
+    const cacheKey = `leaderboard:${searchParams.toString()}`;
+    const cached = getCached<{ leaderboard: unknown[]; pagination: unknown }>(cacheKey);
+    if (cached) return NextResponse.json(cached);
 
     const supabase = supabaseServer();
 
@@ -22,6 +26,7 @@ export async function GET(request: NextRequest) {
     let resolvedGameweekId = gameweekId;
     if (!resolvedGameweekId && seasonId) {
       const { data: latestGw } = await (supabase
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         .from('gameweeks') as any)
         .select('id')
         .eq('season_id', seasonId)
@@ -32,6 +37,7 @@ export async function GET(request: NextRequest) {
       resolvedGameweekId = latestGw?.id?.toString() ?? null;
     }
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let query = (supabase.from('leaderboard_snapshots') as any)
       .select(`
         id,
@@ -66,19 +72,22 @@ export async function GET(request: NextRequest) {
     let entries = data ?? [];
     if (country) {
       entries = entries.filter(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (entry: any) => entry.fantasy_teams?.profiles?.country === country
       );
     }
 
-    return NextResponse.json({
+    const response = {
       leaderboard: entries,
       pagination: {
         page,
         limit,
         total: count ?? entries.length,
       },
-    });
-  } catch (error: unknown) {
+    };
+    setCached(cacheKey, response, 60_000);
+    return NextResponse.json(response);
+  } catch {
     return NextResponse.json({ error: 'An unexpected error occurred.' }, { status: 500 });
   }
 }

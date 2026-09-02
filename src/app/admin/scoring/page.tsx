@@ -3,11 +3,16 @@
 import { useState, useEffect } from 'react';
 
 export default function AdminScoringPage() {
-  const [activeTab, setActiveTab] = useState<'rules' | 'simulator'>('rules');
+  const [activeTab, setActiveTab] = useState<'rules' | 'balance' | 'historical' | 'simulator'>('rules');
   const [ruleVersions, setRuleVersions] = useState<any[]>([]);
   const [selectedVersion, setSelectedVersion] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [balanceReport, setBalanceReport] = useState<any>(null);
+  const [balanceLoading, setBalanceLoading] = useState(false);
+  const [historicalReport, setHistoricalReport] = useState<any>(null);
+  const [historicalLoading, setHistoricalLoading] = useState(false);
+  const [historicalRange, setHistoricalRange] = useState({ seasonId: '1', gameweekFrom: '', gameweekTo: '' });
 
   // Simulator state
   const [simLoading, setSimLoading] = useState(false);
@@ -143,6 +148,45 @@ export default function AdminScoringPage() {
     }
   };
 
+  const fetchBalanceReport = async () => {
+    setBalanceLoading(true);
+    setError(null);
+    try {
+      const res = await fetch('/api/admin/scoring/balance?seasonId=1');
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to load balance report');
+      setBalanceReport(data);
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setBalanceLoading(false);
+    }
+  };
+
+  const runHistoricalSimulation = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setHistoricalLoading(true);
+    setError(null);
+    try {
+      const res = await fetch('/api/admin/scoring/historical-simulation', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          seasonId: Number(historicalRange.seasonId),
+          gameweekFrom: historicalRange.gameweekFrom ? Number(historicalRange.gameweekFrom) : undefined,
+          gameweekTo: historicalRange.gameweekTo ? Number(historicalRange.gameweekTo) : undefined,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Historical simulation failed');
+      setHistoricalReport(data);
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setHistoricalLoading(false);
+    }
+  };
+
   const handleSimChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setSimForm(prev => ({ ...prev, [name]: Number(value) }));
@@ -176,6 +220,22 @@ export default function AdminScoringPage() {
           Rule Versions
         </button>
         <button
+          onClick={() => { setActiveTab('balance'); if (!balanceReport) fetchBalanceReport(); }}
+          className={`px-4 py-2 text-sm font-medium ${
+            activeTab === 'balance' ? 'bg-slate-800 text-white border-b-2 border-blue-500' : 'text-slate-400 hover:text-slate-300 hover:bg-slate-800/50'
+          }`}
+        >
+          Balance Analytics
+        </button>
+        <button
+          onClick={() => setActiveTab('historical')}
+          className={`px-4 py-2 text-sm font-medium ${
+            activeTab === 'historical' ? 'bg-slate-800 text-white border-b-2 border-blue-500' : 'text-slate-400 hover:text-slate-300 hover:bg-slate-800/50'
+          }`}
+        >
+          Historical Simulation
+        </button>
+        <button
           onClick={() => setActiveTab('simulator')}
           className={`px-4 py-2 text-sm font-medium ${
             activeTab === 'simulator' ? 'bg-slate-800 text-white border-b-2 border-blue-500' : 'text-slate-400 hover:text-slate-300 hover:bg-slate-800/50'
@@ -184,6 +244,66 @@ export default function AdminScoringPage() {
           Simulator
         </button>
       </div>
+
+      {activeTab === 'balance' && (
+        <div className="space-y-6">
+          <div className="flex items-center justify-between bg-slate-800 p-4 rounded-lg border border-slate-700">
+            <div>
+              <h2 className="text-lg font-semibold text-white">Role Balance Analytics</h2>
+              <p className="text-sm text-slate-400">Historical scoring distribution, market value, ownership, and captain impact.</p>
+            </div>
+            <button onClick={fetchBalanceReport} className="bg-blue-600 hover:bg-blue-500 text-white text-sm px-4 py-2 rounded">Refresh</button>
+          </div>
+          {balanceLoading ? <div className="text-center p-12 text-slate-400">Loading analytics...</div> : balanceReport && (
+            <div className="bg-slate-900 rounded-lg border border-slate-700 overflow-x-auto">
+              <table className="min-w-full divide-y divide-slate-800">
+                <thead className="bg-slate-800/50"><tr>{['Role', 'Samples', 'Average', 'Median', 'Bottom 10%', 'Top 10%', 'Avg Price', 'Ownership', 'Price / Point', 'Captain Impact'].map((heading) => <th key={heading} className="px-4 py-3 text-left text-xs font-medium text-slate-400 uppercase">{heading}</th>)}</tr></thead>
+                <tbody className="divide-y divide-slate-800">
+                  {balanceReport.report.map((row: any) => <tr key={row.role}>
+                    <td className="px-4 py-3 text-sm font-medium text-white">{row.role}</td>
+                    <td className="px-4 py-3 text-sm text-slate-300">{row.sampleSize}</td>
+                    <td className="px-4 py-3 text-sm text-slate-300">{row.averagePoints.toFixed(2)}</td>
+                    <td className="px-4 py-3 text-sm text-slate-300">{row.medianPoints.toFixed(2)}</td>
+                    <td className="px-4 py-3 text-sm text-slate-300">{row.bottomTenPercentPoints.toFixed(2)}</td>
+                    <td className="px-4 py-3 text-sm text-emerald-400">{row.topTenPercentPoints.toFixed(2)}</td>
+                    <td className="px-4 py-3 text-sm text-slate-300">{row.averagePrice.toFixed(2)}</td>
+                    <td className="px-4 py-3 text-sm text-slate-300">{row.averageOwnershipPercentage.toFixed(2)}%</td>
+                    <td className="px-4 py-3 text-sm text-slate-300">{row.averagePriceToPointRatio.toFixed(2)}</td>
+                    <td className="px-4 py-3 text-sm text-blue-400">{row.captainImpact.toFixed(2)}</td>
+                  </tr>)}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+
+      {activeTab === 'historical' && (
+        <div className="space-y-6">
+          <div className="bg-slate-800 rounded-lg border border-slate-700 p-6">
+            <h2 className="text-lg font-semibold text-white">Historical Scoring Simulation</h2>
+            <p className="text-sm text-slate-400 mt-1">Replays stored performances with the selected published rules. Live scoring data is never modified.</p>
+            <form onSubmit={runHistoricalSimulation} className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-5">
+              <input aria-label="Season ID" type="number" min="1" value={historicalRange.seasonId} onChange={(e) => setHistoricalRange({ ...historicalRange, seasonId: e.target.value })} className="bg-slate-900 border border-slate-700 rounded p-2 text-white" placeholder="Season ID" />
+              <input aria-label="Gameweek from" type="number" min="1" value={historicalRange.gameweekFrom} onChange={(e) => setHistoricalRange({ ...historicalRange, gameweekFrom: e.target.value })} className="bg-slate-900 border border-slate-700 rounded p-2 text-white" placeholder="Gameweek from" />
+              <input aria-label="Gameweek to" type="number" min="1" value={historicalRange.gameweekTo} onChange={(e) => setHistoricalRange({ ...historicalRange, gameweekTo: e.target.value })} className="bg-slate-900 border border-slate-700 rounded p-2 text-white" placeholder="Gameweek to" />
+              <button type="submit" disabled={historicalLoading} className="bg-blue-600 hover:bg-blue-500 text-white font-medium py-2 rounded">{historicalLoading ? 'Running...' : 'Run Historical Simulation'}</button>
+            </form>
+          </div>
+          {historicalReport && <div className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="bg-slate-800 border border-slate-700 rounded-lg p-4"><div className="text-xs text-slate-400">Performances</div><div className="text-2xl text-white font-semibold">{historicalReport.playerPerformances}</div></div>
+              <div className="bg-slate-800 border border-slate-700 rounded-lg p-4"><div className="text-xs text-slate-400">Average Points</div><div className="text-2xl text-white font-semibold">{historicalReport.totals.averagePoints.toFixed(2)}</div></div>
+              <div className="bg-slate-800 border border-slate-700 rounded-lg p-4"><div className="text-xs text-slate-400">Highest Points</div><div className="text-2xl text-emerald-400 font-semibold">{historicalReport.totals.highestPoints.toFixed(2)}</div></div>
+            </div>
+            <div className="bg-slate-900 rounded-lg border border-slate-700 overflow-x-auto">
+              <table className="min-w-full divide-y divide-slate-800"><thead className="bg-slate-800/50"><tr><th className="px-4 py-3 text-left text-xs text-slate-400 uppercase">Role</th><th className="px-4 py-3 text-left text-xs text-slate-400 uppercase">Samples</th><th className="px-4 py-3 text-left text-xs text-slate-400 uppercase">Average</th><th className="px-4 py-3 text-left text-xs text-slate-400 uppercase">Median</th><th className="px-4 py-3 text-left text-xs text-slate-400 uppercase">Top 10%</th></tr></thead>
+                <tbody className="divide-y divide-slate-800">{historicalReport.roleBreakdown.map((row: any) => <tr key={row.role}><td className="px-4 py-3 text-sm text-white">{row.role}</td><td className="px-4 py-3 text-sm text-slate-300">{row.sampleSize}</td><td className="px-4 py-3 text-sm text-slate-300">{row.averagePoints.toFixed(2)}</td><td className="px-4 py-3 text-sm text-slate-300">{row.medianPoints.toFixed(2)}</td><td className="px-4 py-3 text-sm text-emerald-400">{row.topTenPercentPoints.toFixed(2)}</td></tr>)}</tbody>
+              </table>
+            </div>
+          </div>}
+        </div>
+      )}
 
       {activeTab === 'rules' && (
         <div className="space-y-6">

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase';
+import { getCached, setCached } from '@/lib/response-cache';
 
 /**
  * GET /api/players - Fetch all professional players
@@ -14,6 +15,9 @@ export async function GET(request: NextRequest) {
   try {
     const supabase = supabaseServer();
     const searchParams = request.nextUrl.searchParams;
+    const cacheKey = `players:${searchParams.toString()}`;
+    const cached = getCached<{ data: unknown[]; total: number | null; limit: number; offset: number }>(cacheKey);
+    if (cached) return NextResponse.json(cached);
     
     const teamId = searchParams.get('team_id');
     const role = searchParams.get('role');
@@ -55,7 +59,9 @@ export async function GET(request: NextRequest) {
       );
     }
     
-    return NextResponse.json({ data, total: count, limit, offset });
+    const response = { data, total: count, limit, offset };
+    setCached(cacheKey, response, 60_000);
+    return NextResponse.json(response);
   } catch (error) {
     return NextResponse.json(
       { error: 'Internal server error', details: String(error) },

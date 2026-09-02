@@ -131,7 +131,7 @@ export default function TransfersPage() {
                             <tr key={player.id} className="hover:bg-slate-700/30 transition-colors group">
                                <td className="px-4 py-3">
                                   <Link href={`/players/${player.id}`} className="flex items-center gap-3">
-                                     <div className="w-10 h-10 rounded-full bg-slate-700 border border-slate-600 overflow-hidden flex-shrink-0">
+                                     <div className="w-10 h-10 rounded-full bg-slate-700 border border-slate-600 overflow-hidden shrink-0">
                                         {player.profile_image_url ? (
                                            <img src={player.profile_image_url} alt={player.in_game_name} className="w-full h-full object-cover" />
                                         ) : (

@@ -15,11 +15,13 @@ import {
   AlertCircle,
   Database,
   CheckCircle,
+  Activity,
 } from 'lucide-react';
 
 const adminMenuItems = [
   { href: '/admin/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/admin/data-jobs', label: 'Data Jobs', icon: Zap },
+  { href: '/admin/observability', label: 'Observability', icon: Activity },
   { href: '/admin/data-quality', label: 'Data Quality', icon: AlertCircle },
   { href: '/admin/players', label: 'Players', icon: Users },
   { href: '/admin/teams', label: 'Teams', icon: Trophy },

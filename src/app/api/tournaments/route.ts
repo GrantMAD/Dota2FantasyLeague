@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase';
+import { getCached, setCached } from '@/lib/response-cache';
 
 /**
  * GET /api/tournaments
@@ -11,8 +12,12 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const seasonId = searchParams.get('seasonId');
     const status = searchParams.get('status');
+    const cacheKey = `tournaments:${searchParams.toString()}`;
+    const cached = getCached<{ tournaments: unknown[] }>(cacheKey);
+    if (cached) return NextResponse.json(cached);
 
     const supabase = supabaseServer();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let query = (supabase.from('tournaments') as any)
       .select(`
         id,
@@ -40,8 +45,10 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    return NextResponse.json({ tournaments: data ?? [] });
-  } catch (error: unknown) {
+    const response = { tournaments: data ?? [] };
+    setCached(cacheKey, response, 300_000);
+    return NextResponse.json(response);
+  } catch {
     return NextResponse.json({ error: 'An unexpected error occurred.' }, { status: 500 });
   }
 }
