@@ -59,6 +59,14 @@ export default function SquadsPage() {
     }
 
     const player = playerEntry.professional_players;
+    if (!player) {
+      return (
+        <Link href="/transfers" className="flex flex-col items-center justify-center bg-slate-800/60 border border-slate-700 border-dashed rounded-lg p-4 w-32 h-40 hover:bg-slate-700/60 transition-colors">
+          <div className="squad-empty-slot-icon text-3xl text-slate-500 mb-2">+</div>
+          <div className="squad-card-role text-xs text-slate-400 font-semibold uppercase">{roleLabel}</div>
+        </Link>
+      );
+    }
 
     return (
       <div className="flex flex-col items-center relative w-32">
@@ -75,14 +83,14 @@ export default function SquadsPage() {
         <div className={`bg-slate-800 border ${isStarter ? 'border-amber-500/50' : 'border-slate-700'} rounded-lg p-3 w-full h-40 flex flex-col items-center shadow-lg relative overflow-hidden`}>
            <div className="h-12 w-12 bg-slate-700 rounded-full mb-2 overflow-hidden border border-slate-600 flex items-center justify-center">
               {player.profile_image_url ? (
-                  <img src={player.profile_image_url} alt={player.in_game_name} className="w-full h-full object-cover" />
+                  <img src={player.profile_image_url} alt={player.in_game_name || player.name} className="w-full h-full object-cover" />
               ) : (
-                  <span className="squad-card-muted text-slate-400 text-xs">{player.in_game_name?.substring(0, 2).toUpperCase()}</span>
+                  <span className="squad-card-muted text-slate-400 text-xs">{(player.in_game_name || player.name || 'P').substring(0, 2).toUpperCase()}</span>
               )}
            </div>
            <div className="text-center w-full">
-              <div className="text-sm font-bold text-white truncate w-full px-1" title={player.in_game_name}>{player.in_game_name}</div>
-              <div className="squad-card-muted text-xs text-slate-400 truncate w-full">{player.professional_teams?.tag || 'FA'}</div>
+              <div className="text-sm font-bold text-white truncate w-full px-1" title={player.in_game_name || player.name}>{player.in_game_name || player.name}</div>
+              <div className="squad-card-muted text-xs text-slate-400 truncate w-full">{player.professional_teams?.slug?.toUpperCase() || player.professional_teams?.name || 'FA'}</div>
               <div className="mt-2 text-xs font-mono text-amber-400">${player.current_price || '0.0'}M</div>
            </div>
            

@@ -27,7 +27,9 @@ export async function GET(request: NextRequest) {
     if (!row) return NextResponse.json({ fantasySeasonId: ownedSeason.id, gameweekId, lineup: [] });
 
     const playerIds = slots.map((slot) => getSlotId(row, slot)).filter((id): id is number => id !== null);
-    const { data: players } = await (supabase.from('professional_players') as any).select('id, name, in_game_name, primary_role, profile_image_url, availability_status, current_price, professional_teams(id, name, tag)').in('id', playerIds);
+    const { data: players } = await (supabase.from('professional_players') as any)
+      .select('id, name, in_game_name, primary_role, profile_image_url, availability_status, professional_teams(id, name, slug)')
+      .in('id', playerIds);
     const playerMap = new Map((players ?? []).map((player: { id: number }) => [player.id, player]));
     const lineup = slots.map((slot) => {
       const playerId = getSlotId(row, slot);
