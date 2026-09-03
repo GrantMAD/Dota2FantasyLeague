@@ -93,7 +93,7 @@ export default function PlayersPage() {
         
         {/* Filters and Search */}
         <div className="p-6 border-b border-slate-700 bg-slate-800/80 flex flex-col md:flex-row gap-4">
-          <div className="flex-grow">
+          <div className="grow">
             <input
               type="text"
               placeholder="Search players by name..."
