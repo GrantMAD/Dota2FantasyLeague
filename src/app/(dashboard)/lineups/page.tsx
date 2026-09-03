@@ -111,7 +111,7 @@ export default function LineupsPage() {
         {/* Chips sidebar */}
         <div className="lg:col-span-1 space-y-4">
           {/* Triple Captain */}
-          <div className="bg-purple-900/20 border border-purple-700/50 rounded-xl p-5">
+          <div className="lineup-chip-card lineup-chip-purple bg-purple-900/20 border border-purple-700/50 rounded-xl p-5">
             <h3 className="font-semibold text-purple-400 mb-2 text-sm flex items-center justify-between">
               Triple Captain
               <span className="text-xl">🌟</span>
@@ -127,7 +127,7 @@ export default function LineupsPage() {
               </div>
             ) : (
               <div>
-                <p className="text-xs text-purple-200/70 mb-3">Triple your captain's points for one gameweek.</p>
+                <p className="lineup-chip-description text-xs text-purple-200/70 mb-3">Triple your captain's points for one gameweek.</p>
                 <button
                   onClick={() => openModal('triple-captain')}
                   className="w-full bg-purple-600/20 hover:bg-purple-600/30 border border-purple-600/50 text-purple-400 text-xs font-bold py-2 rounded-lg transition-colors"
@@ -139,7 +139,7 @@ export default function LineupsPage() {
           </div>
 
           {/* Bench Boost */}
-          <div className="bg-emerald-900/20 border border-emerald-700/50 rounded-xl p-5">
+          <div className="lineup-chip-card lineup-chip-emerald bg-emerald-900/20 border border-emerald-700/50 rounded-xl p-5">
             <h3 className="font-semibold text-emerald-400 mb-2 text-sm flex items-center justify-between">
               Bench Boost
               <span className="text-xl">⚡</span>
@@ -155,7 +155,7 @@ export default function LineupsPage() {
               </div>
             ) : (
               <div>
-                <p className="text-xs text-emerald-200/70 mb-3">Your bench players also score points for one gameweek.</p>
+                <p className="lineup-chip-description text-xs text-emerald-200/70 mb-3">Your bench players also score points for one gameweek.</p>
                 <button
                   onClick={() => openModal('bench-boost')}
                   className="w-full bg-emerald-600/20 hover:bg-emerald-600/30 border border-emerald-600/50 text-emerald-400 text-xs font-bold py-2 rounded-lg transition-colors"

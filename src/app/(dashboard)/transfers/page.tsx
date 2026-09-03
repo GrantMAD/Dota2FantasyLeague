@@ -87,10 +87,10 @@ export default function TransfersPage() {
               </div>
            </div>
            
-           <div className="bg-amber-900/20 border border-amber-700/50 rounded-xl p-5">
-              <h3 className="font-semibold text-amber-500 mb-2 text-sm">Wildcard Available</h3>
-              <p className="text-xs text-amber-200/70 mb-3">You have 1 wildcard remaining. Play it to make unlimited transfers this week with no point deductions.</p>
-              <button className="w-full bg-amber-600/20 hover:bg-amber-600/30 border border-amber-600/50 text-amber-500 text-xs font-bold py-2 rounded-lg transition-colors">
+           <div className="wildcard-card bg-amber-900/20 border border-amber-700/50 rounded-xl p-5">
+              <h3 className="wildcard-card-title font-semibold text-amber-500 mb-2 text-sm">Wildcard Available</h3>
+              <p className="wildcard-card-description text-xs text-amber-200/70 mb-3">You have 1 wildcard remaining. Play it to make unlimited transfers this week with no point deductions.</p>
+              <button className="wildcard-card-action w-full bg-amber-600/20 hover:bg-amber-600/30 border border-amber-600/50 text-amber-500 text-xs font-bold py-2 rounded-lg transition-colors">
                  Play Wildcard
               </button>
            </div>

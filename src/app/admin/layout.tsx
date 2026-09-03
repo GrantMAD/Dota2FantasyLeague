@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import AdminSidebar from '@/components/admin/AdminSidebar';
+import { ThemeToggle } from '@/components/theme/ThemeToggle';
 
 export const metadata = {
   title: 'Admin Console | Fantasy Dota 2',
@@ -20,6 +21,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
             <div className="flex items-center justify-between">
               <h1 className="text-2xl font-bold">Admin Console</h1>
               <div className="flex items-center gap-4">
+                <ThemeToggle />
                 <span className="text-sm text-gray-400">
                   {new Date().toLocaleString()}
                 </span>

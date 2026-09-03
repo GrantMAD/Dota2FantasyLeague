@@ -52,8 +52,8 @@ export default function SquadsPage() {
     if (!playerEntry) {
       return (
         <Link href="/transfers" className="flex flex-col items-center justify-center bg-slate-800/60 border border-slate-700 border-dashed rounded-lg p-4 w-32 h-40 hover:bg-slate-700/60 transition-colors">
-          <div className="text-3xl text-slate-500 mb-2">+</div>
-          <div className="text-xs text-slate-400 font-semibold uppercase">{roleLabel}</div>
+          <div className="squad-empty-slot-icon text-3xl text-slate-500 mb-2">+</div>
+          <div className="squad-card-role text-xs text-slate-400 font-semibold uppercase">{roleLabel}</div>
         </Link>
       );
     }
@@ -77,17 +77,17 @@ export default function SquadsPage() {
               {player.profile_image_url ? (
                   <img src={player.profile_image_url} alt={player.in_game_name} className="w-full h-full object-cover" />
               ) : (
-                  <span className="text-slate-400 text-xs">{player.in_game_name?.substring(0, 2).toUpperCase()}</span>
+                  <span className="squad-card-muted text-slate-400 text-xs">{player.in_game_name?.substring(0, 2).toUpperCase()}</span>
               )}
            </div>
            <div className="text-center w-full">
               <div className="text-sm font-bold text-white truncate w-full px-1" title={player.in_game_name}>{player.in_game_name}</div>
-              <div className="text-xs text-slate-400 truncate w-full">{player.professional_teams?.tag || 'FA'}</div>
+              <div className="squad-card-muted text-xs text-slate-400 truncate w-full">{player.professional_teams?.tag || 'FA'}</div>
               <div className="mt-2 text-xs font-mono text-amber-400">${player.current_price || '0.0'}M</div>
            </div>
            
            <div className="absolute bottom-0 left-0 right-0 bg-slate-900/80 py-1 text-center border-t border-slate-700">
-               <span className="text-[10px] font-bold text-slate-300 uppercase tracking-wider">{roleLabel}</span>
+               <span className="squad-card-role text-[10px] font-bold text-slate-300 uppercase tracking-wider">{roleLabel}</span>
            </div>
         </div>
       </div>
@@ -128,7 +128,7 @@ export default function SquadsPage() {
 
          {/* Starters */}
          <div className="relative z-10">
-            <h3 className="text-center text-emerald-400/80 text-xs font-bold uppercase tracking-widest mb-6">Starting V</h3>
+            <h3 className="squad-section-label text-center text-emerald-400/80 text-xs font-bold uppercase tracking-widest mb-6">Starting V</h3>
             <div className="flex flex-wrap justify-center gap-6 md:gap-12 mb-8">
                {renderSlot('carry', 'Carry')}
                {renderSlot('mid', 'Mid')}
@@ -143,7 +143,7 @@ export default function SquadsPage() {
 
       {/* Bench */}
       <div className="bg-slate-800/40 border border-slate-700/50 rounded-2xl p-6">
-         <h3 className="text-slate-400 text-xs font-bold uppercase tracking-widest mb-6">Bench (Substitutes)</h3>
+         <h3 className="squad-section-label text-xs font-bold uppercase tracking-widest mb-6">Bench (Substitutes)</h3>
          <div className="flex flex-wrap justify-center md:justify-start gap-6">
             {renderSlot('bench_1', 'Bench 1', false)}
             {renderSlot('bench_2', 'Bench 2', false)}

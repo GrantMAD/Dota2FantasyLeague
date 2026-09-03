@@ -2,8 +2,10 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import { useTheme, type Theme } from '@/components/theme/ThemeProvider';
 
 export default function SettingsPage() {
+   const { theme, setTheme } = useTheme();
   const [activeTab, setActiveTab] = useState('profile');
   
   // Mock form state
@@ -119,6 +121,25 @@ export default function SettingsPage() {
                               <div className={`w-4 h-4 rounded-full bg-white absolute top-1 transition-all ${formData.emailNotifications ? 'left-7' : 'left-1'}`}></div>
                            </button>
                         </div>
+                     </div>
+                  </div>
+               )}
+
+               {activeTab === 'profile' && (
+                  <div className="mt-8 border-t border-slate-700 pt-6">
+                     <h2 className="text-xl font-bold text-white mb-2">Appearance</h2>
+                     <p className="text-sm text-slate-400 mb-4">Choose the Competitive Esports interface theme for your account.</p>
+                     <div className="grid grid-cols-2 gap-3">
+                        {(['light', 'dark'] as Theme[]).map((option) => (
+                           <button
+                              key={option}
+                              type="button"
+                              onClick={() => void setTheme(option)}
+                              className={`rounded-lg border px-4 py-3 text-left text-sm font-medium capitalize transition-colors ${theme === option ? 'border-amber-500 bg-amber-500/10 text-amber-500' : 'border-slate-700 bg-slate-900/40 text-slate-300 hover:border-slate-500'}`}
+                           >
+                              {option} mode
+                           </button>
+                        ))}
                      </div>
                   </div>
                )}

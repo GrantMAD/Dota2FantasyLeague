@@ -1,8 +1,36 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+:root,
+:root[data-theme='dark'] {
+  --background: #07111f;
+  --foreground: #f5f7fb;
+  --surface: #0d1b2e;
+  --surface-raised: #13243a;
+  --surface-muted: #192d46;
+  --border: #29415d;
+  --text-primary: #f5f7fb;
+  --text-secondary: #a9bad0;
+  --text-muted: #70849d;
+  --accent-primary: #f4b942;
+  --accent-secondary: #2dd4bf;
+  --success: #34d399;
+  --danger: #fb7185;
+}
+
+:root[data-theme='light'] {
+  --background: #eef3f8;
+  --foreground: #132238;
+  --surface: #ffffff;
+  --surface-raised: #f7fafc;
+  --surface-muted: #e3ebf3;
+  --border: #c4d1df;
+  --text-primary: #132238;
+  --text-secondary: #456078;
+  --text-muted: #6f8497;
+  --accent-primary: #c47c00;
+  --accent-secondary: #087f78;
+  --success: #087f5b;
+  --danger: #c2415b;
 }
 
 @theme inline {
@@ -12,15 +40,70 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-geist-sans), sans-serif;
+  transition: background-color 180ms ease, color 180ms ease;
+}
+
+[data-theme='light'] .bg-slate-950,
+[data-theme='light'] .bg-slate-900,
+[data-theme='light'] .bg-slate-800,
+[data-theme='light'] .bg-gray-900,
+[data-theme='light'] .bg-gray-800 {
+  background-color: var(--surface) !important;
+}
+
+[data-theme='light'] .bg-slate-800\/50,
+[data-theme='light'] .bg-slate-800\/40,
+[data-theme='light'] .bg-slate-800\/30,
+[data-theme='light'] .bg-gray-800\/50 {
+  background-color: var(--surface-raised) !important;
+}
+
+[data-theme='light'] .bg-slate-900\/50,
+[data-theme='light'] .bg-slate-900\/40,
+[data-theme='light'] .bg-slate-900\/30,
+[data-theme='light'] .bg-slate-900\/60 {
+  background-color: var(--surface-muted) !important;
+}
+
+[data-theme='light'] .text-white { color: var(--text-primary) !important; }
+[data-theme='light'] .text-slate-300,
+[data-theme='light'] .text-gray-300 { color: var(--text-secondary) !important; }
+[data-theme='light'] .text-slate-400,
+[data-theme='light'] .text-gray-400 { color: var(--text-muted) !important; }
+[data-theme='light'] .text-slate-500,
+[data-theme='light'] .text-gray-500 { color: var(--text-muted) !important; }
+[data-theme='light'] .dashboard-hero-title { color: #f5f7fb !important; }
+[data-theme='light'] .squad-section-label { color: #087f78 !important; }
+[data-theme='light'] .squad-card-muted { color: #456078 !important; }
+[data-theme='light'] .squad-card-role { color: #132238 !important; }
+[data-theme='light'] .squad-empty-slot-icon { color: #000000 !important; }
+[data-theme='light'] .lineup-chip-card.lineup-chip-purple { background-color: #f7f2ff !important; border-color: #b99adf !important; }
+[data-theme='light'] .lineup-chip-card.lineup-chip-emerald { background-color: #eefbf7 !important; border-color: #8dcdbd !important; }
+[data-theme='light'] .lineup-chip-purple .text-purple-400,
+[data-theme='light'] .lineup-chip-purple .text-purple-300 { color: #5b21b6 !important; }
+[data-theme='light'] .lineup-chip-emerald .text-emerald-400,
+[data-theme='light'] .lineup-chip-emerald .text-emerald-300 { color: #087f5b !important; }
+[data-theme='light'] .lineup-chip-description { color: #456078 !important; }
+[data-theme='light'] .wildcard-card { background-color: #fff8e8 !important; border-color: #d9a441 !important; }
+[data-theme='light'] .wildcard-card-title,
+[data-theme='light'] .wildcard-card-action { color: #8a5700 !important; }
+[data-theme='light'] .wildcard-card-description { color: #456078 !important; }
+[data-theme='light'] .border-slate-700,
+[data-theme='light'] .border-slate-600,
+[data-theme='light'] .border-gray-700,
+[data-theme='light'] .border-gray-800 { border-color: var(--border) !important; }
+
+.theme-toggle {
+  border-color: var(--border);
+  color: var(--text-secondary);
+  background: var(--surface-raised);
+}
+
+.theme-toggle:hover {
+  color: var(--accent-primary);
+  border-color: var(--accent-primary);
 }

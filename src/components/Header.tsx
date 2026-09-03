@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useState } from 'react';
+import { ThemeToggle } from './theme/ThemeToggle';
 
 export function Header() {
   const pathname = usePathname();
@@ -51,6 +52,7 @@ export function Header() {
 
           {/* User Menu (Desktop) */}
           <div className="hidden md:flex items-center gap-4">
+            <ThemeToggle />
             <Link
               href="/account"
               className="text-sm font-medium text-slate-400 hover:text-white transition-colors"
@@ -91,6 +93,7 @@ export function Header() {
               </Link>
             ))}
             <div className="border-t border-slate-700 pt-4 mt-4">
+              <div className="px-4 py-2"><ThemeToggle /></div>
               <Link
                 href="/account"
                 className="block px-4 py-2 text-slate-400 hover:text-white transition-colors"
