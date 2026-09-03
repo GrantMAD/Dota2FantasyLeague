@@ -2,9 +2,24 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
+
+type Profile = {
+  username: string;
+  display_name: string | null;
+  avatar_url: string | null;
+  country: string | null;
+  member_since?: string | null;
+  created_at: string;
+  fantasy_team?: {
+    name: string;
+    total_points: number;
+    global_rank: number | null;
+  } | null;
+};
 
 export default function ProfilePage() {
-  const [profile, setProfile] = useState<any>(null);
+  const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -13,10 +28,10 @@ export default function ProfilePage() {
       try {
         const res = await fetch('/api/user/profile');
         if (!res.ok) throw new Error('Failed to load profile');
-        const data = await res.json();
+        const data = (await res.json()) as { profile: Profile | null };
         setProfile(data.profile);
-      } catch (err: any) {
-        setError(err.message || 'Failed to load profile');
+      } catch (err: unknown) {
+        setError(err instanceof Error ? err.message : 'Failed to load profile');
       } finally {
         setLoading(false);
       }
@@ -44,7 +59,7 @@ export default function ProfilePage() {
           <div className="flex flex-col sm:flex-row sm:items-end gap-6 -mt-16 mb-6">
             <div className="w-32 h-32 rounded-full bg-slate-800 border-4 border-slate-900 shadow-lg overflow-hidden flex items-center justify-center shrink-0 z-10">
               {profile.avatar_url ? (
-                <img src={profile.avatar_url} alt={profile.username} className="w-full h-full object-cover" />
+                <Image src={profile.avatar_url} alt={profile.username} width={128} height={128} unoptimized className="w-full h-full object-cover" />
               ) : (
                 <span className="text-4xl text-slate-500 font-bold">{initials}</span>
               )}
