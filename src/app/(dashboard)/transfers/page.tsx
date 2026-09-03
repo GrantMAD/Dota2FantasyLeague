@@ -9,13 +9,33 @@ export default function TransfersPage() {
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [roleFilter, setRoleFilter] = useState('');
+   const [fantasySeasonId, setFantasySeasonId] = useState<number | null>(null);
+   const [budget, setBudget] = useState(0);
+   const [freeTransfers, setFreeTransfers] = useState(0);
+   const [wildcardUsed, setWildcardUsed] = useState(false);
+   const [ownedPlayerIds, setOwnedPlayerIds] = useState<number[]>([]);
+   const [selectedPlayerIn, setSelectedPlayerIn] = useState<number | null>(null);
+   const [selectedPlayerOut, setSelectedPlayerOut] = useState<number | null>(null);
+   const [actionMessage, setActionMessage] = useState<string | null>(null);
+   const [actionLoading, setActionLoading] = useState(false);
   
   useEffect(() => {
     async function fetchPlayers() {
       try {
-        const res = await fetch('/api/players?limit=100');
-        const data = await res.json();
-        setPlayers(data.players || []);
+            const [playersRes, contextRes] = await Promise.all([
+               fetch('/api/players?limit=100'),
+               fetch('/api/fantasy/transfer-context'),
+            ]);
+            const data = await playersRes.json();
+            const context = await contextRes.json();
+            if (!playersRes.ok) throw new Error(data.error || 'Failed to load players');
+            if (!contextRes.ok) throw new Error(context.error || 'Failed to load transfer context');
+            setPlayers(data.data || []);
+            setFantasySeasonId(context.fantasySeasonId);
+            setBudget(context.budget || 0);
+            setFreeTransfers(context.freeTransfers || 0);
+            setWildcardUsed(context.wildcardUsed || false);
+            setOwnedPlayerIds(context.ownedPlayerIds || []);
       } catch (err: any) {
         setError(err.message || 'Failed to load players');
       } finally {
@@ -26,10 +46,69 @@ export default function TransfersPage() {
   }, []);
 
   const filteredPlayers = players.filter((p) => {
-    if (search && !p.in_game_name.toLowerCase().includes(search.toLowerCase())) return false;
+   if (search && !(p.in_game_name || p.name || '').toLowerCase().includes(search.toLowerCase())) return false;
     if (roleFilter && p.primary_role !== roleFilter) return false;
     return true;
   });
+
+   const handlePlayerAction = (playerId: number) => {
+      if (ownedPlayerIds.includes(playerId)) {
+         setSelectedPlayerOut(selectedPlayerOut === playerId ? null : playerId);
+      } else {
+         setSelectedPlayerIn(selectedPlayerIn === playerId ? null : playerId);
+      }
+   };
+
+   const submitTransfer = async () => {
+      if (!fantasySeasonId || selectedPlayerIn === null || selectedPlayerOut === null) {
+         setActionMessage('Select one player to buy and one player to sell.');
+         return;
+      }
+      setActionLoading(true);
+      try {
+         const response = await fetch('/api/fantasy/transfer', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ fantasySeasonId, transfersIn: [selectedPlayerIn], transfersOut: [selectedPlayerOut] }),
+         });
+         const data = await response.json();
+         if (!response.ok) throw new Error(data.error || 'Transfer failed');
+         setBudget(Number(data.budget ?? budget));
+         setFreeTransfers(Number(data.free_transfers_remaining ?? freeTransfers));
+         setOwnedPlayerIds((current) => [...current.filter((id) => id !== selectedPlayerOut), selectedPlayerIn]);
+         setSelectedPlayerIn(null);
+         setSelectedPlayerOut(null);
+         setActionMessage(data.message || 'Transfer completed.');
+      } catch (err) {
+         setActionMessage(err instanceof Error ? err.message : 'Transfer failed');
+      } finally {
+         setActionLoading(false);
+      }
+   };
+
+   const activateWildcard = async () => {
+      if (!fantasySeasonId) {
+         setActionMessage('Create a fantasy team before using the wildcard.');
+         return;
+      }
+      setActionLoading(true);
+      try {
+         const response = await fetch('/api/fantasy/wildcard', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ fantasySeasonId }),
+         });
+         const data = await response.json();
+         if (!response.ok) throw new Error(data.error || 'Wildcard activation failed');
+         setWildcardUsed(true);
+         setFreeTransfers(99);
+         setActionMessage(data.message || 'Wildcard activated.');
+      } catch (err) {
+         setActionMessage(err instanceof Error ? err.message : 'Wildcard activation failed');
+      } finally {
+         setActionLoading(false);
+      }
+   };
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-8">
@@ -41,12 +120,12 @@ export default function TransfersPage() {
         <div className="bg-slate-800 border border-slate-700 rounded-lg px-4 py-2 flex items-center gap-4">
            <div className="text-center">
               <div className="text-xs text-slate-400 uppercase">Bank</div>
-              <div className="text-lg font-mono font-bold text-emerald-400">$2.4M</div>
+              <div className="text-lg font-mono font-bold text-emerald-400">${(budget / 1000000).toFixed(1)}M</div>
            </div>
            <div className="w-px h-8 bg-slate-700"></div>
            <div className="text-center">
               <div className="text-xs text-slate-400 uppercase">Free Transfers</div>
-              <div className="text-lg font-bold text-white">1</div>
+              <div className="text-lg font-bold text-white">{freeTransfers}</div>
            </div>
         </div>
       </div>
@@ -77,11 +156,11 @@ export default function TransfersPage() {
                       className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-amber-500"
                     >
                        <option value="">All Roles</option>
-                       <option value="carry">Carry</option>
-                       <option value="mid">Mid</option>
-                       <option value="offlane">Offlane</option>
-                       <option value="support">Support</option>
-                       <option value="hard_support">Hard Support</option>
+                       <option value="Carry">Carry</option>
+                       <option value="Mid">Mid</option>
+                       <option value="Offlane">Offlane</option>
+                       <option value="Support">Support</option>
+                       <option value="Hard Support">Hard Support</option>
                     </select>
                  </div>
               </div>
@@ -89,11 +168,23 @@ export default function TransfersPage() {
            
            <div className="wildcard-card bg-amber-900/20 border border-amber-700/50 rounded-xl p-5">
               <h3 className="wildcard-card-title font-semibold text-amber-500 mb-2 text-sm">Wildcard Available</h3>
-              <p className="wildcard-card-description text-xs text-amber-200/70 mb-3">You have 1 wildcard remaining. Play it to make unlimited transfers this week with no point deductions.</p>
-              <button className="wildcard-card-action w-full bg-amber-600/20 hover:bg-amber-600/30 border border-amber-600/50 text-amber-500 text-xs font-bold py-2 rounded-lg transition-colors">
-                 Play Wildcard
+              <p className="wildcard-card-description text-xs text-amber-200/70 mb-3">{wildcardUsed ? 'Wildcard already used this season.' : 'Play it to make unlimited transfers this week with no point deductions.'}</p>
+              <button disabled={wildcardUsed || actionLoading} onClick={activateWildcard} className="wildcard-card-action w-full bg-amber-600/20 hover:bg-amber-600/30 border border-amber-600/50 text-amber-500 text-xs font-bold py-2 rounded-lg transition-colors disabled:opacity-50">
+                 {wildcardUsed ? 'Wildcard Used' : 'Play Wildcard'}
               </button>
            </div>
+                {(selectedPlayerIn !== null || selectedPlayerOut !== null || actionMessage) && (
+                   <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-5">
+                      <p className="text-sm text-slate-300 mb-3">
+                         {selectedPlayerIn ? 'Player selected to buy.' : 'Select a player to buy.'}{' '}
+                         {selectedPlayerOut ? 'Player selected to sell.' : 'Select an owned player to sell.'}
+                      </p>
+                      {actionMessage && <p className="text-xs text-amber-400 mb-3">{actionMessage}</p>}
+                      <button disabled={actionLoading || selectedPlayerIn === null || selectedPlayerOut === null} onClick={submitTransfer} className="w-full bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold py-2 rounded-lg disabled:opacity-50">
+                         {actionLoading ? 'Processing...' : 'Confirm Transfer'}
+                      </button>
+                   </div>
+                )}
         </div>
 
         {/* Players List */}
@@ -133,15 +224,15 @@ export default function TransfersPage() {
                                   <Link href={`/players/${player.id}`} className="flex items-center gap-3">
                                      <div className="w-10 h-10 rounded-full bg-slate-700 border border-slate-600 overflow-hidden shrink-0">
                                         {player.profile_image_url ? (
-                                           <img src={player.profile_image_url} alt={player.in_game_name} className="w-full h-full object-cover" />
+                                           <img src={player.profile_image_url} alt={player.in_game_name || player.name} className="w-full h-full object-cover" />
                                         ) : (
                                            <div className="w-full h-full flex items-center justify-center text-xs text-slate-400">
-                                              {player.in_game_name?.substring(0,2).toUpperCase()}
+                                              {(player.in_game_name || player.name || '').substring(0,2).toUpperCase()}
                                            </div>
                                         )}
                                      </div>
                                      <div>
-                                        <div className="font-bold text-white group-hover:text-amber-400 transition-colors">{player.in_game_name}</div>
+                                        <div className="font-bold text-white group-hover:text-amber-400 transition-colors">{player.in_game_name || player.name}</div>
                                         <div className="text-xs text-slate-400">{player.professional_teams?.name || 'Free Agent'}</div>
                                      </div>
                                   </Link>
@@ -155,13 +246,13 @@ export default function TransfersPage() {
                                   <div className="font-mono font-bold text-amber-400">${player.current_price}M</div>
                                </td>
                                <td className="px-4 py-3 text-right">
-                                  <div className="text-sm text-white">6.2</div>
+                                  <div className="text-sm text-white">{player.recent_points ?? '-'}</div>
                                </td>
                                <td className="px-4 py-3 text-right">
-                                  <div className="text-sm font-bold text-white">48</div>
+                                  <div className="text-sm font-bold text-white">{player.gameweek_points ?? '-'}</div>
                                </td>
                                <td className="px-4 py-3 text-center">
-                                  <button className="bg-slate-700 hover:bg-emerald-600 text-white p-1.5 rounded-md transition-colors" title="Add to Squad">
+                                  <button onClick={() => handlePlayerAction(player.id)} className={`p-1.5 rounded-md transition-colors ${ownedPlayerIds.includes(player.id) ? selectedPlayerOut === player.id ? 'bg-red-600 text-white' : 'bg-slate-600 text-white' : selectedPlayerIn === player.id ? 'bg-amber-500 text-slate-900' : 'bg-slate-700 hover:bg-emerald-600 text-white'}`} title={ownedPlayerIds.includes(player.id) ? 'Select to sell' : 'Select to buy'}>
                                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4"></path></svg>
                                   </button>
                                </td>

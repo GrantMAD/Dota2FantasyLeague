@@ -1,16 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
-import { calculateLeagueStandings, generateHeadToHeadFixtures, simulateHeadToHead } from '@/lib/fantasy-gameplay';
-
-const classicEntries = [
-  { manager: 'Alpha', points: 1280, wins: 7, losses: 2, form: ['W', 'W', 'L', 'W'] },
-  { manager: 'Bravo', points: 1225, wins: 6, losses: 3, form: ['W', 'L', 'W', 'W'] },
-  { manager: 'Charlie', points: 1190, wins: 6, losses: 4, form: ['L', 'W', 'W', 'L'] },
-  { manager: 'Delta', points: 1138, wins: 5, losses: 5, form: ['W', 'L', 'L', 'W'] },
-];
-
-const h2hParticipants = ['Alpha', 'Bravo', 'Charlie', 'Delta'];
+import { useEffect, useState } from 'react';
 
 type LeagueRecord = {
   id: number;
@@ -21,11 +11,14 @@ type LeagueRecord = {
   maxParticipants: number;
   currentParticipants: number;
   inviteCode: string;
+  standings?: Array<{ manager: string; points: number; rank: number | null; wins: number; losses: number; draws: number; form: string[] }>;
+  fixtures?: Array<{ id: number; gameweekId: number; home: string; away: string; homePoints: number; awayPoints: number; winnerId: number | null; isBye: boolean }>;
 };
 
 export default function LeaguesPage() {
   const [tab, setTab] = useState<'classic' | 'h2h'>('classic');
   const [leagues, setLeagues] = useState<LeagueRecord[]>([]);
+  const [loading, setLoading] = useState(true);
   const [joinCode, setJoinCode] = useState('');
   const [form, setForm] = useState({
     name: '',
@@ -39,11 +32,13 @@ export default function LeaguesPage() {
     void fetch('/api/leagues')
       .then((response) => response.json())
       .then((payload) => setLeagues(payload.data || []))
-      .catch(() => setLeagues([]));
+      .catch(() => setLeagues([]))
+      .finally(() => setLoading(false));
   }, []);
 
-  const standings = useMemo(() => calculateLeagueStandings(classicEntries), []);
-  const fixtures = useMemo(() => generateHeadToHeadFixtures(h2hParticipants), []);
+  const visibleLeagues = leagues.filter((league) => league.type === tab);
+  const standings = visibleLeagues.flatMap((league) => league.standings ?? []).sort((a, b) => (a.rank ?? 999) - (b.rank ?? 999));
+  const fixtures = visibleLeagues.flatMap((league) => league.fixtures ?? []);
 
   const onCreateLeague = async () => {
     const response = await fetch('/api/leagues', {
@@ -114,7 +109,7 @@ export default function LeaguesPage() {
               <div className="rounded-lg border border-slate-700 bg-slate-800/50 p-6">
                 <h2 className="mb-4 text-xl font-semibold text-white">Standings</h2>
                 <div className="space-y-3">
-                  {standings.map((entry) => (
+                  {loading ? <p className="text-slate-400">Loading standings...</p> : standings.length === 0 ? <p className="text-slate-400">No classic league standings available yet.</p> : standings.map((entry) => (
                     <div key={entry.manager} className="flex items-center justify-between rounded border border-slate-700 bg-slate-900/40 p-3">
                       <div className="flex items-center gap-4">
                         <span className="flex h-8 w-8 items-center justify-center rounded-full bg-amber-500/20 font-bold text-amber-400">
@@ -122,7 +117,7 @@ export default function LeaguesPage() {
                         </span>
                         <div>
                           <p className="font-semibold text-white">{entry.manager}</p>
-                          <p className="text-xs text-slate-400">Form: {entry.form}</p>
+                          <p className="text-xs text-slate-400">{entry.wins}W {entry.losses}L {entry.draws}D</p>
                         </div>
                       </div>
 
@@ -142,22 +137,19 @@ export default function LeaguesPage() {
               <div className="rounded-lg border border-slate-700 bg-slate-800/50 p-6">
                 <h2 className="mb-4 text-xl font-semibold text-white">Fixtures</h2>
                 <div className="space-y-3">
-                  {fixtures.map((fixture, index) => {
-                    const matchup = simulateHeadToHead(fixture.home, fixture.away, 80 + (index % 3) * 7, 72 + (index % 2) * 6);
-                    return (
-                      <div key={`${fixture.home}-${fixture.away}-${index}`} className="rounded border border-slate-700 bg-slate-900/40 p-3">
+                  {loading ? <p className="text-slate-400">Loading fixtures...</p> : fixtures.length === 0 ? <p className="text-slate-400">No Head-to-Head fixtures available yet.</p> : fixtures.map((fixture) => (
+                      <div key={fixture.id} className="rounded border border-slate-700 bg-slate-900/40 p-3">
                         <div className="flex items-center justify-between text-sm text-slate-300">
                           <span>{fixture.home}</span>
                           <span className="text-amber-400">vs</span>
                           <span>{fixture.away}</span>
                         </div>
                         <div className="mt-2 flex items-center justify-between text-xs text-slate-400">
-                          <span>{fixture.score}</span>
-                          <span>{matchup.winner}</span>
+                          <span>GW {fixture.gameweekId}: {fixture.homePoints} - {fixture.awayPoints}</span>
+                          <span>{fixture.isBye ? 'Bye' : fixture.winnerId ? 'Complete' : 'Pending'}</span>
                         </div>
                       </div>
-                    );
-                  })}
+                  ))}
                 </div>
               </div>
             </div>

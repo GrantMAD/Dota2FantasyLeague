@@ -14,6 +14,10 @@ export default function LineupsPage() {
   const [error, setError] = useState<string | null>(null);
 
   const [fantasySeasonId, setFantasySeasonId] = useState<number | null>(null);
+  const [gameweekId, setGameweekId] = useState<number | null>(null);
+  const [lineup, setLineup] = useState<any[]>([]);
+  const [ownedPlayers, setOwnedPlayers] = useState<any[]>([]);
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     async function fetchChipStatuses() {
@@ -25,6 +29,23 @@ export default function LineupsPage() {
         setFantasySeasonId(currentFantasySeasonId);
 
         if (!currentFantasySeasonId) return;
+
+        const gameweekResponse = await fetch('/api/gameweeks?status=active');
+        const gameweekData = await gameweekResponse.json();
+        const activeGameweek = gameweekData.gameweeks?.[0];
+        if (!activeGameweek) return;
+        setGameweekId(activeGameweek.id);
+
+        const [lineupResponse, playersResponse, contextResponse] = await Promise.all([
+          fetch(`/api/fantasy/lineup?gameweekId=${activeGameweek.id}&fantasySeasonId=${currentFantasySeasonId}`),
+          fetch('/api/players?limit=100'),
+          fetch('/api/fantasy/transfer-context'),
+        ]);
+        const lineupData = await lineupResponse.json();
+        const playersData = await playersResponse.json();
+        const contextData = await contextResponse.json();
+        setLineup(lineupData.lineup || []);
+        setOwnedPlayers((playersData.data || []).filter((player: any) => (contextData.ownedPlayerIds || []).includes(player.id)));
 
         const [tcRes, bbRes] = await Promise.all([
           fetch(`/api/fantasy/triple-captain/status?fantasy_season_id=${currentFantasySeasonId}`),
@@ -40,6 +61,45 @@ export default function LineupsPage() {
     }
     fetchChipStatuses();
   }, []);
+
+  const updateSlot = (slot: string, playerId: number) => {
+    const player = ownedPlayers.find((entry) => entry.id === playerId);
+    setLineup((current) => [
+      ...current.filter((entry) => entry.slot !== slot),
+      { slot, player_id: playerId, is_starter: !slot.startsWith('bench'), is_captain: false, is_vice_captain: false, professional_players: player },
+    ]);
+  };
+
+  const setCaptain = (playerId: number, vice = false) => {
+    setLineup((current) => current.map((entry) => ({
+      ...entry,
+      is_captain: !vice && entry.player_id === playerId,
+      is_vice_captain: vice && entry.player_id === playerId,
+    })));
+  };
+
+  const saveLineup = async () => {
+    if (!gameweekId || lineup.length !== 8) {
+      setError('Fill every lineup slot before saving.');
+      return;
+    }
+    setSaving(true);
+    setError(null);
+    try {
+      const response = await fetch('/api/fantasy/lineup', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ gameweekId, lineup: lineup.map((entry) => ({ playerId: entry.player_id, slot: entry.slot, isCaptain: entry.is_captain, isViceCaptain: entry.is_vice_captain })) }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Failed to save lineup');
+      setMessage(data.message || 'Lineup saved successfully.');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to save lineup');
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const openModal = (chip: ChipType) => {
     setMessage(null);
@@ -101,10 +161,35 @@ export default function LineupsPage() {
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
         {/* Main content */}
         <div className="lg:col-span-3">
-          <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-8 text-center h-full flex flex-col justify-center">
-            <div className="text-5xl mb-4">📋</div>
-            <h3 className="text-xl font-semibold text-white mb-2">No Active Lineups</h3>
-            <p className="text-slate-400">Create a squad first to set your lineups</p>
+          <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-6">
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h2 className="text-xl font-semibold text-white">Gameweek Lineup</h2>
+                <p className="text-sm text-slate-400">Active gameweek {gameweekId ?? 'not available'}</p>
+              </div>
+              <button type="button" onClick={saveLineup} disabled={saving || lineup.length !== 8} className="rounded-lg bg-amber-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">
+                {saving ? 'Saving...' : 'Save Lineup'}
+              </button>
+            </div>
+            {ownedPlayers.length === 0 ? (
+              <div className="py-16 text-center text-slate-400">Create a squad and add eight players before setting a lineup.</div>
+            ) : (
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                {['carry', 'mid', 'offlane', 'support', 'hard_support', 'bench_1', 'bench_2', 'bench_3'].map((slot) => {
+                  const selected = lineup.find((entry) => entry.slot === slot);
+                  return (
+                    <div key={slot} className="rounded-lg border border-slate-700 bg-slate-900/40 p-4">
+                      <label className="mb-2 block text-xs font-bold uppercase tracking-wider text-slate-400">{slot.replace('_', ' ')}</label>
+                      <select value={selected?.player_id ?? ''} onChange={(event) => updateSlot(slot, Number(event.target.value))} className="w-full rounded border border-slate-600 bg-slate-800 px-3 py-2 text-sm text-white">
+                        <option value="">Select player</option>
+                        {ownedPlayers.map((player) => <option key={player.id} value={player.id}>{player.in_game_name || player.name} · {player.primary_role}</option>)}
+                      </select>
+                      {selected && !slot.startsWith('bench') && <div className="mt-3 flex gap-2"><button type="button" onClick={() => setCaptain(selected.player_id, false)} className={`rounded px-2 py-1 text-xs ${selected.is_captain ? 'bg-amber-500 text-slate-900' : 'bg-slate-700 text-slate-300'}`}>Captain</button><button type="button" onClick={() => setCaptain(selected.player_id, true)} className={`rounded px-2 py-1 text-xs ${selected.is_vice_captain ? 'bg-slate-200 text-slate-900' : 'bg-slate-700 text-slate-300'}`}>Vice</button></div>}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </div>
 

@@ -27,10 +27,10 @@ export default function DashboardPage() {
         setStats([
           {
             icon: '👥',
-            label: 'Active Squad',
-            value: data.gameweek && data.captain ? '1' : '0',
-            trend: data.captain ? 'Ready' : 'Needs setup',
-            trendColor: data.captain ? 'text-green-500' : 'text-amber-500',
+            label: 'Active Squads',
+            value: data.activeSquadCount || 0,
+            trend: data.activeSquadCount > 0 ? 'Ready' : 'Create one',
+            trendColor: data.activeSquadCount > 0 ? 'text-green-500' : 'text-amber-500',
           },
           {
             icon: '🏆',
@@ -49,7 +49,7 @@ export default function DashboardPage() {
           {
             icon: '⚡',
             label: 'Free Transfers',
-            value: '1',
+            value: data.freeTransfers || 0,
             trend: 'Ready to use',
             trendColor: 'text-amber-500',
           },
@@ -164,9 +164,10 @@ export default function DashboardPage() {
             </div>
 
             {/* Empty Squads Section */}
+            {!dashboardData?.activeSquadCount && (
             <div className="bg-slate-800/30 border border-slate-700 rounded-lg p-8 text-center">
               <div className="text-5xl mb-4">⚽</div>
-              <h3 className="text-xl font-semibold text-white mb-2">No Active Squad</h3>
+              <h3 className="text-xl font-semibold text-white mb-2">No Active Squads</h3>
               <p className="text-slate-400 mb-6">
                 Create or select a squad to get started with your fantasy league
               </p>
@@ -177,6 +178,7 @@ export default function DashboardPage() {
                 Create Squad
               </Link>
             </div>
+            )}
           </div>
 
           {/* Sidebar */}

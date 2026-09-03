@@ -106,9 +106,9 @@ export default function SquadsPage() {
            <Link href="/transfers" className="bg-slate-800 hover:bg-slate-700 border border-slate-600 text-white px-4 py-2 rounded-lg font-medium transition-colors text-sm">
              Make Transfers
            </Link>
-           <button className="bg-linear-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 text-white px-4 py-2 rounded-lg font-semibold transition-colors shadow-lg shadow-orange-500/20 text-sm">
-             Save Lineup
-           </button>
+           <Link href="/lineups" className="bg-linear-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 text-white px-4 py-2 rounded-lg font-semibold transition-colors shadow-lg shadow-orange-500/20 text-sm">
+             Edit Lineup
+           </Link>
         </div>
       </div>
 

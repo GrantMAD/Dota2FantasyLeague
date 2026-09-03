@@ -20,6 +20,8 @@ export async function GET(request: NextRequest) {
           gameweek: null,
           totalPoints: 0,
           globalRank: null,
+          freeTransfers: 0,
+          activeSquadCount: 0,
           captain: null,
           viceCaptain: null,
           leagueStandings: []
@@ -35,6 +37,22 @@ export async function GET(request: NextRequest) {
       .limit(1);
 
     const gameweek = gameweeks && gameweeks.length > 0 ? gameweeks[0] : null;
+    
+    // Get free transfers count
+    const { data: transferData } = await supabase
+      .from('fantasy_squads')
+      .select('free_transfers')
+      .eq('fantasy_season_id', fantasySeason.id)
+      .maybeSingle();
+
+    const freeTransfers = transferData?.free_transfers || 0;
+    
+    // Get active squad count
+    const { count: activeSquadCount } = await supabase
+      .from('fantasy_squads')
+      .select('*', { count: 'exact' })
+      .eq('fantasy_season_id', fantasySeason.id);
+
     let captain = null;
     let viceCaptain = null;
 
@@ -74,6 +92,8 @@ export async function GET(request: NextRequest) {
       gameweek,
       totalPoints: fantasySeason.total_points || 0,
       globalRank: fantasySeason.global_rank,
+      freeTransfers,
+      activeSquadCount: activeSquadCount || 0,
       captain,
       viceCaptain,
       leagueStandings: leagues || []
