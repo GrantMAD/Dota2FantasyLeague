@@ -11,8 +11,8 @@
   --text-primary: #f5f7fb;
   --text-secondary: #a9bad0;
   --text-muted: #70849d;
-  --accent-primary: #f4b942;
-  --accent-secondary: #2dd4bf;
+  --accent-primary: #14b8a6;
+  --accent-secondary: #22d3ee;
   --success: #34d399;
   --danger: #fb7185;
 }
@@ -27,8 +27,8 @@
   --text-primary: #132238;
   --text-secondary: #456078;
   --text-muted: #6f8497;
-  --accent-primary: #c47c00;
-  --accent-secondary: #087f78;
+  --accent-primary: #0f766e;
+  --accent-secondary: #0e7490;
   --success: #087f5b;
   --danger: #c2415b;
 }
@@ -47,6 +47,30 @@ body {
   transition: background-color 180ms ease, color 180ms ease;
 }
 
+/* Reuse the existing utility classes with the app's teal-cyan accent palette. */
+.from-amber-500 {
+  --tw-gradient-from: #14b8a6 !important;
+  --tw-gradient-to: rgb(20 184 166 / 0) !important;
+  --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to) !important;
+}
+
+.to-orange-600 {
+  --tw-gradient-to: #0891b2 !important;
+}
+
+.bg-amber-500 { background-color: #14b8a6 !important; }
+.bg-amber-600 { background-color: #0d9488 !important; }
+.text-amber-500 { color: #14b8a6 !important; }
+.text-amber-400 { color: #2dd4bf !important; }
+.border-amber-500 { border-color: #14b8a6 !important; }
+.border-amber-500\/50 { border-color: rgb(20 184 166 / 0.5) !important; }
+.border-amber-500\/30 { border-color: rgb(20 184 166 / 0.3) !important; }
+.bg-amber-500\/20 { background-color: rgb(20 184 166 / 0.2) !important; }
+.bg-amber-500\/10 { background-color: rgb(20 184 166 / 0.1) !important; }
+.hover\:bg-amber-500:hover { background-color: #14b8a6 !important; }
+.hover\:text-amber-500:hover { color: #14b8a6 !important; }
+.focus\:border-amber-500:focus { border-color: #14b8a6 !important; }
+
 [data-theme='light'] .bg-slate-950,
 [data-theme='light'] .bg-slate-900,
 [data-theme='light'] .bg-slate-800,
@@ -60,6 +84,15 @@ body {
 [data-theme='light'] .bg-slate-800\/30,
 [data-theme='light'] .bg-gray-800\/50 {
   background-color: var(--surface-raised) !important;
+}
+
+[data-theme='light'] .profile-card {
+  background-image: none !important;
+  background-color: #e4edf4 !important;
+}
+
+[data-theme='light'] .profile-card .bg-slate-800\/50 {
+  background-color: #d5e2ec !important;
 }
 
 [data-theme='light'] .bg-slate-900\/50,

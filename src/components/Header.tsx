@@ -54,6 +54,14 @@ export function Header() {
           <div className="hidden md:flex items-center gap-4">
             <ThemeToggle />
             <Link
+              href="/profile"
+              className={`text-sm font-medium transition-colors ${
+                isActive('/profile') ? 'text-amber-500' : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              Profile
+            </Link>
+            <Link
               href="/account"
               className="text-sm font-medium text-slate-400 hover:text-white transition-colors"
             >
@@ -94,6 +102,17 @@ export function Header() {
             ))}
             <div className="border-t border-slate-700 pt-4 mt-4">
               <div className="px-4 py-2"><ThemeToggle /></div>
+              <Link
+                href="/profile"
+                className={`block px-4 py-2 transition-colors ${
+                  isActive('/profile')
+                    ? 'text-amber-500'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+                onClick={() => setMobileMenuOpen(false)}
+              >
+                Profile
+              </Link>
               <Link
                 href="/account"
                 className="block px-4 py-2 text-slate-400 hover:text-white transition-colors"
