@@ -8,7 +8,8 @@ export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState('profile');
   const [formData, setFormData] = useState({
     displayName: '',
-    country: '',
+    countryCode: '',
+    timezone: 'UTC',
     emailNotifications: true,
     pushNotifications: true,
   });
@@ -25,7 +26,8 @@ export default function SettingsPage() {
         if (!profile) return;
         setFormData({
           displayName: profile.display_name || profile.username || '',
-          country: profile.country || 'US',
+          countryCode: profile.country_code || 'US',
+          timezone: profile.timezone || 'UTC',
           emailNotifications: true,
           pushNotifications: true,
         });
@@ -47,7 +49,8 @@ export default function SettingsPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           display_name: formData.displayName,
-          country: formData.country,
+          country_code: formData.countryCode,
+          timezone: formData.timezone,
         }),
       });
 
@@ -114,8 +117,8 @@ export default function SettingsPage() {
                   <div>
                     <label className="block text-sm font-medium text-slate-300 mb-2">Country / Region</label>
                     <select 
-                      value={formData.country}
-                      onChange={(e) => setFormData({ ...formData, country: e.target.value })}
+                      value={formData.countryCode}
+                      onChange={(e) => setFormData({ ...formData, countryCode: e.target.value })}
                       className="w-full bg-slate-900 border border-slate-600 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:border-amber-500 transition-colors"
                     >
                       <option value="US">United States</option>
@@ -124,6 +127,24 @@ export default function SettingsPage() {
                       <option value="RU">Russia</option>
                       <option value="PH">Philippines</option>
                       <option value="PE">Peru</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-slate-300 mb-2">Timezone</label>
+                    <select
+                      value={formData.timezone}
+                      onChange={(e) => setFormData({ ...formData, timezone: e.target.value })}
+                      className="w-full bg-slate-900 border border-slate-600 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:border-amber-500 transition-colors"
+                    >
+                      <option value="UTC">UTC</option>
+                      <option value="America/New_York">Eastern Time</option>
+                      <option value="America/Chicago">Central Time</option>
+                      <option value="America/Los_Angeles">Pacific Time</option>
+                      <option value="Europe/London">London</option>
+                      <option value="Europe/Berlin">Central Europe</option>
+                      <option value="Asia/Manila">Manila</option>
+                      <option value="Asia/Singapore">Singapore</option>
                     </select>
                   </div>
 

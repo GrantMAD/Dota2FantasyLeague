@@ -3,8 +3,17 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 
+interface Notification {
+  id: number;
+  type: string;
+  title: string;
+  message: string;
+  is_read: boolean;
+  created_at: string;
+}
+
 export default function NotificationsPage() {
-  const [notifications, setNotifications] = useState<any[]>([]);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -12,10 +21,11 @@ export default function NotificationsPage() {
     async function fetchNotifications() {
       try {
         const res = await fetch('/api/notifications');
-        const data = await res.json();
+        const data = (await res.json()) as { notifications?: Notification[]; error?: string };
+        if (!res.ok) throw new Error(data.error || 'Failed to load notifications');
         setNotifications(data.notifications || []);
-      } catch (err: any) {
-        setError(err.message || 'Failed to load notifications');
+      } catch (err: unknown) {
+        setError(err instanceof Error ? err.message : 'Failed to load notifications');
       } finally {
         setLoading(false);
       }
@@ -27,10 +37,20 @@ export default function NotificationsPage() {
     try {
       const res = await fetch(`/api/notifications/${id}/read`, { method: 'PUT' });
       if (res.ok) {
-        setNotifications(notifications.map(n => n.id === id ? { ...n, is_read: true } : n));
+        setNotifications((current) => current.map((notification) => notification.id === id ? { ...notification, is_read: true } : notification));
       }
-    } catch (e) {
-      console.error('Failed to mark read', e);
+    } catch (error) {
+      console.error('Failed to mark read', error);
+    }
+  };
+
+  const handleMarkAllAsRead = async () => {
+    try {
+      const response = await fetch('/api/notifications', { method: 'PUT' });
+      if (!response.ok) throw new Error('Failed to mark notifications as read');
+      setNotifications((current) => current.map((notification) => ({ ...notification, is_read: true })));
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : 'Failed to mark notifications as read');
     }
   };
 
@@ -93,7 +113,7 @@ export default function NotificationsPage() {
         </div>
         
         {notifications.some(n => !n.is_read) && (
-           <button className="text-sm font-medium text-amber-500 hover:text-amber-400 transition-colors bg-amber-500/10 hover:bg-amber-500/20 px-4 py-2 rounded-lg border border-amber-500/20">
+           <button onClick={handleMarkAllAsRead} className="text-sm font-medium text-amber-500 hover:text-amber-400 transition-colors bg-amber-500/10 hover:bg-amber-500/20 px-4 py-2 rounded-lg border border-amber-500/20">
               Mark all as read
            </button>
         )}
@@ -115,8 +135,8 @@ export default function NotificationsPage() {
              <div className="w-16 h-16 bg-slate-800 rounded-full flex items-center justify-center mx-auto mb-4 border border-slate-700">
                 <svg className="w-8 h-8 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path></svg>
              </div>
-             <h3 className="text-lg font-medium text-white mb-1">You're all caught up!</h3>
-             <p className="text-slate-400">You don't have any notifications right now.</p>
+             <h3 className="text-lg font-medium text-white mb-1">You&apos;re all caught up!</h3>
+             <p className="text-slate-400">You don&apos;t have any notifications right now.</p>
           </div>
         ) : (
           notifications.map((notif) => (

@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useState, use } from 'react';
+import Image from 'next/image';
 import Link from 'next/link';
 
 interface Match {
@@ -27,6 +28,20 @@ interface TournamentDetail {
   matches?: Match[];
 }
 
+interface TournamentApiResponse {
+  tournament?: Omit<TournamentDetail, 'matches'>;
+  matches?: Array<{
+    id: number;
+    status: Match['status'];
+    scheduled_at: string;
+    winner_team_id: number | null;
+    radiant_team_id: number;
+    dire_team_id: number;
+    radiant_team?: { name?: string; logo_url?: string | null } | null;
+    dire_team?: { name?: string; logo_url?: string | null } | null;
+  }>;
+}
+
 export default function TournamentDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const resolvedParams = use(params);
   const tournamentId = resolvedParams.id;
@@ -39,8 +54,25 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
       try {
         const response = await fetch(`/api/tournaments/${tournamentId}`);
         if (response.ok) {
-          const data = await response.json();
-          setTournament(data.data || data);
+          const data = (await response.json()) as TournamentApiResponse;
+          const tournamentData = data.tournament;
+          if (!tournamentData) return;
+
+          setTournament({
+            ...tournamentData,
+            matches: (data.matches ?? []).map((match) => ({
+              id: match.id,
+              status: match.status,
+              scheduled_time: match.scheduled_at,
+              winner_team_id: match.winner_team_id,
+              team_a_id: match.radiant_team_id,
+              team_b_id: match.dire_team_id,
+              team_a_name: match.radiant_team?.name ?? 'TBD',
+              team_a_logo: match.radiant_team?.logo_url ?? null,
+              team_b_name: match.dire_team?.name ?? 'TBD',
+              team_b_logo: match.dire_team?.logo_url ?? null,
+            })),
+          });
         }
       } catch (error) {
         console.error('Error fetching tournament details', error);
@@ -141,7 +173,7 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
               <div className="flex items-center justify-center w-full md:w-2/4 gap-4">
                 <div className={`flex flex-col items-center w-32 text-center ${match.winner_team_id && match.winner_team_id === match.team_a_id ? 'font-bold text-white' : 'text-slate-300'}`}>
                   <div className="w-10 h-10 bg-slate-700 rounded-full flex items-center justify-center mb-2 overflow-hidden">
-                    {match.team_a_logo ? <img src={match.team_a_logo} alt={match.team_a_name} className="w-full h-full object-contain" /> : <span className="text-xs">LOGO</span>}
+                    {match.team_a_logo ? <Image src={match.team_a_logo} alt={match.team_a_name} width={40} height={40} unoptimized className="w-full h-full object-contain" /> : <span className="text-xs">LOGO</span>}
                   </div>
                   <span className="text-sm truncate w-full">{match.team_a_name || 'TBD'}</span>
                 </div>
@@ -150,7 +182,7 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
 
                 <div className={`flex flex-col items-center w-32 text-center ${match.winner_team_id && match.winner_team_id === match.team_b_id ? 'font-bold text-white' : 'text-slate-300'}`}>
                   <div className="w-10 h-10 bg-slate-700 rounded-full flex items-center justify-center mb-2 overflow-hidden">
-                    {match.team_b_logo ? <img src={match.team_b_logo} alt={match.team_b_name} className="w-full h-full object-contain" /> : <span className="text-xs">LOGO</span>}
+                    {match.team_b_logo ? <Image src={match.team_b_logo} alt={match.team_b_name} width={40} height={40} unoptimized className="w-full h-full object-contain" /> : <span className="text-xs">LOGO</span>}
                   </div>
                   <span className="text-sm truncate w-full">{match.team_b_name || 'TBD'}</span>
                 </div>

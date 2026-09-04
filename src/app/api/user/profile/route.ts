@@ -2,13 +2,35 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verifyAuth } from '@/lib/auth-utils';
 import { supabaseServer } from '@/lib/supabase';
 
+type UserProfileRecord = {
+  id: string;
+  username: string;
+  display_name: string | null;
+  avatar_url: string | null;
+  bio: string | null;
+  country_code: string | null;
+  timezone: string | null;
+  theme_preference: 'light' | 'dark';
+  created_at: string;
+  updated_at: string;
+};
+
+type UserQuery = {
+  select: (columns: string) => UserQuery;
+  update: (values: Record<string, string | null>) => UserQuery;
+  eq: (column: string, value: string) => UserQuery;
+  maybeSingle: () => Promise<{ data: UserProfileRecord | null; error: { message: string } | null }>;
+};
+
 export async function GET(request: NextRequest) {
   try {
-    const { userId } = await verifyAuth(request);
+    const auth = await verifyAuth(request);
+    const { userId } = auth;
     const supabase = supabaseServer();
 
-    const { data, error } = await (supabase.from('users') as any)
-      .select('id, username, display_name, avatar_url, bio, theme_preference, created_at, updated_at')
+    const users = supabase.from('users') as unknown as UserQuery;
+    const { data, error } = await users
+      .select('id, username, display_name, avatar_url, bio, country_code, timezone, theme_preference, created_at, updated_at')
       .eq('id', userId)
       .maybeSingle();
 
@@ -23,7 +45,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       profile: {
         ...data,
-        country: null,
+        email: auth.email,
         member_since: data.created_at,
       },
     });
@@ -35,7 +57,8 @@ export async function GET(request: NextRequest) {
 
 export async function PUT(request: NextRequest) {
   try {
-    const { userId } = await verifyAuth(request);
+    const auth = await verifyAuth(request);
+    const { userId } = auth;
     const body = await request.json();
     const supabase = supabaseServer();
 
@@ -56,14 +79,25 @@ export async function PUT(request: NextRequest) {
       payload.avatar_url = avatarUrl || null;
     }
 
+    if (typeof body.country_code === 'string') {
+      const countryCode = body.country_code.trim().toUpperCase();
+      payload.country_code = countryCode || null;
+    }
+
+    if (typeof body.timezone === 'string') {
+      const timezone = body.timezone.trim();
+      payload.timezone = timezone || null;
+    }
+
     if (Object.keys(payload).length === 0) {
       return NextResponse.json({ error: 'No valid profile fields provided.' }, { status: 400 });
     }
 
-    const { data, error } = await (supabase.from('users') as any)
+    const users = supabase.from('users') as unknown as UserQuery;
+    const { data, error } = await users
       .update({ ...payload, updated_at: new Date().toISOString() })
       .eq('id', userId)
-      .select('id, username, display_name, avatar_url, bio, theme_preference, created_at, updated_at')
+      .select('id, username, display_name, avatar_url, bio, country_code, timezone, theme_preference, created_at, updated_at')
       .maybeSingle();
 
     if (error) {
@@ -73,7 +107,7 @@ export async function PUT(request: NextRequest) {
     return NextResponse.json({
       profile: {
         ...data,
-        country: null,
+        email: auth.email,
         member_since: data?.created_at,
       },
     });

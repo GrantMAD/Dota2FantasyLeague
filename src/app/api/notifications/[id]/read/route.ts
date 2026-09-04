@@ -21,8 +21,10 @@ export async function PUT(request: NextRequest, context: RouteContext) {
     }
 
     const supabase = supabaseServer();
-    const { data, error } = await (supabase
-      .from('notifications') as any)
+    const notificationTable = supabase.from('user_notifications');
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const notificationQuery = notificationTable as any;
+    const { data, error } = await notificationQuery
       .update({ is_read: true })
       .eq('id', notificationId)
       .eq('user_id', user.userId) // Ensure users can only mark their own notifications

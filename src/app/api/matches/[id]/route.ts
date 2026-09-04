@@ -19,16 +19,10 @@ export async function GET(request: NextRequest, context: RouteContext) {
 
     const supabase = supabaseServer();
 
-    // Fetch match details
-    const { data: match, error: matchError } = await (supabase
+    // Fetch match details using the current schema.
+    const { data: matchRecord, error: matchError } = await (supabase
       .from('matches') as any)
-      .select(`
-        *,
-        radiant_team:professional_teams!matches_radiant_team_id_fkey(id, name, tag),
-        dire_team:professional_teams!matches_dire_team_id_fkey(id, name, tag),
-        tournaments(id, name, slug),
-        gameweeks(id, gameweek_number, status)
-      `)
+      .select('id, status, scheduled_time, duration_minutes, gameweek_id, series_id, team_a_id, team_b_id, winner_team_id')
       .eq('id', matchId)
       .maybeSingle();
 
@@ -39,9 +33,46 @@ export async function GET(request: NextRequest, context: RouteContext) {
       );
     }
 
-    if (!match) {
+    if (!matchRecord) {
       return NextResponse.json({ error: 'Match not found.' }, { status: 404 });
     }
+
+    const [{ data: teams }, { data: series }] = await Promise.all([
+      (supabase.from('professional_teams') as any)
+        .select('id, name, logo_url')
+        .in('id', [matchRecord.team_a_id, matchRecord.team_b_id]),
+      (supabase.from('tournament_series') as any)
+        .select('id, tournament_id')
+        .eq('id', matchRecord.series_id)
+        .maybeSingle(),
+    ]);
+
+    const { data: tournament } = series
+      ? await (supabase.from('tournaments') as any).select('id, name, slug').eq('id', series.tournament_id).maybeSingle()
+      : { data: null };
+    const { data: gameweek } = await (supabase.from('gameweeks') as any)
+      .select('id, gameweek_number, status')
+      .eq('id', matchRecord.gameweek_id)
+      .maybeSingle();
+
+    const teamById = new Map<number, { id: number; name: string; logo_url: string | null }>(
+      (teams ?? []).map((team: { id: number; name: string; logo_url: string | null }) => [team.id, team])
+    );
+    const buildTeam = (teamId: number) => {
+      const team = teamById.get(teamId);
+      return team ? { ...team, tag: team.name.slice(0, 4).toUpperCase() } : null;
+    };
+    const match = {
+      ...matchRecord,
+      scheduled_at: matchRecord.scheduled_time,
+      duration_seconds: matchRecord.duration_minutes ? matchRecord.duration_minutes * 60 : null,
+      radiant_team_id: matchRecord.team_a_id,
+      dire_team_id: matchRecord.team_b_id,
+      radiant_team: buildTeam(matchRecord.team_a_id),
+      dire_team: buildTeam(matchRecord.team_b_id),
+      tournaments: tournament,
+      gameweeks: gameweek,
+    };
 
     // Fetch per-player stats for this match
     const { data: playerStats } = await (supabase

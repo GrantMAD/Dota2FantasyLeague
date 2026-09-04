@@ -1,10 +1,27 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import Link from 'next/link';
+import Image from 'next/image';
+
+type LeaderboardEntry = {
+   id: number;
+   rank: number;
+   previous_rank: number | null;
+   total_points: number;
+   gameweek_points: number;
+   fantasy_teams?: {
+      name?: string;
+      profiles?: {
+         username?: string;
+         display_name?: string | null;
+         avatar_url?: string | null;
+         country?: string | null;
+      } | null;
+   } | null;
+};
 
 export default function LeaderboardPage() {
-  const [entries, setEntries] = useState<any[]>([]);
+   const [entries, setEntries] = useState<LeaderboardEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(1);
@@ -29,10 +46,11 @@ export default function LeaderboardPage() {
         if (countryFilter) url += `&country=${countryFilter}`;
         
         const res = await fetch(url);
-        const data = await res.json();
+      const data = await res.json() as { leaderboard?: LeaderboardEntry[]; error?: string };
+      if (!res.ok) throw new Error(data.error || 'Failed to load leaderboard');
         setEntries(data.leaderboard || []);
-      } catch (err: any) {
-        setError(err.message || 'Failed to load leaderboard');
+         } catch (err: unknown) {
+            setError(err instanceof Error ? err.message : 'Failed to load leaderboard');
       } finally {
         setLoading(false);
       }
@@ -93,7 +111,7 @@ export default function LeaderboardPage() {
 
       <div className="bg-slate-800/40 border border-slate-700 rounded-xl overflow-hidden shadow-xl">
          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse min-w-[600px]">
+            <table className="w-full text-left border-collapse min-w-150">
                <thead>
                   <tr className="bg-slate-800/80 border-b border-slate-700 text-xs font-semibold text-slate-400 uppercase tracking-wider">
                      <th className="px-6 py-4 w-20 text-center">Rank</th>
@@ -144,7 +162,7 @@ export default function LeaderboardPage() {
                                  <div className="flex items-center gap-3">
                                     <div className={`w-10 h-10 rounded-full bg-slate-700 overflow-hidden shrink-0 border ${isTop3 ? 'border-amber-500/50' : 'border-slate-600'}`}>
                                        {profile?.avatar_url ? (
-                                          <img src={profile.avatar_url} alt="Avatar" className="w-full h-full object-cover" />
+                                          <Image src={profile.avatar_url} alt="Avatar" width={40} height={40} unoptimized className="w-full h-full object-cover" />
                                        ) : (
                                           <div className="w-full h-full flex items-center justify-center text-slate-400 font-bold">
                                              {team?.name?.substring(0, 1).toUpperCase() || '?'}

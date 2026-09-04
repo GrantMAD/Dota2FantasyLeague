@@ -23,8 +23,8 @@ export default function TournamentsHubPage() {
       try {
         const response = await fetch('/api/tournaments');
         if (response.ok) {
-          const data = await response.json();
-          setTournaments(data.data || data); // Depending on API response format
+          const data = (await response.json()) as { tournaments?: Tournament[] };
+          setTournaments(Array.isArray(data.tournaments) ? data.tournaments : []);
         }
       } catch (error) {
         console.error('Error fetching tournaments', error);

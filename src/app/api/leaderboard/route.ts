@@ -22,42 +22,20 @@ export async function GET(request: NextRequest) {
 
     const supabase = supabaseServer();
 
-    // If no gameweekId provided, find the latest closed gameweek snapshot
-    let resolvedGameweekId = gameweekId;
-    if (!resolvedGameweekId && seasonId) {
-      const { data: latestGw } = await (supabase
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        .from('gameweeks') as any)
-        .select('id')
-        .eq('season_id', seasonId)
-        .eq('status', 'closed')
-        .order('gameweek_number', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      resolvedGameweekId = latestGw?.id?.toString() ?? null;
-    }
+    const sourceTable = gameweekId ? 'season_standings' : 'fantasy_seasons';
+    const select = gameweekId
+      ? `id, rank, total_points, gameweek_points, fantasy_seasons(id, user_id, users(id, username, display_name, avatar_url), fantasy_squads(id, name))`
+      : `id, global_rank, total_points, gameweek_points_latest, user_id, users(id, username, display_name, avatar_url), fantasy_squads(id, name)`;
 
+    // Keep the existing frontend response shape while reading the current schema.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    let query = (supabase.from('leaderboard_snapshots') as any)
-      .select(`
-        id,
-        rank,
-        previous_rank,
-        total_points,
-        gameweek_points,
-        created_at,
-        fantasy_teams(
-          id,
-          name,
-          user_id,
-          profiles(id, username, display_name, avatar_url, country)
-        )
-      `)
-      .order('rank', { ascending: true })
+    let query = (supabase.from(sourceTable) as any)
+      .select(select, { count: 'exact' })
+      .order(gameweekId ? 'rank' : 'global_rank', { ascending: true, nullsFirst: false })
       .range(offset, offset + limit - 1);
 
-    if (seasonId) query = query.eq('season_id', seasonId);
-    if (resolvedGameweekId) query = query.eq('gameweek_id', resolvedGameweekId);
+    if (seasonId && !gameweekId) query = query.eq('season_id', seasonId);
+    if (gameweekId) query = query.eq('gameweek_id', gameweekId);
 
     const { data, error, count } = await query;
 
@@ -68,14 +46,32 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Apply country filter in memory if needed (profile country is nested)
-    let entries = data ?? [];
-    if (country) {
-      entries = entries.filter(
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (entry: any) => entry.fantasy_teams?.profiles?.country === country
-      );
-    }
+    // The current users schema does not contain a country column, so country is
+    // retained as a compatible query parameter but cannot filter these records.
+    void country;
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const entries = (data ?? []).map((entry: any, index: number) => {
+      const season = gameweekId ? entry.fantasy_seasons : entry;
+      const profile = season?.users ?? null;
+      const squad = season?.fantasy_squads?.[0] ?? null;
+      const rank = entry.rank ?? entry.global_rank ?? offset + index + 1;
+
+      return {
+        id: entry.id,
+        rank,
+        previous_rank: null,
+        total_points: entry.total_points ?? 0,
+        gameweek_points: entry.gameweek_points ?? entry.gameweek_points_latest ?? 0,
+        created_at: entry.created_at ?? null,
+        fantasy_teams: {
+          id: season?.id,
+          name: squad?.name ?? profile?.display_name ?? profile?.username ?? 'Unknown Team',
+          user_id: season?.user_id,
+          profiles: profile ? { ...profile, country: null } : null,
+        },
+      };
+    });
 
     const response = {
       leaderboard: entries,

@@ -47,6 +47,23 @@ body {
   transition: background-color 180ms ease, color 180ms ease;
 }
 
+.dashboard-header,
+.dashboard-main {
+  transition: margin-left 200ms ease;
+}
+
+@media (min-width: 768px) {
+  .dashboard-header,
+  .dashboard-main {
+    margin-left: 16rem;
+  }
+
+  :root[data-sidebar-collapsed='true'] .dashboard-header,
+  :root[data-sidebar-collapsed='true'] .dashboard-main {
+    margin-left: 5rem;
+  }
+}
+
 /* Reuse the existing utility classes with the app's teal-cyan accent palette. */
 .from-amber-500 {
   --tw-gradient-from: #14b8a6 !important;
