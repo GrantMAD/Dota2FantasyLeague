@@ -180,6 +180,7 @@ export function Header() {
     { href: '/tournaments', label: 'Tournaments' },
     { href: '/matches', label: 'Matches' },
     { href: '/analytics', label: 'Analytics' },
+    { href: '/guide', label: 'Guide' },
   ];
 
   const allNavLinks = primaryNavLinks;

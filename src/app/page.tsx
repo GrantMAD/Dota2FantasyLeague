@@ -14,10 +14,10 @@ export default function Home() {
               Fantasy Dota 2
             </span>
           </Link>
-          <div className="flex gap-4">
+          <div className="flex items-center gap-4">
             <Link
               href="/login"
-              className="text-slate-300 hover:text-white font-medium transition-colors"
+              className="inline-flex items-center text-slate-300 hover:text-white font-medium transition-colors"
             >
               Sign In
             </Link>

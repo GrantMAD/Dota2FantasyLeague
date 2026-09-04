@@ -10,7 +10,7 @@ export async function GET(request: NextRequest) {
     // Fetch user's fantasy season
     const { data: fantasySeason } = await supabase
       .from('fantasy_seasons')
-      .select('id, total_points, global_rank')
+      .select('id, season_id, budget, total_points, global_rank, free_transfers')
       .eq('user_id', user.userId)
       .maybeSingle();
 
@@ -20,6 +20,8 @@ export async function GET(request: NextRequest) {
           gameweek: null,
           totalPoints: 0,
           globalRank: null,
+          bankBalance: 0,
+          squadValue: 0,
           freeTransfers: 0,
           activeSquadCount: 0,
           captain: null,
@@ -31,27 +33,46 @@ export async function GET(request: NextRequest) {
     // Get active/upcoming gameweek
     const { data: gameweeks } = await supabase
       .from('gameweeks')
-      .select('id, gameweek_number, deadline')
+      .select('id, gameweek_number, deadline, status')
       .in('status', ['upcoming', 'active'])
       .order('start_date', { ascending: true })
       .limit(1);
 
     const gameweek = gameweeks && gameweeks.length > 0 ? gameweeks[0] : null;
     
-    // Get free transfers count
-    const { data: transferData } = await supabase
-      .from('fantasy_squads')
-      .select('free_transfers')
-      .eq('fantasy_season_id', fantasySeason.id)
-      .maybeSingle();
-
-    const freeTransfers = transferData?.free_transfers || 0;
+    const freeTransfers = fantasySeason.free_transfers || 0;
     
     // Get active squad count
     const { count: activeSquadCount } = await supabase
       .from('fantasy_squads')
       .select('*', { count: 'exact' })
       .eq('fantasy_season_id', fantasySeason.id);
+
+    const { data: squad } = await supabase
+      .from('fantasy_squads')
+      .select('id, fantasy_squad_members(player_id, removed_date)')
+      .eq('fantasy_season_id', fantasySeason.id)
+      .maybeSingle();
+
+    const playerIds = (squad?.fantasy_squad_members ?? [])
+      .filter((member) => !member.removed_date)
+      .map((member) => member.player_id);
+    let squadValue = 0;
+
+    if (playerIds.length > 0) {
+      const { data: prices } = await supabase
+        .from('player_prices')
+        .select('player_id, price, gameweek_id')
+        .eq('season_id', fantasySeason.season_id)
+        .in('player_id', playerIds)
+        .order('gameweek_id', { ascending: false });
+
+      const latestPrices = new Map<number, number>();
+      for (const price of prices ?? []) {
+        if (!latestPrices.has(price.player_id)) latestPrices.set(price.player_id, Number(price.price ?? 0));
+      }
+      squadValue = playerIds.reduce((total, playerId) => total + (latestPrices.get(playerId) ?? 0), 0);
+    }
 
     let captain = null;
     let viceCaptain = null;
@@ -92,6 +113,8 @@ export async function GET(request: NextRequest) {
       gameweek,
       totalPoints: fantasySeason.total_points || 0,
       globalRank: fantasySeason.global_rank,
+      bankBalance: Number(fantasySeason.budget || 0),
+      squadValue,
       freeTransfers,
       activeSquadCount: activeSquadCount || 0,
       captain,

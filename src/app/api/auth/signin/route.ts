@@ -40,14 +40,22 @@ export async function POST(request: NextRequest) {
       { status: 200 }
     );
 
+    const persistentCookieOptions = {
+      httpOnly: true,
+      sameSite: 'lax' as const,
+      secure: process.env.NODE_ENV === 'production',
+      path: '/',
+      maxAge: 60 * 60 * 24 * 30,
+    };
+
     if (data.session?.access_token) {
       response.cookies.set('sb-auth-token', data.session.access_token, {
-        httpOnly: true,
-        sameSite: 'lax',
-        secure: process.env.NODE_ENV === 'production',
-        path: '/',
-        maxAge: data.session.expires_in ?? 3600,
+        ...persistentCookieOptions,
       });
+    }
+
+    if (data.session?.refresh_token) {
+      response.cookies.set('sb-refresh-token', data.session.refresh_token, persistentCookieOptions);
     }
 
     return response;

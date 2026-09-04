@@ -11,17 +11,35 @@ interface StatCard {
   trendColor?: string;
 }
 
+interface LeagueStanding {
+  rank: number | null;
+  leagues?: { name?: string } | null;
+}
+
+interface DashboardData {
+  activeSquadCount: number;
+  squadValue: number;
+  bankBalance: number;
+  totalPoints: number;
+  globalRank: number | null;
+  freeTransfers: number;
+  gameweek?: { gameweek_number: number; deadline: string; status: string } | null;
+  captain?: { name: string } | null;
+  viceCaptain?: { name: string } | null;
+  leagueStandings: LeagueStanding[];
+}
+
 export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState<StatCard[]>([]);
-  const [dashboardData, setDashboardData] = useState<any>(null);
+  const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
 
   useEffect(() => {
     const fetchStats = async () => {
       try {
         const res = await fetch('/api/dashboard/stats');
         if (!res.ok) throw new Error('Failed to fetch stats');
-        const data = await res.json();
+        const data = (await res.json()) as DashboardData;
         setDashboardData(data);
         
         setStats([
@@ -31,6 +49,20 @@ export default function DashboardPage() {
             value: data.activeSquadCount || 0,
             trend: data.activeSquadCount > 0 ? 'Ready' : 'Create one',
             trendColor: data.activeSquadCount > 0 ? 'text-green-500' : 'text-amber-500',
+          },
+          {
+            icon: '💰',
+            label: 'Squad Value',
+            value: `${Number(data.squadValue || 0).toFixed(1)}M`,
+            trend: 'Current squad',
+            trendColor: 'text-slate-400',
+          },
+          {
+            icon: '🏦',
+            label: 'Bank Balance',
+            value: `${Number(data.bankBalance || 0).toFixed(1)}M`,
+            trend: 'Available budget',
+            trendColor: 'text-amber-500',
           },
           {
             icon: '🏆',
@@ -88,11 +120,11 @@ export default function DashboardPage() {
 
           {/* Stats Grid */}
           {!loading && (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div data-guide="dashboard-stats" className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
               {stats.map((stat, idx) => (
                 <div
                   key={idx}
-                  className="bg-slate-800/50 border border-slate-700 rounded-lg p-6 hover:border-slate-600 transition-all"
+                  className="bg-slate-800/50 border border-slate-700 rounded-lg p-4 hover:border-slate-600 transition-all"
                 >
                   <div className="flex items-start justify-between mb-4">
                     <div className="text-3xl">{stat.icon}</div>
@@ -116,7 +148,7 @@ export default function DashboardPage() {
           <div className="lg:col-span-2">
             <div className="mb-8">
               <h2 className="text-2xl font-bold text-white mb-6">Quick Actions</h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div data-guide="dashboard-actions" className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <Link
                   href="/lineups"
                   className="bg-slate-800/50 border border-slate-700 rounded-lg p-6 hover:border-amber-500/50 hover:bg-slate-800 transition-all group"
@@ -182,10 +214,28 @@ export default function DashboardPage() {
           </div>
 
           {/* Sidebar */}
-          <div className="space-y-6">
+          <div className="space-y-6 lg:pt-14">
+            {/* Recent News */}
+            <div className="dashboard-whats-new bg-slate-800/50 border border-slate-700 rounded-lg p-6">
+              <h3 className="font-semibold text-white mb-4">What&apos;s New</h3>
+              <div className="space-y-3">
+                <div className="text-xs">
+                  <p className="dashboard-whats-new-title text-amber-500 font-semibold mb-1">Season 2026 Starts</p>
+                  <p className="text-slate-400">Fantasy season 2026 is now live</p>
+                </div>
+              </div>
+            </div>
+
             {/* Upcoming Gameweek */}
-            <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-6">
-              <h3 className="font-semibold text-white mb-4">Current Gameweek</h3>
+            <div data-guide="dashboard-gameweek" className="bg-slate-800/50 border border-slate-700 rounded-lg p-6">
+              <div className="flex items-center justify-between gap-3 mb-4">
+                <h3 className="font-semibold text-white">Current Gameweek</h3>
+                {dashboardData?.gameweek?.status === 'active' && (
+                  <span className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-1 text-xs font-semibold uppercase tracking-wide text-emerald-400">
+                    Active
+                  </span>
+                )}
+              </div>
               <div className="space-y-3">
                 <div>
                   <p className="text-slate-400 text-sm">Gameweek</p>
@@ -222,9 +272,9 @@ export default function DashboardPage() {
             {/* Leaderboard Preview */}
             <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-6">
               <h3 className="font-semibold text-white mb-4">Leagues Overview</h3>
-              {dashboardData?.leagueStandings?.length > 0 ? (
+              {dashboardData && dashboardData.leagueStandings.length > 0 ? (
                 <div className="space-y-3">
-                  {dashboardData.leagueStandings.map((l: any, idx: number) => (
+                  {dashboardData.leagueStandings.map((l, idx) => (
                     <div key={idx} className="flex justify-between items-center text-sm border-b border-slate-700 pb-2 last:border-0 last:pb-0">
                       <span className="text-slate-300 truncate pr-2">{l.leagues?.name}</span>
                       <span className="text-amber-500 font-semibold">Rank {l.rank || '-'}</span>
@@ -242,17 +292,6 @@ export default function DashboardPage() {
               >
                 View Leaderboards →
               </Link>
-            </div>
-
-            {/* Recent News */}
-            <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-6">
-              <h3 className="font-semibold text-white mb-4">What&apos;s New</h3>
-              <div className="space-y-3">
-                <div className="text-xs">
-                  <p className="text-amber-500 font-semibold mb-1">Season 2026 Starts</p>
-                  <p className="text-slate-400">Fantasy season 2026 is now live</p>
-                </div>
-              </div>
             </div>
 
           </div>

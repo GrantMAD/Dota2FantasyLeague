@@ -27,6 +27,11 @@ export async function verifyAuth(request: Request): Promise<{
     .map((cookie) => cookie.trim())
     .find((cookie) => cookie.startsWith('sb-auth-token='))
     ?.slice('sb-auth-token='.length);
+  const refreshToken = cookieHeader
+    .split(';')
+    .map((cookie) => cookie.trim())
+    .find((cookie) => cookie.startsWith('sb-refresh-token='))
+    ?.slice('sb-refresh-token='.length);
 
   const token = authHeader?.startsWith('Bearer ')
     ? authHeader.substring(7)
@@ -41,8 +46,15 @@ export async function verifyAuth(request: Request): Promise<{
 
   const supabase = supabaseServer();
 
-  // Verify the JWT token
-  const { data, error } = await supabase.auth.getUser(token);
+  // Verify the access token and renew it through the persistent refresh token
+  // when the short-lived access token has expired.
+  let { data, error } = await supabase.auth.getUser(token);
+
+  if ((error || !data.user) && refreshToken) {
+    const refreshed = await supabase.auth.refreshSession({ refresh_token: refreshToken });
+    data = { user: refreshed.data.user };
+    error = refreshed.error;
+  }
 
   if (error || !data.user) {
     throw {
