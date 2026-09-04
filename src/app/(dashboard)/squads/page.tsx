@@ -69,7 +69,7 @@ export default function SquadsPage() {
     }
 
     return (
-      <div className="flex flex-col items-center relative w-32">
+      <div data-guide={slotName === 'carry' ? 'squad-first-player' : undefined} className="flex flex-col items-center relative w-32">
         {playerEntry.is_captain && (
           <div className="absolute -top-3 -right-2 bg-amber-500 text-slate-900 text-xs font-bold px-2 py-0.5 rounded-full z-10 shadow-sm border border-amber-300">
             C
@@ -110,7 +110,7 @@ export default function SquadsPage() {
           <h1 className="text-3xl font-bold text-white mb-2">My Squad</h1>
           {gameweek && <p className="text-amber-500 font-semibold">Gameweek {gameweek.gameweek_number}</p>}
         </div>
-        <div className="flex gap-4">
+        <div data-guide="squad-actions" className="flex gap-4">
            <Link href="/transfers" className="bg-slate-800 hover:bg-slate-700 border border-slate-600 text-white px-4 py-2 rounded-lg font-medium transition-colors text-sm">
              Make Transfers
            </Link>
@@ -127,7 +127,7 @@ export default function SquadsPage() {
       )}
 
       {/* The Pitch */}
-      <div className="bg-linear-to-b from-emerald-900/40 to-emerald-950/40 border border-emerald-800/30 rounded-2xl p-8 mb-8 relative overflow-hidden shadow-2xl">
+      <div data-guide="squad-pitch" className="bg-linear-to-b from-emerald-900/40 to-emerald-950/40 border border-emerald-800/30 rounded-2xl p-8 mb-8 relative overflow-hidden shadow-2xl">
          {/* Pitch lines background */}
          <div className="absolute inset-0 pointer-events-none opacity-20">
             <div className="absolute top-1/2 left-0 right-0 h-px bg-white"></div>
@@ -136,7 +136,11 @@ export default function SquadsPage() {
 
          {/* Starters */}
          <div className="relative z-10">
-            <h3 className="squad-section-label text-center text-emerald-400/80 text-xs font-bold uppercase tracking-widest mb-6">Starting V</h3>
+            <div className="text-center mb-6">
+              <span data-guide="squad-starters-badge" className="squad-section-label inline-block rounded-full bg-emerald-500/15 border border-emerald-500/30 px-4 py-1.5 text-xs font-bold uppercase tracking-widest text-emerald-400">
+                Starting V (5 Players)
+              </span>
+            </div>
             <div className="flex flex-wrap justify-center gap-6 md:gap-12 mb-8">
                {renderSlot('carry', 'Carry')}
                {renderSlot('mid', 'Mid')}
@@ -150,7 +154,7 @@ export default function SquadsPage() {
       </div>
 
       {/* Bench */}
-      <div className="bg-slate-800/40 border border-slate-700/50 rounded-2xl p-6">
+      <div data-guide="squad-bench" className="bg-slate-800/40 border border-slate-700/50 rounded-2xl p-6">
          <h3 className="squad-section-label text-xs font-bold uppercase tracking-widest mb-6">Bench (Substitutes)</h3>
          <div className="flex flex-wrap justify-center md:justify-start gap-6">
             {renderSlot('bench_1', 'Bench 1', false)}

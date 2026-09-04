@@ -29,13 +29,12 @@ export async function GET(request: NextRequest) {
     
     let query = supabase
       .from('professional_players')
-      .select('*, professional_teams(name, logo_url)', { count: 'exact' })
-      .range(offset, offset + limit - 1);
-    
+      .select('*, professional_teams(name, logo_url)', { count: 'exact' });
+
     if (teamId) {
       query = query.eq('team_id', parseInt(teamId));
     }
-    
+
     if (role) {
       query = query.eq('primary_role', role);
     }
@@ -44,21 +43,24 @@ export async function GET(request: NextRequest) {
       query = query.or(`name.ilike.%${search}%,in_game_name.ilike.%${search}%`);
     }
 
-    if (sortBy === 'price') {
-      query = query.order('current_price', { ascending: !sortDesc });
-    } else {
-      query = query.order('name', { ascending: true });
+    if (sortBy !== 'price') {
+      if (sortBy === 'name') {
+        query = query.order('name', { ascending: !sortDesc });
+      } else {
+        query = query.order('name', { ascending: true });
+      }
+      query = query.range(offset, offset + limit - 1);
     }
-    
+
     const { data, count, error } = await query;
-    
+
     if (error) {
       return NextResponse.json(
         { error: 'Failed to fetch players', details: error.message },
         { status: 500 }
       );
     }
-    
+
     const playerRows = data ?? [];
     const playerIds = playerRows.map((player) => player.id);
     // These tables are dynamic in the local schema typings, so keep the cast at this boundary.
@@ -82,7 +84,7 @@ export async function GET(request: NextRequest) {
       if (playerScores.length < 5) playerScores.push(Number(score.total_points ?? 0));
       recentScores.set(score.player_id, playerScores);
     }
-    const enrichedData = playerRows.map((player) => {
+    let enrichedData = playerRows.map((player) => {
       const playerScores = recentScores.get(player.id) ?? [];
       return {
         ...player,
@@ -91,6 +93,15 @@ export async function GET(request: NextRequest) {
         recent_points: playerScores.length ? Number((playerScores.reduce((sum, score) => sum + score, 0) / playerScores.length).toFixed(2)) : 0,
       };
     });
+
+    if (sortBy === 'price') {
+      enrichedData.sort((a, b) => {
+        const diff = (b.current_price ?? 0) - (a.current_price ?? 0);
+        return sortDesc ? diff : -diff;
+      });
+      enrichedData = enrichedData.slice(offset, offset + limit);
+    }
+
     const response = { data: enrichedData, total: count, limit, offset };
     setCached(cacheKey, response, 60_000);
     return NextResponse.json(response);

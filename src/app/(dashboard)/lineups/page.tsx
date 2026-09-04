@@ -22,37 +22,39 @@ export default function LineupsPage() {
   useEffect(() => {
     async function fetchChipStatuses() {
       try {
-        const dashboardResponse = await fetch('/api/dashboard/stats');
+        setLoading(true);
+        const [dashboardResponse, gameweekResponse] = await Promise.all([
+          fetch('/api/dashboard/stats'),
+          fetch('/api/gameweeks?status=active'),
+        ]);
+
         if (!dashboardResponse.ok) throw new Error('Failed to load fantasy season');
         const dashboardData = await dashboardResponse.json();
         const currentFantasySeasonId = dashboardData.fantasySeasonId;
         setFantasySeasonId(currentFantasySeasonId);
 
-        if (!currentFantasySeasonId) return;
-
-        const gameweekResponse = await fetch('/api/gameweeks?status=active');
         const gameweekData = await gameweekResponse.json();
         const activeGameweek = gameweekData.gameweeks?.[0];
-        if (!activeGameweek) return;
-        setGameweekId(activeGameweek.id);
+        if (activeGameweek) {
+          setGameweekId(activeGameweek.id);
+        }
 
-        const [lineupResponse, playersResponse, contextResponse] = await Promise.all([
-          fetch(`/api/fantasy/lineup?gameweekId=${activeGameweek.id}&fantasySeasonId=${currentFantasySeasonId}`),
-          fetch('/api/players?limit=100'),
-          fetch('/api/fantasy/transfer-context'),
-        ]);
-        const lineupData = await lineupResponse.json();
-        const playersData = await playersResponse.json();
-        const contextData = await contextResponse.json();
-        setLineup(lineupData.lineup || []);
-        setOwnedPlayers((playersData.data || []).filter((player: any) => (contextData.ownedPlayerIds || []).includes(player.id)));
-
-        const [tcRes, bbRes] = await Promise.all([
-          fetch(`/api/fantasy/triple-captain/status?fantasy_season_id=${currentFantasySeasonId}`),
-          fetch(`/api/fantasy/bench-boost/status?fantasy_season_id=${currentFantasySeasonId}`),
-        ]);
-        setTcStatus(await tcRes.json());
-        setBbStatus(await bbRes.json());
+        if (currentFantasySeasonId && activeGameweek) {
+          const [lineupResponse, playersResponse, contextResponse, tcRes, bbRes] = await Promise.all([
+            fetch(`/api/fantasy/lineup?gameweekId=${activeGameweek.id}&fantasySeasonId=${currentFantasySeasonId}`),
+            fetch('/api/players?limit=100'),
+            fetch('/api/fantasy/transfer-context'),
+            fetch(`/api/fantasy/triple-captain/status?fantasy_season_id=${currentFantasySeasonId}`),
+            fetch(`/api/fantasy/bench-boost/status?fantasy_season_id=${currentFantasySeasonId}`),
+          ]);
+          const lineupData = await lineupResponse.json();
+          const playersData = await playersResponse.json();
+          const contextData = await contextResponse.json();
+          setLineup(lineupData.lineup || []);
+          setOwnedPlayers((playersData.data || []).filter((player: any) => (contextData.ownedPlayerIds || []).includes(player.id)));
+          setTcStatus(await tcRes.json());
+          setBbStatus(await bbRes.json());
+        }
       } catch (err) {
         console.error('Failed to fetch chip statuses', err);
       } finally {
@@ -138,11 +140,11 @@ export default function LineupsPage() {
       } else {
         setBbStatus({ ...bbStatus, benchBoostUsed: true, benchBoostGameweekId: data.gameweekId });
       }
-      setTimeout(() => setActiveModal(null), 2000);
     } catch (err: any) {
-      setError(err.message);
+      setError(err instanceof Error ? err.message : 'Activation failed');
     } finally {
       setActivating(false);
+      setActiveModal(null);
     }
   };
 
@@ -167,34 +169,147 @@ export default function LineupsPage() {
                 <h2 className="text-xl font-semibold text-white">Gameweek Lineup</h2>
                 <p className="text-sm text-slate-400">Active gameweek {gameweekId ?? 'not available'}</p>
               </div>
-              <button type="button" onClick={saveLineup} disabled={saving || lineup.length !== 8} className="rounded-lg bg-amber-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">
+              <button
+                type="button"
+                data-guide="lineup-save-btn"
+                onClick={saveLineup}
+                disabled={saving || lineup.length !== 8}
+                className="rounded-lg bg-amber-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50 transition-opacity"
+              >
                 {saving ? 'Saving...' : 'Save Lineup'}
               </button>
             </div>
-            {ownedPlayers.length === 0 ? (
-              <div className="py-16 text-center text-slate-400">Create a squad and add eight players before setting a lineup.</div>
+
+            {loading ? (
+              <div className="py-16 text-center text-slate-400">
+                <div className="mx-auto h-8 w-8 animate-spin rounded-full border-2 border-amber-500 border-t-transparent mb-3"></div>
+                <p className="text-sm">Loading lineup...</p>
+              </div>
+            ) : ownedPlayers.length === 0 ? (
+              <div data-guide="lineup-empty" className="py-16 text-center text-slate-400">
+                Create a squad and add eight players before setting a lineup.
+              </div>
             ) : (
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                {['carry', 'mid', 'offlane', 'support', 'hard_support', 'bench_1', 'bench_2', 'bench_3'].map((slot) => {
-                  const selected = lineup.find((entry) => entry.slot === slot);
-                  return (
-                    <div key={slot} className="rounded-lg border border-slate-700 bg-slate-900/40 p-4">
-                      <label className="mb-2 block text-xs font-bold uppercase tracking-wider text-slate-400">{slot.replace('_', ' ')}</label>
-                      <select value={selected?.player_id ?? ''} onChange={(event) => updateSlot(slot, Number(event.target.value))} className="w-full rounded border border-slate-600 bg-slate-800 px-3 py-2 text-sm text-white">
-                        <option value="">Select player</option>
-                        {ownedPlayers.map((player) => <option key={player.id} value={player.id}>{player.in_game_name || player.name} · {player.primary_role}</option>)}
-                      </select>
-                      {selected && !slot.startsWith('bench') && <div className="mt-3 flex gap-2"><button type="button" onClick={() => setCaptain(selected.player_id, false)} className={`rounded px-2 py-1 text-xs ${selected.is_captain ? 'bg-amber-500 text-slate-900' : 'bg-slate-700 text-slate-300'}`}>Captain</button><button type="button" onClick={() => setCaptain(selected.player_id, true)} className={`rounded px-2 py-1 text-xs ${selected.is_vice_captain ? 'bg-slate-200 text-slate-900' : 'bg-slate-700 text-slate-300'}`}>Vice</button></div>}
-                    </div>
-                  );
-                })}
+              <div className="space-y-8">
+                {/* Starting 5 */}
+                <div data-guide="lineup-starters">
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-amber-400 flex items-center gap-2">
+                      <span className="h-2 w-2 rounded-full bg-emerald-400"></span>
+                      Starting Five (Active)
+                    </h3>
+                    <span className="text-xs text-slate-400">Active point scorers</span>
+                  </div>
+                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                    {['carry', 'mid', 'offlane', 'support', 'hard_support'].map((slot, index) => {
+                      const selected = lineup.find((entry) => entry.slot === slot);
+                      return (
+                        <div
+                          key={slot}
+                          data-guide={index === 0 ? 'lineup-first-slot' : undefined}
+                          className="rounded-lg border border-slate-700 bg-slate-900/40 p-4 transition-colors"
+                        >
+                          <label className="mb-2 block text-xs font-bold uppercase tracking-wider text-slate-300">
+                            {slot.replace('_', ' ')}
+                          </label>
+                          <select
+                            value={selected?.player_id ?? ''}
+                            onChange={(event) => updateSlot(slot, Number(event.target.value))}
+                            className="w-full rounded border border-slate-600 bg-slate-800 px-3 py-2 text-sm text-white focus:border-amber-500 focus:outline-none"
+                          >
+                            <option value="">Select player</option>
+                            {ownedPlayers.map((player) => (
+                              <option key={player.id} value={player.id}>
+                                {player.in_game_name || player.name} · {player.primary_role}
+                              </option>
+                            ))}
+                          </select>
+                          <div
+                            data-guide={index === 0 ? 'lineup-captain-controls' : undefined}
+                            className="mt-3 flex items-center gap-2"
+                          >
+                            <button
+                              type="button"
+                              disabled={!selected}
+                              onClick={() => selected && setCaptain(selected.player_id, false)}
+                              className={`rounded px-2.5 py-1 text-xs font-medium transition-colors ${
+                                selected?.is_captain
+                                  ? 'bg-amber-500 text-slate-900 font-bold shadow'
+                                  : 'bg-slate-700 text-slate-300 hover:bg-slate-600 disabled:opacity-40 disabled:cursor-not-allowed'
+                              }`}
+                            >
+                              Captain (2x)
+                            </button>
+                            <button
+                              type="button"
+                              disabled={!selected}
+                              onClick={() => selected && setCaptain(selected.player_id, true)}
+                              className={`rounded px-2.5 py-1 text-xs font-medium transition-colors ${
+                                selected?.is_vice_captain
+                                  ? 'bg-slate-200 text-slate-900 font-bold shadow'
+                                  : 'bg-slate-700 text-slate-300 hover:bg-slate-600 disabled:opacity-40 disabled:cursor-not-allowed'
+                              }`}
+                            >
+                              Vice
+                            </button>
+                            {selected?.is_captain && (
+                              <span className="text-[11px] font-semibold text-amber-400 ml-1">2x Points</span>
+                            )}
+                            {selected?.is_vice_captain && (
+                              <span className="text-[11px] font-semibold text-slate-300 ml-1">Backup</span>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Bench Substitutes */}
+                <div data-guide="lineup-bench" className="border-t border-slate-700/70 pt-6">
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-2">
+                      <span className="h-2 w-2 rounded-full bg-amber-400"></span>
+                      Bench Substitutes (Reserves)
+                    </h3>
+                    <span className="text-xs text-slate-400">Auto-sub in order if starters miss</span>
+                  </div>
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                    {['bench_1', 'bench_2', 'bench_3'].map((slot, index) => {
+                      const selected = lineup.find((entry) => entry.slot === slot);
+                      return (
+                        <div
+                          key={slot}
+                          data-guide={index === 0 ? 'lineup-first-bench' : undefined}
+                          className="rounded-lg border border-slate-700 bg-slate-900/40 p-4"
+                        >
+                          <label className="mb-2 block text-xs font-bold uppercase tracking-wider text-slate-400">
+                            {slot.replace('_', ' ')}
+                          </label>
+                          <select
+                            value={selected?.player_id ?? ''}
+                            onChange={(event) => updateSlot(slot, Number(event.target.value))}
+                            className="w-full rounded border border-slate-600 bg-slate-800 px-3 py-2 text-sm text-white focus:border-amber-500 focus:outline-none"
+                          >
+                            <option value="">Select player</option>
+                            {ownedPlayers.map((player) => (
+                              <option key={player.id} value={player.id}>
+                                {player.in_game_name || player.name} · {player.primary_role}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
               </div>
             )}
           </div>
         </div>
 
         {/* Chips sidebar */}
-        <div className="lg:col-span-1 space-y-4">
+        <div data-guide="lineup-chips" className="lg:col-span-1 space-y-4">
           {/* Triple Captain */}
           <div className="lineup-chip-card lineup-chip-purple bg-purple-900/20 border border-purple-700/50 rounded-xl p-5">
             <h3 className="font-semibold text-purple-400 mb-2 text-sm flex items-center justify-between">

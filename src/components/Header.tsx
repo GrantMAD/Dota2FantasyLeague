@@ -2,7 +2,24 @@
 
 import Image from 'next/image';
 import Link from 'next/link';
-import { Bell, ChevronLeft, ChevronRight } from 'lucide-react';
+import {
+  Bell,
+  ChevronLeft,
+  ChevronRight,
+  LayoutDashboard,
+  Users,
+  UserCheck,
+  ArrowLeftRight,
+  Trophy,
+  Medal,
+  Calendar,
+  Swords,
+  Gamepad2,
+  BarChart3,
+  Compass,
+  ScrollText,
+  UserRound,
+} from 'lucide-react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import { ThemeToggle } from './theme/ThemeToggle';
@@ -170,25 +187,28 @@ export function Header() {
   const isActive = (path: string) => pathname === path || pathname.startsWith(path + '/');
 
   const primaryNavLinks = [
-    { href: '/dashboard', label: 'Dashboard' },
-    { href: '/squads', label: 'Squad' },
-    { href: '/lineups', label: 'Lineups' },
-    { href: '/transfers', label: 'Transfers' },
-    { href: '/leagues', label: 'Leagues' },
-    { href: '/leaderboard', label: 'Leaderboard' },
-    { href: '/gameweeks', label: 'Gameweeks' },
-    { href: '/tournaments', label: 'Tournaments' },
-    { href: '/matches', label: 'Matches' },
-    { href: '/analytics', label: 'Analytics' },
-    { href: '/guide', label: 'Guide' },
+    { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+    { href: '/squads', label: 'Squad', icon: Users },
+    { href: '/lineups', label: 'Lineups', icon: UserCheck },
+    { href: '/transfers', label: 'Transfers', icon: ArrowLeftRight },
+    { href: '/players', label: 'Players', icon: UserRound },
+    { href: '/leagues', label: 'Leagues', icon: Trophy },
+    { href: '/leaderboard', label: 'Leaderboard', icon: Medal },
+    { href: '/gameweeks', label: 'Gameweeks', icon: Calendar },
+    { href: '/tournaments', label: 'Tournaments', icon: Swords },
+    { href: '/matches', label: 'Matches', icon: Gamepad2 },
+    { href: '/analytics', label: 'Analytics', icon: BarChart3 },
   ];
 
-  const allNavLinks = primaryNavLinks;
+  const bottomNavLinks = [
+    { href: '/guide', label: 'Guide', icon: Compass },
+    { href: '/rules', label: 'League Rules', icon: ScrollText },
+  ];
 
   return (
     <>
       <aside className={`dashboard-sidebar fixed inset-y-0 left-0 z-50 hidden flex-col border-r border-slate-700 bg-slate-900 px-4 py-6 transition-[width] duration-200 md:flex ${sidebarCollapsed ? 'w-20' : 'w-64'}`}>
-        <div className={`mb-8 flex items-center ${sidebarCollapsed ? 'justify-center' : 'justify-between'}`}>
+        <div className={`mb-6 flex items-center ${sidebarCollapsed ? 'justify-center' : 'justify-between'}`}>
           <Link href="/dashboard" className="flex items-center gap-2 px-2 font-bold text-xl">
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-linear-to-br from-amber-500 to-orange-600">
               <span className="font-bold text-white">D2</span>
@@ -202,25 +222,58 @@ export function Header() {
           )}
         </div>
         {sidebarCollapsed && (
-          <button type="button" aria-label="Expand sidebar" onClick={() => setSidebarCollapsed(false)} className="mb-6 self-center rounded p-1 text-slate-400 hover:bg-slate-800 hover:text-white">
+          <button type="button" aria-label="Expand sidebar" onClick={() => setSidebarCollapsed(false)} className="mb-4 self-center rounded p-1 text-slate-400 hover:bg-slate-800 hover:text-white">
             <ChevronRight className="h-5 w-5" />
           </button>
         )}
-        <nav className="flex flex-1 flex-col gap-1">
-          {allNavLinks.map((link) => (
-            <Link
-              key={link.href}
-              href={link.href}
-              title={sidebarCollapsed ? link.label : undefined}
-              className={`rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${sidebarCollapsed ? 'text-center' : ''} ${
-                isActive(link.href)
-                  ? 'bg-amber-500/20 text-amber-500'
-                  : 'text-slate-400 hover:bg-slate-800 hover:text-white'
-              }`}
-            >
-              {sidebarCollapsed ? link.label.slice(0, 1) : link.label}
-            </Link>
-          ))}
+        <nav className="flex flex-1 flex-col justify-between overflow-y-auto overflow-x-hidden">
+          <div className="space-y-1">
+            {primaryNavLinks.map((link) => {
+              const Icon = link.icon;
+              const active = isActive(link.href);
+              return (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  title={sidebarCollapsed ? link.label : undefined}
+                  className={`flex items-center rounded-lg text-sm font-medium transition-colors ${
+                    sidebarCollapsed ? 'justify-center p-2.5' : 'gap-3 px-3 py-2.5'
+                  } ${
+                    active
+                      ? 'bg-amber-500/20 text-amber-500'
+                      : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+                  }`}
+                >
+                  <Icon className={`h-5 w-5 shrink-0 ${active ? 'text-amber-500' : 'text-slate-400'}`} />
+                  {!sidebarCollapsed && <span className="truncate">{link.label}</span>}
+                </Link>
+              );
+            })}
+          </div>
+
+          <div className="mt-auto border-t border-slate-800/80 pt-3 space-y-1">
+            {bottomNavLinks.map((link) => {
+              const Icon = link.icon;
+              const active = isActive(link.href);
+              return (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  title={sidebarCollapsed ? link.label : undefined}
+                  className={`flex items-center rounded-lg text-sm font-medium transition-colors ${
+                    sidebarCollapsed ? 'justify-center p-2.5' : 'gap-3 px-3 py-2.5'
+                  } ${
+                    active
+                      ? 'bg-amber-500/20 text-amber-500'
+                      : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+                  }`}
+                >
+                  <Icon className={`h-5 w-5 shrink-0 ${active ? 'text-amber-500' : 'text-slate-400'}`} />
+                  {!sidebarCollapsed && <span className="truncate">{link.label}</span>}
+                </Link>
+              );
+            })}
+          </div>
         </nav>
       </aside>
 
@@ -285,22 +338,46 @@ export function Header() {
 
         {/* Mobile Navigation */}
         {mobileMenuOpen && (
-          <div className="md:hidden border-t border-slate-700 py-4 space-y-2">
-            {allNavLinks.map((link) => (
-              <Link
-                key={link.href}
-                href={link.href}
-                className={`block px-4 py-2 rounded-lg font-medium transition-colors ${
-                  isActive(link.href)
-                    ? 'bg-amber-500/20 text-amber-500'
-                    : 'text-slate-400 hover:text-white hover:bg-slate-800'
-                }`}
-                onClick={() => setMobileMenuOpen(false)}
-              >
-                {link.label}
-              </Link>
-            ))}
-            <div className="border-t border-slate-700 pt-4 mt-4">
+          <div className="md:hidden border-t border-slate-700 py-4 space-y-1 max-h-[calc(100vh-4rem)] overflow-y-auto">
+            {primaryNavLinks.map((link) => {
+              const Icon = link.icon;
+              return (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  className={`flex items-center gap-3 px-4 py-2.5 rounded-lg font-medium transition-colors ${
+                    isActive(link.href)
+                      ? 'bg-amber-500/20 text-amber-500'
+                      : 'text-slate-400 hover:text-white hover:bg-slate-800'
+                  }`}
+                  onClick={() => setMobileMenuOpen(false)}
+                >
+                  <Icon className="h-5 w-5 shrink-0" />
+                  <span>{link.label}</span>
+                </Link>
+              );
+            })}
+            <div className="border-t border-slate-700/80 pt-2 mt-2">
+              {bottomNavLinks.map((link) => {
+                const Icon = link.icon;
+                return (
+                  <Link
+                    key={link.href}
+                    href={link.href}
+                    className={`flex items-center gap-3 px-4 py-2.5 rounded-lg font-medium transition-colors ${
+                      isActive(link.href)
+                        ? 'bg-amber-500/20 text-amber-500'
+                        : 'text-slate-400 hover:text-white hover:bg-slate-800'
+                    }`}
+                    onClick={() => setMobileMenuOpen(false)}
+                  >
+                    <Icon className="h-5 w-5 shrink-0" />
+                    <span>{link.label}</span>
+                  </Link>
+                );
+              })}
+            </div>
+            <div className="border-t border-slate-700 pt-3 mt-3">
               <div className="px-4 py-2"><ThemeToggle /></div>
             </div>
           </div>
