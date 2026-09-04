@@ -19,9 +19,15 @@ import {
   Compass,
   ScrollText,
   UserRound,
+  Search,
+  Wallet,
+  Clock,
+  Command,
+  X,
+  Sparkles,
 } from 'lucide-react';
 import { usePathname, useRouter } from 'next/navigation';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useMemo } from 'react';
 import { ThemeToggle } from './theme/ThemeToggle';
 
 type HeaderProfile = {
@@ -38,6 +44,27 @@ type HeaderNotification = {
   created_at: string;
 };
 
+type QuickStats = {
+  bankBalance: number;
+  freeTransfers: number;
+  globalRank: number | null;
+  totalPoints: number;
+  gameweek: {
+    gameweek_number: number;
+    deadline: string;
+    status: string;
+  } | null;
+};
+
+type SearchResultItem = {
+  id: string | number;
+  title: string;
+  subtitle: string;
+  category: 'Players' | 'Navigation' | 'Pages';
+  href: string;
+  badge?: string;
+};
+
 export function Header() {
   const pathname = usePathname();
   const router = useRouter();
@@ -49,7 +76,13 @@ export function Header() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [notifications, setNotifications] = useState<HeaderNotification[]>([]);
   const [currentTime, setCurrentTime] = useState(0);
+  const [quickStats, setQuickStats] = useState<QuickStats | null>(null);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [playerResults, setPlayerResults] = useState<SearchResultItem[]>([]);
+  const [isSearchingPlayers, setIsSearchingPlayers] = useState(false);
   const userMenuRef = useRef<HTMLDivElement>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     document.documentElement.dataset.sidebarCollapsed = String(sidebarCollapsed);
@@ -96,24 +129,109 @@ export function Header() {
   }, []);
 
   useEffect(() => {
-    function closeUserMenu(event: MouseEvent) {
+    async function loadQuickStats() {
+      try {
+        const response = await fetch('/api/dashboard/stats');
+        if (!response.ok) return;
+        const data = await response.json();
+        setQuickStats({
+          bankBalance: Number(data.bankBalance || 0),
+          freeTransfers: Number(data.freeTransfers || 0),
+          globalRank: data.globalRank ?? null,
+          totalPoints: Number(data.totalPoints || 0),
+          gameweek: data.gameweek || null,
+        });
+      } catch {
+        // Soft fallback
+      }
+    }
+
+    void loadQuickStats();
+  }, []);
+
+  // Global Ctrl+K / Cmd+K handler
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        setSearchOpen((prev) => !prev);
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
+  // Focus search input when modal opens
+  useEffect(() => {
+    if (searchOpen) {
+      const timer = window.setTimeout(() => {
+        searchInputRef.current?.focus();
+      }, 50);
+      return () => window.clearTimeout(timer);
+    }
+  }, [searchOpen]);
+
+  // Live player search inside command palette
+  useEffect(() => {
+    const trimmed = searchQuery.trim();
+    if (!trimmed) {
+      return;
+    }
+
+    const timer = setTimeout(async () => {
+      setIsSearchingPlayers(true);
+      try {
+        const res = await fetch(`/api/players?search=${encodeURIComponent(trimmed)}&limit=5`);
+        if (!res.ok) return;
+        const json = await res.json();
+        const players = Array.isArray(json.data) ? json.data : [];
+        setPlayerResults(
+          players.map((p: {
+            id: number;
+            name: string;
+            in_game_name?: string | null;
+            primary_role?: string | null;
+            current_price?: number | null;
+            professional_teams?: { name: string } | null;
+          }) => ({
+            id: p.id,
+            title: p.in_game_name || p.name,
+            subtitle: `${p.professional_teams?.name || 'Free Agent'} • ${p.primary_role || 'Player'}`,
+            category: 'Players' as const,
+            href: `/players/${p.id}`,
+            badge: p.current_price ? `$${Number(p.current_price).toFixed(1)}M` : undefined,
+          }))
+        );
+      } catch {
+        setPlayerResults([]);
+      } finally {
+        setIsSearchingPlayers(false);
+      }
+    }, 250);
+
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  useEffect(() => {
+    function closePopups(event: MouseEvent) {
       if (userMenuRef.current && !userMenuRef.current.contains(event.target as Node)) {
         setUserMenuOpen(false);
       }
     }
 
-    function closeUserMenuOnEscape(event: KeyboardEvent) {
+    function closeOnEscape(event: KeyboardEvent) {
       if (event.key === 'Escape') {
         setUserMenuOpen(false);
         setNotificationMenuOpen(false);
+        setSearchOpen(false);
       }
     }
 
-    document.addEventListener('mousedown', closeUserMenu);
-    document.addEventListener('keydown', closeUserMenuOnEscape);
+    document.addEventListener('mousedown', closePopups);
+    document.addEventListener('keydown', closeOnEscape);
     return () => {
-      document.removeEventListener('mousedown', closeUserMenu);
-      document.removeEventListener('keydown', closeUserMenuOnEscape);
+      document.removeEventListener('mousedown', closePopups);
+      document.removeEventListener('keydown', closeOnEscape);
     };
   }, []);
 
@@ -205,6 +323,70 @@ export function Header() {
     { href: '/rules', label: 'League Rules', icon: ScrollText },
   ];
 
+  // Breadcrumb label map
+  const pageTitles: Record<string, string> = {
+    '/dashboard': 'Dashboard',
+    '/squads': 'Squad Management',
+    '/lineups': 'Active Lineup',
+    '/transfers': 'Transfers & Market',
+    '/players': 'Players Directory',
+    '/leagues': 'Leagues & Cups',
+    '/leaderboard': 'Global Leaderboard',
+    '/gameweeks': 'Gameweek Schedule',
+    '/tournaments': 'Tournaments',
+    '/matches': 'Matches & Results',
+    '/analytics': 'Performance Analytics',
+    '/guide': 'Manager Guide',
+    '/rules': 'League Rules',
+    '/profile': 'Manager Profile',
+    '/account': 'Account Settings',
+    '/notifications': 'Notification Center',
+  };
+
+  const currentPageTitle = pageTitles[pathname] || (pathname.startsWith('/players/') ? 'Player Inspection' : 'Dota 2 Fantasy');
+
+  // Format deadline countdown
+  const deadlineCountdown = useMemo(() => {
+    if (!quickStats?.gameweek?.deadline || !currentTime) return null;
+    const deadlineMs = new Date(quickStats.gameweek.deadline).getTime();
+    const diff = deadlineMs - currentTime;
+    if (diff <= 0) return 'Deadline passed';
+    const hours = Math.floor(diff / (1000 * 60 * 60));
+    const mins = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+    if (hours < 24) {
+      return `${hours}h ${mins}m`;
+    }
+    const days = Math.floor(hours / 24);
+    return `${days}d ${hours % 24}h`;
+  }, [quickStats, currentTime]);
+
+  const staticNavigationItems: SearchResultItem[] = useMemo(
+    () => [
+      { id: 'nav-dash', title: 'Dashboard', subtitle: 'Overview, stats and rank', category: 'Navigation', href: '/dashboard' },
+      { id: 'nav-squads', title: 'My Squad', subtitle: 'Pitch formation and players', category: 'Navigation', href: '/squads' },
+      { id: 'nav-lineups', title: 'Lineups', subtitle: 'Captain & Vice Captain pick', category: 'Navigation', href: '/lineups' },
+      { id: 'nav-transfers', title: 'Transfer Market', subtitle: 'Buy and sell pro players', category: 'Navigation', href: '/transfers' },
+      { id: 'nav-players', title: 'Players Directory', subtitle: 'Browse all pro statistics', category: 'Navigation', href: '/players' },
+      { id: 'nav-leagues', title: 'Leagues', subtitle: 'Private & public standings', category: 'Navigation', href: '/leagues' },
+      { id: 'nav-leaderboard', title: 'Leaderboard', subtitle: 'Top global fantasy managers', category: 'Navigation', href: '/leaderboard' },
+      { id: 'nav-gameweeks', title: 'Gameweek Schedule', subtitle: 'Deadlines and fixtures', category: 'Navigation', href: '/gameweeks' },
+      { id: 'nav-rules', title: 'League Rules', subtitle: 'Scoring system breakdown', category: 'Pages', href: '/rules' },
+      { id: 'nav-guide', title: 'Manager Guide', subtitle: 'Tips and interactive tour', category: 'Pages', href: '/guide' },
+    ],
+    []
+  );
+
+  const filteredSearchResults = useMemo(() => {
+    if (!searchQuery.trim()) {
+      return staticNavigationItems.slice(0, 5);
+    }
+    const query = searchQuery.toLowerCase().trim();
+    const matchedPages = staticNavigationItems.filter(
+      (item) => item.title.toLowerCase().includes(query) || item.subtitle.toLowerCase().includes(query)
+    );
+    return [...playerResults, ...matchedPages];
+  }, [searchQuery, playerResults, staticNavigationItems]);
+
   return (
     <>
       <aside className={`dashboard-sidebar fixed inset-y-0 left-0 z-50 hidden flex-col border-r border-slate-700 bg-slate-900 px-4 py-6 transition-[width] duration-200 md:flex ${sidebarCollapsed ? 'w-20' : 'w-64'}`}>
@@ -277,64 +459,159 @@ export function Header() {
         </nav>
       </aside>
 
-      <header className="dashboard-header sticky top-0 z-40 border-b border-slate-700 bg-slate-900/95 backdrop-blur">
-      <nav ref={userMenuRef} className="mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between items-center h-16">
-          {/* Logo */}
-          <Link href="/" className="flex items-center gap-2 font-bold text-xl md:hidden">
-            <div className="w-8 h-8 bg-linear-to-br from-amber-500 to-orange-600 rounded-lg flex items-center justify-center">
-              <span className="text-white font-bold">D2</span>
-            </div>
-            <span className="bg-linear-to-r from-amber-500 to-orange-600 bg-clip-text text-transparent">
-              Fantasy
-            </span>
-          </Link>
+      <header className="dashboard-header sticky top-0 z-40 border-b border-slate-700/80 bg-slate-900/95 backdrop-blur-md">
+        <nav ref={userMenuRef} className="mx-auto px-4 sm:px-6">
+          <div className="flex justify-between items-center h-16 gap-4">
+            
+            {/* Mobile Brand */}
+            <Link href="/" className="flex items-center gap-2 font-bold text-xl md:hidden shrink-0">
+              <div className="w-8 h-8 bg-linear-to-br from-amber-500 to-orange-600 rounded-lg flex items-center justify-center">
+                <span className="text-white font-bold">D2</span>
+              </div>
+              <span className="bg-linear-to-r from-amber-500 to-orange-600 bg-clip-text text-transparent">
+                Fantasy
+              </span>
+            </Link>
 
-          <div className="hidden flex-1 md:block" />
-
-          {/* User Menu (Desktop) */}
-          <div className="hidden md:flex items-center gap-4">
-            <ThemeToggle />
-            <div className="relative">
-              <button type="button" aria-label="Open notifications" aria-expanded={notificationMenuOpen} onClick={() => { setNotificationMenuOpen(!notificationMenuOpen); setUserMenuOpen(false); }} className="relative rounded-full p-2 text-slate-400 hover:bg-slate-800 hover:text-white">
-                <Bell className="h-5 w-5" />
-                {unreadNotifications > 0 && <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-cyan-400 ring-2 ring-slate-900" />}
-              </button>
-              {notificationMenuOpen && notificationMenu}
+            {/* Left: Breadcrumbs & Context Title (Desktop) */}
+            <div className="hidden md:flex items-center gap-3 shrink-0">
+              <span className="text-xs uppercase tracking-wider font-semibold text-slate-400">
+                Fantasy
+              </span>
+              <span className="text-slate-600 font-medium">/</span>
+              <h1 className="text-sm font-bold text-white tracking-wide">
+                {currentPageTitle}
+              </h1>
             </div>
-            <div className="relative">
-              <button type="button" aria-label="Open user menu" aria-expanded={userMenuOpen} onClick={() => setUserMenuOpen(!userMenuOpen)} className="h-9 w-9 overflow-hidden rounded-full border border-slate-600 bg-slate-800 text-sm font-bold text-white hover:border-amber-500">
-                {profile?.avatar_url ? <Image src={profile.avatar_url} alt="User avatar" width={36} height={36} unoptimized className="h-full w-full object-cover" /> : initials}
+
+            {/* Center: Command Palette / Quick Search Trigger */}
+            <div className="hidden lg:flex flex-1 max-w-xs xl:max-w-md mx-2">
+              <button
+                type="button"
+                onClick={() => setSearchOpen(true)}
+                className="w-full flex items-center justify-between px-3 py-1.5 rounded-lg border border-slate-700 bg-slate-800/60 hover:bg-slate-800 text-slate-400 hover:text-slate-200 transition-all text-xs group shadow-inner"
+              >
+                <div className="flex items-center gap-2">
+                  <Search className="h-3.5 w-3.5 text-slate-400 group-hover:text-amber-400 transition-colors" />
+                  <span className="truncate">Search players, teams, leagues...</span>
+                </div>
+                <kbd className="hidden sm:inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] font-mono text-slate-400 bg-slate-900/80 border border-slate-700 rounded">
+                  <Command className="h-2.5 w-2.5" /> K
+                </kbd>
               </button>
-              {userMenuOpen && userMenu}
+            </div>
+
+            {/* Right: Fantasy HUD Pills & Actions */}
+            <div className="flex items-center gap-2 sm:gap-3 ml-auto">
+              
+              {/* Quick Search Icon for Tablets & Smaller Screens */}
+              <button
+                type="button"
+                aria-label="Open search"
+                onClick={() => setSearchOpen(true)}
+                className="lg:hidden p-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+              >
+                <Search className="h-4 w-4" />
+              </button>
+
+              {/* Fantasy HUD Pills (Desktop) */}
+              <div className="hidden sm:flex items-center gap-2">
+                {/* Gameweek Deadline Status Pill */}
+                {quickStats?.gameweek && (
+                  <Link
+                    href="/gameweeks"
+                    className="flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-amber-500/30 bg-amber-500/10 hover:bg-amber-500/20 text-xs font-medium text-amber-400 transition-colors"
+                    title={`GW${quickStats.gameweek.gameweek_number} Deadline`}
+                  >
+                    <Clock className="h-3.5 w-3.5 animate-pulse" />
+                    <span>GW{quickStats.gameweek.gameweek_number}:</span>
+                    <span className="font-semibold text-white">{deadlineCountdown || 'Active'}</span>
+                  </Link>
+                )}
+
+                {/* Bank Balance Pill */}
+                <Link
+                  href="/transfers"
+                  className="flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-slate-700 bg-slate-800/80 hover:bg-slate-700/80 text-xs text-slate-300 transition-colors"
+                  title="Remaining Transfer Budget"
+                >
+                  <Wallet className="h-3.5 w-3.5 text-emerald-400" />
+                  <span className="font-semibold text-emerald-400">
+                    ${Number(quickStats?.bankBalance ?? 100).toFixed(1)}M
+                  </span>
+                </Link>
+
+                {/* Free Transfers Chip */}
+                <Link
+                  href="/transfers"
+                  className="flex items-center gap-1 px-2.5 py-1 rounded-full border border-slate-700 bg-slate-800/80 hover:bg-slate-700/80 text-xs text-slate-300 transition-colors"
+                  title="Available Free Transfers"
+                >
+                  <ArrowLeftRight className="h-3 w-3 text-cyan-400" />
+                  <span>
+                    <span className="font-semibold text-white">{quickStats?.freeTransfers ?? 1}</span> FT
+                  </span>
+                </Link>
+              </div>
+
+              {/* Vertical Divider */}
+              <div className="hidden sm:block h-5 w-px bg-slate-700/80 mx-1" />
+
+              {/* Theme Toggle */}
+              <div className="hidden sm:block">
+                <ThemeToggle />
+              </div>
+
+              {/* Notifications */}
+              <div className="relative">
+                <button
+                  type="button"
+                  aria-label="Open notifications"
+                  aria-expanded={notificationMenuOpen}
+                  onClick={() => {
+                    setNotificationMenuOpen(!notificationMenuOpen);
+                    setUserMenuOpen(false);
+                  }}
+                  className="relative rounded-full p-2 text-slate-400 hover:bg-slate-800 hover:text-white transition-colors"
+                >
+                  <Bell className="h-5 w-5" />
+                  {unreadNotifications > 0 && (
+                    <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-cyan-400 ring-2 ring-slate-900" />
+                  )}
+                </button>
+                {notificationMenuOpen && notificationMenu}
+              </div>
+
+              {/* User Avatar Menu */}
+              <div className="relative">
+                <button
+                  type="button"
+                  aria-label="Open user menu"
+                  aria-expanded={userMenuOpen}
+                  onClick={() => setUserMenuOpen(!userMenuOpen)}
+                  className="h-9 w-9 overflow-hidden rounded-full border border-slate-600 bg-slate-800 text-sm font-bold text-white hover:border-amber-500 transition-colors flex items-center justify-center ring-2 ring-transparent hover:ring-amber-500/20"
+                >
+                  {profile?.avatar_url ? (
+                    <Image src={profile.avatar_url} alt="User avatar" width={36} height={36} unoptimized className="h-full w-full object-cover" />
+                  ) : (
+                    initials
+                  )}
+                </button>
+                {userMenuOpen && userMenu}
+              </div>
+
+              {/* Mobile Navigation Toggle Button */}
+              <button
+                className="text-slate-400 hover:text-white md:hidden p-1.5"
+                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                aria-label="Toggle mobile menu"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                </svg>
+              </button>
             </div>
           </div>
-
-          {/* Mobile Menu Button */}
-          <div className="flex items-center gap-3 md:hidden">
-            <div className="relative">
-              <button type="button" aria-label="Open notifications" aria-expanded={notificationMenuOpen} onClick={() => { setNotificationMenuOpen(!notificationMenuOpen); setUserMenuOpen(false); }} className="relative rounded-full p-2 text-slate-400 hover:bg-slate-800 hover:text-white">
-                <Bell className="h-5 w-5" />
-                {unreadNotifications > 0 && <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-cyan-400 ring-2 ring-slate-900" />}
-              </button>
-              {notificationMenuOpen && notificationMenu}
-            </div>
-            <div className="relative">
-              <button type="button" aria-label="Open user menu" aria-expanded={userMenuOpen} onClick={() => setUserMenuOpen(!userMenuOpen)} className="h-9 w-9 overflow-hidden rounded-full border border-slate-600 bg-slate-800 text-sm font-bold text-white hover:border-amber-500">
-                {profile?.avatar_url ? <Image src={profile.avatar_url} alt="User avatar" width={36} height={36} unoptimized className="h-full w-full object-cover" /> : initials}
-              </button>
-              {userMenuOpen && userMenu}
-            </div>
-            <button
-              className="text-slate-400 hover:text-white"
-              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            >
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-              </svg>
-            </button>
-          </div>
-        </div>
 
         {/* Mobile Navigation */}
         {mobileMenuOpen && (
@@ -383,6 +660,92 @@ export function Header() {
           </div>
         )}
       </nav>
+
+      {/* Command Palette Modal (Ctrl+K / Cmd+K) */}
+      {searchOpen && (
+          <div className="fixed inset-0 z-50 flex items-start justify-center pt-20 px-4 bg-slate-950/70 backdrop-blur-xs animate-in fade-in duration-150">
+            <div className="w-full max-w-xl rounded-xl border border-slate-700 bg-slate-900 shadow-2xl overflow-hidden">
+              {/* Search Bar Input */}
+              <div className="flex items-center px-4 border-b border-slate-700/80 bg-slate-800/40">
+                <Search className="h-5 w-5 text-slate-400 shrink-0" />
+                <input
+                  ref={searchInputRef}
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search pro players, pages, rules... (Esc to close)"
+                  className="w-full bg-transparent px-3 py-3.5 text-sm text-white placeholder-slate-400 focus:outline-none"
+                />
+                {searchQuery ? (
+                  <button
+                    type="button"
+                    onClick={() => setSearchQuery('')}
+                    className="p-1 rounded text-slate-400 hover:text-white"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                ) : (
+                  <kbd className="text-[10px] font-mono text-slate-400 bg-slate-800 px-1.5 py-0.5 rounded border border-slate-700">
+                    ESC
+                  </kbd>
+                )}
+              </div>
+
+              {/* Results List */}
+              <div className="max-h-80 overflow-y-auto p-2 space-y-1">
+                {isSearchingPlayers && (
+                  <div className="p-4 text-center text-xs text-slate-400 flex items-center justify-center gap-2">
+                    <span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-amber-500 border-t-transparent" />
+                    Searching players...
+                  </div>
+                )}
+
+                {filteredSearchResults.length === 0 && !isSearchingPlayers && (
+                  <div className="p-8 text-center text-sm text-slate-400">
+                    No results found for &ldquo;<span className="text-white">{searchQuery}</span>&rdquo;
+                  </div>
+                )}
+
+                {filteredSearchResults.map((item) => (
+                  <button
+                    key={`${item.category}-${item.id}`}
+                    type="button"
+                    onClick={() => {
+                      setSearchOpen(false);
+                      router.push(item.href);
+                    }}
+                    className="w-full flex items-center justify-between p-2.5 rounded-lg hover:bg-slate-800 text-left transition-colors group"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className={`p-2 rounded-md ${item.category === 'Players' ? 'bg-amber-500/10 text-amber-400' : 'bg-slate-800 text-slate-400'}`}>
+                        {item.category === 'Players' ? <Sparkles className="h-4 w-4" /> : <Compass className="h-4 w-4" />}
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-white group-hover:text-amber-400 transition-colors">
+                          {item.title}
+                        </p>
+                        <p className="text-xs text-slate-400">
+                          {item.subtitle}
+                        </p>
+                      </div>
+                    </div>
+                    {item.badge && (
+                      <span className="text-xs font-semibold px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                        {item.badge}
+                      </span>
+                    )}
+                  </button>
+                ))}
+              </div>
+
+              {/* Footer Helper */}
+              <div className="flex items-center justify-between px-4 py-2 border-t border-slate-800 bg-slate-900/60 text-[11px] text-slate-500">
+                <span>Select a result to navigate</span>
+                <span>ESC to close</span>
+              </div>
+            </div>
+          </div>
+        )}
       </header>
     </>
   );

@@ -163,8 +163,127 @@ body {
 [data-theme='light'] .wildcard-card-description { color: #456078 !important; }
 [data-theme='light'] .border-slate-700,
 [data-theme='light'] .border-slate-600,
+[data-theme='light'] .border-slate-700\/80,
+[data-theme='light'] .border-slate-800,
+[data-theme='light'] .border-slate-800\/80,
 [data-theme='light'] .border-gray-700,
 [data-theme='light'] .border-gray-800 { border-color: var(--border) !important; }
+
+/* Dashboard Header & HUD Light Mode Overrides */
+[data-theme='light'] .dashboard-header {
+  background-color: rgba(255, 255, 255, 0.95) !important;
+  border-bottom-color: var(--border) !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+[data-theme='light'] .dashboard-header h1 {
+  color: var(--text-primary) !important;
+}
+
+/* Search trigger button in header */
+[data-theme='light'] .dashboard-header button.bg-slate-800\/60,
+[data-theme='light'] .dashboard-header button.bg-slate-800 {
+  background-color: var(--surface-muted) !important;
+  border-color: var(--border) !important;
+  color: var(--text-secondary) !important;
+}
+
+[data-theme='light'] .dashboard-header button.bg-slate-800\/60:hover {
+  background-color: #d8e5f0 !important;
+  color: var(--text-primary) !important;
+}
+
+[data-theme='light'] .dashboard-header kbd {
+  background-color: var(--surface-raised) !important;
+  border-color: var(--border) !important;
+  color: var(--text-muted) !important;
+}
+
+/* HUD Stat Pills in Light Mode */
+[data-theme='light'] .dashboard-header a.bg-slate-800\/80,
+[data-theme='light'] .dashboard-header a.bg-slate-800 {
+  background-color: var(--surface-raised) !important;
+  border-color: var(--border) !important;
+  color: var(--text-secondary) !important;
+}
+
+[data-theme='light'] .dashboard-header a.bg-slate-800\/80:hover {
+  background-color: var(--surface-muted) !important;
+}
+
+[data-theme='light'] .dashboard-header a.bg-amber-500\/10 {
+  background-color: #fef3c7 !important;
+  border-color: #f59e0b !important;
+  color: #b45309 !important;
+}
+
+[data-theme='light'] .dashboard-header a.bg-amber-500\/10:hover {
+  background-color: #fde68a !important;
+}
+
+[data-theme='light'] .dashboard-header a.bg-amber-500\/10 span.text-white {
+  color: #92400e !important;
+}
+
+[data-theme='light'] .dashboard-header .bg-slate-700\/80 {
+  background-color: var(--border) !important;
+}
+
+[data-theme='light'] .dashboard-header button.bg-slate-800.rounded-full {
+  background-color: var(--surface-raised) !important;
+  border-color: var(--border) !important;
+  color: var(--text-primary) !important;
+}
+
+/* User & Notification Dropdown Menus in Light Mode */
+[data-theme='light'] .dashboard-header .bg-slate-900 {
+  background-color: var(--surface) !important;
+  border-color: var(--border) !important;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.08) !important;
+}
+
+[data-theme='light'] .dashboard-header .bg-slate-900 p.text-white {
+  color: var(--text-primary) !important;
+}
+
+[data-theme='light'] .dashboard-header .bg-slate-900 a.text-slate-300,
+[data-theme='light'] .dashboard-header .bg-slate-900 button.text-slate-300 {
+  color: var(--text-secondary) !important;
+}
+
+[data-theme='light'] .dashboard-header .bg-slate-900 a:hover,
+[data-theme='light'] .dashboard-header .bg-slate-900 button:hover {
+  background-color: var(--surface-muted) !important;
+  color: var(--text-primary) !important;
+}
+
+/* Command Palette Modal in Light Mode */
+[data-theme='light'] .fixed .bg-slate-900 {
+  background-color: var(--surface) !important;
+  border-color: var(--border) !important;
+}
+
+[data-theme='light'] .fixed .bg-slate-800\/40 {
+  background-color: var(--surface-raised) !important;
+  border-bottom-color: var(--border) !important;
+}
+
+[data-theme='light'] .fixed input.text-white {
+  color: var(--text-primary) !important;
+}
+
+[data-theme='light'] .fixed input::placeholder {
+  color: var(--text-muted) !important;
+}
+
+[data-theme='light'] .fixed button:hover {
+  background-color: var(--surface-muted) !important;
+}
+
+[data-theme='light'] .fixed .bg-slate-900\/60 {
+  background-color: var(--surface-raised) !important;
+  border-top-color: var(--border) !important;
+}
 
 .theme-toggle {
   border-color: var(--border);
@@ -176,3 +295,4 @@ body {
   color: var(--accent-primary);
   border-color: var(--accent-primary);
 }
+

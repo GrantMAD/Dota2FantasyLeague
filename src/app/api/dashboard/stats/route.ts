@@ -98,6 +98,70 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    let starters: Array<{
+      id: number;
+      slot: string;
+      name: string;
+      in_game_name?: string | null;
+      primary_role: string;
+      current_price?: number | null;
+      is_captain?: boolean;
+      is_vice_captain?: boolean;
+      team_name?: string | null;
+    }> = [];
+
+    if (gameweek) {
+      const { data: row } = (await supabase
+        .from('fantasy_lineups')
+        .select('*')
+        .eq('fantasy_season_id', fantasySeason.id)
+        .eq('gameweek_id', gameweek.id)
+        .maybeSingle()) as { data: Record<string, unknown> | null };
+
+      if (row) {
+        const slots = ['carry', 'mid', 'offlane', 'support', 'hard_support'] as const;
+        const starterIds = slots
+          .map((s) => (typeof row[`${s}_id`] === 'number' ? (row[`${s}_id`] as number) : row[`${s}_id`] ? Number(row[`${s}_id`]) : null))
+          .filter((id): id is number => id !== null);
+
+        if (starterIds.length > 0) {
+          type StarterQueryPlayer = {
+            id: number;
+            name: string;
+            in_game_name: string | null;
+            primary_role: string;
+            current_price: number | null;
+            professional_teams: { name: string } | null;
+          };
+
+          const { data: starterPlayers } = (await supabase
+            .from('professional_players')
+            .select('id, name, in_game_name, primary_role, current_price, professional_teams(name)')
+            .in('id', starterIds)) as { data: StarterQueryPlayer[] | null };
+
+          const playerMap = new Map((starterPlayers ?? []).map((p) => [p.id, p]));
+          starters = slots
+            .map((slot) => {
+              const pid = row[`${slot}_id`];
+              const p = pid ? playerMap.get(Number(pid)) : null;
+              if (!p) return null;
+              return {
+                id: p.id,
+                slot,
+                name: p.name,
+                in_game_name: p.in_game_name,
+                primary_role: p.primary_role,
+                current_price: p.current_price,
+                is_captain: row.captain_player_id === p.id,
+                is_vice_captain: row.vice_captain_player_id === p.id,
+                team_name: p.professional_teams?.name || null,
+              };
+            })
+            .filter(Boolean) as typeof starters;
+        }
+      }
+    }
+
     const { data: leagues } = await supabase
       .from('league_participants')
       .select(`
@@ -117,8 +181,10 @@ export async function GET(request: NextRequest) {
       squadValue,
       freeTransfers,
       activeSquadCount: activeSquadCount || 0,
+      squadName: (squad && 'name' in squad && typeof squad.name === 'string') ? squad.name : 'My Fantasy Squad',
       captain,
       viceCaptain,
+      starters,
       leagueStandings: leagues || []
     });
 

@@ -16,6 +16,18 @@ interface LeagueStanding {
   leagues?: { name?: string } | null;
 }
 
+interface DashboardStarter {
+  id: number;
+  slot: string;
+  name: string;
+  in_game_name?: string | null;
+  primary_role: string;
+  current_price?: number | null;
+  is_captain?: boolean;
+  is_vice_captain?: boolean;
+  team_name?: string | null;
+}
+
 interface DashboardData {
   activeSquadCount: number;
   squadValue: number;
@@ -23,9 +35,11 @@ interface DashboardData {
   totalPoints: number;
   globalRank: number | null;
   freeTransfers: number;
+  squadName?: string;
   gameweek?: { gameweek_number: number; deadline: string; status: string } | null;
   captain?: { name: string } | null;
   viceCaptain?: { name: string } | null;
+  starters?: DashboardStarter[];
   leagueStandings: LeagueStanding[];
 }
 
@@ -119,7 +133,17 @@ export default function DashboardPage() {
           </div>
 
           {/* Stats Grid */}
-          {!loading && (
+          {loading ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
+              {[...Array(6)].map((_, i) => (
+                <div key={i} className="bg-slate-800/40 border border-slate-700/80 rounded-lg p-4 animate-pulse">
+                  <div className="h-8 w-8 bg-slate-700/60 rounded mb-4" />
+                  <div className="h-3 w-20 bg-slate-700/50 rounded mb-2" />
+                  <div className="h-6 w-16 bg-slate-700/70 rounded" />
+                </div>
+              ))}
+            </div>
+          ) : (
             <div data-guide="dashboard-stats" className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
               {stats.map((stat, idx) => (
                 <div
@@ -195,21 +219,125 @@ export default function DashboardPage() {
               </div>
             </div>
 
-            {/* Empty Squads Section */}
-            {!dashboardData?.activeSquadCount && (
-            <div className="bg-slate-800/30 border border-slate-700 rounded-lg p-8 text-center">
-              <div className="text-5xl mb-4">⚽</div>
-              <h3 className="text-xl font-semibold text-white mb-2">No Active Squads</h3>
-              <p className="text-slate-400 mb-6">
-                Create or select a squad to get started with your fantasy league
-              </p>
-              <Link
-                href="/squads"
-                className="inline-block bg-linear-to-r from-amber-500 to-orange-600 text-white px-6 py-2 rounded-lg font-semibold hover:shadow-lg hover:shadow-orange-500/20 transition-all"
-              >
-                Create Squad
-              </Link>
-            </div>
+            {/* Squads Status Section */}
+            {loading ? (
+              <div className="bg-slate-800/30 border border-slate-700/80 rounded-lg p-8 animate-pulse text-center">
+                <div className="h-10 w-10 bg-slate-700/60 rounded-full mx-auto mb-4" />
+                <div className="h-5 w-48 bg-slate-700/60 rounded mx-auto mb-2" />
+                <div className="h-4 w-64 bg-slate-700/40 rounded mx-auto" />
+              </div>
+            ) : !dashboardData?.activeSquadCount ? (
+              <div className="bg-slate-800/30 border border-slate-700 rounded-lg p-8 text-center">
+                <div className="text-5xl mb-4">🛡️</div>
+                <h3 className="text-xl font-semibold text-white mb-2">No Active Squads</h3>
+                <p className="text-slate-400 mb-6">
+                  Create or select a squad to get started with your fantasy league
+                </p>
+                <Link
+                  href="/squads"
+                  className="inline-block bg-linear-to-r from-amber-500 to-orange-600 text-white px-6 py-2 rounded-lg font-semibold hover:shadow-lg hover:shadow-orange-500/20 transition-all"
+                >
+                  Create Squad
+                </Link>
+              </div>
+            ) : (
+              <div className="bg-slate-800/40 border border-slate-700 rounded-xl p-6 shadow-sm">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-5 border-b border-slate-700/80">
+                  <div>
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-xl">🛡️</span>
+                      <h3 className="text-lg font-bold text-white">
+                        {dashboardData.squadName || 'Active Squad'}
+                      </h3>
+                      <span className="px-2 py-0.5 text-xs font-semibold rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                        Active
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-400">
+                      Gameweek {dashboardData.gameweek?.gameweek_number || 1} • 5 Starters • Squad Value: ${Number(dashboardData.squadValue || 0).toFixed(1)}M
+                    </p>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <Link
+                      href="/lineups"
+                      className="px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-amber-500 text-white hover:bg-amber-600 transition-colors shadow-sm"
+                    >
+                      Edit Lineup
+                    </Link>
+                    <Link
+                      href="/squads"
+                      className="px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-slate-700 hover:bg-slate-600 text-slate-200 transition-colors"
+                    >
+                      View Full Squad
+                    </Link>
+                  </div>
+                </div>
+
+                {/* Starting 5 Lineup Strip */}
+                <div className="pt-5">
+                  <div className="flex items-center justify-between mb-3">
+                    <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+                      Starting Five Lineup
+                    </h4>
+                    <span className="text-xs text-slate-400">
+                      {dashboardData.starters && dashboardData.starters.length > 0 ? `${dashboardData.starters.length}/5 Selected` : 'Ready to configure'}
+                    </span>
+                  </div>
+
+                  {dashboardData.starters && dashboardData.starters.length > 0 ? (
+                    <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+                      {dashboardData.starters.map((player) => (
+                        <div
+                          key={player.id}
+                          className="relative rounded-lg border border-slate-700/80 bg-slate-850 p-3 hover:border-slate-600 transition-all flex flex-col justify-between"
+                        >
+                          {player.is_captain && (
+                            <span className="absolute -top-2 -right-1 px-1.5 py-0.5 rounded text-[10px] font-black bg-amber-500 text-slate-950 shadow-sm">
+                              C
+                            </span>
+                          )}
+                          {player.is_vice_captain && (
+                            <span className="absolute -top-2 -right-1 px-1.5 py-0.5 rounded text-[10px] font-black bg-cyan-500 text-slate-950 shadow-sm">
+                              VC
+                            </span>
+                          )}
+
+                          <div>
+                            <span className="text-[10px] uppercase font-bold text-amber-400/90 tracking-wide block mb-1">
+                              {player.slot.replace('_', ' ')}
+                            </span>
+                            <p className="text-sm font-bold text-white truncate" title={player.in_game_name || player.name}>
+                              {player.in_game_name || player.name}
+                            </p>
+                            <p className="text-[11px] text-slate-400 truncate">
+                              {player.team_name || 'Free Agent'}
+                            </p>
+                          </div>
+
+                          <div className="mt-3 pt-2 border-t border-slate-700/50 flex items-center justify-between text-[11px]">
+                            <span className="text-slate-400">Price</span>
+                            <span className="font-semibold text-emerald-400">
+                              ${Number(player.current_price || 0).toFixed(1)}M
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="rounded-lg border border-dashed border-slate-700 p-6 text-center">
+                      <p className="text-sm text-slate-300 font-medium mb-1">No starting 5 set for this gameweek yet</p>
+                      <p className="text-xs text-slate-400 mb-4">Pick your 5 starters and captain to start accumulating points</p>
+                      <Link
+                        href="/lineups"
+                        className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-semibold bg-amber-500 text-white hover:bg-amber-600 transition-colors"
+                      >
+                        Set Starting Lineup →
+                      </Link>
+                    </div>
+                  )}
+                </div>
+              </div>
             )}
           </div>
 
