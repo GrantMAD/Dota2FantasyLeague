@@ -1,12 +1,45 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import Image from 'next/image';
+import { UserCheck } from 'lucide-react';
 
 type ChipType = 'triple-captain' | 'bench-boost' | null;
 
+type ChipStatus = {
+  tripleCaptainUsed?: boolean;
+  tripleCaptainGameweekId?: number | null;
+  benchBoostUsed?: boolean;
+  benchBoostGameweekId?: number | null;
+};
+
+type LineupPlayer = {
+  id: number;
+  name: string;
+  in_game_name?: string | null;
+  primary_role?: string | null;
+  profile_image_url?: string | null;
+  professional_teams?: { name?: string | null } | null;
+};
+
+type LineupEntry = {
+  slot: string;
+  player_id: number;
+  is_captain: boolean;
+  is_vice_captain: boolean;
+  professional_players?: LineupPlayer | null;
+};
+
+const SpinnerIcon = () => (
+  <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+  </svg>
+);
+
 export default function LineupsPage() {
-  const [tcStatus, setTcStatus] = useState<any>(null);
-  const [bbStatus, setBbStatus] = useState<any>(null);
+  const [tcStatus, setTcStatus] = useState<ChipStatus | null>(null);
+  const [bbStatus, setBbStatus] = useState<ChipStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeModal, setActiveModal] = useState<ChipType>(null);
   const [activating, setActivating] = useState(false);
@@ -15,8 +48,9 @@ export default function LineupsPage() {
 
   const [fantasySeasonId, setFantasySeasonId] = useState<number | null>(null);
   const [gameweekId, setGameweekId] = useState<number | null>(null);
-  const [lineup, setLineup] = useState<any[]>([]);
-  const [ownedPlayers, setOwnedPlayers] = useState<any[]>([]);
+  const [lineupLocked, setLineupLocked] = useState(false);
+  const [lineup, setLineup] = useState<LineupEntry[]>([]);
+  const [ownedPlayers, setOwnedPlayers] = useState<LineupPlayer[]>([]);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -37,6 +71,7 @@ export default function LineupsPage() {
         const activeGameweek = gameweekData.gameweeks?.[0];
         if (activeGameweek) {
           setGameweekId(activeGameweek.id);
+          setLineupLocked(activeGameweek.status === 'closed' || Boolean(activeGameweek.deadline && new Date(activeGameweek.deadline) < new Date()));
         }
 
         if (currentFantasySeasonId && activeGameweek) {
@@ -51,7 +86,8 @@ export default function LineupsPage() {
           const playersData = await playersResponse.json();
           const contextData = await contextResponse.json();
           setLineup(lineupData.lineup || []);
-          setOwnedPlayers((playersData.data || []).filter((player: any) => (contextData.ownedPlayerIds || []).includes(player.id)));
+          const ownedPlayerIds = Array.isArray(contextData.ownedPlayerIds) ? contextData.ownedPlayerIds as number[] : [];
+          setOwnedPlayers((playersData.data || []).filter((player: LineupPlayer) => ownedPlayerIds.includes(player.id)));
           setTcStatus(await tcRes.json());
           setBbStatus(await bbRes.json());
         }
@@ -65,6 +101,13 @@ export default function LineupsPage() {
   }, []);
 
   const updateSlot = (slot: string, playerId: number) => {
+    const existingSlot = lineup.find((entry) => entry.player_id === playerId && entry.slot !== slot)?.slot;
+    if (existingSlot) {
+      setError(`${ownedPlayers.find((player) => player.id === playerId)?.in_game_name || 'This player'} is already assigned to ${existingSlot.replace('_', ' ')}.`);
+      return;
+    }
+
+    setError(null);
     const player = ownedPlayers.find((entry) => entry.id === playerId);
     setLineup((current) => [
       ...current.filter((entry) => entry.slot !== slot),
@@ -73,16 +116,61 @@ export default function LineupsPage() {
   };
 
   const setCaptain = (playerId: number, vice = false) => {
-    setLineup((current) => current.map((entry) => ({
-      ...entry,
-      is_captain: !vice && entry.player_id === playerId,
-      is_vice_captain: vice && entry.player_id === playerId,
-    })));
+    setLineup((current) => {
+      const selected = current.find((entry) => entry.player_id === playerId);
+      if (!selected) return current;
+
+      const currentCaptain = current.find((entry) => entry.is_captain);
+      const currentViceCaptain = current.find((entry) => entry.is_vice_captain);
+
+      return current.map((entry) => {
+        if (entry.player_id === playerId) {
+          return {
+            ...entry,
+            is_captain: !vice,
+            is_vice_captain: vice,
+          };
+        }
+
+        if (!vice && selected.is_vice_captain && entry.player_id === currentCaptain?.player_id) {
+          return { ...entry, is_captain: false, is_vice_captain: true };
+        }
+
+        if (vice && selected.is_captain && entry.player_id === currentViceCaptain?.player_id) {
+          return { ...entry, is_captain: true, is_vice_captain: false };
+        }
+
+        return {
+          ...entry,
+          is_captain: vice ? entry.is_captain : false,
+          is_vice_captain: vice ? false : entry.is_vice_captain,
+        };
+      });
+    });
   };
 
   const saveLineup = async () => {
-    if (!gameweekId || lineup.length !== 8) {
+    if (lineupLocked) {
+      setError('The gameweek deadline has passed. Lineup changes are locked.');
+      return;
+    }
+
+    const expectedSlots = ['carry', 'mid', 'offlane', 'support', 'hard_support', 'bench_1', 'bench_2', 'bench_3'];
+    const missingSlots = expectedSlots.filter((slot) => !lineup.some((entry) => entry.slot === slot));
+    const duplicatePlayers = new Set(lineup.map((entry) => entry.player_id)).size !== lineup.length;
+    const captainCount = lineup.filter((entry) => entry.is_captain).length;
+    const viceCaptainCount = lineup.filter((entry) => entry.is_vice_captain).length;
+
+    if (!gameweekId || missingSlots.length > 0 || lineup.length !== 8) {
       setError('Fill every lineup slot before saving.');
+      return;
+    }
+    if (duplicatePlayers) {
+      setError('Each player can only be assigned to one lineup slot.');
+      return;
+    }
+    if (captainCount !== 1 || viceCaptainCount !== 1) {
+      setError('Select exactly one captain and one vice-captain before saving.');
       return;
     }
     setSaving(true);
@@ -140,7 +228,7 @@ export default function LineupsPage() {
       } else {
         setBbStatus({ ...bbStatus, benchBoostUsed: true, benchBoostGameweekId: data.gameweekId });
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Activation failed');
     } finally {
       setActivating(false);
@@ -148,17 +236,13 @@ export default function LineupsPage() {
     }
   };
 
-  const SpinnerIcon = () => (
-    <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-    </svg>
-  );
-
   return (
     <div className="max-w-7xl mx-auto px-4 py-12">
-      <h1 className="text-3xl font-bold text-white mb-2">Lineups</h1>
-      <p className="text-slate-400 mb-8">Set your starting XI for each gameweek</p>
+      <h1 className="mb-2 flex items-center gap-3 text-3xl font-bold text-white">
+        <UserCheck className="h-7 w-7 text-cyan-400" aria-hidden="true" />
+        Lineups
+      </h1>
+      <p className="max-w-3xl text-slate-400 mb-8">Choose one player for each starting role, assign your captain and vice-captain, arrange your bench priority, then save your lineup before the gameweek deadline.</p>
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
         {/* Main content */}
@@ -168,22 +252,40 @@ export default function LineupsPage() {
               <div>
                 <h2 className="text-xl font-semibold text-white">Gameweek Lineup</h2>
                 <p className="text-sm text-slate-400">Active gameweek {gameweekId ?? 'not available'}</p>
+                {lineupLocked && <p className="mt-1 text-xs font-semibold text-red-400">Deadline passed · lineup locked</p>}
               </div>
               <button
                 type="button"
                 data-guide="lineup-save-btn"
                 onClick={saveLineup}
-                disabled={saving || lineup.length !== 8}
+                disabled={saving || lineup.length !== 8 || lineupLocked}
                 className="rounded-lg bg-amber-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50 transition-opacity"
               >
-                {saving ? 'Saving...' : 'Save Lineup'}
+                {saving ? 'Saving...' : lineupLocked ? 'Lineup Locked' : 'Save Lineup'}
               </button>
             </div>
 
             {loading ? (
-              <div className="py-16 text-center text-slate-400">
-                <div className="mx-auto h-8 w-8 animate-spin rounded-full border-2 border-amber-500 border-t-transparent mb-3"></div>
-                <p className="text-sm">Loading lineup...</p>
+              <div className="animate-pulse space-y-6">
+                <div className="grid grid-cols-1 gap-3 rounded-lg border border-slate-700 bg-slate-900/60 p-4 md:grid-cols-2">
+                  <div className="h-10 rounded bg-slate-800" />
+                  <div className="h-10 rounded bg-slate-800" />
+                </div>
+                <div className="space-y-3">
+                  {[1, 2, 3, 4, 5].map((slot) => (
+                    <div key={slot} className="rounded-lg border border-slate-700 bg-slate-900/40 p-4">
+                      <div className="mb-3 h-3 w-24 rounded bg-slate-700" />
+                      <div className="h-10 rounded bg-slate-800" />
+                      <div className="mt-3 h-10 w-40 rounded bg-slate-800" />
+                    </div>
+                  ))}
+                </div>
+                <div className="border-t border-slate-700/70 pt-6">
+                  <div className="mb-3 h-3 w-36 rounded bg-slate-700" />
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                    {[1, 2, 3].map((slot) => <div key={slot} className="h-24 rounded-lg border border-slate-700 bg-slate-900/40" />)}
+                  </div>
+                </div>
               </div>
             ) : ownedPlayers.length === 0 ? (
               <div data-guide="lineup-empty" className="py-16 text-center text-slate-400">
@@ -200,7 +302,34 @@ export default function LineupsPage() {
                     </h3>
                     <span className="text-xs text-slate-400">Active point scorers</span>
                   </div>
-                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                  <div data-guide="lineup-captain-controls" className="mb-4 grid grid-cols-1 gap-3 rounded-lg border border-slate-700 bg-slate-900/60 p-4 md:grid-cols-2">
+                    <div>
+                      <label className="mb-2 block text-xs font-bold uppercase tracking-wider text-amber-400">Captain · 2x points</label>
+                      <select
+                        value={lineup.find((entry) => entry.is_captain)?.player_id ?? ''}
+                        onChange={(event) => event.target.value && setCaptain(Number(event.target.value), false)}
+                        disabled={lineupLocked}
+                        className="w-full rounded border border-amber-500/40 bg-slate-800 px-3 py-2 text-sm text-white focus:border-amber-500 focus:outline-none disabled:opacity-50"
+                      >
+                        <option value="">Select captain</option>
+                        {ownedPlayers.map((player) => <option key={player.id} value={player.id}>{player.in_game_name || player.name}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="mb-2 block text-xs font-bold uppercase tracking-wider text-slate-300">Vice-Captain · backup</label>
+                      <select
+                        value={lineup.find((entry) => entry.is_vice_captain)?.player_id ?? ''}
+                        onChange={(event) => event.target.value && setCaptain(Number(event.target.value), true)}
+                        disabled={lineupLocked}
+                        className="w-full rounded border border-slate-600 bg-slate-800 px-3 py-2 text-sm text-white focus:border-slate-400 focus:outline-none disabled:opacity-50"
+                      >
+                        <option value="">Select vice-captain</option>
+                        {ownedPlayers.map((player) => <option key={player.id} value={player.id}>{player.in_game_name || player.name}</option>)}
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="space-y-3">
                     {['carry', 'mid', 'offlane', 'support', 'hard_support'].map((slot, index) => {
                       const selected = lineup.find((entry) => entry.slot === slot);
                       return (
@@ -214,7 +343,13 @@ export default function LineupsPage() {
                           </label>
                           <select
                             value={selected?.player_id ?? ''}
-                            onChange={(event) => updateSlot(slot, Number(event.target.value))}
+                            onChange={(event) => {
+                              if (!event.target.value) {
+                                setLineup((current) => current.filter((entry) => entry.slot !== slot));
+                              } else {
+                                updateSlot(slot, Number(event.target.value));
+                              }
+                            }}
                             className="w-full rounded border border-slate-600 bg-slate-800 px-3 py-2 text-sm text-white focus:border-amber-500 focus:outline-none"
                           >
                             <option value="">Select player</option>
@@ -224,46 +359,26 @@ export default function LineupsPage() {
                               </option>
                             ))}
                           </select>
-                          <div
-                            data-guide={index === 0 ? 'lineup-captain-controls' : undefined}
-                            className="mt-3 flex items-center gap-2"
-                          >
-                            <button
-                              type="button"
-                              disabled={!selected}
-                              onClick={() => selected && setCaptain(selected.player_id, false)}
-                              className={`rounded px-2.5 py-1 text-xs font-medium transition-colors ${
-                                selected?.is_captain
-                                  ? 'bg-amber-500 text-slate-900 font-bold shadow'
-                                  : 'bg-slate-700 text-slate-300 hover:bg-slate-600 disabled:opacity-40 disabled:cursor-not-allowed'
-                              }`}
-                            >
-                              Captain (2x)
-                            </button>
-                            <button
-                              type="button"
-                              disabled={!selected}
-                              onClick={() => selected && setCaptain(selected.player_id, true)}
-                              className={`rounded px-2.5 py-1 text-xs font-medium transition-colors ${
-                                selected?.is_vice_captain
-                                  ? 'bg-slate-200 text-slate-900 font-bold shadow'
-                                  : 'bg-slate-700 text-slate-300 hover:bg-slate-600 disabled:opacity-40 disabled:cursor-not-allowed'
-                              }`}
-                            >
-                              Vice
-                            </button>
-                            {selected?.is_captain && (
-                              <span className="text-[11px] font-semibold text-amber-400 ml-1">2x Points</span>
-                            )}
-                            {selected?.is_vice_captain && (
-                              <span className="text-[11px] font-semibold text-slate-300 ml-1">Backup</span>
-                            )}
-                          </div>
+                          {selected?.professional_players && (
+                            <div className="mt-3 flex items-center gap-3 rounded-lg border border-slate-700 bg-slate-800/60 p-2.5">
+                              <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full border border-slate-600 bg-slate-700">
+                                {selected.professional_players.profile_image_url ? (
+                                  <Image src={selected.professional_players.profile_image_url} alt={selected.professional_players.in_game_name || selected.professional_players.name} width={36} height={36} unoptimized className="h-full w-full object-cover" />
+                                ) : (
+                                  <span className="text-xs font-bold text-slate-300">{(selected.professional_players.in_game_name || selected.professional_players.name || 'P').slice(0, 2).toUpperCase()}</span>
+                                )}
+                              </div>
+                              <div className="min-w-0">
+                                <p className="truncate text-sm font-semibold text-white">{selected.professional_players.in_game_name || selected.professional_players.name}</p>
+                                <p className="truncate text-xs text-slate-400">{selected.professional_players.professional_teams?.name || 'Free Agent'}</p>
+                              </div>
+                            </div>
+                          )}
                         </div>
                       );
                     })}
                   </div>
-                </div>
+                  </div>
 
                 {/* Bench Substitutes */}
                 <div data-guide="lineup-bench" className="border-t border-slate-700/70 pt-6">
@@ -288,7 +403,13 @@ export default function LineupsPage() {
                           </label>
                           <select
                             value={selected?.player_id ?? ''}
-                            onChange={(event) => updateSlot(slot, Number(event.target.value))}
+                            onChange={(event) => {
+                              if (!event.target.value) {
+                                setLineup((current) => current.filter((entry) => entry.slot !== slot));
+                              } else {
+                                updateSlot(slot, Number(event.target.value));
+                              }
+                            }}
                             className="w-full rounded border border-slate-600 bg-slate-800 px-3 py-2 text-sm text-white focus:border-amber-500 focus:outline-none"
                           >
                             <option value="">Select player</option>
@@ -298,6 +419,21 @@ export default function LineupsPage() {
                               </option>
                             ))}
                           </select>
+                          {selected?.professional_players && (
+                            <div className="mt-3 flex items-center gap-3 rounded-lg border border-slate-700 bg-slate-800/60 p-2.5">
+                              <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full border border-slate-600 bg-slate-700">
+                                {selected.professional_players.profile_image_url ? (
+                                  <Image src={selected.professional_players.profile_image_url} alt={selected.professional_players.in_game_name || selected.professional_players.name} width={36} height={36} unoptimized className="h-full w-full object-cover" />
+                                ) : (
+                                  <span className="text-xs font-bold text-slate-300">{(selected.professional_players.in_game_name || selected.professional_players.name || 'P').slice(0, 2).toUpperCase()}</span>
+                                )}
+                              </div>
+                              <div className="min-w-0">
+                                <p className="truncate text-sm font-semibold text-white">{selected.professional_players.in_game_name || selected.professional_players.name}</p>
+                                <p className="truncate text-xs text-slate-400">{selected.professional_players.professional_teams?.name || 'Free Agent'}</p>
+                              </div>
+                            </div>
+                          )}
                         </div>
                       );
                     })}
@@ -327,7 +463,7 @@ export default function LineupsPage() {
               </div>
             ) : (
               <div>
-                <p className="lineup-chip-description text-xs text-purple-200/70 mb-3">Triple your captain's points for one gameweek.</p>
+                <p className="lineup-chip-description text-xs text-purple-200/70 mb-3">Triple your captain&apos;s points for one gameweek.</p>
                 <button
                   onClick={() => openModal('triple-captain')}
                   className="w-full bg-purple-600/20 hover:bg-purple-600/30 border border-purple-600/50 text-purple-400 text-xs font-bold py-2 rounded-lg transition-colors"

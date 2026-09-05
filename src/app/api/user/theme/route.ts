@@ -13,6 +13,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ theme: data?.theme_preference === 'light' ? 'light' : 'dark' });
   } catch (error: unknown) {
     const status = typeof error === 'object' && error !== null && 'status' in error ? Number((error as { status: number }).status) : 401;
+    if (status === 401) return NextResponse.json({ theme: 'dark' });
     return NextResponse.json({ error: 'Unable to load theme preference.' }, { status });
   }
 }

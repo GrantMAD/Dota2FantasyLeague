@@ -18,19 +18,36 @@ export async function GET(request: NextRequest) {
     if (!gameweekId) return NextResponse.json({ error: 'gameweekId is required.' }, { status: 400 });
     const supabase = supabaseServer();
 
-    const { data: fantasySeason } = await (supabase.from('fantasy_seasons') as any).select('id').eq('id', request.nextUrl.searchParams.get('fantasySeasonId') || '').eq('user_id', user.userId).maybeSingle();
-    const { data: ownedSeason } = fantasySeason ? { data: fantasySeason } : await (supabase.from('fantasy_seasons') as any).select('id').eq('user_id', user.userId).limit(1).maybeSingle();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: fantasySeason } = await (supabase.from('fantasy_seasons') as any).select('id, season_id').eq('id', request.nextUrl.searchParams.get('fantasySeasonId') || '').eq('user_id', user.userId).maybeSingle();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: ownedSeason } = fantasySeason ? { data: fantasySeason } : await (supabase.from('fantasy_seasons') as any).select('id, season_id').eq('user_id', user.userId).limit(1).maybeSingle();
     if (!ownedSeason) return NextResponse.json({ fantasySeasonId: null, gameweekId, lineup: [] });
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: row, error } = await (supabase.from('fantasy_lineups') as any).select('*').eq('fantasy_season_id', ownedSeason.id).eq('gameweek_id', Number(gameweekId)).maybeSingle();
     if (error) return NextResponse.json({ error: 'Failed to fetch lineup.' }, { status: 500 });
     if (!row) return NextResponse.json({ fantasySeasonId: ownedSeason.id, gameweekId, lineup: [] });
 
     const playerIds = slots.map((slot) => getSlotId(row, slot)).filter((id): id is number => id !== null);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: players } = await (supabase.from('professional_players') as any)
       .select('id, name, in_game_name, primary_role, profile_image_url, availability_status, professional_teams(id, name, slug)')
       .in('id', playerIds);
-    const playerMap = new Map((players ?? []).map((player: { id: number }) => [player.id, player]));
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: prices } = await (supabase.from('player_prices') as any)
+      .select('player_id, price, gameweek_id')
+      .eq('season_id', ownedSeason.season_id)
+      .in('player_id', playerIds)
+      .order('gameweek_id', { ascending: false });
+    const latestPrices = new Map<number, number>();
+    for (const price of prices ?? []) {
+      if (!latestPrices.has(price.player_id)) latestPrices.set(price.player_id, Number(price.price ?? 0));
+    }
+    const playerMap = new Map((players ?? []).map((player: { id: number }) => [player.id, {
+      ...player,
+      current_price: latestPrices.get(player.id) ?? 0,
+    }]));
     const lineup = slots.map((slot) => {
       const playerId = getSlotId(row, slot);
       return playerId ? { slot, player_id: playerId, is_starter: !slot.startsWith('bench'), is_captain: row.captain_player_id === playerId, is_vice_captain: row.vice_captain_player_id === playerId, professional_players: playerMap.get(playerId) } : null;
@@ -56,15 +73,19 @@ export async function PUT(request: NextRequest) {
     if (slots.some((slot) => !bySlot.has(slot))) return NextResponse.json({ error: 'Every lineup slot must be filled.' }, { status: 400 });
 
     const supabase = supabaseServer();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: season } = await (supabase.from('fantasy_seasons') as any).select('id').eq('user_id', user.userId).limit(1).maybeSingle();
     if (!season) return NextResponse.json({ error: 'Fantasy season not found.' }, { status: 404 });
     const playerIds: number[] = lineup.map((entry: { playerId: number }) => Number(entry.playerId));
     if (new Set(playerIds).size !== playerIds.length) return NextResponse.json({ error: 'A player cannot occupy more than one lineup slot.' }, { status: 400 });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: squad } = await (supabase.from('fantasy_squads') as any).select('id').eq('fantasy_season_id', season.id).limit(1).maybeSingle();
     if (!squad) return NextResponse.json({ error: 'Fantasy squad not found.' }, { status: 404 });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: members } = await (supabase.from('fantasy_squad_members') as any).select('player_id, removed_date').eq('squad_id', squad.id).in('player_id', playerIds);
     const ownedIds = new Set((members ?? []).filter((member: { removed_date: string | null }) => !member.removed_date).map((member: { player_id: number }) => Number(member.player_id)));
     if (playerIds.some((playerId) => !ownedIds.has(playerId))) return NextResponse.json({ error: 'Every lineup player must belong to your active squad.' }, { status: 400 });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: gameweek } = await (supabase.from('gameweeks') as any).select('status, deadline').eq('id', gameweekId).maybeSingle();
     if (!gameweek) return NextResponse.json({ error: 'Gameweek not found.' }, { status: 404 });
     if (gameweek.status === 'closed' || (gameweek.deadline && new Date(gameweek.deadline) < new Date())) return NextResponse.json({ error: 'The gameweek deadline has passed. Lineup changes are locked.' }, { status: 400 });
@@ -84,6 +105,7 @@ export async function PUT(request: NextRequest) {
       bench_3_id: bySlot.get('bench_3')!.playerId,
       updated_at: new Date().toISOString(),
     };
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data, error } = await (supabase.from('fantasy_lineups') as any).upsert(row, { onConflict: 'fantasy_season_id,gameweek_id' }).select().single();
     if (error) return NextResponse.json({ error: 'Failed to save lineup.' }, { status: 500 });
     await logAuditAction({ tableName: 'fantasy_lineups', recordId: data.id, action: 'LINEUP_CHANGE', changedBy: user.userId, newValues: { gameweek_id: gameweekId }, reason: 'User saved lineup' });

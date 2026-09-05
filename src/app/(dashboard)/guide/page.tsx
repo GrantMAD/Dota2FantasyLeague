@@ -260,7 +260,7 @@ export default function GuidePage() {
   return (
     <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
       {/* Hero Header */}
-      <div className="relative mb-10 overflow-hidden rounded-2xl border border-slate-700/80 bg-gradient-to-br from-slate-900 via-slate-900/95 to-slate-950 p-6 sm:p-10 shadow-2xl">
+      <div className="relative mb-10 overflow-hidden rounded-2xl border border-slate-700/80 bg-linear-to-br from-slate-900 via-slate-900/95 to-slate-950 p-6 sm:p-10 shadow-2xl">
         {/* Glow ambient effects */}
         <div className="pointer-events-none absolute -right-20 -top-20 h-72 w-72 rounded-full bg-cyan-500/10 blur-3xl" />
         <div className="pointer-events-none absolute -left-20 -bottom-20 h-72 w-72 rounded-full bg-teal-500/10 blur-3xl" />
@@ -272,7 +272,7 @@ export default function GuidePage() {
               Interactive Tour Directory
             </div>
             <h1 className="text-3xl font-extrabold tracking-tight text-white sm:text-4xl lg:text-5xl">
-              Interactive Guide & <span className="bg-gradient-to-r from-cyan-400 to-teal-400 bg-clip-text text-transparent">Feature Walkthroughs</span>
+              Interactive Guide & <span className="bg-linear-to-r from-cyan-400 to-teal-400 bg-clip-text text-transparent">Feature Walkthroughs</span>
             </h1>
             <p className="text-base text-slate-300 sm:text-lg">
               Explore step-by-step interactive walkthroughs for every screen in Fantasy Dota 2. Click any card to launch the live guided overlay directly on that page.
@@ -382,7 +382,7 @@ export default function GuidePage() {
                       className="group relative flex flex-col justify-between overflow-hidden rounded-xl border border-slate-800/90 bg-slate-900/60 p-5 transition-all duration-200 hover:-translate-y-1 hover:border-cyan-500/50 hover:bg-slate-800/90 hover:shadow-xl hover:shadow-cyan-500/10"
                     >
                       {/* Top Accent Gradient Line */}
-                      <div className="absolute inset-x-0 top-0 h-0.5 bg-gradient-to-r from-transparent via-cyan-500/0 to-transparent transition-all duration-300 group-hover:via-cyan-400" />
+                      <div className="absolute inset-x-0 top-0 h-0.5 bg-linear-to-r from-transparent via-cyan-500/0 to-transparent transition-all duration-300 group-hover:via-cyan-400" />
 
                       <div>
                         <div className="mb-3 flex items-center justify-between gap-2">
@@ -425,7 +425,7 @@ export default function GuidePage() {
       </div>
 
       {/* Footer Banner Directing to League Rules */}
-      <div className="mt-14 rounded-xl border border-slate-800 bg-gradient-to-r from-slate-900 via-slate-900/90 to-slate-950 p-6 sm:p-8">
+      <div className="mt-14 rounded-xl border border-slate-800 bg-linear-to-r from-slate-900 via-slate-900/90 to-slate-950 p-6 sm:p-8">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="space-y-1">
             <h3 className="text-lg font-bold text-white flex items-center gap-2">
@@ -438,7 +438,7 @@ export default function GuidePage() {
           </div>
           <Link
             href="/rules"
-            className="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-amber-500 to-amber-600 px-5 py-2.5 text-xs font-bold text-slate-950 transition-all hover:brightness-110 shadow-lg shadow-amber-500/20"
+            className="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg bg-linear-to-r from-amber-500 to-amber-600 px-5 py-2.5 text-xs font-bold text-slate-950 transition-all hover:brightness-110 shadow-lg shadow-amber-500/20"
           >
             Read Game Rules
             <ArrowUpRight className="h-4 w-4" />
