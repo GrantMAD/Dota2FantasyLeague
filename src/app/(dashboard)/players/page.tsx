@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
+import { Users } from 'lucide-react';
 
 interface ProfessionalTeam {
   name: string;
@@ -86,7 +87,10 @@ export default function PlayersPage() {
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-12">
-      <h1 className="text-3xl font-bold text-white mb-2">Professional Players</h1>
+      <h1 className="text-3xl font-bold text-white mb-2 flex items-center gap-3">
+        <Users className="w-8 h-8 text-amber-400 shrink-0" />
+        <span>Professional Players</span>
+      </h1>
       <p className="text-slate-400 mb-8">Browse and scout all professional Dota 2 players to build your squad.</p>
 
       <div className="bg-slate-800/50 border border-slate-700 rounded-lg overflow-hidden">

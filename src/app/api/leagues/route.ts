@@ -12,7 +12,7 @@ interface LeagueRow {
   current_participants: number;
   invite_code: string | null;
   status: string;
-  league_participants: Array<{ id: number; user_id: string; points: number; rank: number | null; wins: number; losses: number; draws: number; users: { username: string; display_name: string | null } | null }>;
+  league_participants: Array<{ id: number; user_id: string; points: number; rank: number | null; wins: number; losses: number; draws: number; users: { username: string; display_name: string | null } | null; fantasy_seasons?: { gameweek_points_latest: number | null } | null }>;
   head_to_head_matchups: Array<{ id: number; gameweek_id: number; points_a: number; points_b: number; winner_id: number | null; is_bye: boolean; participant_a: { users: { username: string; display_name: string | null } | null } | null; participant_b: { users: { username: string; display_name: string | null } | null } | null }>;
 }
 
@@ -28,8 +28,14 @@ function serializeLeague(league: LeagueRow) {
     inviteCode: league.invite_code ?? '',
     status: league.status,
     standings: league.league_participants.map((participant) => ({
+      userId: participant.user_id,
       manager: participant.users?.display_name || participant.users?.username || 'Manager',
+      username: participant.users?.username || 'Manager',
+      displayName: participant.users?.display_name || null,
+      avatarUrl: (participant.users as any)?.avatar_url || null,
+      bio: (participant.users as any)?.bio || null,
       points: Number(participant.points ?? 0),
+      gwPoints: Number((participant as any)?.fantasy_seasons?.gameweek_points_latest ?? 0),
       rank: participant.rank,
       wins: participant.wins ?? 0,
       losses: participant.losses ?? 0,
@@ -38,9 +44,15 @@ function serializeLeague(league: LeagueRow) {
     })),
     fixtures: league.head_to_head_matchups.map((matchup) => ({
       id: matchup.id,
+      leagueId: league.id,
+      leagueName: league.name,
       gameweekId: matchup.gameweek_id,
       home: matchup.participant_a?.users?.display_name || matchup.participant_a?.users?.username || 'Manager',
+      homeUsername: matchup.participant_a?.users?.username || 'Manager',
+      homeAvatarUrl: (matchup.participant_a?.users as any)?.avatar_url || null,
       away: matchup.participant_b?.users?.display_name || matchup.participant_b?.users?.username || 'Bye',
+      awayUsername: matchup.participant_b?.users?.username || null,
+      awayAvatarUrl: (matchup.participant_b?.users as any)?.avatar_url || null,
       homePoints: Number(matchup.points_a ?? 0),
       awayPoints: Number(matchup.points_b ?? 0),
       winnerId: matchup.winner_id,
@@ -56,7 +68,7 @@ export async function GET(request: NextRequest) {
     const privacy = request.nextUrl.searchParams.get('privacy');
     const supabase = supabaseServer();
     let query = (supabase.from('leagues') as any)
-      .select('id, name, league_type, privacy_level, description, max_participants, current_participants, invite_code, status, league_participants(id, user_id, points, rank, wins, losses, draws, users(username, display_name)), head_to_head_matchups(id, gameweek_id, points_a, points_b, winner_id, is_bye, participant_a:league_participants!participant_a_id(users(username, display_name)), participant_b:league_participants!participant_b_id(users(username, display_name)))')
+      .select('id, name, league_type, privacy_level, description, max_participants, current_participants, invite_code, status, league_participants(id, user_id, points, rank, wins, losses, draws, users(id, username, display_name, avatar_url, bio), fantasy_seasons(gameweek_points_latest)), head_to_head_matchups(id, gameweek_id, points_a, points_b, winner_id, is_bye, participant_a:league_participants!participant_a_id(users(id, username, display_name, avatar_url, bio)), participant_b:league_participants!participant_b_id(users(id, username, display_name, avatar_url, bio)))')
       .eq('status', 'active')
       .order('created_at', { ascending: false });
     if (type && type !== 'all') query = query.in('league_type', type === 'h2h' ? ['h2h', 'head_to_head'] : ['classic']);

@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
+import { ArrowLeftRight } from 'lucide-react';
 
 type TransferPlayer = {
   id: number;
@@ -174,7 +175,10 @@ export default function TransfersPage() {
     <div className="max-w-7xl mx-auto px-4 py-8">
       <div className="flex justify-between items-end mb-8">
         <div>
-          <h1 className="text-3xl font-bold text-white mb-2">Transfer Market</h1>
+          <h1 className="text-3xl font-bold text-white mb-2 flex items-center gap-3">
+            <ArrowLeftRight className="w-8 h-8 text-amber-400 shrink-0" />
+            <span>Transfer Market</span>
+          </h1>
           <p className="text-slate-400">Click any player to inspect full stats, form, and match performance history</p>
         </div>
         <div className="bg-slate-800 border border-slate-700 rounded-lg px-4 py-2 flex items-center gap-4 shadow-sm">

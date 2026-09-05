@@ -174,9 +174,9 @@ export default function PlayerDetailPage() {
   return (
     <div className="max-w-5xl mx-auto px-4 py-8">
       {/* Back nav */}
-      <Link href="/transfers" className="inline-flex items-center text-sm text-slate-400 hover:text-white mb-6 transition-colors">
+      <Link href="/players" className="inline-flex items-center text-sm text-slate-400 hover:text-white mb-6 transition-colors">
          <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
-         Back to Transfers
+         Back to Players
       </Link>
 
       {/* Hero Banner */}
@@ -314,7 +314,7 @@ export default function PlayerDetailPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm animate-in fade-in duration-200">
           <div className="relative max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-slate-700 bg-slate-900 shadow-2xl p-6">
             {/* Header */}
-            <div className="flex items-start justify-between border-b border-slate-800 pb-4">
+            <div className="border-b border-slate-800 pb-4">
               <div>
                 <div className="flex items-center gap-2 mb-1">
                   <span className="rounded bg-amber-500/20 px-2 py-0.5 text-xs font-bold uppercase text-amber-400 border border-amber-500/30">
@@ -331,14 +331,6 @@ export default function PlayerDetailPage() {
                 <h2 className="text-2xl font-bold text-white">{player.in_game_name} {selectedMatch.opponent}</h2>
                 <p className="text-xs text-slate-400 mt-0.5">Match Duration: {selectedMatch.duration} mins</p>
               </div>
-              <button
-                type="button"
-                onClick={() => setSelectedMatch(null)}
-                className="rounded-lg p-2 text-slate-400 hover:bg-slate-800 hover:text-white transition-colors"
-                title="Close modal"
-              >
-                ✕
-              </button>
             </div>
 
             {/* Total Points Highlight */}
