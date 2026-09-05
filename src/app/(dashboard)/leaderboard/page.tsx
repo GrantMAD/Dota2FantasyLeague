@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Image from 'next/image';
+import { Medal } from 'lucide-react';
 
 type LeaderboardEntry = {
    id: number;
@@ -10,14 +11,30 @@ type LeaderboardEntry = {
    total_points: number;
    gameweek_points: number;
    fantasy_teams?: {
+      id?: string;
       name?: string;
+      user_id?: string;
       profiles?: {
          username?: string;
          display_name?: string | null;
          avatar_url?: string | null;
          country?: string | null;
+         bio?: string | null;
       } | null;
    } | null;
+};
+
+type SelectedManager = {
+   manager: string;
+   username?: string;
+   displayName?: string | null;
+   avatarUrl?: string | null;
+   bio?: string | null;
+   points: number;
+   gwPoints?: number;
+   rank: number | null;
+   teamName?: string;
+   country?: string | null;
 };
 
 export default function LeaderboardPage() {
@@ -26,6 +43,7 @@ export default function LeaderboardPage() {
   const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const [countryFilter, setCountryFilter] = useState('');
+  const [selectedUser, setSelectedUser] = useState<SelectedManager | null>(null);
 
   // Example countries for the filter
   const countries = [
@@ -83,7 +101,10 @@ export default function LeaderboardPage() {
     <div className="max-w-7xl mx-auto px-4 py-12">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-8 gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-white mb-2">Global Leaderboard</h1>
+          <h1 className="text-3xl font-bold text-white mb-2 flex items-center gap-3">
+            <Medal className="w-8 h-8 text-amber-400 shrink-0" />
+            <span>Global Leaderboard</span>
+          </h1>
           <p className="text-slate-400">See how your squad ranks against the world</p>
         </div>
         
@@ -140,9 +161,26 @@ export default function LeaderboardPage() {
                         const team = entry.fantasy_teams;
                         const profile = team?.profiles;
                         const isTop3 = entry.rank <= 3;
+                        const managerName = profile?.display_name || profile?.username || 'Anonymous Manager';
                         
                         return (
-                           <tr key={entry.id} className="hover:bg-slate-700/30 transition-colors group">
+                           <tr
+                              key={entry.id}
+                              onClick={() => setSelectedUser({
+                                 manager: managerName,
+                                 username: profile?.username || managerName.toLowerCase().replace(/\s+/g, '_'),
+                                 displayName: profile?.display_name || null,
+                                 avatarUrl: profile?.avatar_url || null,
+                                 bio: profile?.bio || null,
+                                 points: entry.total_points || 0,
+                                 gwPoints: entry.gameweek_points || 0,
+                                 rank: entry.rank,
+                                 teamName: team?.name || 'Unknown Team',
+                                 country: profile?.country || null,
+                              })}
+                              className="hover:bg-slate-700/50 transition-colors group cursor-pointer"
+                              title="Click to view manager profile"
+                           >
                               <td className="px-6 py-4 text-center">
                                  <span className={`inline-flex items-center justify-center w-8 h-8 rounded-full font-bold ${
                                     entry.rank === 1 ? 'bg-yellow-500 text-yellow-950 shadow-[0_0_15px_rgba(234,179,8,0.5)]' :
@@ -175,15 +213,15 @@ export default function LeaderboardPage() {
                                           {profile?.country && (
                                              <span className="text-[10px] bg-slate-700 px-1.5 rounded">{profile.country}</span>
                                           )}
-                                          {profile?.display_name || profile?.username || 'Anonymous Manager'}
+                                          {managerName}
                                        </div>
                                     </div>
                                  </div>
                               </td>
-                              <td className="px-6 py-4 text-right">
+                              <td className="px-6 py-4 text-right font-mono">
                                  <span className="text-slate-300 font-medium">{entry.gameweek_points || 0}</span>
                               </td>
-                              <td className="px-6 py-4 text-right">
+                              <td className="px-6 py-4 text-right font-mono">
                                  <span className="text-lg font-bold text-amber-400">{entry.total_points || 0}</span>
                               </td>
                            </tr>
@@ -219,6 +257,80 @@ export default function LeaderboardPage() {
             </div>
          )}
       </div>
+
+      {/* Manager Details Modal */}
+      {selectedUser && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="relative max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-slate-700 bg-slate-900 shadow-2xl p-6 no-scrollbar">
+            {/* Header */}
+            <div className="border-b border-slate-800 pb-5">
+              <div className="flex items-center gap-4">
+                <div className="w-14 h-14 rounded-full bg-slate-800 border-2 border-amber-500/50 flex items-center justify-center overflow-hidden shrink-0 shadow-md">
+                  {selectedUser.avatarUrl ? (
+                    <img src={selectedUser.avatarUrl} alt={selectedUser.manager} className="w-full h-full object-cover" />
+                  ) : (
+                    <span className="text-xl font-bold text-amber-400">
+                      {(selectedUser.displayName || selectedUser.username || selectedUser.manager).substring(0, 2).toUpperCase()}
+                    </span>
+                  )}
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h2 className="text-2xl font-bold text-white">{selectedUser.manager}</h2>
+                    {selectedUser.rank && (
+                      <span className="rounded bg-amber-500/20 px-2 py-0.5 text-xs font-bold text-amber-400 border border-amber-500/40">
+                        Rank #{selectedUser.rank}
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    @{selectedUser.username || selectedUser.manager.toLowerCase().replace(/\s+/g, '_')}
+                    {selectedUser.teamName && (
+                      <span className="text-slate-500 ml-1.5">• {selectedUser.teamName}</span>
+                    )}
+                  </p>
+                </div>
+              </div>
+
+              {selectedUser.bio && (
+                <p className="mt-4 text-sm text-slate-300 bg-slate-950/40 border border-slate-800/80 rounded-lg p-3 italic">
+                  "{selectedUser.bio}"
+                </p>
+              )}
+            </div>
+
+            {/* Performance Stats Grid */}
+            <div className="my-6">
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-3">Global Standing & Performance</h3>
+              <div className="grid grid-cols-3 gap-3">
+                <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-4 text-center">
+                  <div className="text-xs text-slate-400 uppercase tracking-wider">Total Points</div>
+                  <div className="text-2xl font-mono font-bold text-amber-400 mt-1">{selectedUser.points} <span className="text-sm font-sans text-amber-300">pts</span></div>
+                </div>
+                <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-4 text-center">
+                  <div className="text-xs text-slate-400 uppercase tracking-wider">Gameweek</div>
+                  <div className="text-2xl font-mono font-bold text-slate-200 mt-1">{selectedUser.gwPoints ?? 0} <span className="text-sm font-sans text-slate-400">pts</span></div>
+                </div>
+                <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-4 text-center">
+                  <div className="text-xs text-slate-400 uppercase tracking-wider">Global Rank</div>
+                  <div className="text-2xl font-mono font-bold text-white mt-1">#{selectedUser.rank ?? '-'}</div>
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="flex justify-end border-t border-slate-800 pt-4">
+              <button
+                type="button"
+                onClick={() => setSelectedUser(null)}
+                className="rounded-lg bg-slate-800 px-5 py-2 text-sm font-semibold text-white hover:bg-slate-700 transition-colors"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

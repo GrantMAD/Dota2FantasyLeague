@@ -24,8 +24,8 @@ export async function GET(request: NextRequest) {
 
     const sourceTable = gameweekId ? 'season_standings' : 'fantasy_seasons';
     const select = gameweekId
-      ? `id, rank, total_points, gameweek_points, fantasy_seasons(id, user_id, users(id, username, display_name, avatar_url), fantasy_squads(id, name))`
-      : `id, global_rank, total_points, gameweek_points_latest, user_id, users(id, username, display_name, avatar_url), fantasy_squads(id, name)`;
+      ? `id, rank, total_points, gameweek_points, fantasy_seasons(id, user_id, users(id, username, display_name, avatar_url, bio), fantasy_squads(id, name))`
+      : `id, global_rank, total_points, gameweek_points_latest, user_id, users(id, username, display_name, avatar_url, bio), fantasy_squads(id, name)`;
 
     // Keep the existing frontend response shape while reading the current schema.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
