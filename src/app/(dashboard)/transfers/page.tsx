@@ -1,10 +1,41 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import Image from 'next/image';
 import Link from 'next/link';
 
+type TransferPlayer = {
+  id: number;
+  name: string;
+  in_game_name: string | null;
+  primary_role: string;
+  profile_image_url: string | null;
+  current_price: number;
+  recent_points?: number | null;
+  gameweek_points?: number | null;
+  availability_status?: string | null;
+  ownership_percentage?: number | null;
+  total_season_points?: number | null;
+  last_gw_points?: number | null;
+  real_name?: string | null;
+  professional_teams?: { name?: string | null; region?: string | null } | null;
+  performances?: TransferPerformance[];
+};
+
+type TransferPerformance = {
+  id: number;
+  gameweek_id: number;
+  kills: number;
+  deaths: number;
+  assists: number;
+  gold_per_minute: number;
+  experience_per_minute: number;
+  matches?: { team_b?: { name?: string | null } | null } | null;
+  fantasy_points_breakdown?: { total_points?: number | null } | null;
+};
+
 export default function TransfersPage() {
-  const [players, setPlayers] = useState<any[]>([]);
+  const [players, setPlayers] = useState<TransferPlayer[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
@@ -20,7 +51,7 @@ export default function TransfersPage() {
   const [actionLoading, setActionLoading] = useState(false);
 
   // Player Detail Modal state
-  const [modalPlayer, setModalPlayer] = useState<any | null>(null);
+  const [modalPlayer, setModalPlayer] = useState<TransferPlayer | null>(null);
   const [modalLoading, setModalLoading] = useState(false);
 
   useEffect(() => {
@@ -34,14 +65,14 @@ export default function TransfersPage() {
         const context = await contextRes.json();
         if (!playersRes.ok) throw new Error(data.error || 'Failed to load players');
         if (!contextRes.ok) throw new Error(context.error || 'Failed to load transfer context');
-        setPlayers(data.data || []);
+        setPlayers((data.data || []) as TransferPlayer[]);
         setFantasySeasonId(context.fantasySeasonId);
         setBudget(context.budget || 0);
         setFreeTransfers(context.freeTransfers || 0);
         setWildcardUsed(context.wildcardUsed || false);
         setOwnedPlayerIds(context.ownedPlayerIds || []);
-      } catch (err: any) {
-        setError(err.message || 'Failed to load players');
+      } catch (err: unknown) {
+        setError(err instanceof Error ? err.message : 'Failed to load players');
       } finally {
         setLoading(false);
       }
@@ -49,7 +80,7 @@ export default function TransfersPage() {
     fetchPlayers();
   }, []);
 
-  const openPlayerModal = async (playerSummary: any) => {
+  const openPlayerModal = async (playerSummary: TransferPlayer) => {
     setModalPlayer(playerSummary);
     setModalLoading(true);
     try {
@@ -70,6 +101,14 @@ export default function TransfersPage() {
     if (roleFilter && p.primary_role !== roleFilter) return false;
     return true;
   });
+
+  const selectedPlayerInDetails = players.find((player) => player.id === selectedPlayerIn);
+  const selectedPlayerOutDetails = players.find((player) => player.id === selectedPlayerOut);
+  const rolesMatch = Boolean(
+    selectedPlayerInDetails &&
+    selectedPlayerOutDetails &&
+    selectedPlayerInDetails.primary_role === selectedPlayerOutDetails.primary_role
+  );
 
   const handlePlayerAction = (playerId: number, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
@@ -198,12 +237,17 @@ export default function TransfersPage() {
             <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-5 shadow-sm">
               <h4 className="text-sm font-semibold text-white mb-2">Pending Swaps</h4>
               <p className="text-xs text-slate-300 mb-3 leading-relaxed">
-                {selectedPlayerIn ? `Buying: ${players.find((p) => p.id === selectedPlayerIn)?.in_game_name || 'Player'}` : 'Select a player to buy.'}
+                {selectedPlayerIn ? `Buying: ${selectedPlayerInDetails?.in_game_name || 'Player'} (${selectedPlayerInDetails?.primary_role || 'Role unknown'})` : 'Select a player to buy.'}
                 <br />
-                {selectedPlayerOut ? `Selling: ${players.find((p) => p.id === selectedPlayerOut)?.in_game_name || 'Player'}` : 'Select an owned player to sell.'}
+                {selectedPlayerOut ? `Selling: ${selectedPlayerOutDetails?.in_game_name || 'Player'} (${selectedPlayerOutDetails?.primary_role || 'Role unknown'})` : 'Select an owned player to sell.'}
               </p>
+              {selectedPlayerIn !== null && selectedPlayerOut !== null && !rolesMatch && (
+                <p className="mb-3 rounded border border-red-500/30 bg-red-500/10 p-2 text-xs text-red-300">
+                  Transfers must be role-for-role. Select a {selectedPlayerOutDetails?.primary_role || 'matching'} to buy.
+                </p>
+              )}
               {actionMessage && <p className="text-xs text-amber-400 mb-3 bg-amber-500/10 p-2 rounded border border-amber-500/20">{actionMessage}</p>}
-              <button disabled={actionLoading || selectedPlayerIn === null || selectedPlayerOut === null} onClick={submitTransfer} className="w-full bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold py-2.5 rounded-lg transition-colors disabled:opacity-50 shadow-md">
+              <button disabled={actionLoading || selectedPlayerIn === null || selectedPlayerOut === null || !rolesMatch} onClick={submitTransfer} className="w-full bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold py-2.5 rounded-lg transition-colors disabled:opacity-50 shadow-md">
                 {actionLoading ? 'Processing...' : 'Confirm Transfer'}
               </button>
             </div>
@@ -251,7 +295,7 @@ export default function TransfersPage() {
                           <div className="flex items-center gap-3">
                             <div className="w-10 h-10 rounded-full bg-slate-700 border border-slate-600 overflow-hidden shrink-0 flex items-center justify-center">
                               {player.profile_image_url ? (
-                                <img src={player.profile_image_url} alt={player.in_game_name || player.name} className="w-full h-full object-cover" />
+                                <Image src={player.profile_image_url} alt={player.in_game_name || player.name} width={40} height={40} unoptimized className="w-full h-full object-cover" />
                               ) : (
                                 <span className="text-xs font-bold text-slate-400">
                                   {(player.in_game_name || player.name || '').substring(0, 2).toUpperCase()}
@@ -335,7 +379,7 @@ export default function TransfersPage() {
               <div className="flex flex-col sm:flex-row items-center sm:items-start gap-5">
                 <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl bg-slate-800 border-2 border-slate-700 shadow-xl overflow-hidden shrink-0 flex items-center justify-center">
                   {modalPlayer.profile_image_url ? (
-                    <img src={modalPlayer.profile_image_url} alt={modalPlayer.in_game_name || modalPlayer.name} className="w-full h-full object-cover" />
+                    <Image src={modalPlayer.profile_image_url} alt={modalPlayer.in_game_name || modalPlayer.name} width={96} height={96} unoptimized className="w-full h-full object-cover" />
                   ) : (
                     <span className="text-3xl font-bold text-slate-500">
                       {(modalPlayer.in_game_name || modalPlayer.name || 'P').substring(0, 2).toUpperCase()}
@@ -431,7 +475,7 @@ export default function TransfersPage() {
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-800/80 bg-slate-900/50 font-mono">
-                        {modalPlayer.performances.map((perf: any) => (
+                        {modalPlayer.performances.map((perf) => (
                           <tr key={perf.id} className="hover:bg-slate-800/40 transition-colors">
                             <td className="px-3 py-2.5 text-slate-300 font-sans font-medium">GW {perf.gameweek_id}</td>
                             <td className="px-3 py-2.5 text-white font-sans">
@@ -460,13 +504,6 @@ export default function TransfersPage() {
                   <p className="text-xs text-slate-400">Player Availability Status</p>
                   <p className="text-sm font-semibold text-white capitalize">{modalPlayer.availability_status || 'Active for selection'}</p>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => setModalPlayer(null)}
-                  className="rounded-lg bg-slate-800 px-4 py-2 text-xs font-semibold text-white hover:bg-slate-700 transition-colors"
-                >
-                  Close
-                </button>
               </div>
             </div>
           </div>
