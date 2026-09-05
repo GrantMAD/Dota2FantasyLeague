@@ -12,16 +12,27 @@ export function proxy(request: NextRequest) {
     request.nextUrl.pathname.startsWith(route)
   );
   
+  // List of auth/landing routes where an already authenticated user should be directed to the dashboard
+  const authRoutes = ['/', '/login', '/signup'];
+  const isAuthRoute = authRoutes.includes(request.nextUrl.pathname);
+
+  // Check for auth token or refresh token in cookies
+  const hasAuth = Boolean(
+    request.cookies.get('sb-auth-token')?.value ||
+    request.cookies.get('sb-refresh-token')?.value
+  );
+
+  if (isAuthRoute && hasAuth) {
+    return NextResponse.redirect(new URL('/dashboard', request.url));
+  }
+
   if (isProtectedRoute) {
-    // Check for auth token in cookies
-    const authToken = request.cookies.get('sb-auth-token')?.value;
-    
-    if (!authToken) {
+    if (!hasAuth) {
       // Redirect to login
       return NextResponse.redirect(new URL('/login', request.url));
     }
   }
-  
+
   return NextResponse.next();
 }
 

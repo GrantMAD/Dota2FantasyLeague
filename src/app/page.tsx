@@ -1,6 +1,13 @@
 import Link from 'next/link';
+import { cookies } from 'next/headers';
 
-export default function Home() {
+export default async function Home() {
+  const cookieStore = await cookies();
+  const isLoggedIn = Boolean(
+    cookieStore.get('sb-auth-token')?.value ||
+    cookieStore.get('sb-refresh-token')?.value
+  );
+
   return (
     <div className="min-h-screen bg-linear-to-br from-slate-950 to-slate-900 flex flex-col">
       {/* Header/Nav */}
@@ -15,18 +22,29 @@ export default function Home() {
             </span>
           </Link>
           <div className="flex items-center gap-4">
-            <Link
-              href="/login"
-              className="inline-flex items-center text-slate-300 hover:text-white font-medium transition-colors"
-            >
-              Sign In
-            </Link>
-            <Link
-              href="/signup"
-              className="bg-linear-to-r from-amber-500 to-orange-600 text-white px-4 py-2 rounded-lg font-medium hover:shadow-lg hover:shadow-orange-500/20 transition-all"
-            >
-              Get Started
-            </Link>
+            {isLoggedIn ? (
+              <Link
+                href="/dashboard"
+                className="bg-linear-to-r from-amber-500 to-orange-600 text-white px-4 py-2 rounded-lg font-medium hover:shadow-lg hover:shadow-orange-500/20 transition-all"
+              >
+                Go to Dashboard
+              </Link>
+            ) : (
+              <>
+                <Link
+                  href="/login"
+                  className="inline-flex items-center text-slate-300 hover:text-white font-medium transition-colors"
+                >
+                  Sign In
+                </Link>
+                <Link
+                  href="/signup"
+                  className="bg-linear-to-r from-amber-500 to-orange-600 text-white px-4 py-2 rounded-lg font-medium hover:shadow-lg hover:shadow-orange-500/20 transition-all"
+                >
+                  Get Started
+                </Link>
+              </>
+            )}
           </div>
         </nav>
       </header>
@@ -49,18 +67,29 @@ export default function Home() {
           </p>
 
           <div className="flex flex-col sm:flex-row gap-4 justify-center mb-12">
-            <Link
-              href="/signup"
-              className="bg-linear-to-r from-amber-500 to-orange-600 text-white px-8 py-4 rounded-lg font-bold text-lg hover:shadow-lg hover:shadow-orange-500/20 transition-all"
-            >
-              Create Free Account
-            </Link>
-            <Link
-              href="/login"
-              className="border-2 border-amber-500 text-amber-500 px-8 py-4 rounded-lg font-bold text-lg hover:bg-amber-500/10 transition-all"
-            >
-              Sign In
-            </Link>
+            {isLoggedIn ? (
+              <Link
+                href="/dashboard"
+                className="bg-linear-to-r from-amber-500 to-orange-600 text-white px-8 py-4 rounded-lg font-bold text-lg hover:shadow-lg hover:shadow-orange-500/20 transition-all"
+              >
+                Go to Dashboard
+              </Link>
+            ) : (
+              <>
+                <Link
+                  href="/signup"
+                  className="bg-linear-to-r from-amber-500 to-orange-600 text-white px-8 py-4 rounded-lg font-bold text-lg hover:shadow-lg hover:shadow-orange-500/20 transition-all"
+                >
+                  Create Free Account
+                </Link>
+                <Link
+                  href="/login"
+                  className="border-2 border-amber-500 text-amber-500 px-8 py-4 rounded-lg font-bold text-lg hover:bg-amber-500/10 transition-all"
+                >
+                  Sign In
+                </Link>
+              </>
+            )}
           </div>
 
           {/* Features */}
