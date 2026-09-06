@@ -1,205 +1,294 @@
 'use client';
 
-import React, { useEffect, useState, use } from 'react';
-import Image from 'next/image';
+import { useEffect, useState, use } from 'react';
 import Link from 'next/link';
+import { TeamLogo } from '../../matches/components/TeamLogo';
+import { MatchCard, MatchData } from '../../matches/components/MatchCard';
 
-interface Match {
+interface TournamentTeam {
   id: number;
-  team_a_name: string;
-  team_a_logo: string | null;
-  team_b_name: string;
-  team_b_logo: string | null;
-  status: 'scheduled' | 'in_progress' | 'completed' | 'cancelled' | 'postponed';
-  scheduled_time: string;
-  winner_team_id: number | null;
-  team_a_id: number;
-  team_b_id: number;
+  name: string;
+  slug: string;
+  region?: string;
+  logo_url: string | null;
 }
 
 interface TournamentDetail {
   id: number;
   name: string;
   slug: string;
-  status: 'eligible' | 'excluded' | 'provisional' | 'archived';
+  status: 'eligible' | 'excluded' | 'provisional' | 'archived' | string;
   tier: string | null;
   start_date: string;
   end_date: string;
-  matches?: Match[];
+  eligible?: boolean;
 }
 
 interface TournamentApiResponse {
-  tournament?: Omit<TournamentDetail, 'matches'>;
-  matches?: Array<{
+  tournament?: TournamentDetail;
+  teams?: TournamentTeam[];
+  series?: Array<{
     id: number;
-    status: Match['status'];
-    scheduled_at: string;
-    winner_team_id: number | null;
-    radiant_team_id: number;
-    dire_team_id: number;
-    radiant_team?: { name?: string; logo_url?: string | null } | null;
-    dire_team?: { name?: string; logo_url?: string | null } | null;
+    series_number: number;
+    best_of: number;
+    gameweek_id: number;
+    team_a_id: number;
+    team_b_id: number;
   }>;
+  matches?: MatchData[];
 }
 
 export default function TournamentDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const resolvedParams = use(params);
   const tournamentId = resolvedParams.id;
   const [tournament, setTournament] = useState<TournamentDetail | null>(null);
+  const [teams, setTeams] = useState<TournamentTeam[]>([]);
+  const [matches, setMatches] = useState<MatchData[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // Active view tab
+  const [activeTab, setActiveTab] = useState<'matches' | 'teams'>('matches');
 
   useEffect(() => {
-    // In a real implementation this would fetch from /api/tournaments/[id]
-    const fetchTournament = async () => {
+    async function fetchTournament() {
       try {
-        const response = await fetch(`/api/tournaments/${tournamentId}`);
-        if (response.ok) {
-          const data = (await response.json()) as TournamentApiResponse;
-          const tournamentData = data.tournament;
-          if (!tournamentData) return;
-
-          setTournament({
-            ...tournamentData,
-            matches: (data.matches ?? []).map((match) => ({
-              id: match.id,
-              status: match.status,
-              scheduled_time: match.scheduled_at,
-              winner_team_id: match.winner_team_id,
-              team_a_id: match.radiant_team_id,
-              team_b_id: match.dire_team_id,
-              team_a_name: match.radiant_team?.name ?? 'TBD',
-              team_a_logo: match.radiant_team?.logo_url ?? null,
-              team_b_name: match.dire_team?.name ?? 'TBD',
-              team_b_logo: match.dire_team?.logo_url ?? null,
-            })),
-          });
+        setLoading(true);
+        const res = await fetch(`/api/tournaments/${tournamentId}`);
+        if (!res.ok) {
+          throw new Error('Tournament could not be found');
         }
-      } catch (error) {
-        console.error('Error fetching tournament details', error);
+        const data = (await res.json()) as TournamentApiResponse;
+        setTournament(data.tournament || null);
+        setTeams(data.teams || []);
+        setMatches(data.matches || []);
+      } catch (err: any) {
+        setError(err.message || 'Failed to load tournament');
       } finally {
         setLoading(false);
       }
-    };
+    }
     fetchTournament();
   }, [tournamentId]);
 
   if (loading) {
     return (
-      <div className="flex justify-center items-center py-24 min-h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-amber-500"></div>
+      <div className="mx-auto max-w-6xl px-4 py-20 text-center">
+        <div className="w-12 h-12 border-4 border-amber-500/20 border-t-amber-500 rounded-full animate-spin mx-auto mb-4" />
+        <p className="text-slate-400 text-sm">Loading tournament hub...</p>
       </div>
     );
   }
 
-  if (!tournament) {
+  if (error || !tournament) {
     return (
-      <div className="max-w-7xl mx-auto px-4 py-12 text-center">
-        <h1 className="text-3xl font-bold text-white mb-4">Tournament Not Found</h1>
-        <p className="text-slate-400 mb-8">The tournament you are looking for does not exist or has been removed.</p>
-        <Link href="/tournaments" className="text-amber-500 hover:text-amber-400 underline">
-          &larr; Back to Tournaments Hub
+      <div className="max-w-4xl mx-auto px-4 py-16 text-center">
+        <div className="w-16 h-16 rounded-2xl bg-rose-950/40 border border-rose-800 flex items-center justify-center text-2xl mx-auto mb-4 text-rose-400">
+          ⚠️
+        </div>
+        <h1 className="text-2xl font-bold text-white mb-2">Tournament Not Found</h1>
+        <p className="text-slate-400 text-sm mb-6">{error || 'This tournament could not be loaded.'}</p>
+        <Link
+          href="/tournaments"
+          className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold bg-amber-500 text-slate-950 hover:bg-amber-400 transition-colors"
+        >
+          ← Return to Tournaments
         </Link>
       </div>
     );
   }
 
-  const getTierBadgeColor = (tier: string | null) => {
-    if (!tier) return 'bg-slate-700 text-slate-300';
-    if (tier.toLowerCase().includes('tier 1') || tier.toLowerCase().includes('major')) {
-      return 'bg-amber-500/20 text-amber-500 border border-amber-500/30';
-    }
-    if (tier.toLowerCase().includes('tier 2') || tier.toLowerCase().includes('minor')) {
-      return 'bg-blue-500/20 text-blue-400 border border-blue-500/30';
-    }
-    return 'bg-slate-700 text-slate-300';
-  };
-
-  const matches = tournament.matches || [];
+  const isTier1 = tournament.tier?.toLowerCase().includes('tier 1') || tournament.tier?.toLowerCase().includes('major');
+  const startDate = new Date(tournament.start_date);
+  const endDate = new Date(tournament.end_date);
+  const completedMatchesCount = matches.filter((m) => m.status === 'completed').length;
+  const liveMatchesCount = matches.filter((m) => m.status === 'live').length;
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-12">
-      <Link href="/tournaments" className="inline-flex items-center text-slate-400 hover:text-white transition-colors mb-6">
-        <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
-        </svg>
-        Back to Tournaments
-      </Link>
+    <div className="max-w-7xl mx-auto px-4 py-10 space-y-8">
+      {/* Navigation Breadcrumb */}
+      <div className="flex items-center justify-between">
+        <Link
+          href="/tournaments"
+          className="inline-flex items-center gap-2 text-xs font-semibold text-slate-400 hover:text-amber-400 transition-colors"
+        >
+          <span>←</span>
+          <span>Back to Tournaments Circuit</span>
+        </Link>
 
-      <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-8 mb-8">
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
-          <h1 className="text-3xl md:text-4xl font-bold text-white">
-            {tournament.name}
-          </h1>
-          <div className="flex gap-2">
-            <span className={`text-sm px-3 py-1 rounded-full font-medium ${getTierBadgeColor(tournament.tier)}`}>
-              {tournament.tier || 'Unranked'}
-            </span>
-            <span className="text-sm px-3 py-1 rounded-full font-medium bg-slate-700 text-slate-300">
-              {tournament.status.charAt(0).toUpperCase() + tournament.status.slice(1)}
-            </span>
+        <Link
+          href="/matches"
+          className="text-xs font-medium text-amber-400/90 hover:text-amber-300 transition-colors flex items-center gap-1"
+        >
+          <span>View Global Match Center</span>
+          <span>→</span>
+        </Link>
+      </div>
+
+      {/* Hero Stadium Banner */}
+      <div className="relative rounded-3xl border border-slate-800 bg-gradient-to-br from-slate-900 via-slate-900/95 to-slate-950 p-8 sm:p-10 shadow-2xl overflow-hidden">
+        <div className="absolute top-0 right-0 w-80 h-80 bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
+
+        <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+          <div>
+            <div className="flex flex-wrap items-center gap-2.5 mb-3">
+              <span
+                className={`text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider ${
+                  isTier1
+                    ? 'bg-amber-500/20 text-amber-400 border border-amber-500/40'
+                    : 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/40'
+                }`}
+              >
+                {tournament.tier || 'Tier 1 Event'}
+              </span>
+
+              {tournament.eligible && (
+                <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
+                  ⭐ Fantasy Eligible
+                </span>
+              )}
+
+              {liveMatchesCount > 0 && (
+                <span className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full text-xs font-bold tracking-wide uppercase bg-red-500/20 text-red-400 border border-red-500/40 animate-pulse">
+                  <span className="w-1.5 h-1.5 rounded-full bg-red-400" />
+                  Live Games
+                </span>
+              )}
+            </div>
+
+            <h1 className="text-3xl sm:text-5xl font-black text-white tracking-tight mb-3">
+              {tournament.name}
+            </h1>
+
+            <div className="flex items-center gap-2 text-xs font-mono text-slate-400">
+              <span>📅</span>
+              <span>
+                {startDate.toLocaleDateString([], { month: 'short', day: 'numeric' })} &mdash;{' '}
+                {endDate.toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })}
+              </span>
+            </div>
           </div>
-        </div>
 
-        <div className="flex items-center text-slate-400">
-          <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
-          </svg>
-          {new Date(tournament.start_date).toLocaleDateString()} &mdash; {new Date(tournament.end_date).toLocaleDateString()}
+          {/* Quick Stats Grid */}
+          <div className="flex items-center gap-3 bg-slate-950/70 border border-slate-800 p-4 rounded-2xl shrink-0">
+            <div className="text-center px-3 border-r border-slate-800">
+              <div className="text-xl font-black text-white font-mono">{teams.length}</div>
+              <div className="text-[10px] uppercase tracking-wider text-slate-500 font-semibold">Teams</div>
+            </div>
+            <div className="text-center px-3 border-r border-slate-800">
+              <div className="text-xl font-black text-amber-400 font-mono">{matches.length}</div>
+              <div className="text-[10px] uppercase tracking-wider text-slate-500 font-semibold">Matches</div>
+            </div>
+            <div className="text-center px-3">
+              <div className="text-xl font-black text-emerald-400 font-mono">{completedMatchesCount}</div>
+              <div className="text-[10px] uppercase tracking-wider text-slate-500 font-semibold">Finished</div>
+            </div>
+          </div>
         </div>
       </div>
 
-      <h2 className="text-2xl font-semibold text-white mb-6">Matches</h2>
-      
-      {matches.length === 0 ? (
-        <div className="bg-slate-800/30 border border-slate-700 border-dashed rounded-lg p-12 text-center text-slate-400">
-          No matches found for this tournament yet.
-        </div>
-      ) : (
-        <div className="space-y-4">
-          {matches.map((match) => (
-            <div key={match.id} className="bg-slate-800/50 border border-slate-700 rounded-lg p-4 flex flex-col md:flex-row items-center justify-between gap-4">
-              
-              {/* Match Time & Status */}
-              <div className="flex flex-col w-full md:w-1/4 text-center md:text-left">
-                <span className="text-slate-300 font-medium">
-                  {new Date(match.scheduled_time).toLocaleString(undefined, { weekday: 'short', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                </span>
-                <span className={`text-xs mt-1 font-medium ${match.status === 'completed' ? 'text-slate-400' : match.status === 'in_progress' ? 'text-red-400 animate-pulse' : 'text-amber-400'}`}>
-                  {match.status.replace('_', ' ').toUpperCase()}
-                </span>
+      {/* Tabs Navigation: Matches vs Teams */}
+      <div className="flex items-center gap-2 border-b border-slate-800 pb-4">
+        <button
+          onClick={() => setActiveTab('matches')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+            activeTab === 'matches'
+              ? 'bg-amber-500 text-slate-950 shadow-md shadow-amber-500/20'
+              : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+          }`}
+        >
+          <span>⚔️ Series & Matches</span>
+          <span
+            className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono ${
+              activeTab === 'matches' ? 'bg-slate-950/20 text-slate-950' : 'bg-slate-800 text-slate-400'
+            }`}
+          >
+            {matches.length}
+          </span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('teams')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+            activeTab === 'teams'
+              ? 'bg-amber-500 text-slate-950 shadow-md shadow-amber-500/20'
+              : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+          }`}
+        >
+          <span>🛡️ Competing Teams</span>
+          <span
+            className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono ${
+              activeTab === 'teams' ? 'bg-slate-950/20 text-slate-950' : 'bg-slate-800 text-slate-400'
+            }`}
+          >
+            {teams.length}
+          </span>
+        </button>
+      </div>
+
+      {/* Tab Content: Matches */}
+      {activeTab === 'matches' && (
+        <div>
+          {matches.length === 0 ? (
+            <div className="p-12 text-center rounded-2xl border border-slate-800 bg-slate-900/40">
+              <div className="w-12 h-12 rounded-2xl bg-slate-800 flex items-center justify-center text-xl mx-auto mb-3 text-slate-500">
+                📅
               </div>
-
-              {/* Teams & Score Placeholder */}
-              <div className="flex items-center justify-center w-full md:w-2/4 gap-4">
-                <div className={`flex flex-col items-center w-32 text-center ${match.winner_team_id && match.winner_team_id === match.team_a_id ? 'font-bold text-white' : 'text-slate-300'}`}>
-                  <div className="w-10 h-10 bg-slate-700 rounded-full flex items-center justify-center mb-2 overflow-hidden">
-                    {match.team_a_logo ? <Image src={match.team_a_logo} alt={match.team_a_name} width={40} height={40} unoptimized className="w-full h-full object-contain" /> : <span className="text-xs">LOGO</span>}
-                  </div>
-                  <span className="text-sm truncate w-full">{match.team_a_name || 'TBD'}</span>
-                </div>
-                
-                <div className="text-slate-500 font-bold mx-2">vs</div>
-
-                <div className={`flex flex-col items-center w-32 text-center ${match.winner_team_id && match.winner_team_id === match.team_b_id ? 'font-bold text-white' : 'text-slate-300'}`}>
-                  <div className="w-10 h-10 bg-slate-700 rounded-full flex items-center justify-center mb-2 overflow-hidden">
-                    {match.team_b_logo ? <Image src={match.team_b_logo} alt={match.team_b_name} width={40} height={40} unoptimized className="w-full h-full object-contain" /> : <span className="text-xs">LOGO</span>}
-                  </div>
-                  <span className="text-sm truncate w-full">{match.team_b_name || 'TBD'}</span>
-                </div>
-              </div>
-
-              {/* Action Button */}
-              <div className="w-full md:w-1/4 flex justify-end">
-                <Link 
-                  href={`/matches/${match.id}`}
-                  className="px-4 py-2 border border-slate-600 hover:bg-slate-700 text-slate-300 text-sm font-medium rounded-md transition-colors w-full md:w-auto text-center"
-                >
-                  View Details
-                </Link>
-              </div>
-
+              <h3 className="text-base font-bold text-white mb-1">No Matches Scheduled Yet</h3>
+              <p className="text-xs text-slate-400 max-w-sm mx-auto">
+                Matches for this tournament series will appear as soon as the bracket and group stages are synced.
+              </p>
             </div>
-          ))}
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {matches.map((match) => (
+                <MatchCard key={match.id} match={match} />
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Tab Content: Competing Teams */}
+      {activeTab === 'teams' && (
+        <div>
+          {teams.length === 0 ? (
+            <div className="p-12 text-center rounded-2xl border border-slate-800 bg-slate-900/40">
+              <div className="w-12 h-12 rounded-2xl bg-slate-800 flex items-center justify-center text-xl mx-auto mb-3 text-slate-500">
+                🛡️
+              </div>
+              <h3 className="text-base font-bold text-white mb-1">Roster Invitations Pending</h3>
+              <p className="text-xs text-slate-400 max-w-sm mx-auto">
+                Qualified and invited professional teams will appear once roster submissions are locked.
+              </p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5">
+              {teams.map((team) => (
+                <div
+                  key={team.id}
+                  className="bg-slate-900/60 border border-slate-800/80 rounded-2xl p-5 flex items-center gap-4 hover:border-slate-700 hover:bg-slate-800/50 transition-all group"
+                >
+                  <TeamLogo
+                    name={team.name}
+                    logoUrl={team.logo_url}
+                    tag={team.name.slice(0, 4).toUpperCase()}
+                    size="md"
+                  />
+                  <div className="min-w-0 flex-1">
+                    <h4 className="text-sm font-bold text-white truncate group-hover:text-amber-400 transition-colors">
+                      {team.name}
+                    </h4>
+                    {team.region && (
+                      <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
+                        {team.region} Region
+                      </span>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
     </div>
