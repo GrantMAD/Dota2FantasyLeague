@@ -11,6 +11,7 @@ type UserProfileRecord = {
   country_code: string | null;
   timezone: string | null;
   theme_preference: 'light' | 'dark';
+  role?: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -30,7 +31,7 @@ export async function GET(request: NextRequest) {
 
     const users = supabase.from('users') as unknown as UserQuery;
     const { data, error } = await users
-      .select('id, username, display_name, avatar_url, bio, country_code, timezone, theme_preference, created_at, updated_at')
+      .select('id, username, display_name, avatar_url, bio, country_code, timezone, theme_preference, role, created_at, updated_at')
       .eq('id', userId)
       .maybeSingle();
 
@@ -45,6 +46,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       profile: {
         ...data,
+        role: data.role || auth.role || 'user',
         email: auth.email,
         member_since: data.created_at,
       },

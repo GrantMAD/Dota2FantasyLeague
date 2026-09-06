@@ -41,7 +41,16 @@ export default function DataJobsPage() {
       const response = await fetch('/api/admin/jobs/status');
       if (response.ok) {
         const data = await response.json();
-        setJobs(data.jobs || []);
+        const rawJobs = data.jobs || [];
+        const normalizedJobs = rawJobs.map((j: any) => ({
+          job_name: j.name || j.job_name,
+          status: j.status?.status || j.status || 'idle',
+          last_run: j.status?.startedAt || j.last_run || null,
+          last_duration_ms: j.status?.duration || j.last_duration_ms || null,
+          next_run: j.schedule ? `Cron: ${j.schedule}` : (j.next_run || null),
+          metadata: j.status?.result || j.metadata || null,
+        }));
+        setJobs(normalizedJobs);
       }
     } catch (error) {
       console.error('Failed to fetch job status:', error);

@@ -5,6 +5,7 @@ export interface User {
   display_name?: string;
   avatar_url?: string;
   bio?: string;
+  role?: string;
   theme_preference: 'light' | 'dark';
   created_at: string;
   updated_at: string;

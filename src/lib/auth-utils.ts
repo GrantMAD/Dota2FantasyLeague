@@ -63,10 +63,21 @@ export async function verifyAuth(request: Request): Promise<{
     } as AuthError;
   }
 
+  // Query role from public.users table (fallback to metadata if user row not yet found)
+  let role: string | undefined = data.user.user_metadata?.role;
+  const { data: userProfile } = await (supabase.from('users') as any)
+    .select('role')
+    .eq('id', data.user.id)
+    .maybeSingle();
+
+  if (userProfile?.role) {
+    role = userProfile.role;
+  }
+
   return {
     userId: data.user.id,
     email: data.user.email || '',
-    role: data.user.user_metadata?.role,
+    role,
   };
 }
 

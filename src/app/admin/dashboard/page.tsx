@@ -27,20 +27,12 @@ export default function AdminDashboardPage() {
 
   async function fetchMetrics() {
     try {
-      const response = await fetch('/api/admin/data/quality');
+      const response = await fetch('/api/admin/metrics');
       if (response.ok) {
         const data = await response.json();
-        // Parse response and set metrics
-        setMetrics({
-          activeUsers: 156,
-          totalFantasyTeams: 2341,
-          activeLeagues: 18,
-          currentSeason: 'Season 1 (2026)',
-          lastSyncTime: new Date().toLocaleString(),
-          dataConflicts: data.conflicts_count || 0,
-          lowQualityRecords: data.low_quality_count || 0,
-          failedJobs: 0,
-        });
+        if (data.metrics) {
+          setMetrics(data.metrics);
+        }
       }
     } catch (error) {
       console.error('Failed to fetch metrics:', error);

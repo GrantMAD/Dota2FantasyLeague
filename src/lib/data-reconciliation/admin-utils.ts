@@ -9,27 +9,15 @@
  */
 
 import { getSupabaseServerClient } from '@/lib/db/supabase-server';
+import { verifyAdminAuth as verifyAdminAuthCentral } from '@/lib/auth-utils';
 
 export async function verifyAdminAuth(request: Request): Promise<string | null> {
-  const authHeader = request.headers.get('authorization');
-  if (!authHeader?.startsWith('Bearer ')) {
-    return null;
-  }
-
-  const token = authHeader.substring(7);
-  
-  // In production, verify the JWT and check admin role
-  // For now, return user ID if token exists
   try {
-    // Basic validation - in production use proper JWT verification
-    if (token.length > 10) {
-      return 'admin-' + token.substring(0, 8);
-    }
+    const userId = await verifyAdminAuthCentral(request);
+    return userId;
   } catch {
     return null;
   }
-
-  return null;
 }
 
 export async function getDataConflicts(

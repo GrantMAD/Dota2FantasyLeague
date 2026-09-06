@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 interface GameweekRecord {
   id: number;
@@ -10,12 +10,6 @@ interface GameweekRecord {
   deadline: string;
 }
 
-const initialGameweeks: GameweekRecord[] = [
-  { id: 1, name: 'GW1', status: 'live', startDate: '2026-01-15', deadline: '2026-01-14 18:00 UTC' },
-  { id: 2, name: 'GW2', status: 'upcoming', startDate: '2026-01-22', deadline: '2026-01-21 18:00 UTC' },
-  { id: 3, name: 'GW3', status: 'locked', startDate: '2026-01-29', deadline: '2026-01-28 18:00 UTC' },
-];
-
 const statusStyles: Record<GameweekRecord['status'], string> = {
   upcoming: 'bg-gray-500/10 text-gray-300 border-gray-500/30',
   live: 'bg-green-500/10 text-green-400 border-green-500/30',
@@ -23,7 +17,34 @@ const statusStyles: Record<GameweekRecord['status'], string> = {
 };
 
 export default function AdminGameweeksPage() {
-  const [gameweeks, setGameweeks] = useState<GameweekRecord[]>(initialGameweeks);
+  const [gameweeks, setGameweeks] = useState<GameweekRecord[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function loadGameweeks() {
+      try {
+        const res = await fetch('/api/admin/settings');
+        if (res.ok) {
+          const json = await res.json();
+          const items = Array.isArray(json.gameweeks) ? json.gameweeks : [];
+          setGameweeks(
+            items.map((g: any) => ({
+              id: g.id,
+              name: `GW${g.gameweek_number}`,
+              status: g.status === 'active' ? 'live' : (g.status === 'locked' ? 'locked' : 'upcoming'),
+              startDate: g.start_date ? new Date(g.start_date).toLocaleDateString() : 'TBD',
+              deadline: g.deadline_date ? `${new Date(g.deadline_date).toLocaleString()} UTC` : 'TBD',
+            }))
+          );
+        }
+      } catch (err) {
+        console.error('Failed to load gameweeks', err);
+      } finally {
+        setLoading(false);
+      }
+    }
+    loadGameweeks();
+  }, []);
 
   const advanceStatus = (id: number) => {
     setGameweeks((current) =>

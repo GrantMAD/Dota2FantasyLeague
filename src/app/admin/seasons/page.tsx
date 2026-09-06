@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 interface SeasonRecord {
   id: number;
@@ -11,12 +11,6 @@ interface SeasonRecord {
   prizePool: string;
 }
 
-const initialSeasons: SeasonRecord[] = [
-  { id: 1, name: 'Season 1', status: 'live', startDate: '2026-01-10', endDate: '2026-03-16', prizePool: '$15,000' },
-  { id: 2, name: 'Season 2', status: 'draft', startDate: '2026-04-01', endDate: '2026-06-20', prizePool: '$20,000' },
-  { id: 3, name: 'Season 0', status: 'complete', startDate: '2025-11-01', endDate: '2025-12-30', prizePool: '$12,000' },
-];
-
 const statusStyles: Record<SeasonRecord['status'], string> = {
   draft: 'bg-gray-500/10 text-gray-300 border-gray-500/30',
   live: 'bg-green-500/10 text-green-400 border-green-500/30',
@@ -24,7 +18,35 @@ const statusStyles: Record<SeasonRecord['status'], string> = {
 };
 
 export default function AdminSeasonsPage() {
-  const [seasons, setSeasons] = useState<SeasonRecord[]>(initialSeasons);
+  const [seasons, setSeasons] = useState<SeasonRecord[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function loadSeasons() {
+      try {
+        const res = await fetch('/api/admin/settings');
+        if (res.ok) {
+          const json = await res.json();
+          const items = Array.isArray(json.seasons) ? json.seasons : [];
+          setSeasons(
+            items.map((s: any) => ({
+              id: s.id,
+              name: s.name,
+              status: s.status === 'active' ? 'live' : (s.status === 'ended' ? 'complete' : 'draft'),
+              startDate: s.start_date || 'N/A',
+              endDate: s.end_date || 'N/A',
+              prizePool: '$100,000 Starting Cap',
+            }))
+          );
+        }
+      } catch (err) {
+        console.error('Failed to load seasons', err);
+      } finally {
+        setLoading(false);
+      }
+    }
+    loadSeasons();
+  }, []);
 
   const toggleStatus = (id: number) => {
     setSeasons((current) =>

@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 
 interface TeamRecord {
   id: number;
@@ -11,13 +11,6 @@ interface TeamRecord {
   rating: number;
 }
 
-const initialTeams: TeamRecord[] = [
-  { id: 1, name: 'Tundra', region: 'Europe', roster: 5, status: 'active', rating: 92 },
-  { id: 2, name: 'Gaimin Gladiators', region: 'North America', roster: 5, status: 'active', rating: 90 },
-  { id: 3, name: 'Team Liquid', region: 'Europe', roster: 5, status: 'pending', rating: 86 },
-  { id: 4, name: 'Shopify Rebellion', region: 'North America', roster: 4, status: 'inactive', rating: 78 },
-];
-
 const statusStyles: Record<TeamRecord['status'], string> = {
   active: 'bg-green-500/10 text-green-400 border-green-500/30',
   inactive: 'bg-gray-500/10 text-gray-300 border-gray-500/30',
@@ -27,7 +20,35 @@ const statusStyles: Record<TeamRecord['status'], string> = {
 export default function AdminTeamsPage() {
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<'all' | TeamRecord['status']>('all');
-  const [teams] = useState<TeamRecord[]>(initialTeams);
+  const [teams, setTeams] = useState<TeamRecord[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function loadTeams() {
+      try {
+        const res = await fetch('/api/teams?limit=100');
+        if (res.ok) {
+          const json = await res.json();
+          const items = Array.isArray(json.data) ? json.data : [];
+          setTeams(
+            items.map((t: any) => ({
+              id: t.id,
+              name: t.name,
+              region: t.region || 'Global',
+              roster: 5,
+              status: 'active' as const,
+              rating: 85,
+            }))
+          );
+        }
+      } catch (err) {
+        console.error('Failed to load teams', err);
+      } finally {
+        setLoading(false);
+      }
+    }
+    loadTeams();
+  }, []);
 
   const filteredTeams = useMemo(() => {
     return teams.filter((team) => {

@@ -25,7 +25,8 @@ export async function POST(request: Request) {
     await verifyAdminAuth(request);
 
     const body = await request.json();
-    const { jobName, sequential } = body;
+    const jobName = body.jobName || body.job_name;
+    const { sequential } = body;
 
     if (!jobName) {
       // Run all jobs

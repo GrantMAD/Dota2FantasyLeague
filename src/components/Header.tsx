@@ -25,6 +25,7 @@ import {
   Command,
   X,
   Sparkles,
+  Shield,
 } from 'lucide-react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useRef, useState, useMemo } from 'react';
@@ -34,6 +35,7 @@ type HeaderProfile = {
   username: string;
   display_name: string | null;
   avatar_url: string | null;
+  role?: string | null;
 };
 
 type HeaderNotification = {
@@ -270,6 +272,16 @@ export function Header() {
       <Link href="/account" onClick={() => setUserMenuOpen(false)} className="block rounded-md px-3 py-2 text-sm text-slate-300 hover:bg-slate-800 hover:text-white">
         Account
       </Link>
+      {profile?.role === 'admin' && (
+        <Link
+          href="/admin/dashboard"
+          onClick={() => setUserMenuOpen(false)}
+          className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-semibold text-amber-400 hover:bg-amber-500/20 hover:text-amber-300 border-t border-slate-700/60 mt-1 pt-2"
+        >
+          <Shield className="h-4 w-4 text-amber-400" />
+          <span>Admin Console</span>
+        </Link>
+      )}
       <button onClick={handleSignOut} disabled={signingOut} className="mt-1 w-full rounded-md px-3 py-2 text-left text-sm text-slate-300 hover:bg-slate-800 hover:text-white disabled:opacity-60">
         {signingOut ? 'Signing Out...' : 'Sign Out'}
       </button>
@@ -455,6 +467,22 @@ export function Header() {
                 </Link>
               );
             })}
+            {profile?.role === 'admin' && (
+              <Link
+                href="/admin/dashboard"
+                title={sidebarCollapsed ? 'Admin Console' : undefined}
+                className={`flex items-center rounded-lg text-sm font-medium transition-colors ${
+                  sidebarCollapsed ? 'justify-center p-2.5' : 'gap-3 px-3 py-2.5'
+                } ${
+                  pathname.startsWith('/admin')
+                    ? 'bg-amber-500/20 text-amber-400 font-semibold'
+                    : 'text-amber-400/80 hover:bg-amber-500/10 hover:text-amber-300'
+                }`}
+              >
+                <Shield className="h-5 w-5 shrink-0 text-amber-400" />
+                {!sidebarCollapsed && <span className="truncate">Admin Console</span>}
+              </Link>
+            )}
           </div>
         </nav>
       </aside>
@@ -653,6 +681,20 @@ export function Header() {
                   </Link>
                 );
               })}
+              {profile?.role === 'admin' && (
+                <Link
+                  href="/admin/dashboard"
+                  className={`flex items-center gap-3 px-4 py-2.5 rounded-lg font-medium transition-colors ${
+                    pathname.startsWith('/admin')
+                      ? 'bg-amber-500/20 text-amber-400 font-semibold'
+                      : 'text-amber-400/80 hover:bg-amber-500/10 hover:text-amber-300'
+                  }`}
+                  onClick={() => setMobileMenuOpen(false)}
+                >
+                  <Shield className="h-5 w-5 shrink-0 text-amber-400" />
+                  <span>Admin Console</span>
+                </Link>
+              )}
             </div>
             <div className="border-t border-slate-700 pt-3 mt-3">
               <div className="px-4 py-2"><ThemeToggle /></div>

@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { ArrowUpRight, ArrowDownRight, TrendingUp, Zap } from 'lucide-react';
 import { simulatePriceDynamics } from '@/lib/fantasy-gameplay';
 
@@ -13,22 +13,47 @@ interface PlayerPriceRecord {
   lastDelta: number;
 }
 
-const seedPlayers: PlayerPriceRecord[] = [
-  { id: 1, name: 'Ammar', team: 'Tundra', role: 'Carry', price: 9900000, lastDelta: 180000 },
-  { id: 2, name: 'Tobi', team: 'Gaimin Gladiators', role: 'Support', price: 8600000, lastDelta: 120000 },
-  { id: 3, name: 'Mikey', team: 'Liquid', role: 'Mid', price: 9300000, lastDelta: -90000 },
-  { id: 4, name: 'Stinger', team: 'Shopify Rebellion', role: 'Offlane', price: 7600000, lastDelta: 210000 },
-  { id: 5, name: 'Mongol', team: 'Tundra', role: 'Support', price: 8800000, lastDelta: 150000 },
-];
-
 export default function AdminPricingPage() {
-  const [players, setPlayers] = useState<PlayerPriceRecord[]>(seedPlayers);
-  const [selectedId, setSelectedId] = useState<number>(seedPlayers[0].id);
+  const [players, setPlayers] = useState<PlayerPriceRecord[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedId, setSelectedId] = useState<number>(0);
   const [performanceDelta, setPerformanceDelta] = useState<number>(12);
+
+  useEffect(() => {
+    async function loadPricingPlayers() {
+      try {
+        const res = await fetch('/api/players?limit=50');
+        if (res.ok) {
+          const json = await res.json();
+          const items = Array.isArray(json.data) ? json.data : [];
+          const mapped = items.map((p: any) => ({
+            id: p.id,
+            name: p.in_game_name || p.name,
+            team: p.professional_teams?.name || 'Free Agent',
+            role: p.primary_role || 'Carry',
+            price: p.current_price || 6000000,
+            lastDelta: 0,
+          }));
+          setPlayers(mapped);
+          if (mapped.length > 0) {
+            setSelectedId(mapped[0].id);
+          }
+        }
+      } catch (err) {
+        console.error('Failed to load players for pricing', err);
+      } finally {
+        setLoading(false);
+      }
+    }
+    loadPricingPlayers();
+  }, []);
 
   const selectedPlayer = players.find((player) => player.id === selectedId) ?? players[0];
 
   const marketSummary = useMemo(() => {
+    if (players.length === 0) {
+      return { totalValue: 0, averagePrice: 0, biggestGainer: undefined, biggestDrop: undefined };
+    }
     const totalValue = players.reduce((sum, player) => sum + player.price, 0);
     const averagePrice = Math.round(totalValue / players.length);
     const biggestGainer = [...players].sort((a, b) => b.lastDelta - a.lastDelta)[0];
@@ -60,6 +85,28 @@ export default function AdminPricingPage() {
     );
   };
 
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <div className="text-gray-400">Loading player market data...</div>
+      </div>
+    );
+  }
+
+  if (players.length === 0) {
+    return (
+      <div className="space-y-8">
+        <div>
+          <h1 className="text-3xl font-bold text-white">Player Pricing</h1>
+          <p className="mt-1 text-gray-400">Manage dynamic player market values and performance-driven adjustments</p>
+        </div>
+        <div className="rounded-lg border border-gray-700 bg-gray-800/50 p-12 text-center">
+          <p className="text-gray-400">No players found in database. Run the sync-players job to populate players.</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-8">
       <div className="flex items-center justify-between gap-4">
@@ -75,8 +122,8 @@ export default function AdminPricingPage() {
       <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
         <StatCard label="Market Value" value={formatMoney(marketSummary.totalValue)} />
         <StatCard label="Avg Price" value={formatMoney(marketSummary.averagePrice)} />
-        <StatCard label="Top Gainer" value={marketSummary.biggestGainer.name} />
-        <StatCard label="Largest Dip" value={marketSummary.biggestDrop.name} />
+        <StatCard label="Top Gainer" value={marketSummary.biggestGainer?.name || 'None'} />
+        <StatCard label="Largest Dip" value={marketSummary.biggestDrop?.name || 'None'} />
       </div>
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1.2fr_0.8fr]">

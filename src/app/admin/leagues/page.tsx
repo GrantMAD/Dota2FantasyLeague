@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Search, Shield, Users, Trophy, Lock, Globe } from 'lucide-react';
 
 interface AdminLeague {
@@ -16,14 +16,6 @@ interface AdminLeague {
   createdAt: string;
 }
 
-const mockLeagues: AdminLeague[] = [
-  { id: '1', name: 'The DPC Champions', type: 'classic', privacy: 'public', ownerUsername: 'grantmad', memberCount: 18, maxMembers: 32, status: 'active', totalPoints: 28400, createdAt: '2026-08-01' },
-  { id: '2', name: 'mates only', type: 'head_to_head', privacy: 'private', ownerUsername: 'dotafan99', memberCount: 6, maxMembers: 8, status: 'active', totalPoints: 9810, createdAt: '2026-08-03' },
-  { id: '3', name: 'TI Watch Party League', type: 'classic', privacy: 'public', ownerUsername: 'esportsking', memberCount: 32, maxMembers: 32, status: 'full', totalPoints: 51200, createdAt: '2026-07-20' },
-  { id: '4', name: 'Office Fantasy Cup', type: 'head_to_head', privacy: 'private', ownerUsername: 'midgang', memberCount: 4, maxMembers: 4, status: 'active', totalPoints: 6340, createdAt: '2026-08-10' },
-  { id: '5', name: 'Global Dota Masters', type: 'classic', privacy: 'public', ownerUsername: 'ward_placer', memberCount: 24, maxMembers: 32, status: 'active', totalPoints: 38720, createdAt: '2026-07-28' },
-];
-
 const statusStyles: Record<string, string> = {
   active: 'bg-green-500/10 text-green-400 border-green-500/20',
   full: 'bg-amber-500/10 text-amber-400 border-amber-500/20',
@@ -31,20 +23,55 @@ const statusStyles: Record<string, string> = {
 };
 
 export default function AdminLeaguesPage() {
+  const [leagues, setLeagues] = useState<AdminLeague[]>([]);
+  const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState('');
   const [typeFilter, setTypeFilter] = useState('');
   const [privacyFilter, setPrivacyFilter] = useState('');
 
-  const filtered = mockLeagues.filter((l) => {
-    const matchesQuery = `${l.name} ${l.ownerUsername}`.toLowerCase().includes(query.toLowerCase());
-    const matchesType = !typeFilter || l.type === typeFilter;
-    const matchesPrivacy = !privacyFilter || l.privacy === privacyFilter;
-    return matchesQuery && matchesType && matchesPrivacy;
-  });
+  useEffect(() => {
+    async function loadLeagues() {
+      try {
+        const res = await fetch('/api/leagues');
+        if (res.ok) {
+          const json = await res.json();
+          const items = Array.isArray(json.leagues) ? json.leagues : (Array.isArray(json) ? json : []);
+          setLeagues(
+            items.map((l: any) => ({
+              id: String(l.id),
+              name: l.name,
+              type: l.type === 'h2h' ? 'head_to_head' : 'classic',
+              privacy: l.privacyLevel === 'private' ? 'private' : 'public',
+              ownerUsername: l.standings?.[0]?.username || 'admin',
+              memberCount: l.currentParticipants || l.standings?.length || 0,
+              maxMembers: l.maxParticipants || 32,
+              status: (l.status === 'completed' ? 'completed' : (l.currentParticipants >= l.maxParticipants ? 'full' : 'active')) as any,
+              totalPoints: (l.standings || []).reduce((acc: number, s: any) => acc + (s.points || 0), 0),
+              createdAt: l.createdAt || new Date().toISOString(),
+            }))
+          );
+        }
+      } catch (err) {
+        console.error('Failed to load leagues', err);
+      } finally {
+        setLoading(false);
+      }
+    }
+    loadLeagues();
+  }, []);
 
-  const totalMembers = mockLeagues.reduce((s, l) => s + l.memberCount, 0);
-  const publicCount = mockLeagues.filter(l => l.privacy === 'public').length;
-  const privateCount = mockLeagues.filter(l => l.privacy === 'private').length;
+  const filtered = useMemo(() => {
+    return leagues.filter((l) => {
+      const matchesQuery = `${l.name} ${l.ownerUsername}`.toLowerCase().includes(query.toLowerCase());
+      const matchesType = !typeFilter || l.type === typeFilter;
+      const matchesPrivacy = !privacyFilter || l.privacy === privacyFilter;
+      return matchesQuery && matchesType && matchesPrivacy;
+    });
+  }, [leagues, query, typeFilter, privacyFilter]);
+
+  const totalMembers = leagues.reduce((s, l) => s + l.memberCount, 0);
+  const publicCount = leagues.filter(l => l.privacy === 'public').length;
+  const privateCount = leagues.filter(l => l.privacy === 'private').length;
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto py-8">
@@ -57,7 +84,7 @@ export default function AdminLeaguesPage() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-5">
           <p className="text-xs text-slate-400 uppercase tracking-wider mb-1">Total Leagues</p>
-          <p className="text-3xl font-bold text-white">{mockLeagues.length}</p>
+          <p className="text-3xl font-bold text-white">{leagues.length}</p>
         </div>
         <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-5">
           <p className="text-xs text-slate-400 uppercase tracking-wider mb-1">Total Members</p>

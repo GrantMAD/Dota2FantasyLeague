@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
     // Fetch upcoming/active gameweeks for deadline overrides
     const { data: gameweeks, error: gameweeksError } = await supabase
       .from('gameweeks')
-      .select('id, season_id, gameweek_number, start_date, end_date, deadline_date, status')
+      .select('id, season_id, gameweek_number, start_date, end_date, deadline, status')
       .in('status', ['upcoming', 'active'])
       .order('gameweek_number', { ascending: true });
 
@@ -32,7 +32,12 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Failed to fetch gameweeks', details: gameweeksError.message }, { status: 500 });
     }
 
-    return NextResponse.json({ seasons: seasons || [], gameweeks: gameweeks || [] });
+    const normalizedGameweeks = (gameweeks || []).map((gw: any) => ({
+      ...gw,
+      deadline_date: gw.deadline,
+    }));
+
+    return NextResponse.json({ seasons: seasons || [], gameweeks: normalizedGameweeks });
   } catch (error) {
     return createErrorResponse(error as Error);
   }
@@ -81,7 +86,7 @@ export async function PUT(request: NextRequest) {
 
       const { data, error } = await supabase
         .from('gameweeks')
-        .update({ deadline_date })
+        .update({ deadline: deadline_date })
         .eq('id', id)
         .select()
         .single();

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useMemo } from 'react';
 import { Search, Users, Trophy, Eye } from 'lucide-react';
 
 interface FantasyTeam {
@@ -14,22 +14,45 @@ interface FantasyTeam {
   lastActive: string;
 }
 
-const mockTeams: FantasyTeam[] = [
-  { id: '1', name: 'OG Fanboys', owner: 'grantmad', totalPoints: 1842, globalRank: 14, leagueCount: 3, budgetRemaining: 12.4, lastActive: '2026-09-01' },
-  { id: '2', name: 'Secret Believers', owner: 'dotafan99', totalPoints: 1710, globalRank: 28, leagueCount: 2, budgetRemaining: 8.1, lastActive: '2026-09-01' },
-  { id: '3', name: 'TI Hopefuls', owner: 'esportsking', totalPoints: 1654, globalRank: 41, leagueCount: 4, budgetRemaining: 3.2, lastActive: '2026-08-30' },
-  { id: '4', name: 'Midlaner FC', owner: 'midgang', totalPoints: 1590, globalRank: 67, leagueCount: 1, budgetRemaining: 15.7, lastActive: '2026-09-02' },
-  { id: '5', name: 'Support Lives Matter', owner: 'ward_placer', totalPoints: 1521, globalRank: 102, leagueCount: 2, budgetRemaining: 6.9, lastActive: '2026-08-28' },
-];
-
 export default function AdminFantasyTeamsPage() {
-  const [teams, setTeams] = useState<FantasyTeam[]>(mockTeams);
+  const [teams, setTeams] = useState<FantasyTeam[]>([]);
   const [query, setQuery] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
 
-  const filtered = teams.filter((t) =>
-    `${t.name} ${t.owner}`.toLowerCase().includes(query.toLowerCase())
-  );
+  useEffect(() => {
+    async function loadFantasyTeams() {
+      try {
+        const res = await fetch('/api/leaderboard?limit=100');
+        if (res.ok) {
+          const json = await res.json();
+          const items = Array.isArray(json.leaderboard) ? json.leaderboard : [];
+          setTeams(
+            items.map((item: any) => ({
+              id: String(item.fantasy_teams?.id || item.id),
+              name: item.fantasy_teams?.name || 'Fantasy Squad',
+              owner: item.fantasy_teams?.profiles?.display_name || item.fantasy_teams?.profiles?.username || 'Manager',
+              totalPoints: Number(item.total_points || 0),
+              globalRank: item.rank || 1,
+              leagueCount: 1,
+              budgetRemaining: 10.0,
+              lastActive: item.created_at ? new Date(item.created_at).toISOString().split('T')[0] : 'Active',
+            }))
+          );
+        }
+      } catch (err) {
+        console.error('Failed to load fantasy teams', err);
+      } finally {
+        setLoading(false);
+      }
+    }
+    loadFantasyTeams();
+  }, []);
+
+  const filtered = useMemo(() => {
+    return teams.filter((t) =>
+      `${t.name} ${t.owner}`.toLowerCase().includes(query.toLowerCase())
+    );
+  }, [teams, query]);
 
   const totalPoints = teams.reduce((s, t) => s + t.totalPoints, 0);
   const avgPoints = teams.length ? Math.round(totalPoints / teams.length) : 0;

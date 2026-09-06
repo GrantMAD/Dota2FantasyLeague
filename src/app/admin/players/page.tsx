@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { Plus, Search, Pencil, Trash2 } from 'lucide-react';
 
 type PlayerStatus = 'active' | 'inactive' | 'flagged';
@@ -15,14 +15,6 @@ interface PlayerRecord {
   fantasyPoints: number;
 }
 
-const initialPlayers: PlayerRecord[] = [
-  { id: 1, name: 'Ammar', team: 'Tundra', role: 'Carry', price: 9970000, status: 'active', fantasyPoints: 142 },
-  { id: 2, name: 'Tobi', team: 'Gaimin Gladiators', role: 'Support', price: 8500000, status: 'active', fantasyPoints: 118 },
-  { id: 3, name: 'Mikey', team: 'Liquid', role: 'Mid', price: 9200000, status: 'flagged', fantasyPoints: 96 },
-  { id: 4, name: 'Stinger', team: 'Shopify Rebellion', role: 'Offlane', price: 7600000, status: 'inactive', fantasyPoints: 74 },
-  { id: 5, name: 'Mongol', team: 'Tundra', role: 'Support', price: 8800000, status: 'active', fantasyPoints: 131 },
-];
-
 const statusStyles: Record<PlayerStatus, string> = {
   active: 'bg-green-500/10 text-green-400 border-green-500/30',
   inactive: 'bg-gray-500/10 text-gray-300 border-gray-500/30',
@@ -30,7 +22,8 @@ const statusStyles: Record<PlayerStatus, string> = {
 };
 
 export default function AdminPlayersPage() {
-  const [players, setPlayers] = useState<PlayerRecord[]>(initialPlayers);
+  const [players, setPlayers] = useState<PlayerRecord[]>([]);
+  const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | PlayerStatus>('all');
   const [showForm, setShowForm] = useState(false);
@@ -43,6 +36,34 @@ export default function AdminPlayersPage() {
     status: 'active',
     fantasyPoints: 0,
   });
+
+  useEffect(() => {
+    async function loadPlayers() {
+      try {
+        const res = await fetch('/api/players?limit=100');
+        if (res.ok) {
+          const json = await res.json();
+          const items = Array.isArray(json.data) ? json.data : [];
+          setPlayers(
+            items.map((p: any) => ({
+              id: p.id,
+              name: p.in_game_name || p.name,
+              team: p.professional_teams?.name || 'Free Agent',
+              role: p.primary_role || 'Carry',
+              price: p.current_price || 5000000,
+              status: (p.availability_status === 'inactive' ? 'inactive' : 'active') as PlayerStatus,
+              fantasyPoints: p.gameweek_points || 0,
+            }))
+          );
+        }
+      } catch (err) {
+        console.error('Failed to load players', err);
+      } finally {
+        setLoading(false);
+      }
+    }
+    loadPlayers();
+  }, []);
 
   const filteredPlayers = useMemo(() => {
     return players.filter((player) => {
