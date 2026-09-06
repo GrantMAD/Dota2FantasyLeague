@@ -39,24 +39,24 @@ export async function GET(request: NextRequest, context: RouteContext) {
 
     const [{ data: teams }, { data: series }] = await Promise.all([
       (supabase.from('professional_teams') as any)
-        .select('id, name, logo_url')
+        .select('id, name, logo_url, region')
         .in('id', [matchRecord.team_a_id, matchRecord.team_b_id]),
       (supabase.from('tournament_series') as any)
-        .select('id, tournament_id')
+        .select('id, tournament_id, best_of, series_number')
         .eq('id', matchRecord.series_id)
         .maybeSingle(),
     ]);
 
     const { data: tournament } = series
-      ? await (supabase.from('tournaments') as any).select('id, name, slug').eq('id', series.tournament_id).maybeSingle()
+      ? await (supabase.from('tournaments') as any).select('id, name, slug, tier').eq('id', series.tournament_id).maybeSingle()
       : { data: null };
     const { data: gameweek } = await (supabase.from('gameweeks') as any)
       .select('id, gameweek_number, status')
       .eq('id', matchRecord.gameweek_id)
       .maybeSingle();
 
-    const teamById = new Map<number, { id: number; name: string; logo_url: string | null }>(
-      (teams ?? []).map((team: { id: number; name: string; logo_url: string | null }) => [team.id, team])
+    const teamById = new Map<number, { id: number; name: string; logo_url: string | null; region?: string }>(
+      (teams ?? []).map((team: any) => [team.id, team])
     );
     const buildTeam = (teamId: number) => {
       const team = teamById.get(teamId);
@@ -64,6 +64,8 @@ export async function GET(request: NextRequest, context: RouteContext) {
     };
     const match = {
       ...matchRecord,
+      best_of: series?.best_of || 3,
+      series_number: series?.series_number || 1,
       scheduled_at: matchRecord.scheduled_time,
       duration_seconds: matchRecord.duration_minutes ? matchRecord.duration_minutes * 60 : null,
       radiant_team_id: matchRecord.team_a_id,

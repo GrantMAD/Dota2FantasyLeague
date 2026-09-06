@@ -50,6 +50,7 @@ export async function GET(request: NextRequest) {
         duration_minutes,
         gameweek_id,
         series_id,
+        match_number,
         team_a_id,
         team_b_id,
         winner_team_id
@@ -85,8 +86,8 @@ export async function GET(request: NextRequest) {
     const seriesIds = [...new Set((data ?? []).map((match: any) => match.series_id))];
 
     const [{ data: teams, error: teamsError }, { data: series, error: seriesError }] = await Promise.all([
-      (supabase.from('professional_teams') as any).select('id, name, logo_url').in('id', teamIds),
-      (supabase.from('tournament_series') as any).select('id, tournament_id').in('id', seriesIds),
+      (supabase.from('professional_teams') as any).select('id, name, logo_url, region').in('id', teamIds),
+      (supabase.from('tournament_series') as any).select('id, tournament_id, best_of, series_number').in('id', seriesIds),
     ]);
 
     if (teamsError || seriesError) {
@@ -98,7 +99,7 @@ export async function GET(request: NextRequest) {
 
     const tournamentIds = [...new Set((series ?? []).map((item: { tournament_id: number }) => item.tournament_id))];
     const { data: tournaments, error: tournamentsError } = await (supabase.from('tournaments') as any)
-      .select('id, name, slug')
+      .select('id, name, slug, tier')
       .in('id', tournamentIds);
 
     if (tournamentsError) {
@@ -108,28 +109,34 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const teamById = new Map<number, { id: number; name: string; logo_url: string | null }>(
-      (teams ?? []).map((team: { id: number; name: string; logo_url: string | null }) => [team.id, team])
+    const teamById = new Map<number, { id: number; name: string; logo_url: string | null; region?: string }>(
+      (teams ?? []).map((team: any) => [team.id, team])
     );
-    const tournamentById = new Map((tournaments ?? []).map((tournament: any) => [tournament.id, tournament]));
-    const tournamentBySeriesId = new Map((series ?? []).map((item: any) => [item.id, tournamentById.get(item.tournament_id)]));
+    const tournamentById = new Map<number, any>((tournaments ?? []).map((tournament: any) => [tournament.id, tournament]));
+    const seriesMap = new Map<number, any>((series ?? []).map((item: any) => [item.id, item]));
 
     // Normalize the current schema into the field names used by the matches page.
     const response = {
-      matches: (data ?? []).map((match: any) => ({
-        ...match,
-        scheduled_at: match.scheduled_time,
-        duration_seconds: match.duration_minutes ? match.duration_minutes * 60 : null,
-        radiant_team_id: match.team_a_id,
-        dire_team_id: match.team_b_id,
-        radiant_team: teamById.has(match.team_a_id)
-          ? { ...teamById.get(match.team_a_id), tag: teamById.get(match.team_a_id)?.name.slice(0, 4).toUpperCase() }
-          : null,
-        dire_team: teamById.has(match.team_b_id)
-          ? { ...teamById.get(match.team_b_id), tag: teamById.get(match.team_b_id)?.name.slice(0, 4).toUpperCase() }
-          : null,
-        tournaments: tournamentBySeriesId.get(match.series_id) ?? null,
-      })),
+      matches: (data ?? []).map((match: any) => {
+        const seriesInfo = seriesMap.get(match.series_id);
+        return {
+          ...match,
+          match_number: match.match_number || 1,
+          best_of: seriesInfo?.best_of || 3,
+          series_number: seriesInfo?.series_number || 1,
+          scheduled_at: match.scheduled_time,
+          duration_seconds: match.duration_minutes ? match.duration_minutes * 60 : null,
+          radiant_team_id: match.team_a_id,
+          dire_team_id: match.team_b_id,
+          radiant_team: teamById.has(match.team_a_id)
+            ? { ...teamById.get(match.team_a_id), tag: teamById.get(match.team_a_id)?.name.slice(0, 4).toUpperCase() }
+            : null,
+          dire_team: teamById.has(match.team_b_id)
+            ? { ...teamById.get(match.team_b_id), tag: teamById.get(match.team_b_id)?.name.slice(0, 4).toUpperCase() }
+            : null,
+          tournaments: seriesInfo ? tournamentById.get(seriesInfo.tournament_id) ?? null : null,
+        };
+      }),
     };
     setCached(cacheKey, response, 60_000);
     return NextResponse.json(response);
