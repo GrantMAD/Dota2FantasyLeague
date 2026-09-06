@@ -56,27 +56,53 @@ export class OpenDotaProvider extends DataProviderBase implements DataProvider {
 
   async fetchPlayers(filters?: DataProviderFilters): Promise<PlayerData[]> {
     try {
-      // OpenDota doesn't have a "professional players" endpoint
-      // This would need to be implemented via team rosters
-      this.log('warn', 'OpenDota fetchPlayers: Using team rosters instead of direct player query');
+      // Use OpenDota's dedicated /proPlayers endpoint
+      const rawPlayers = await this.request('/proPlayers');
 
-      const teams = await this.fetchTeams(filters);
-      const players: Map<string, PlayerData> = new Map();
-
-      for (const team of teams) {
-        for (const member of team.roster) {
-          if (!players.has(member.playerId)) {
-            try {
-              const player = await this.fetchPlayer(member.playerId);
-              players.set(member.playerId, player);
-            } catch (error) {
-              this.log('warn', `Failed to fetch player ${member.playerId}`, error);
-            }
-          }
-        }
+      if (!Array.isArray(rawPlayers)) {
+        throw new Error('Invalid proPlayers response from OpenDota');
       }
 
-      return Array.from(players.values());
+      // Filter to active pro players with teams and names
+      const validPlayers = rawPlayers.filter(
+        (p: any) => p.name && (p.is_pro || p.team_name)
+      );
+
+      // Map OpenDota fantasy_role integer to role name
+      const roleMap: Record<number, string> = {
+        1: 'Carry',
+        2: 'Support',
+        3: 'Offlane',
+        4: 'Mid',
+      };
+
+      const mapped: PlayerData[] = validPlayers.map((p: any) => {
+        const steamId = p.steamid ? String(p.steamid) : String(p.account_id);
+        const primaryRole = roleMap[p.fantasy_role] || 'Carry';
+
+        return {
+          id: String(p.account_id),
+          steamId,
+          name: p.name || p.personaname,
+          tag: p.team_tag || undefined,
+          country: p.country_code || p.loccountrycode || undefined,
+          roles: [primaryRole],
+          team: p.team_id
+            ? {
+                id: String(p.team_id),
+                name: p.team_name || 'Independent',
+              }
+            : undefined,
+          isActive: true,
+          profileUrl: p.profileurl || `https://opendota.com/players/${p.account_id}`,
+          imageUrl: p.avatarfull || p.avatarmedium || p.avatar,
+          lastUpdated: new Date(),
+        };
+      });
+
+      const offset = filters?.offset || 0;
+      const limit = filters?.limit || mapped.length;
+      return mapped.slice(offset, offset + limit);
     } catch (error) {
       throw this.createError(
         'OPENDOTA_PLAYERS_FETCH_FAILED',

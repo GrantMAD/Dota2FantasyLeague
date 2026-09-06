@@ -340,8 +340,9 @@ async function logJobExecution(
   executionId?: string
 ): Promise<string> {
   const supabase = getSupabaseServerClient();
-  
-  if (executionId) {
+  const isUuid = executionId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(executionId);
+
+  if (isUuid) {
     // Update existing execution log
     const { error } = await supabase
       .from('job_execution_log')

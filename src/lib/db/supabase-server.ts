@@ -20,15 +20,21 @@ export function getSupabaseServerClient(): any {
   }
 
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  // Use service role key on the server to bypass RLS for background workers and system jobs
+  const serverKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-  if (!url || !anonKey) {
+  if (!url || !serverKey) {
     throw new Error(
-      'Missing Supabase environment variables: NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY'
+      'Missing Supabase environment variables: NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY'
     );
   }
 
-  supabaseClient = createClient<Database>(url, anonKey) as any;
+  supabaseClient = createClient<Database>(url, serverKey, {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+    },
+  }) as any;
   return supabaseClient;
 }
 

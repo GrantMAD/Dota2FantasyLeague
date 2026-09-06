@@ -59,9 +59,9 @@ export class StratzProvider extends DataProviderBase implements DataProvider {
 
   async healthCheck(): Promise<boolean> {
     try {
-      const query = `query { league(request: {leagueId: 1}) { id name } }`;
+      const query = `query { constants { gameVersions { id name } } }`;
       const response = await this.graphqlRequest(query);
-      return !!response?.data?.league;
+      return !!response?.data?.constants;
     } catch (error) {
       this.log('error', 'STRATZ health check failed', error);
       return false;
@@ -116,6 +116,13 @@ export class StratzProvider extends DataProviderBase implements DataProvider {
         lastUpdated: new Date(),
       }));
     } catch (error) {
+      if (process.env.ENABLE_PROVIDER_FALLBACK !== 'false') {
+        this.log('warn', `STRATZ player fetch failed (${(error as Error).message}), falling back to OpenDota`);
+        const { OpenDotaProvider } = await import('./opendota-provider');
+        const fallback = new OpenDotaProvider();
+        return fallback.fetchPlayers(filters);
+      }
+
       throw this.createError(
         'STRATZ_PLAYERS_FETCH_FAILED',
         `Failed to fetch players from STRATZ: ${(error as Error).message}`,
@@ -605,6 +612,7 @@ export class StratzProvider extends DataProviderBase implements DataProvider {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'User-Agent': 'STRATZ_API',
           Authorization: `Bearer ${this.config.apiKey}`,
         },
         body: JSON.stringify({ query, variables }),
