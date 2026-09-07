@@ -195,7 +195,7 @@ export default function SquadsPage() {
           {player.profile_image_url ? (
             <Image src={player.profile_image_url} alt={player.in_game_name || player.name} width={56} height={56} unoptimized className="h-full w-full object-cover" />
           ) : (
-            <span className="squad-card-muted text-xs text-slate-300">{(player.in_game_name || player.name || 'P').substring(0, 2).toUpperCase()}</span>
+            <span className="player-avatar-initials squad-card-muted text-xs">{(player.in_game_name || player.name || 'P').substring(0, 2).toUpperCase()}</span>
           )}
         </div>
         <div className="min-w-0 flex-1">

@@ -365,7 +365,7 @@ export default function LineupsPage() {
                                 {selected.professional_players.profile_image_url ? (
                                   <Image src={selected.professional_players.profile_image_url} alt={selected.professional_players.in_game_name || selected.professional_players.name} width={36} height={36} unoptimized className="h-full w-full object-cover" />
                                 ) : (
-                                  <span className="text-xs font-bold text-slate-300">{(selected.professional_players.in_game_name || selected.professional_players.name || 'P').slice(0, 2).toUpperCase()}</span>
+                                  <span className="player-avatar-initials text-xs font-bold">{(selected.professional_players.in_game_name || selected.professional_players.name || 'P').slice(0, 2).toUpperCase()}</span>
                                 )}
                               </div>
                               <div className="min-w-0">
@@ -425,7 +425,7 @@ export default function LineupsPage() {
                                 {selected.professional_players.profile_image_url ? (
                                   <Image src={selected.professional_players.profile_image_url} alt={selected.professional_players.in_game_name || selected.professional_players.name} width={36} height={36} unoptimized className="h-full w-full object-cover" />
                                 ) : (
-                                  <span className="text-xs font-bold text-slate-300">{(selected.professional_players.in_game_name || selected.professional_players.name || 'P').slice(0, 2).toUpperCase()}</span>
+                                  <span className="player-avatar-initials text-xs font-bold">{(selected.professional_players.in_game_name || selected.professional_players.name || 'P').slice(0, 2).toUpperCase()}</span>
                                 )}
                               </div>
                               <div className="min-w-0">

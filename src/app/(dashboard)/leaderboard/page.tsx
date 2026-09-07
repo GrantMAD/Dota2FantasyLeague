@@ -242,14 +242,14 @@ export default function LeaderboardPage() {
                   <button 
                      onClick={() => setPage(p => Math.max(1, p - 1))}
                      disabled={page === 1}
-                     className="px-4 py-2 bg-slate-700 hover:bg-slate-600 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-medium rounded-lg transition-colors"
+                     className="leaderboard-pagination-button px-4 py-2 bg-slate-700 hover:bg-slate-600 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-medium rounded-lg transition-colors"
                   >
                      Previous
                   </button>
                   <button 
                      onClick={() => setPage(p => p + 1)}
                      disabled={entries.length < 50}
-                     className="px-4 py-2 bg-slate-700 hover:bg-slate-600 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-medium rounded-lg transition-colors"
+                     className="leaderboard-pagination-button px-4 py-2 bg-slate-700 hover:bg-slate-600 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-medium rounded-lg transition-colors"
                   >
                      Next
                   </button>
@@ -267,7 +267,7 @@ export default function LeaderboardPage() {
               <div className="flex items-center gap-4">
                 <div className="w-14 h-14 rounded-full bg-slate-800 border-2 border-amber-500/50 flex items-center justify-center overflow-hidden shrink-0 shadow-md">
                   {selectedUser.avatarUrl ? (
-                    <img src={selectedUser.avatarUrl} alt={selectedUser.manager} className="w-full h-full object-cover" />
+                    <Image src={selectedUser.avatarUrl} alt={selectedUser.manager} width={56} height={56} unoptimized className="h-full w-full object-cover" />
                   ) : (
                     <span className="text-xl font-bold text-amber-400">
                       {(selectedUser.displayName || selectedUser.username || selectedUser.manager).substring(0, 2).toUpperCase()}
@@ -293,8 +293,8 @@ export default function LeaderboardPage() {
               </div>
 
               {selectedUser.bio && (
-                <p className="mt-4 text-sm text-slate-300 bg-slate-950/40 border border-slate-800/80 rounded-lg p-3 italic">
-                  "{selectedUser.bio}"
+                <p className="leaderboard-manager-bio mt-4 text-sm text-slate-300 bg-slate-950/40 border border-slate-800/80 rounded-lg p-3 italic">
+                  &quot;{selectedUser.bio}&quot;
                 </p>
               )}
             </div>
@@ -304,16 +304,16 @@ export default function LeaderboardPage() {
               <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-3">Global Standing & Performance</h3>
               <div className="grid grid-cols-3 gap-3">
                 <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-4 text-center">
-                  <div className="text-xs text-slate-400 uppercase tracking-wider">Total Points</div>
-                  <div className="text-2xl font-mono font-bold text-amber-400 mt-1">{selectedUser.points} <span className="text-sm font-sans text-amber-300">pts</span></div>
+                  <div className="leaderboard-modal-label text-xs text-slate-400 uppercase tracking-wider">Total Points</div>
+                  <div className="leaderboard-total-points text-2xl font-mono font-bold text-amber-400 mt-1">{selectedUser.points} <span className="text-sm font-sans text-amber-300">pts</span></div>
                 </div>
                 <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-4 text-center">
-                  <div className="text-xs text-slate-400 uppercase tracking-wider">Gameweek</div>
-                  <div className="text-2xl font-mono font-bold text-slate-200 mt-1">{selectedUser.gwPoints ?? 0} <span className="text-sm font-sans text-slate-400">pts</span></div>
+                  <div className="leaderboard-modal-label text-xs text-slate-400 uppercase tracking-wider">Gameweek</div>
+                  <div className="leaderboard-gameweek-points text-2xl font-mono font-bold text-slate-200 mt-1">{selectedUser.gwPoints ?? 0} <span className="leaderboard-points-label text-sm font-sans text-slate-400">pts</span></div>
                 </div>
                 <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-4 text-center">
-                  <div className="text-xs text-slate-400 uppercase tracking-wider">Global Rank</div>
-                  <div className="text-2xl font-mono font-bold text-white mt-1">#{selectedUser.rank ?? '-'}</div>
+                  <div className="leaderboard-modal-label text-xs text-slate-400 uppercase tracking-wider">Global Rank</div>
+                  <div className="leaderboard-global-rank text-2xl font-mono font-bold text-white mt-1">#{selectedUser.rank ?? '-'}</div>
                 </div>
               </div>
             </div>

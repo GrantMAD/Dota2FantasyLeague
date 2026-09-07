@@ -301,7 +301,7 @@ export default function TransfersPage() {
                               {player.profile_image_url ? (
                                 <Image src={player.profile_image_url} alt={player.in_game_name || player.name} width={40} height={40} unoptimized className="w-full h-full object-cover" />
                               ) : (
-                                <span className="text-xs font-bold text-slate-400">
+                                <span className="player-avatar-initials text-xs font-bold">
                                   {(player.in_game_name || player.name || '').substring(0, 2).toUpperCase()}
                                 </span>
                               )}
@@ -320,7 +320,7 @@ export default function TransfersPage() {
                           </div>
                         </td>
                         <td className="px-4 py-3 text-center">
-                          <span className="inline-block bg-slate-700/80 text-slate-300 text-[10px] uppercase font-bold px-2 py-1 rounded">
+                          <span className="transfer-role-badge inline-block bg-slate-700/80 text-slate-300 text-[10px] uppercase font-bold px-2 py-1 rounded">
                             {player.primary_role}
                           </span>
                         </td>
@@ -328,7 +328,7 @@ export default function TransfersPage() {
                           <div className="font-mono font-bold text-amber-400">${player.current_price}M</div>
                         </td>
                         <td className="px-4 py-3 text-right">
-                          <div className="text-sm text-slate-200 font-mono">{player.recent_points ?? '-'}</div>
+                          <div className="transfer-form-average text-sm text-slate-200 font-mono">{player.recent_points ?? '-'}</div>
                         </td>
                         <td className="px-4 py-3 text-right">
                           <div className="text-sm font-bold text-white font-mono">{player.gameweek_points ?? '-'}</div>
@@ -337,7 +337,7 @@ export default function TransfersPage() {
                           <button
                             type="button"
                             onClick={(e) => handlePlayerAction(player.id, e)}
-                            className={`p-1.5 rounded-md transition-colors ${
+                            className={`transfer-action-button p-1.5 rounded-md transition-colors ${
                               ownedPlayerIds.includes(player.id)
                                 ? selectedPlayerOut === player.id
                                   ? 'bg-red-600 text-white'
@@ -385,7 +385,7 @@ export default function TransfersPage() {
                   {modalPlayer.profile_image_url ? (
                     <Image src={modalPlayer.profile_image_url} alt={modalPlayer.in_game_name || modalPlayer.name} width={96} height={96} unoptimized className="w-full h-full object-cover" />
                   ) : (
-                    <span className="text-3xl font-bold text-slate-500">
+                    <span className="player-avatar-initials text-3xl font-bold">
                       {(modalPlayer.in_game_name || modalPlayer.name || 'P').substring(0, 2).toUpperCase()}
                     </span>
                   )}

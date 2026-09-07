@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { Users } from 'lucide-react';
 
 interface ProfessionalTeam {
@@ -37,41 +38,45 @@ export default function PlayersPage() {
     return () => clearTimeout(timer);
   }, [search]);
 
-  const fetchPlayers = useCallback(async () => {
-    setLoading(true);
-    try {
-      const offset = (page - 1) * limit;
-      const params = new URLSearchParams({
-        limit: limit.toString(),
-        offset: offset.toString(),
-        sort: 'price',
-        desc: 'true',
-      });
-      if (debouncedSearch) params.append('search', debouncedSearch);
-      if (roleFilter) params.append('role', roleFilter);
+  useEffect(() => {
+    let cancelled = false;
 
-      const res = await fetch(`/api/players?${params.toString()}`);
-      if (res.ok) {
-        const data = await res.json();
+    async function loadPlayers() {
+      setLoading(true);
+      try {
+        const offset = (page - 1) * limit;
+        const params = new URLSearchParams({
+          limit: limit.toString(),
+          offset: offset.toString(),
+          sort: 'price',
+          desc: 'true',
+        });
+        if (debouncedSearch) params.append('search', debouncedSearch);
+        if (roleFilter) params.append('role', roleFilter);
+
+        const res = await fetch(`/api/players?${params.toString()}`);
+        if (!res.ok || cancelled) return;
+        const data = (await res.json()) as { data?: Player[]; total?: number };
         setPlayers(data.data || []);
         setTotal(data.total || 0);
+      } catch (err) {
+        if (!cancelled) console.error('Failed to fetch players', err);
+      } finally {
+        if (!cancelled) setLoading(false);
       }
-    } catch (err) {
-      console.error('Failed to fetch players', err);
-    } finally {
-      setLoading(false);
     }
-  }, [page, limit, debouncedSearch, roleFilter]);
 
-  useEffect(() => {
-    fetchPlayers();
-  }, [fetchPlayers]);
+    void loadPlayers();
+    return () => {
+      cancelled = true;
+    };
+  }, [page, limit, debouncedSearch, roleFilter]);
 
   const totalPages = Math.ceil(total / limit);
 
   // Formatting helper
   const formatPrice = (price: number) => {
-    return `$${(price / 1000000).toFixed(1)}M`;
+    return `$${Number(price ?? 0).toFixed(1)}M`;
   };
 
   const getRoleColor = (role: string) => {
@@ -164,7 +169,9 @@ export default function PlayersPage() {
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center text-slate-300">
                         {player.professional_teams?.logo_url ? (
-                          <img src={player.professional_teams.logo_url} alt="team" className="w-5 h-5 mr-2 object-contain rounded-sm" />
+                          <span className="player-team-logo-frame mr-2 flex h-5 w-5 items-center justify-center rounded-sm">
+                            <Image src={player.professional_teams.logo_url} alt="team" width={20} height={20} unoptimized className="h-full w-full rounded-sm object-contain" />
+                          </span>
                         ) : (
                           <div className="w-5 h-5 mr-2 bg-slate-700 rounded-sm"></div>
                         )}

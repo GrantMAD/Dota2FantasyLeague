@@ -73,7 +73,7 @@ export default function GameweeksPage() {
           <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-amber-500/30 bg-amber-500/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.24em] text-amber-300">
             Fantasy Schedule
           </div>
-          <h1 className="text-3xl font-black tracking-tight text-white">Gameweeks</h1>
+          <h1 className="gameweeks-page-heading text-3xl font-black tracking-tight text-white">Gameweeks</h1>
           <p className="mt-2 max-w-xl text-sm text-slate-400">
             Track deadlines, fixtures, DGW/BGW windows, and your recent results in one place.
           </p>
@@ -88,10 +88,18 @@ export default function GameweeksPage() {
           </Link>
           <Link
             href="/transfers"
-            className="inline-flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-900/80 px-3 py-2 text-sm font-medium text-slate-200 transition hover:border-slate-500 hover:text-white"
+            className="gameweeks-transfer-link inline-flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-900/80 px-3 py-2 text-sm font-medium text-slate-200 transition hover:border-slate-500 hover:text-white"
           >
             Transfer Market
           </Link>
+          {activeGameweek && (
+            <Link
+              href={`/matches?gameweekId=${activeGameweek.id}`}
+              className="gameweeks-matches-link inline-flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-900/80 px-3 py-2 text-sm font-medium text-slate-200 transition hover:border-slate-500 hover:text-white"
+            >
+              Gameweek Matches
+            </Link>
+          )}
         </div>
       </div>
 

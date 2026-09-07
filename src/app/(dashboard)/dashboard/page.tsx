@@ -111,7 +111,7 @@ export default function DashboardPage() {
   }, []);
 
   return (
-    <div className="min-h-screen">
+    <div className="dashboard-page min-h-screen">
       {/* Hero Section */}
       <section className="bg-linear-to-r from-slate-900 via-slate-800 to-slate-900 border-b border-slate-700 py-12 px-4">
         <div className="max-w-7xl mx-auto">

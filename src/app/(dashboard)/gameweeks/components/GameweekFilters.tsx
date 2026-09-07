@@ -56,7 +56,7 @@ export function GameweekFilters({ activeTab, onTabChange, viewMode, onViewModeCh
             type="button"
             onClick={() => onViewModeChange('compact')}
             className={[
-              'rounded-lg px-3 py-1.5 text-xs font-medium transition',
+              'gameweeks-compact-toggle rounded-lg px-3 py-1.5 text-xs font-medium transition',
               viewMode === 'compact' ? 'bg-amber-500 text-slate-950' : 'text-slate-300 hover:text-white',
             ].join(' ')}
           >

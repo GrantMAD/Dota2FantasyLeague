@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { Trophy } from 'lucide-react';
+import Image from 'next/image';
 
 type StandingEntry = {
   userId?: string;
@@ -368,17 +369,17 @@ export default function LeaguesPage() {
             </div>
 
             {/* Quick Stats Grid */}
-            <div className="my-6 grid grid-cols-3 gap-3 rounded-lg border border-slate-800 bg-slate-950/60 p-4 text-center">
+            <div className="league-modal-stats my-6 grid grid-cols-3 gap-3 rounded-lg border border-slate-800 bg-slate-950/60 p-4 text-center">
               <div>
-                <p className="text-xs text-slate-400 uppercase tracking-wider">Managers</p>
-                <p className="mt-1 text-xl font-bold text-white">{selectedLeague.currentParticipants} / {selectedLeague.maxParticipants}</p>
+                <p className="league-modal-stat-label text-xs text-slate-400 uppercase tracking-wider">Managers</p>
+                <p className="league-modal-stat-value mt-1 text-xl font-bold text-white">{selectedLeague.currentParticipants} / {selectedLeague.maxParticipants}</p>
               </div>
               <div>
-                <p className="text-xs text-slate-400 uppercase tracking-wider">Scoring Mode</p>
-                <p className="mt-1 text-base font-bold text-amber-400">{selectedLeague.type === 'h2h' ? 'Weekly Wins (3pts)' : 'Total Points'}</p>
+                <p className="league-modal-stat-label text-xs text-slate-400 uppercase tracking-wider">Scoring Mode</p>
+                <p className="league-modal-scoring-value mt-1 text-base font-bold text-amber-400">{selectedLeague.type === 'h2h' ? 'Weekly Wins (3pts)' : 'Total Points'}</p>
               </div>
               <div>
-                <p className="text-xs text-slate-400 uppercase tracking-wider">Invite Code</p>
+                <p className="league-modal-stat-label text-xs text-slate-400 uppercase tracking-wider">Invite Code</p>
                 {selectedLeague.inviteCode ? (
                   <div className="mt-1 flex items-center justify-center gap-1.5">
                     <span className="font-mono text-sm font-bold text-slate-200">{selectedLeague.inviteCode}</span>
@@ -392,7 +393,7 @@ export default function LeaguesPage() {
                           setTimeout(() => setCopiedInvite(false), 2000);
                         }
                       }}
-                      className="rounded p-1 text-slate-400 hover:text-amber-400 hover:bg-slate-800 transition-colors"
+                      className="league-modal-copy-button rounded p-1 text-slate-400 hover:text-amber-400 hover:bg-slate-800 transition-colors"
                       title="Copy invite code"
                     >
                       {copiedInvite ? (
@@ -533,7 +534,7 @@ export default function LeaguesPage() {
               <div className="flex items-center gap-4">
                 <div className="w-14 h-14 rounded-full bg-slate-800 border-2 border-amber-500/50 flex items-center justify-center overflow-hidden shrink-0 shadow-md">
                   {selectedUser.avatarUrl ? (
-                    <img src={selectedUser.avatarUrl} alt={selectedUser.manager} className="w-full h-full object-cover" />
+                    <Image src={selectedUser.avatarUrl} alt={selectedUser.manager} width={56} height={56} unoptimized className="h-full w-full object-cover" />
                   ) : (
                     <span className="text-xl font-bold text-amber-400">
                       {(selectedUser.displayName || selectedUser.username || selectedUser.manager).substring(0, 2).toUpperCase()}
@@ -557,7 +558,7 @@ export default function LeaguesPage() {
 
               {selectedUser.bio && (
                 <p className="mt-4 text-sm text-slate-300 bg-slate-950/40 border border-slate-800/80 rounded-lg p-3 italic">
-                  "{selectedUser.bio}"
+                  &quot;{selectedUser.bio}&quot;
                 </p>
               )}
             </div>
@@ -643,34 +644,36 @@ export default function LeaguesPage() {
                 <div className="text-center flex flex-col items-center">
                   <div className="w-16 h-16 rounded-full bg-slate-800 border-2 border-slate-700 flex items-center justify-center overflow-hidden mb-2 shadow-inner">
                     {selectedFixture.homeAvatarUrl ? (
-                      <img src={selectedFixture.homeAvatarUrl} alt={selectedFixture.home} className="w-full h-full object-cover" />
+                      <Image src={selectedFixture.homeAvatarUrl} alt={selectedFixture.home} width={64} height={64} unoptimized className="h-full w-full object-cover" />
                     ) : (
                       <span className="text-xl font-bold text-amber-400">
                         {selectedFixture.home.substring(0, 2).toUpperCase()}
                       </span>
                     )}
                   </div>
-                  <h4 className="font-bold text-white text-base leading-snug">{selectedFixture.home}</h4>
+                  <h4 className="league-match-manager-name font-bold text-white text-base leading-snug">{selectedFixture.home}</h4>
                   {selectedFixture.homeUsername && (
-                    <span className="text-[11px] text-slate-400">@{selectedFixture.homeUsername}</span>
+                    <span className="league-match-username text-[11px] text-slate-400">@{selectedFixture.homeUsername}</span>
                   )}
                   <div className="mt-3">
-                    <span className="text-3xl font-mono font-bold text-white">{selectedFixture.homePoints}</span>
-                    <span className="text-xs text-slate-400 ml-1">pts</span>
+                    <span className="league-match-points text-3xl font-mono font-bold text-white">{selectedFixture.homePoints}</span>
+                    <span className="league-match-points-label text-xs text-slate-400 ml-1">pts</span>
                   </div>
-                  {selectedFixture.winnerId && selectedFixture.homePoints > selectedFixture.awayPoints && (
-                    <span className="mt-2 inline-block rounded-full bg-emerald-500/20 px-2 py-0.5 text-[10px] font-bold text-emerald-400 border border-emerald-500/30 uppercase">
-                      Winner (+3 pts)
-                    </span>
-                  )}
+                  <div className="league-match-winner-slot mt-2 flex min-h-5 items-center justify-center">
+                    {selectedFixture.winnerId && selectedFixture.homePoints > selectedFixture.awayPoints && (
+                      <span className="league-match-winner-pill inline-block rounded-full bg-emerald-500/20 px-2 py-0.5 text-[10px] font-bold text-emerald-400 border border-emerald-500/30 uppercase">
+                        Winner (+3 pts)
+                      </span>
+                    )}
+                  </div>
                 </div>
 
                 {/* VS Badge */}
                 <div className="flex flex-col items-center px-2">
-                  <span className="flex h-10 w-10 items-center justify-center rounded-full bg-amber-500/20 font-black text-amber-400 text-sm border border-amber-500/40">
+                  <span className="league-match-vs-badge flex h-10 w-10 items-center justify-center rounded-full bg-amber-500/20 font-black text-amber-400 text-sm border border-amber-500/40">
                     VS
                   </span>
-                  <div className="text-[11px] text-slate-500 mt-2 font-mono">
+                  <div className="league-match-delta text-[11px] text-slate-500 mt-2 font-mono">
                     {selectedFixture.homePoints === selectedFixture.awayPoints
                       ? 'Tied'
                       : `Δ ${Math.abs(Number((selectedFixture.homePoints - selectedFixture.awayPoints).toFixed(1)))}`}
@@ -681,26 +684,28 @@ export default function LeaguesPage() {
                 <div className="text-center flex flex-col items-center">
                   <div className="w-16 h-16 rounded-full bg-slate-800 border-2 border-slate-700 flex items-center justify-center overflow-hidden mb-2 shadow-inner">
                     {selectedFixture.awayAvatarUrl ? (
-                      <img src={selectedFixture.awayAvatarUrl} alt={selectedFixture.away} className="w-full h-full object-cover" />
+                      <Image src={selectedFixture.awayAvatarUrl} alt={selectedFixture.away} width={64} height={64} unoptimized className="h-full w-full object-cover" />
                     ) : (
                       <span className="text-xl font-bold text-slate-400">
                         {selectedFixture.away.substring(0, 2).toUpperCase()}
                       </span>
                     )}
                   </div>
-                  <h4 className="font-bold text-white text-base leading-snug">{selectedFixture.away}</h4>
+                  <h4 className="league-match-manager-name font-bold text-white text-base leading-snug">{selectedFixture.away}</h4>
                   {selectedFixture.awayUsername && (
-                    <span className="text-[11px] text-slate-400">@{selectedFixture.awayUsername}</span>
+                    <span className="league-match-username text-[11px] text-slate-400">@{selectedFixture.awayUsername}</span>
                   )}
                   <div className="mt-3">
-                    <span className="text-3xl font-mono font-bold text-white">{selectedFixture.awayPoints}</span>
-                    <span className="text-xs text-slate-400 ml-1">pts</span>
+                    <span className="league-match-points text-3xl font-mono font-bold text-white">{selectedFixture.awayPoints}</span>
+                    <span className="league-match-points-label text-xs text-slate-400 ml-1">pts</span>
                   </div>
-                  {selectedFixture.winnerId && selectedFixture.awayPoints > selectedFixture.homePoints && (
-                    <span className="mt-2 inline-block rounded-full bg-emerald-500/20 px-2 py-0.5 text-[10px] font-bold text-emerald-400 border border-emerald-500/30 uppercase">
-                      Winner (+3 pts)
-                    </span>
-                  )}
+                  <div className="league-match-winner-slot mt-2 flex min-h-5 items-center justify-center">
+                    {selectedFixture.winnerId && selectedFixture.awayPoints > selectedFixture.homePoints && (
+                      <span className="league-match-winner-pill inline-block rounded-full bg-emerald-500/20 px-2 py-0.5 text-[10px] font-bold text-emerald-400 border border-emerald-500/30 uppercase">
+                        Winner (+3 pts)
+                      </span>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
@@ -708,15 +713,15 @@ export default function LeaguesPage() {
             {/* Status Breakdown Bar */}
             <div className="rounded-xl border border-slate-800 bg-slate-950/40 p-3.5 text-xs text-slate-300 space-y-2">
               <div className="flex justify-between items-center">
-                <span className="text-slate-400">Matchup Type</span>
+                <span className="league-match-status-label text-slate-400">Matchup Type</span>
                 <span className="font-medium text-white">Head-to-Head Gameweek Duel</span>
               </div>
               <div className="flex justify-between items-center">
-                <span className="text-slate-400">Scoring Model</span>
+                <span className="league-match-status-label text-slate-400">Scoring Model</span>
                 <span className="font-medium text-white">3 pts for Win, 1 pt for Draw, 0 for Loss</span>
               </div>
               <div className="flex justify-between items-center">
-                <span className="text-slate-400">Status</span>
+                <span className="league-match-status-label text-slate-400">Status</span>
                 <span className={`font-semibold ${selectedFixture.isBye ? 'text-slate-400' : selectedFixture.winnerId ? 'text-emerald-400' : 'text-amber-400'}`}>
                   {selectedFixture.isBye ? 'Bye (Manager Awarded Win)' : selectedFixture.winnerId ? 'Score Finalized' : 'In Progress / Pending Deadline'}
                 </span>

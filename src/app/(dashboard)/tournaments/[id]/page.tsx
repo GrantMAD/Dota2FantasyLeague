@@ -62,8 +62,8 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
         setTournament(data.tournament || null);
         setTeams(data.teams || []);
         setMatches(data.matches || []);
-      } catch (err: any) {
-        setError(err.message || 'Failed to load tournament');
+      } catch (err: unknown) {
+        setError(err instanceof Error ? err.message : 'Failed to load tournament');
       } finally {
         setLoading(false);
       }
@@ -126,7 +126,7 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
       </div>
 
       {/* Hero Stadium Banner */}
-      <div className="relative rounded-3xl border border-slate-800 bg-gradient-to-br from-slate-900 via-slate-900/95 to-slate-950 p-8 sm:p-10 shadow-2xl overflow-hidden">
+      <div className="relative rounded-3xl border border-slate-800 bg-linear-to-br from-slate-900 via-slate-900/95 to-slate-950 p-8 sm:p-10 shadow-2xl overflow-hidden">
         <div className="absolute top-0 right-0 w-80 h-80 bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
 
         <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">

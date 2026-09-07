@@ -3,25 +3,107 @@
 import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
+import Image from 'next/image';
+
+type FantasyBreakdown = {
+  combat_points?: number;
+  economy_points?: number;
+  objective_points?: number;
+  teamfight_points?: number;
+  win_points?: number;
+  total_points?: number;
+};
+
+type PerformanceRecord = {
+  id: number;
+  gameweek_id: number;
+  kills: number;
+  deaths: number;
+  assists: number;
+  gold_per_minute?: number | null;
+  experience_per_minute?: number | null;
+  last_hits?: number | null;
+  denies?: number | null;
+  hero_damage?: number | null;
+  building_damage?: number | null;
+  healing?: number | null;
+  wards_placed?: number | null;
+  wards_destroyed?: number | null;
+  tower_participation?: number | null;
+  roshan_participation?: number | null;
+  fantasy_points_breakdown?: FantasyBreakdown | null;
+  matches?: {
+    team_a?: { id?: number; name?: string } | null;
+    team_b?: { id?: number; name?: string } | null;
+    winner_team_id?: number | null;
+    duration_minutes?: number | null;
+  } | null;
+};
+
+type PlayerDetail = {
+  id: number;
+  name: string;
+  in_game_name: string;
+  real_name?: string | null;
+  profile_image_url?: string | null;
+  team_id?: number | null;
+  availability_status?: string | null;
+  current_price?: number | null;
+  primary_role?: string | null;
+  total_season_points?: number | null;
+  last_gw_points?: number | null;
+  ownership_percentage?: number | null;
+  professional_teams?: { name?: string | null; region?: string | null } | null;
+  performances?: PerformanceRecord[];
+};
+
+type MatchHistoryItem = {
+  id: number | string;
+  gameweek: string;
+  gameweek_id: number;
+  opponent: string;
+  opponent_name: string;
+  result: 'W' | 'L';
+  duration: string;
+  kda: string;
+  kills: number;
+  deaths: number;
+  assists: number;
+  gpm: number;
+  xpm: number;
+  last_hits: number;
+  denies: number;
+  hero_damage: number;
+  building_damage: number;
+  healing: number;
+  wards_placed: number;
+  wards_destroyed: number;
+  tower_participation: number;
+  roshan_participation: number;
+  pts: string;
+  breakdown?: FantasyBreakdown | null;
+};
+
+type PlayerResponse = { player?: PlayerDetail | null };
 
 export default function PlayerDetailPage() {
   const params = useParams();
   const id = params.id as string;
   
-  const [player, setPlayer] = useState<any>(null);
+  const [player, setPlayer] = useState<PlayerDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [selectedMatch, setSelectedMatch] = useState<any | null>(null);
+  const [selectedMatch, setSelectedMatch] = useState<MatchHistoryItem | null>(null);
 
   useEffect(() => {
     async function fetchPlayer() {
       try {
         const res = await fetch(`/api/players/${id}`);
         if (!res.ok) throw new Error('Player not found');
-        const data = await res.json();
-        setPlayer(data.player);
-      } catch (err: any) {
-        setError(err.message || 'Failed to load player details');
+        const data = (await res.json()) as PlayerResponse;
+        setPlayer(data.player ?? null);
+      } catch (err: unknown) {
+        setError(err instanceof Error ? err.message : 'Failed to load player details');
       } finally {
         setLoading(false);
       }
@@ -53,8 +135,8 @@ export default function PlayerDetailPage() {
   }
 
   // Derive match history from real backend data or fallback to demo matches
-  const matchHistory = player.performances && player.performances.length > 0
-    ? player.performances.map((perf: any) => {
+  const matchHistory: MatchHistoryItem[] = player.performances && player.performances.length > 0
+    ? player.performances.map((perf: PerformanceRecord): MatchHistoryItem => {
         const teamA = perf.matches?.team_a?.name || 'Team A';
         const teamB = perf.matches?.team_b?.name || 'Team B';
         const isPlayerTeamWinner = perf.matches?.winner_team_id && player.team_id === perf.matches.winner_team_id;
@@ -189,9 +271,9 @@ export default function PlayerDetailPage() {
             <div className="flex flex-col md:flex-row md:items-end gap-6 -mt-16">
                <div className="w-32 h-32 rounded-xl bg-slate-800 border-4 border-slate-900 shadow-lg overflow-hidden flex items-center justify-center shrink-0 z-10">
                   {player.profile_image_url ? (
-                     <img src={player.profile_image_url} alt={player.in_game_name} className="w-full h-full object-cover" />
+                     <Image src={player.profile_image_url} alt={player.in_game_name} fill sizes="128px" unoptimized className="object-cover" />
                   ) : (
-                     <span className="text-4xl text-slate-500 font-bold">{player.in_game_name?.substring(0, 2).toUpperCase()}</span>
+                     <span className="player-avatar-initials text-4xl font-bold">{player.in_game_name?.substring(0, 2).toUpperCase()}</span>
                   )}
                </div>
                
@@ -212,7 +294,7 @@ export default function PlayerDetailPage() {
                      <span className="flex items-center gap-1.5 text-amber-500 font-medium">
                         {player.professional_teams?.name || 'Free Agent'}
                      </span>
-                     <span className="bg-slate-700 px-2 py-0.5 rounded text-xs uppercase font-bold text-slate-300">
+                     <span className="player-detail-role-badge bg-slate-700 px-2 py-0.5 rounded text-xs uppercase font-bold text-slate-300">
                         {player.primary_role}
                      </span>
                   </div>
@@ -223,7 +305,7 @@ export default function PlayerDetailPage() {
                      <div className="text-sm text-slate-400 uppercase tracking-wider mb-1">Current Price</div>
                      <div className="text-3xl font-mono font-bold text-amber-400">${player.current_price || '0.0'}M</div>
                   </div>
-                  <Link href="/transfers" className="bg-slate-700 hover:bg-emerald-600 border border-slate-600 hover:border-emerald-500 text-white px-6 py-2 rounded-lg font-medium transition-all shadow-lg flex items-center justify-center gap-2">
+                  <Link href="/transfers" className="player-detail-transfer-link bg-slate-700 hover:bg-emerald-600 border border-slate-600 hover:border-emerald-500 text-white px-6 py-2 rounded-lg font-medium transition-all shadow-lg flex items-center justify-center gap-2">
                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4"></path></svg>
                      Manage in Transfers
                   </Link>
@@ -277,7 +359,7 @@ export default function PlayerDetailPage() {
                   </tr>
                </thead>
                <tbody className="divide-y divide-slate-700/50">
-                  {matchHistory.map((m: any) => (
+                  {matchHistory.map((m: MatchHistoryItem) => (
                     <tr
                       key={m.id}
                       onClick={() => setSelectedMatch(m)}
@@ -312,7 +394,7 @@ export default function PlayerDetailPage() {
       {/* Match Details Modal */}
       {selectedMatch && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="relative max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-slate-700 bg-slate-900 shadow-2xl p-6">
+          <div className="player-match-modal relative max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-slate-700 bg-slate-900 shadow-2xl p-6">
             {/* Header */}
             <div className="border-b border-slate-800 pb-4">
               <div>
@@ -336,49 +418,49 @@ export default function PlayerDetailPage() {
             {/* Total Points Highlight */}
             <div className="my-6 rounded-xl border border-slate-800 bg-linear-to-r from-amber-500/10 via-slate-800/50 to-slate-800/50 p-4 flex items-center justify-between">
               <div>
-                <div className="text-xs text-slate-400 uppercase tracking-wider">Fantasy Points Earned</div>
-                <div className="text-3xl font-mono font-bold text-amber-400 mt-1">{selectedMatch.pts} <span className="text-base text-amber-300 font-sans">pts</span></div>
+                <div className="player-match-label text-xs text-slate-400 uppercase tracking-wider">Fantasy Points Earned</div>
+                <div className="player-match-points text-3xl font-mono font-bold text-amber-400 mt-1">{selectedMatch.pts} <span className="text-base text-amber-300 font-sans">pts</span></div>
               </div>
               <div className="text-right">
-                <div className="text-xs text-slate-400 uppercase tracking-wider">Combat K / D / A</div>
-                <div className="text-xl font-mono font-bold text-white mt-1">{selectedMatch.kda}</div>
+                <div className="player-match-kda-label text-xs text-slate-400 uppercase tracking-wider">Combat K / D / A</div>
+                <div className="player-match-kda text-xl font-mono font-bold text-white mt-1">{selectedMatch.kda}</div>
               </div>
             </div>
 
             {/* In-Game Combat & Economy Stats Grid */}
             <div className="mb-6">
-              <h3 className="text-sm font-semibold text-white uppercase tracking-wider mb-3">In-Game Performance Stats</h3>
+              <h3 className="player-match-section-heading text-sm font-semibold text-white uppercase tracking-wider mb-3">In-Game Performance Stats</h3>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 <div className="rounded-lg border border-slate-800 bg-slate-950/60 p-3 text-center">
-                  <div className="text-[11px] text-slate-400 uppercase">GPM / XPM</div>
-                  <div className="text-base font-bold text-white font-mono mt-1">{selectedMatch.gpm} / {selectedMatch.xpm}</div>
+                  <div className="player-match-stat-label text-[11px] text-slate-400 uppercase">GPM / XPM</div>
+                  <div className="player-match-stat-value text-base font-bold text-white font-mono mt-1">{selectedMatch.gpm} / {selectedMatch.xpm}</div>
                 </div>
                 <div className="rounded-lg border border-slate-800 bg-slate-950/60 p-3 text-center">
-                  <div className="text-[11px] text-slate-400 uppercase">Last Hits / Denies</div>
-                  <div className="text-base font-bold text-white font-mono mt-1">{selectedMatch.last_hits} / {selectedMatch.denies}</div>
+                  <div className="player-match-stat-label text-[11px] text-slate-400 uppercase">Last Hits / Denies</div>
+                  <div className="player-match-stat-value text-base font-bold text-white font-mono mt-1">{selectedMatch.last_hits} / {selectedMatch.denies}</div>
                 </div>
                 <div className="rounded-lg border border-slate-800 bg-slate-950/60 p-3 text-center">
-                  <div className="text-[11px] text-slate-400 uppercase">Hero Damage</div>
-                  <div className="text-base font-bold text-amber-400 font-mono mt-1">{Number(selectedMatch.hero_damage).toLocaleString()}</div>
+                  <div className="player-match-stat-label text-[11px] text-slate-400 uppercase">Hero Damage</div>
+                  <div className="player-match-stat-value text-base font-bold text-amber-400 font-mono mt-1">{Number(selectedMatch.hero_damage).toLocaleString()}</div>
                 </div>
                 <div className="rounded-lg border border-slate-800 bg-slate-950/60 p-3 text-center">
-                  <div className="text-[11px] text-slate-400 uppercase">Tower / Roshan</div>
-                  <div className="text-base font-bold text-white font-mono mt-1">{selectedMatch.tower_participation} / {selectedMatch.roshan_participation}</div>
+                  <div className="player-match-stat-label text-[11px] text-slate-400 uppercase">Tower / Roshan</div>
+                  <div className="player-match-stat-value text-base font-bold text-white font-mono mt-1">{selectedMatch.tower_participation} / {selectedMatch.roshan_participation}</div>
                 </div>
               </div>
 
               <div className="mt-3 grid grid-cols-2 sm:grid-cols-3 gap-3">
                 <div className="rounded-lg border border-slate-800 bg-slate-950/60 p-3 text-center">
-                  <div className="text-[11px] text-slate-400 uppercase">Building Damage</div>
-                  <div className="text-sm font-bold text-white font-mono mt-1">{Number(selectedMatch.building_damage).toLocaleString()}</div>
+                  <div className="player-match-stat-label text-[11px] text-slate-400 uppercase">Building Damage</div>
+                  <div className="player-match-stat-value text-sm font-bold text-white font-mono mt-1">{Number(selectedMatch.building_damage).toLocaleString()}</div>
                 </div>
                 <div className="rounded-lg border border-slate-800 bg-slate-950/60 p-3 text-center">
-                  <div className="text-[11px] text-slate-400 uppercase">Healing Provided</div>
-                  <div className="text-sm font-bold text-emerald-400 font-mono mt-1">{Number(selectedMatch.healing).toLocaleString()}</div>
+                  <div className="player-match-stat-label text-[11px] text-slate-400 uppercase">Healing Provided</div>
+                  <div className="player-match-stat-value text-sm font-bold text-emerald-400 font-mono mt-1">{Number(selectedMatch.healing).toLocaleString()}</div>
                 </div>
                 <div className="rounded-lg border border-slate-800 bg-slate-950/60 p-3 text-center col-span-2 sm:col-span-1">
-                  <div className="text-[11px] text-slate-400 uppercase">Wards (Placed / Cut)</div>
-                  <div className="text-sm font-bold text-white font-mono mt-1">{selectedMatch.wards_placed} / {selectedMatch.wards_destroyed}</div>
+                  <div className="player-match-stat-label text-[11px] text-slate-400 uppercase">Wards (Placed / Cut)</div>
+                  <div className="player-match-stat-value text-sm font-bold text-white font-mono mt-1">{selectedMatch.wards_placed} / {selectedMatch.wards_destroyed}</div>
                 </div>
               </div>
             </div>
@@ -386,27 +468,27 @@ export default function PlayerDetailPage() {
             {/* Fantasy Point Breakdown */}
             {selectedMatch.breakdown && (
               <div className="mb-6">
-                <h3 className="text-sm font-semibold text-white uppercase tracking-wider mb-3">Fantasy Scoring Breakdown</h3>
+                <h3 className="player-match-section-heading text-sm font-semibold text-white uppercase tracking-wider mb-3">Fantasy Scoring Breakdown</h3>
                 <div className="divide-y divide-slate-800 rounded-lg border border-slate-800 bg-slate-950/40 text-xs">
                   <div className="flex items-center justify-between p-3">
-                    <span className="text-slate-300">Combat Points (Kills, Deaths, Assists)</span>
-                    <span className="font-mono font-bold text-white">+{selectedMatch.breakdown.combat_points ?? 0}</span>
+                    <span className="player-match-breakdown-label text-slate-300">Combat Points (Kills, Deaths, Assists)</span>
+                    <span className="player-match-breakdown-value font-mono font-bold text-white">+{selectedMatch.breakdown.combat_points ?? 0}</span>
                   </div>
                   <div className="flex items-center justify-between p-3">
-                    <span className="text-slate-300">Economy Points (Normalized GPM/XPM vs Duration)</span>
-                    <span className="font-mono font-bold text-white">+{selectedMatch.breakdown.economy_points ?? 0}</span>
+                    <span className="player-match-breakdown-label text-slate-300">Economy Points (Normalized GPM/XPM vs Duration)</span>
+                    <span className="player-match-breakdown-value font-mono font-bold text-white">+{selectedMatch.breakdown.economy_points ?? 0}</span>
                   </div>
                   <div className="flex items-center justify-between p-3">
-                    <span className="text-slate-300">Objective Points (Towers, Roshan & Building Damage)</span>
-                    <span className="font-mono font-bold text-white">+{selectedMatch.breakdown.objective_points ?? 0}</span>
+                    <span className="player-match-breakdown-label text-slate-300">Objective Points (Towers, Roshan & Building Damage)</span>
+                    <span className="player-match-breakdown-value font-mono font-bold text-white">+{selectedMatch.breakdown.objective_points ?? 0}</span>
                   </div>
                   <div className="flex items-center justify-between p-3">
-                    <span className="text-slate-300">Teamfight & Support Points (Healing, Warding, Fight %)</span>
-                    <span className="font-mono font-bold text-white">+{selectedMatch.breakdown.teamfight_points ?? 0}</span>
+                    <span className="player-match-breakdown-label text-slate-300">Teamfight & Support Points (Healing, Warding, Fight %)</span>
+                    <span className="player-match-breakdown-value font-mono font-bold text-white">+{selectedMatch.breakdown.teamfight_points ?? 0}</span>
                   </div>
                   <div className="flex items-center justify-between p-3">
-                    <span className="text-slate-300">Match Victory Bonus</span>
-                    <span className="font-mono font-bold text-emerald-400">+{selectedMatch.breakdown.win_points ?? 0}</span>
+                    <span className="player-match-breakdown-label text-slate-300">Match Victory Bonus</span>
+                    <span className="player-match-breakdown-value font-mono font-bold text-emerald-400">+{selectedMatch.breakdown.win_points ?? 0}</span>
                   </div>
                   <div className="flex items-center justify-between p-3 bg-slate-900/80 font-bold text-sm">
                     <span className="text-white">Total Calculated Points</span>

@@ -2,6 +2,16 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase';
 import { getCached, setCached } from '@/lib/response-cache';
 
+type PriceRow = { player_id: number; price: number | null; gameweek_id: number };
+type ScoreRow = { player_id: number; total_points: number | null; gameweek_id: number };
+
+type DynamicPlayerQuery<T> = {
+  select: (columns: string) => DynamicPlayerQuery<T>;
+  in: (column: string, values: number[]) => DynamicPlayerQuery<T>;
+  order: (column: string, options: { ascending: boolean }) => DynamicPlayerQuery<T>;
+  then: Promise<T>['then'];
+};
+
 /**
  * GET /api/players - Fetch all professional players
  * Query params:
@@ -63,13 +73,13 @@ export async function GET(request: NextRequest) {
 
     const playerRows = data ?? [];
     const playerIds = playerRows.map((player) => player.id);
-    // These tables are dynamic in the local schema typings, so keep the cast at this boundary.
+    // These tables are not included in the generated local schema typings.
     const [{ data: prices }, { data: scores }] = await Promise.all([
-      (supabase.from('player_prices') as any)
+      (supabase.from('player_prices') as unknown as DynamicPlayerQuery<{ data: PriceRow[] | null; error: { message: string } | null }>)
         .select('player_id, price, gameweek_id')
         .in('player_id', playerIds)
         .order('gameweek_id', { ascending: false }),
-      (supabase.from('gameweek_scores') as any)
+      (supabase.from('gameweek_scores') as unknown as DynamicPlayerQuery<{ data: ScoreRow[] | null; error: { message: string } | null }>)
         .select('player_id, total_points, gameweek_id')
         .in('player_id', playerIds)
         .order('gameweek_id', { ascending: false }),
@@ -88,7 +98,7 @@ export async function GET(request: NextRequest) {
       const playerScores = recentScores.get(player.id) ?? [];
       return {
         ...player,
-        current_price: latestPrices.get(player.id) ?? 0,
+        current_price: latestPrices.get(player.id) ?? Number(player.current_price ?? 0),
         gameweek_points: playerScores[0] ?? 0,
         recent_points: playerScores.length ? Number((playerScores.reduce((sum, score) => sum + score, 0) / playerScores.length).toFixed(2)) : 0,
       };

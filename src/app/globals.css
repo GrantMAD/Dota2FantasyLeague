@@ -296,6 +296,293 @@ body {
   border-color: var(--accent-primary);
 }
 
+.player-avatar-initials {
+  color: #67e8f9 !important;
+  text-shadow: 0 0 10px rgb(34 211 238 / 0.2);
+}
+
+/* User-facing page light palette. The dashboard keeps its existing tuned light treatment. */
+:root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) {
+    background-color: var(--background);
+}
+
+  :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) .bg-slate-950,
+  :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) .bg-slate-900,
+  :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) .bg-slate-800,
+  :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) .bg-gray-900,
+  :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) .bg-gray-800 {
+    background-color: var(--surface) !important;
+  }
+
+  :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) .bg-slate-950\/50,
+  :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) .bg-slate-900\/80,
+  :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) .bg-slate-900\/70,
+  :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) .bg-slate-900\/60,
+  :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) .bg-slate-800\/80,
+  :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) .bg-slate-800\/70,
+  :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) .bg-slate-800\/60,
+  :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) .bg-slate-800\/50,
+  :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) .bg-slate-800\/40,
+  :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) .bg-slate-800\/30 {
+    background-color: var(--surface-raised) !important;
+  }
+
+  :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) [class*='from-slate-900'],
+  :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) [class*='via-slate-900'],
+  :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) [class*='to-slate-950'] {
+    background-image: none !important;
+    background-color: var(--surface) !important;
+  }
+
+  :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) .border-slate-700,
+  :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) .border-slate-600,
+  :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) .border-slate-800,
+  :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) .border-slate-700\/80,
+  :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) .border-slate-800\/80,
+  :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) .border-gray-700,
+  :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) .border-gray-800 {
+    border-color: var(--border) !important;
+  }
+
+  :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) .text-white {
+    color: var(--text-primary) !important;
+  }
+
+  :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) .text-slate-300,
+  :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) .text-gray-300 {
+    color: var(--text-secondary) !important;
+  }
+
+  :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) .text-slate-400,
+  :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) .text-slate-500,
+  :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) .text-gray-400,
+  :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) .text-gray-500 {
+    color: var(--text-muted) !important;
+  }
+
+  :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) .text-cyan-300,
+  :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) .text-cyan-400,
+  :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) .text-teal-300,
+  :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) .text-teal-400 {
+    color: #0e7490 !important;
+  }
+
+  :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) .text-emerald-300,
+  :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) .text-emerald-400,
+  :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) .text-green-400,
+  :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) .text-green-500 {
+    color: #087f5b !important;
+  }
+
+  :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) .text-amber-300,
+  :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) .text-amber-400,
+  :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) .text-amber-500 {
+    color: #8a5700 !important;
+  }
+
+  :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) .text-red-300,
+  :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) .text-red-400 {
+    color: #b4233f !important;
+  }
+
+  :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) input,
+  :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) select,
+  :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) textarea {
+    background-color: var(--surface) !important;
+    border-color: var(--border) !important;
+    color: var(--text-primary) !important;
+  }
+
+  :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) input::placeholder,
+  :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) textarea::placeholder {
+    color: var(--text-muted) !important;
+  }
+
+  :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) .bg-cyan-500\/10,
+  :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) .bg-teal-500\/10 {
+    background-color: #e0f2f1 !important;
+  }
+
+  :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) .bg-amber-500\/10 {
+    background-color: #fff8e8 !important;
+  }
+
+  :root[data-theme='light'] .dashboard-main .player-avatar-initials {
+    color: #67e8f9 !important;
+    text-shadow: 0 0 10px rgb(34 211 238 / 0.25);
+  }
+
+  :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) .transfer-role-badge {
+    background-color: #e0f2f1 !important;
+    border: 1px solid #8bcac7 !important;
+    color: #0f5f63 !important;
+  }
+
+  :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) .transfer-action-button:not(.bg-red-600):not(.bg-amber-500) {
+    background-color: #d8e5f0 !important;
+    border: 1px solid #9fb4c8 !important;
+    color: #0f4c5c !important;
+  }
+
+  :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) .transfer-action-button:not(.bg-red-600):not(.bg-amber-500):hover {
+    background-color: #b9d6e8 !important;
+    color: #092f3a !important;
+  }
+
+  :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) .transfer-form-average {
+    color: #1f3b4d !important;
+  }
+
+  :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) .player-team-logo-frame {
+    background-color: #25384d !important;
+    border: 1px solid #49647d !important;
+  }
+
+  :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) .player-detail-role-badge,
+  :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) .player-detail-transfer-link {
+    color: #e0f7ff !important;
+  }
+
+  :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) .player-match-label,
+  :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) .player-match-section-heading,
+  :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) .player-match-stat-label {
+    color: #b8d2e2 !important;
+  }
+
+  :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) .player-match-kda,
+  :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) .player-match-stat-value,
+  :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) .player-match-breakdown-label,
+  :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) .player-match-breakdown-value {
+    color: #f2fbff !important;
+  }
+
+  :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) .player-match-kda {
+    color: #e0f7ff !important;
+  }
+
+  :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) .player-match-kda-label {
+    color: #b8d2e2 !important;
+  }
+
+  :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) .player-match-points {
+    color: #7a4b00 !important;
+  }
+
+  :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) .player-match-points span {
+    color: #8a5700 !important;
+  }
+
+  :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) .player-match-label {
+    color: #6b4d00 !important;
+  }
+
+  :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) .league-modal-stat-label {
+    color: #b8d2e2 !important;
+  }
+
+  :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) .league-modal-stat-value,
+  :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) .league-modal-scoring-value {
+    color: #f2fbff !important;
+  }
+
+  :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) .league-modal-copy-button {
+    color: #b8d2e2 !important;
+  }
+
+  :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) .league-match-manager-name,
+  :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) .league-match-points {
+    color: #f2fbff !important;
+  }
+
+  :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) .league-match-username,
+  :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) .league-match-points-label {
+    color: #b8d2e2 !important;
+  }
+
+  :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) .league-match-winner-pill {
+    color: #a7f3d0 !important;
+  }
+
+  :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) .league-match-delta {
+    color: #d2e6f2 !important;
+  }
+
+  :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) .league-match-vs-badge {
+    color: #17324d !important;
+  }
+
+  :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) .league-match-status-label {
+    color: #d2e6f2 !important;
+  }
+
+  :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) .leaderboard-pagination-button {
+    color: #e0f7ff !important;
+  }
+
+  :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) .leaderboard-manager-bio,
+  :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) .leaderboard-modal-label,
+  :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) .leaderboard-global-rank,
+  :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) .leaderboard-gameweek-points {
+    color: #e0f7ff !important;
+  }
+
+  :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) .leaderboard-total-points {
+    color: #ffe8a3 !important;
+  }
+
+  :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) .leaderboard-total-points span,
+  :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) .leaderboard-points-label {
+    color: #d2e6f2 !important;
+  }
+
+  :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) .gameweeks-page-heading,
+  :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) .gameweeks-quick-action.lineup,
+  :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) .gameweeks-quick-action.matches,
+  :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) .gameweeks-tournament-chip {
+    color: #17324d !important;
+  }
+
+  :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) .gameweeks-hero-heading {
+    color: #e0f7ff !important;
+  }
+
+  :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) .gameweeks-hero-dates {
+    color: #d2e6f2 !important;
+  }
+
+  :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) .gameweeks-quick-actions-heading {
+    color: #e0f7ff !important;
+  }
+
+  :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) .gameweeks-transfer-link,
+  :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) .gameweeks-matches-link {
+    color: #17324d !important;
+  }
+
+  :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) .gameweeks-compact-toggle {
+    color: #d2e6f2 !important;
+  }
+
+  :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) .gameweeks-quick-actions-heading svg {
+    color: #fcd34d !important;
+  }
+
+  :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) .gameweeks-closed-date,
+  :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) .gameweeks-closed-deadline,
+  :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) .gameweeks-closed-results,
+  :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) .gameweeks-closed-card-label {
+    color: #e0f7ff !important;
+  }
+
+  :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) .gameweeks-closed-date-icon,
+  :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) .gameweeks-closed-deadline-icon {
+    color: #d2e6f2 !important;
+  }
+
+  :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) .gameweeks-closed-score-value {
+    color: #e0f7ff !important;
+  }
+
 /* Hide scrollbar while preserving scroll functionality */
 .no-scrollbar::-webkit-scrollbar {
   display: none;

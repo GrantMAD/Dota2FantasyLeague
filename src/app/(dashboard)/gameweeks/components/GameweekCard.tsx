@@ -43,15 +43,15 @@ export function GameweekCard({ gameweek, compact = false }: GameweekCardProps) {
         </span>
       </div>
 
-      <div className="mb-4 flex items-center gap-2 text-sm text-slate-300">
-        <CalendarClock className="h-4 w-4 text-slate-400" />
+      <div className={`mb-4 flex items-center gap-2 text-sm text-slate-300 ${gameweek.status === 'closed' || gameweek.status === 'locked' ? 'gameweeks-closed-date' : ''}`}>
+        <CalendarClock className={`h-4 w-4 text-slate-400 ${gameweek.status === 'closed' || gameweek.status === 'locked' ? 'gameweeks-closed-date-icon' : ''}`} />
         <span>
           {formatGameweekDate(gameweek.start_date)} - {formatGameweekDate(gameweek.end_date)}
         </span>
       </div>
 
-      <div className="mb-4 flex items-center gap-2 text-sm text-slate-300">
-        <Activity className="h-4 w-4 text-slate-400" />
+      <div className={`mb-4 flex items-center gap-2 text-sm text-slate-300 ${gameweek.status === 'closed' || gameweek.status === 'locked' ? 'gameweeks-closed-deadline' : ''}`}>
+        <Activity className={`h-4 w-4 text-slate-400 ${gameweek.status === 'closed' || gameweek.status === 'locked' ? 'gameweeks-closed-deadline-icon' : ''}`} />
         <span>Deadline {formatGameweekDeadline(gameweek.deadline)}</span>
       </div>
 
@@ -75,7 +75,7 @@ export function GameweekCard({ gameweek, compact = false }: GameweekCardProps) {
       {gameweek.tournaments.length > 0 && (
         <div className="mb-4 flex flex-wrap gap-2 text-xs text-slate-300">
           {gameweek.tournaments.slice(0, 2).map((tournament) => (
-            <span key={tournament.id} className="rounded-full border border-slate-700 bg-slate-900/60 px-2 py-1">
+            <span key={tournament.id} className="gameweeks-tournament-chip rounded-full border border-slate-700 bg-slate-900/60 px-2 py-1">
               {tournament.name}
             </span>
           ))}
@@ -87,7 +87,7 @@ export function GameweekCard({ gameweek, compact = false }: GameweekCardProps) {
           {gameweek.user_score !== null && (
             <div className="flex items-center justify-between rounded-xl border border-emerald-500/20 bg-emerald-500/5 px-3 py-2 text-sm text-emerald-200">
               <span>Your Score</span>
-              <span className="font-bold text-white">{gameweek.user_score.toFixed(1)} pts</span>
+              <span className="gameweeks-closed-score-value font-bold text-white">{gameweek.user_score.toFixed(1)} pts</span>
             </div>
           )}
 
@@ -126,12 +126,12 @@ export function GameweekCard({ gameweek, compact = false }: GameweekCardProps) {
             Review Transfers →
           </Link>
         ) : (
-          <Link href={`/gameweeks/${gameweek.id}`} className="text-sm font-medium text-slate-300 hover:text-white">
+          <Link href={`/gameweeks/${gameweek.id}`} className="gameweeks-closed-results text-sm font-medium text-slate-300 hover:text-white">
             View Results →
           </Link>
         )}
 
-        <span className="text-xs uppercase tracking-[0.16em] text-slate-500">
+        <span className={`${gameweek.status === 'closed' || gameweek.status === 'locked' ? 'gameweeks-closed-card-label' : ''} text-xs uppercase tracking-[0.16em] text-slate-500`}>
           {compact ? 'Quick view' : 'Full card'}
         </span>
       </div>

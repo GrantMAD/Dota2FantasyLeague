@@ -1,7 +1,6 @@
 'use client';
 
-import Link from 'next/link';
-import { AlarmClockCheck, Flame, ShieldAlert, Trophy, Zap } from 'lucide-react';
+import { AlarmClockCheck, Flame, Zap } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import type { GameweekRow } from '../page';
 import { formatGameweekDate, getDeadlineCountdown } from '../gameweeks-utils';
@@ -41,8 +40,8 @@ export function ActiveGameweekHero({ gameweek }: ActiveGameweekHeroProps) {
             <AlarmClockCheck className="h-3.5 w-3.5" />
             Active Gameweek
           </div>
-          <h2 className="text-3xl font-black tracking-tight text-white">Gameweek {gameweek.gameweek_number}</h2>
-          <p className="mt-1 text-sm text-slate-300">
+          <h2 className="gameweeks-hero-heading text-3xl font-black tracking-tight text-white">Gameweek {gameweek.gameweek_number}</h2>
+          <p className="gameweeks-hero-dates mt-1 text-sm text-slate-300">
             {formatGameweekDate(gameweek.start_date)} - {formatGameweekDate(gameweek.end_date)}
           </p>
         </div>
@@ -92,7 +91,7 @@ export function ActiveGameweekHero({ gameweek }: ActiveGameweekHeroProps) {
           {gameweek.tournaments.length > 0 && (
             <div className="flex flex-wrap gap-2">
               {gameweek.tournaments.map((tournament) => (
-                <span key={tournament.id} className="rounded-full border border-slate-700 bg-slate-900/50 px-2.5 py-1 text-xs text-slate-200">
+                <span key={tournament.id} className="gameweeks-tournament-chip rounded-full border border-slate-700 bg-slate-900/50 px-2.5 py-1 text-xs text-slate-200">
                   {tournament.name}
                 </span>
               ))}
@@ -100,32 +99,6 @@ export function ActiveGameweekHero({ gameweek }: ActiveGameweekHeroProps) {
           )}
         </div>
 
-        <div className="space-y-3 rounded-2xl border border-slate-700 bg-slate-950/55 p-4">
-          <div className="flex items-center gap-2 text-sm font-medium text-slate-200">
-            <ShieldAlert className="h-4 w-4 text-amber-400" />
-            Quick actions
-          </div>
-          <Link href="/lineups" className="block rounded-xl border border-amber-500/35 bg-amber-500/10 px-3 py-2 text-sm font-medium text-amber-200 transition hover:bg-amber-500/15">
-            Set / Edit Lineup
-          </Link>
-          <Link href="/transfers" className="block rounded-xl border border-sky-500/35 bg-sky-500/10 px-3 py-2 text-sm font-medium text-sky-200 transition hover:bg-sky-500/15">
-            Transfer Market
-          </Link>
-          <Link href={`/matches?gameweekId=${gameweek.id}`} className="block rounded-xl border border-slate-700 bg-slate-900/70 px-3 py-2 text-sm font-medium text-slate-200 transition hover:border-slate-500 hover:text-white">
-            Gameweek Matches
-          </Link>
-          {gameweek.top_scorer && (
-            <div className="rounded-xl border border-amber-500/25 bg-amber-500/5 px-3 py-2 text-sm text-amber-100">
-              <div className="mb-1 flex items-center gap-2 text-[10px] uppercase tracking-[0.18em] text-amber-300">
-                <Trophy className="h-3.5 w-3.5" />
-                Top scorer
-              </div>
-              <div className="font-medium text-white">
-                {gameweek.top_scorer.in_game_name || gameweek.top_scorer.name} · {gameweek.top_scorer.total_points.toFixed(1)} pts
-              </div>
-            </div>
-          )}
-        </div>
       </div>
     </div>
   );
