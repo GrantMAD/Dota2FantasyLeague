@@ -5,7 +5,6 @@ import { useState, useMemo } from 'react';
 import {
   Compass,
   Search,
-  Sparkles,
   ArrowUpRight,
   LayoutDashboard,
   Users,
@@ -25,7 +24,6 @@ import {
   Crown,
   HelpCircle,
   ScrollText,
-  PlayCircle,
   Layers,
   CheckCircle2,
 } from 'lucide-react';
@@ -424,23 +422,23 @@ export default function GuidePage() {
         )}
       </div>
 
-      {/* Footer Banner Directing to League Rules */}
+      {/* Footer Banner Directing to the Learn Hub */}
       <div className="mt-14 rounded-xl border border-slate-800 bg-linear-to-r from-slate-900 via-slate-900/90 to-slate-950 p-6 sm:p-8">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="space-y-1">
             <h3 className="text-lg font-bold text-white flex items-center gap-2">
               <ScrollText className="h-5 w-5 text-amber-400" />
-              Looking for Scoring Math & Rules?
+              Continue learning from the Learn Hub
             </h3>
             <p className="text-sm text-slate-400">
-              Read the comprehensive breakdown on kill multipliers, match bonuses, transfer deadlines, and seasonal chip activations.
+              Keep the interactive guide open or jump to the complete scoring reference and quick rule summaries.
             </p>
           </div>
           <Link
-            href="/rules"
+            href="/learn"
             className="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg bg-linear-to-r from-amber-500 to-amber-600 px-5 py-2.5 text-xs font-bold text-slate-950 transition-all hover:brightness-110 shadow-lg shadow-amber-500/20"
           >
-            Read Game Rules
+            Open Learn Hub
             <ArrowUpRight className="h-4 w-4" />
           </Link>
         </div>

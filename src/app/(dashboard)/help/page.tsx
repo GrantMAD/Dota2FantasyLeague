@@ -72,8 +72,8 @@ export default function HelpPage() {
             <p className="text-slate-400 text-sm mb-4">
               New to Fantasy Dota 2? Learn how to draft your first squad, navigate the transfer market, and understand player pricing.
             </p>
-            <a href="/rules" className="inline-block px-4 py-2 bg-amber-500 hover:bg-amber-600 text-slate-900 font-semibold rounded-md transition-colors text-sm">
-              Read the Rules
+            <a href="/learn" className="inline-block px-4 py-2 bg-amber-500 hover:bg-amber-600 text-slate-900 font-semibold rounded-md transition-colors text-sm">
+              Open Learn Hub
             </a>
           </div>
 

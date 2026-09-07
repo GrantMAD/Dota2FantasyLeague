@@ -17,7 +17,7 @@ import {
   Gamepad2,
   BarChart3,
   Compass,
-  ScrollText,
+  BookOpen,
   UserRound,
   Search,
   Wallet,
@@ -334,8 +334,7 @@ export function Header() {
   ];
 
   const bottomNavLinks = [
-    { href: '/guide', label: 'Guide', icon: Compass },
-    { href: '/rules', label: 'League Rules', icon: ScrollText },
+    { href: '/learn', label: 'Learn', icon: BookOpen },
   ];
 
   // Breadcrumb label map
@@ -351,6 +350,7 @@ export function Header() {
     '/tournaments': 'Tournaments',
     '/matches': 'Matches & Results',
     '/analytics': 'Performance Analytics',
+    '/learn': 'Learn Hub',
     '/guide': 'Manager Guide',
     '/rules': 'League Rules',
     '/profile': 'Manager Profile',
@@ -385,8 +385,7 @@ export function Header() {
       { id: 'nav-leagues', title: 'Leagues', subtitle: 'Private & public standings', category: 'Navigation', href: '/leagues' },
       { id: 'nav-leaderboard', title: 'Leaderboard', subtitle: 'Top global fantasy managers', category: 'Navigation', href: '/leaderboard' },
       { id: 'nav-gameweeks', title: 'Gameweek Schedule', subtitle: 'Deadlines and fixtures', category: 'Navigation', href: '/gameweeks' },
-      { id: 'nav-rules', title: 'League Rules', subtitle: 'Scoring system breakdown', category: 'Pages', href: '/rules' },
-      { id: 'nav-guide', title: 'Manager Guide', subtitle: 'Tips and interactive tour', category: 'Pages', href: '/guide' },
+      { id: 'nav-learn', title: 'Learn Hub', subtitle: 'Guide, rules and fantasy basics', category: 'Pages', href: '/learn' },
     ],
     []
   );
