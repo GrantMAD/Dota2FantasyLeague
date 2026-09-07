@@ -95,6 +95,15 @@ export default function LearnPage() {
         </div>
       </section>
 
+      <Link href="/premium" className="group mt-10 flex flex-col gap-4 rounded-2xl border border-amber-500/25 bg-linear-to-r from-amber-500/10 via-slate-900/80 to-slate-900/80 p-6 transition hover:border-amber-400/60 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.22em] text-amber-300">Advanced tools</p>
+          <h2 className="mt-1 text-xl font-bold text-white">Premium fantasy intelligence</h2>
+          <p className="mt-2 text-sm text-slate-400">Explore projections, transfer recommendations, squad optimisation, and deeper player analytics.</p>
+        </div>
+        <span className="shrink-0 text-sm font-semibold text-amber-300 transition group-hover:translate-x-1">Explore Premium →</span>
+      </Link>
+
       <div className="mt-10 flex flex-col gap-3 rounded-2xl border border-slate-800 bg-slate-900/60 p-5 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3"><Sparkles className="h-5 w-5 text-cyan-300" /><div><p className="font-semibold text-white">Need a specific answer?</p><p className="text-sm text-slate-400">Browse common questions and support guidance.</p></div></div>
         <Link href="/help" className="inline-flex items-center gap-2 text-sm font-semibold text-cyan-300 hover:text-cyan-200">Open Help Center <HelpCircle className="h-4 w-4" /></Link>

@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
 
 type TrendRow = {
   gameweekId: number;
@@ -116,6 +117,7 @@ export default function AnalyticsDashboard() {
             <h1 className="text-3xl font-black tracking-tight text-white">Analytics Hub</h1>
             <p className="mt-2 text-sm text-slate-400">Track your team form, market value, and the top scoring opportunities in the current meta.</p>
           </div>
+          <Link href="/premium" className="inline-flex items-center rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-2.5 text-sm font-semibold text-amber-300 transition hover:bg-amber-500/20">Explore Premium Tools →</Link>
         </div>
 
         <div className="mb-8 flex flex-wrap gap-2 rounded-2xl border border-slate-800 bg-slate-900/70 p-2">

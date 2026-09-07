@@ -383,6 +383,7 @@ export function Header() {
       { id: 'nav-leaderboard', title: 'Leaderboard', subtitle: 'Top global fantasy managers', category: 'Navigation', href: '/leaderboard' },
       { id: 'nav-gameweeks', title: 'Gameweek Schedule', subtitle: 'Deadlines and fixtures', category: 'Navigation', href: '/gameweeks' },
       { id: 'nav-learn', title: 'Learn Hub', subtitle: 'Guide, rules and fantasy basics', category: 'Pages', href: '/learn' },
+      { id: 'nav-premium', title: 'Premium Tools', subtitle: 'Advanced analytics and fantasy tools', category: 'Pages', href: '/premium' },
     ],
     []
   );

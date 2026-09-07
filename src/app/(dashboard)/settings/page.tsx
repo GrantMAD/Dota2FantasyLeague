@@ -11,7 +11,7 @@ const inputClass = 'w-full rounded-lg border border-slate-700 bg-slate-950/70 px
 const tabs: Array<{ key: SettingsTab; label: string; description: string }> = [
   { key: 'overview', label: 'Overview', description: 'Account status and quick actions' },
   { key: 'account', label: 'Account', description: 'Username, email, and region' },
-  { key: 'profile', label: 'Profile', description: 'Identity and regional details' },
+  { key: 'profile', label: 'Edit Profile', description: 'Display name and appearance' },
   { key: 'notifications', label: 'Notifications', description: 'Alert delivery preferences' },
   { key: 'security', label: 'Security', description: 'Password and account protection' },
 ];
