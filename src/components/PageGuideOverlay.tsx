@@ -1,7 +1,7 @@
 'use client';
 
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { ArrowLeft, ArrowRight, X } from 'lucide-react';
 
 type GuideContent = { title: string; steps: string[] };
@@ -149,8 +149,8 @@ const targetSelectors: Record<string, string[]> = {
     'a[href="/settings"]',
   ],
   '/account': [
-    '#account-username',
-    '#account-country',
+    'main h1',
+    'a[href*="settings?section=account"]',
     'a[href="/forgot-password"], a[href*="password"]',
   ],
   '/settings': [
@@ -208,7 +208,7 @@ export function PageGuideOverlay() {
   const [target, setTarget] = useState<TargetRect | null>(null);
   const [isSettled, setIsSettled] = useState(false);
 
-  const closeGuide = () => {
+  const closeGuide = useCallback(() => {
     setStepIndex(0);
     setTarget(null);
     setIsSettled(false);
@@ -216,27 +216,16 @@ export function PageGuideOverlay() {
     params.delete('guide');
     const query = params.toString();
     router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
-  };
-
-  // Immediately clear highlight and settle state on pathname or step change
-  useEffect(() => {
-    setTarget(null);
-    setIsSettled(false);
-  }, [pathname, stepIndex]);
+  }, [pathname, router, searchParams]);
 
   useEffect(() => {
-    if (!isOpen || !content) {
-      setTarget(null);
-      setIsSettled(false);
-      return;
-    }
+    if (!isOpen || !content) return;
 
     const selectors = getSelectors(pathname, content);
     const selectorSpec = selectors[stepIndex] || 'h1';
     let cancelled = false;
     let resizeObserver: ResizeObserver | null = null;
     let mutationObserver: MutationObserver | null = null;
-    let settleTimer: number | null = null;
     let maxTimeout: number | null = null;
 
     const measureAndSet = (element: HTMLElement) => {
@@ -350,7 +339,6 @@ export function PageGuideOverlay() {
     return () => {
       cancelled = true;
       if (pollInterval) window.clearInterval(pollInterval);
-      if (settleTimer) window.clearTimeout(settleTimer);
       if (maxTimeout) window.clearTimeout(maxTimeout);
       mutationObserver?.disconnect();
       resizeObserver?.disconnect();
@@ -368,12 +356,12 @@ export function PageGuideOverlay() {
     };
     document.addEventListener('keydown', closeOnEscape);
     return () => document.removeEventListener('keydown', closeOnEscape);
-  }, [isOpen]);
+  }, [isOpen, closeGuide]);
 
   if (!isOpen || !content) return null;
 
   // While aligning or waiting for the element to stabilize, do not show any premature highlight
-  if (!isSettled) {
+  if (!isSettled || target?.stepIndex !== stepIndex) {
     return (
       <div className="fixed inset-0 z-100 bg-slate-950/40 transition-opacity duration-150" />
     );
