@@ -1,7 +1,8 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { useTheme, type Theme } from '@/components/theme/ThemeProvider';
 
 type SettingsTab = 'overview' | 'account' | 'profile' | 'notifications' | 'security';
@@ -16,11 +17,11 @@ const tabs: Array<{ key: SettingsTab; label: string; description: string }> = [
   { key: 'security', label: 'Security', description: 'Password and account protection' },
 ];
 
-export default function SettingsPage() {
+function SettingsContent() {
   const { theme, setTheme } = useTheme();
+  const searchParams = useSearchParams();
+  const requestedSection = searchParams.get('section');
   const [activeTab, setActiveTab] = useState<SettingsTab>(() => {
-    if (typeof window === 'undefined') return 'overview';
-    const requestedSection = new URLSearchParams(window.location.search).get('section');
     return requestedSection === 'account' || requestedSection === 'profile' || requestedSection === 'notifications' || requestedSection === 'security'
       ? requestedSection
       : 'overview';
@@ -318,5 +319,13 @@ export default function SettingsPage() {
         </main>
       </div>
     </div>
+  );
+}
+
+export default function SettingsPage() {
+  return (
+    <Suspense fallback={<div className="mx-auto max-w-5xl px-4 py-12"><div className="h-72 animate-pulse rounded-2xl border border-slate-800 bg-slate-900/80" /></div>}>
+      <SettingsContent />
+    </Suspense>
   );
 }

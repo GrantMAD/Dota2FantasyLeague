@@ -69,7 +69,7 @@ export default function ProfilePage() {
           <h1 className="text-3xl font-black text-white">Profile</h1>
           <p className="mt-2 text-sm text-slate-400">Your competitive identity and fantasy career snapshot.</p>
         </div>
-        <Link href="/settings" className="inline-flex w-fit items-center gap-2 rounded-lg border border-cyan-500/30 bg-cyan-500/10 px-4 py-2.5 text-sm font-semibold text-cyan-300 transition hover:bg-cyan-500/20">
+        <Link href="/settings?section=profile" className="inline-flex w-fit items-center gap-2 rounded-lg border border-cyan-500/30 bg-cyan-500/10 px-4 py-2.5 text-sm font-semibold text-cyan-300 transition hover:bg-cyan-500/20">
           Edit profile
         </Link>
       </div>
@@ -118,7 +118,7 @@ export default function ProfilePage() {
               <h2 className="text-lg font-bold text-white">About this manager</h2>
               <p className="mt-1 text-sm text-slate-400">The identity shown across your fantasy community.</p>
             </div>
-            <Link href="/settings" className="text-sm font-semibold text-cyan-300 hover:text-cyan-200">Edit</Link>
+            <Link href="/settings?section=profile" className="text-sm font-semibold text-cyan-300 hover:text-cyan-200">Edit</Link>
           </div>
           <p className="min-h-16 text-sm leading-7 text-slate-300">{hasBio ? profile.bio : 'Add a short bio to tell your league rivals who they are competing against.'}</p>
           <div className="mt-5 flex flex-wrap gap-2 text-xs text-slate-400">
