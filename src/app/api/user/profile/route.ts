@@ -23,6 +23,18 @@ type UserQuery = {
   maybeSingle: () => Promise<{ data: UserProfileRecord | null; error: { message: string } | null }>;
 };
 
+type FantasySeasonRecord = {
+  total_points: number | null;
+  global_rank: number | null;
+  fantasy_squads: { name: string | null } | { name: string | null }[] | null;
+};
+
+type FantasySeasonQuery = {
+  select: (columns: string) => FantasySeasonQuery;
+  eq: (column: string, value: string) => FantasySeasonQuery;
+  maybeSingle: () => Promise<{ data: FantasySeasonRecord | null; error: { message: string } | null }>;
+};
+
 export async function GET(request: NextRequest) {
   try {
     const auth = await verifyAuth(request);
@@ -43,12 +55,29 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ profile: null });
     }
 
+    const fantasySeasons = supabase.from('fantasy_seasons') as unknown as FantasySeasonQuery;
+    const { data: fantasySeason } = await fantasySeasons
+      .select('id, total_points, global_rank, fantasy_squads(name)')
+      .eq('user_id', userId)
+      .maybeSingle();
+
+    const fantasySquad = Array.isArray(fantasySeason?.fantasy_squads)
+      ? fantasySeason.fantasy_squads[0]
+      : fantasySeason?.fantasy_squads;
+
     return NextResponse.json({
       profile: {
         ...data,
         role: data.role || auth.role || 'user',
         email: auth.email,
         member_since: data.created_at,
+        fantasy_team: fantasySeason
+          ? {
+              name: fantasySquad?.name || 'My Fantasy Squad',
+              total_points: Number(fantasySeason.total_points ?? 0),
+              global_rank: fantasySeason.global_rank ?? null,
+            }
+          : null,
       },
     });
   } catch (error: unknown) {

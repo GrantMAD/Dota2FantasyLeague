@@ -6,9 +6,13 @@ import Link from 'next/link';
 type AccountProfile = {
   username: string;
   email: string;
+  display_name?: string | null;
   country_code: string | null;
   timezone: string | null;
+  theme_preference?: 'light' | 'dark' | null;
 };
+
+const fieldClass = 'w-full rounded-lg border border-slate-700 bg-slate-950/70 px-4 py-3 text-white outline-none transition focus:border-cyan-400';
 
 export default function AccountPage() {
   const [profile, setProfile] = useState<AccountProfile | null>(null);
@@ -18,6 +22,7 @@ export default function AccountPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const [messageIsError, setMessageIsError] = useState(false);
 
   useEffect(() => {
     async function loadAccount() {
@@ -31,6 +36,7 @@ export default function AccountPage() {
         setTimezone(data.profile.timezone || 'UTC');
       } catch (error: unknown) {
         setMessage(error instanceof Error ? error.message : 'Unable to load account');
+        setMessageIsError(true);
       } finally {
         setLoading(false);
       }
@@ -42,6 +48,7 @@ export default function AccountPage() {
   const handleSave = async () => {
     setSaving(true);
     setMessage(null);
+    setMessageIsError(false);
     try {
       const response = await fetch('/api/user/profile', {
         method: 'PUT',
@@ -52,40 +59,71 @@ export default function AccountPage() {
       if (!response.ok || !data.profile) throw new Error(data.error || 'Unable to save account');
       setProfile(data.profile);
       setUsername(data.profile.username);
-      setMessage('Account details updated');
+      setMessage('Account details updated successfully');
     } catch (error: unknown) {
       setMessage(error instanceof Error ? error.message : 'Unable to save account');
+      setMessageIsError(true);
     } finally {
       setSaving(false);
     }
   };
 
-  if (loading) return <div className="mx-auto max-w-4xl px-4 py-12 text-slate-400">Loading account...</div>;
+  if (loading) {
+    return (
+      <div className="mx-auto max-w-5xl px-4 py-12">
+        <div className="h-64 animate-pulse rounded-2xl border border-slate-800 bg-slate-900/80" />
+      </div>
+    );
+  }
 
   return (
-    <div className="mx-auto max-w-4xl px-4 py-12">
+    <div className="mx-auto max-w-5xl px-4 py-10">
       <div className="mb-8">
-        <h1 className="mb-2 text-3xl font-bold text-white">Account</h1>
-        <p className="text-slate-400">Manage your login identity and account details.</p>
+        <p className="mb-2 text-xs font-semibold uppercase tracking-[0.28em] text-cyan-300">Account control center</p>
+        <h1 className="text-3xl font-black text-white">Account</h1>
+        <p className="mt-2 text-sm text-slate-400">Manage your login identity, regional settings, and account security.</p>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-2">
-        <section className="rounded-xl border border-slate-700 bg-slate-800/50 p-6">
-          <h2 className="mb-6 text-xl font-bold text-white">Account Details</h2>
-          {message && <p className="mb-4 text-sm text-amber-400">{message}</p>}
+      <section className="mb-6 grid gap-3 sm:grid-cols-3">
+        <div className="rounded-xl border border-emerald-500/25 bg-emerald-500/5 p-4">
+          <p className="text-xs uppercase tracking-[0.18em] text-slate-500">Account status</p>
+          <p className="mt-2 font-semibold text-emerald-300">Active</p>
+        </div>
+        <div className="rounded-xl border border-cyan-500/25 bg-cyan-500/5 p-4">
+          <p className="text-xs uppercase tracking-[0.18em] text-slate-500">Login email</p>
+          <p className="mt-2 truncate font-semibold text-cyan-200">{profile?.email || 'Not available'}</p>
+        </div>
+        <div className="rounded-xl border border-amber-500/25 bg-amber-500/5 p-4">
+          <p className="text-xs uppercase tracking-[0.18em] text-slate-500">Preferences</p>
+          <p className="mt-2 font-semibold text-amber-200">{profile?.theme_preference || 'dark'} theme</p>
+        </div>
+      </section>
+
+      {message && (
+        <div className={`mb-6 rounded-xl border px-4 py-3 text-sm ${messageIsError ? 'border-red-500/40 bg-red-500/10 text-red-200' : 'border-emerald-500/35 bg-emerald-500/10 text-emerald-200'}`}>
+          {message}
+        </div>
+      )}
+
+      <div className="grid gap-6 lg:grid-cols-[1.15fr_0.85fr]">
+        <section className="rounded-2xl border border-slate-800 bg-slate-900/70 p-6 md:p-7">
+          <div className="mb-6">
+            <h2 className="text-xl font-bold text-white">Identity details</h2>
+            <p className="mt-1 text-sm text-slate-400">These details identify you across leagues and leaderboards.</p>
+          </div>
           <div className="space-y-5">
             <div>
               <label htmlFor="account-username" className="mb-2 block text-sm font-medium text-slate-300">Username</label>
-              <input id="account-username" value={username} onChange={(event) => setUsername(event.target.value)} className="w-full rounded-lg border border-slate-600 bg-slate-900 px-4 py-2.5 text-white focus:border-amber-500 focus:outline-none" />
+              <input id="account-username" value={username} onChange={(event) => setUsername(event.target.value)} className={fieldClass} />
             </div>
             <div>
-              <label htmlFor="account-email" className="mb-2 block text-sm font-medium text-slate-300">Email</label>
-              <input id="account-email" type="email" value={profile?.email || ''} disabled className="w-full rounded-lg border border-slate-700 bg-slate-900/60 px-4 py-2.5 text-slate-400" />
-              <p className="mt-2 text-xs text-slate-500">Email changes are managed through Supabase Auth.</p>
+              <label htmlFor="account-email" className="mb-2 block text-sm font-medium text-slate-300">Login email</label>
+              <input id="account-email" type="email" value={profile?.email || ''} disabled className={`${fieldClass} cursor-not-allowed text-slate-500`} />
+              <p className="mt-2 text-xs text-slate-500">Email changes are managed securely through Supabase Auth.</p>
             </div>
             <div>
-              <label htmlFor="account-country" className="mb-2 block text-sm font-medium text-slate-300">Country</label>
-              <select id="account-country" value={countryCode} onChange={(event) => setCountryCode(event.target.value)} className="w-full rounded-lg border border-slate-600 bg-slate-900 px-4 py-2.5 text-white focus:border-amber-500 focus:outline-none">
+              <label htmlFor="account-country" className="mb-2 block text-sm font-medium text-slate-300">Country or region</label>
+              <select id="account-country" value={countryCode} onChange={(event) => setCountryCode(event.target.value)} className={fieldClass}>
                 <option value="">Select country</option>
                 <option value="US">United States</option>
                 <option value="UK">United Kingdom</option>
@@ -96,7 +134,7 @@ export default function AccountPage() {
             </div>
             <div>
               <label htmlFor="account-timezone" className="mb-2 block text-sm font-medium text-slate-300">Timezone</label>
-              <select id="account-timezone" value={timezone} onChange={(event) => setTimezone(event.target.value)} className="w-full rounded-lg border border-slate-600 bg-slate-900 px-4 py-2.5 text-white focus:border-amber-500 focus:outline-none">
+              <select id="account-timezone" value={timezone} onChange={(event) => setTimezone(event.target.value)} className={fieldClass}>
                 <option value="UTC">UTC</option>
                 <option value="America/New_York">Eastern Time</option>
                 <option value="America/Chicago">Central Time</option>
@@ -107,25 +145,29 @@ export default function AccountPage() {
                 <option value="Asia/Singapore">Singapore</option>
               </select>
             </div>
-            <button onClick={handleSave} disabled={saving} className="rounded-lg bg-amber-600 px-6 py-2.5 font-medium text-white hover:bg-amber-500 disabled:opacity-60">
-              {saving ? 'Saving...' : 'Save Changes'}
+            <button onClick={handleSave} disabled={saving} className="rounded-lg bg-cyan-500 px-5 py-3 font-semibold text-slate-950 transition hover:bg-cyan-400 disabled:opacity-60">
+              {saving ? 'Saving changes...' : 'Save account details'}
             </button>
           </div>
         </section>
 
-        <section className="rounded-xl border border-slate-700 bg-slate-800/50 p-6">
-          <h2 className="mb-6 text-xl font-bold text-white">Security</h2>
-          <div className="space-y-4">
-            <p className="text-sm text-slate-400">Use the password reset flow to set a new password securely through Supabase Auth.</p>
-            <Link href="/forgot-password" className="inline-flex rounded-lg border border-slate-600 px-4 py-2.5 text-sm font-medium text-slate-200 hover:border-amber-500 hover:text-white">
-              Reset Password
-            </Link>
-            <div className="border-t border-slate-700 pt-5">
-              <p className="mb-3 text-sm text-slate-400">Profile editing, appearance, and notification preferences are available in Settings.</p>
-              <Link href="/settings" className="text-sm font-medium text-amber-500 hover:text-amber-400">Open Settings</Link>
+        <div className="space-y-6">
+          <section className="rounded-2xl border border-slate-800 bg-slate-900/70 p-6">
+            <h2 className="text-xl font-bold text-white">Security</h2>
+            <p className="mt-2 text-sm leading-6 text-slate-400">Keep your credentials protected through the authenticated password reset flow.</p>
+            <div className="mt-5 rounded-xl border border-emerald-500/25 bg-emerald-500/5 px-4 py-3 text-sm text-emerald-200">Your account session is active and authenticated.</div>
+            <Link href="/forgot-password" className="mt-5 inline-flex rounded-lg border border-slate-700 px-4 py-2.5 text-sm font-semibold text-slate-200 transition hover:border-cyan-400 hover:text-white">Reset password</Link>
+          </section>
+
+          <section className="rounded-2xl border border-slate-800 bg-slate-900/70 p-6">
+            <h2 className="text-xl font-bold text-white">Preferences</h2>
+            <p className="mt-2 text-sm leading-6 text-slate-400">Manage appearance and alert delivery in one place.</p>
+            <div className="mt-5 flex items-center justify-between rounded-xl border border-slate-800 bg-slate-950/50 px-4 py-3">
+              <span className="text-sm text-slate-300">Theme and alerts</span>
+              <Link href="/settings" className="text-sm font-semibold text-cyan-300 hover:text-cyan-200">Open settings →</Link>
             </div>
-          </div>
-        </section>
+          </section>
+        </div>
       </div>
     </div>
   );

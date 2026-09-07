@@ -9,8 +9,10 @@ type Profile = {
   email: string;
   display_name: string | null;
   avatar_url: string | null;
+  bio: string | null;
   country_code: string | null;
   timezone: string | null;
+  role?: string | null;
   member_since?: string | null;
   created_at: string;
   fantasy_team?: {
@@ -39,78 +41,111 @@ export default function ProfilePage() {
       }
     }
 
-    fetchProfile();
+    void fetchProfile();
   }, []);
 
   if (loading) {
-    return <div className="max-w-4xl mx-auto px-4 py-12 text-slate-400">Loading profile...</div>;
+    return (
+      <div className="mx-auto max-w-5xl px-4 py-12">
+        <div className="h-48 animate-pulse rounded-2xl border border-slate-800 bg-slate-900/80" />
+      </div>
+    );
   }
 
   if (error || !profile) {
-    return <div className="max-w-4xl mx-auto px-4 py-12 text-red-400">{error || 'Profile not available'}</div>;
+    return <div className="mx-auto max-w-5xl px-4 py-12 text-red-400">{error || 'Profile not available'}</div>;
   }
 
-  const initials = (profile.display_name || profile.username || 'U').substring(0, 1).toUpperCase();
+  const initials = (profile.display_name || profile.username || 'U').slice(0, 1).toUpperCase();
+  const memberSince = new Date(profile.member_since || profile.created_at).toLocaleDateString([], { month: 'short', year: 'numeric' });
+  const hasBio = Boolean(profile.bio?.trim());
+  const hasFantasyTeam = Boolean(profile.fantasy_team);
 
   return (
-    <div className="max-w-4xl mx-auto px-4 py-12">
-      <div className="profile-card bg-linear-to-b from-slate-800 to-slate-900 border border-slate-700 rounded-2xl overflow-hidden shadow-xl mb-8">
-        <div className="h-32 bg-linear-to-r from-indigo-900/40 to-purple-900/40 border-b border-slate-700/50"></div>
+    <div className="mx-auto max-w-5xl px-4 py-10">
+      <div className="mb-8 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+        <div>
+          <p className="mb-2 text-xs font-semibold uppercase tracking-[0.28em] text-cyan-300">Manager identity</p>
+          <h1 className="text-3xl font-black text-white">Profile</h1>
+          <p className="mt-2 text-sm text-slate-400">Your competitive identity and fantasy career snapshot.</p>
+        </div>
+        <Link href="/settings" className="inline-flex w-fit items-center gap-2 rounded-lg border border-cyan-500/30 bg-cyan-500/10 px-4 py-2.5 text-sm font-semibold text-cyan-300 transition hover:bg-cyan-500/20">
+          Edit profile
+        </Link>
+      </div>
 
-        <div className="px-8 pb-8 relative">
-          <div className="flex flex-col sm:flex-row sm:items-end gap-6 -mt-16 mb-6">
-            <div className="w-32 h-32 rounded-full bg-slate-800 border-4 border-slate-900 shadow-lg overflow-hidden flex items-center justify-center shrink-0 z-10">
+      <section className="overflow-hidden rounded-2xl border border-slate-700 bg-slate-900/80 shadow-xl">
+        <div className="h-28 bg-linear-to-r from-cyan-500/20 via-slate-800 to-emerald-500/15" />
+        <div className="px-5 pb-6 md:px-8">
+          <div className="-mt-14 flex flex-col gap-5 md:flex-row md:items-end">
+            <div className="flex h-28 w-28 shrink-0 items-center justify-center overflow-hidden rounded-full border-4 border-slate-950 bg-slate-800 shadow-xl">
               {profile.avatar_url ? (
-                <Image src={profile.avatar_url} alt={profile.username} width={128} height={128} unoptimized className="w-full h-full object-cover" />
+                <Image src={profile.avatar_url} alt={profile.username} width={112} height={112} unoptimized className="h-full w-full object-cover" />
               ) : (
-                <span className="text-4xl text-slate-500 font-bold">{initials}</span>
+                <span className="text-4xl font-black text-cyan-300">{initials}</span>
               )}
             </div>
-
-            <div className="flex-1 pb-2">
-              <h1 className="text-3xl font-bold text-white mb-1">{profile.display_name || profile.username}</h1>
-              <div className="flex items-center gap-3 text-sm text-slate-400 flex-wrap">
-                <span className="font-medium text-slate-300">@{profile.username}</span>
-                <span>•</span>
-                <span className="flex items-center gap-1">
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                  {profile.country_code || 'Unknown'}
-                </span>
-                <span>•</span>
-                <span>Member since {new Date(profile.member_since || profile.created_at).toLocaleDateString([], { month: 'short', year: 'numeric' })}</span>
+            <div className="pb-1">
+              <div className="flex flex-wrap items-center gap-2">
+                <h2 className="text-2xl font-bold text-white">{profile.display_name || profile.username}</h2>
+                <span className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-emerald-300">Active manager</span>
               </div>
-            </div>
-
-            <div className="pb-2 sm:text-right">
-              <Link href="/settings" className="inline-flex items-center gap-2 bg-slate-800 hover:bg-slate-700 border border-slate-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors">
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
-                Edit Profile
-              </Link>
+              <p className="mt-1 text-sm text-slate-400">@{profile.username} · Member since {memberSince}</p>
             </div>
           </div>
 
-          <div className="border-t border-slate-700/50 pt-6">
-            <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-4">Fantasy Career (Current Season)</h3>
-
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-4">
-                <div className="text-xs text-slate-400 mb-1">Team Name</div>
-                <div className="text-lg font-bold text-white truncate">{profile.fantasy_team?.name || 'No team yet'}</div>
-              </div>
-              <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-4">
-                <div className="text-xs text-slate-400 mb-1">Total Points</div>
-                <div className="text-xl font-bold text-amber-500">{profile.fantasy_team?.total_points ?? 0}</div>
-              </div>
-              <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-4">
-                <div className="text-xs text-slate-400 mb-1">Global Rank</div>
-                <div className="text-xl font-bold text-emerald-400 flex items-center gap-1">
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 10l7-7m0 0l7 7m-7-7v18"></path></svg>
-                  {profile.fantasy_team?.global_rank ?? '—'}
-                </div>
-              </div>
+          <div className="mt-7 grid gap-3 sm:grid-cols-3">
+            <div className="rounded-xl border border-slate-800 bg-slate-950/50 p-4">
+              <p className="text-xs uppercase tracking-[0.18em] text-slate-500">Fantasy squad</p>
+              <p className="mt-2 truncate text-lg font-bold text-white">{profile.fantasy_team?.name || 'No squad yet'}</p>
+            </div>
+            <div className="rounded-xl border border-slate-800 bg-slate-950/50 p-4">
+              <p className="text-xs uppercase tracking-[0.18em] text-slate-500">Total points</p>
+              <p className="mt-2 text-2xl font-black text-amber-300">{profile.fantasy_team?.total_points ?? 0}</p>
+            </div>
+            <div className="rounded-xl border border-slate-800 bg-slate-950/50 p-4">
+              <p className="text-xs uppercase tracking-[0.18em] text-slate-500">Global rank</p>
+              <p className="mt-2 text-2xl font-black text-emerald-300">{profile.fantasy_team?.global_rank ?? '—'}</p>
             </div>
           </div>
         </div>
+      </section>
+
+      <div className="mt-6 grid gap-6 lg:grid-cols-[1.35fr_0.65fr]">
+        <section className="rounded-2xl border border-slate-800 bg-slate-900/70 p-6">
+          <div className="mb-5 flex items-center justify-between gap-4">
+            <div>
+              <h2 className="text-lg font-bold text-white">About this manager</h2>
+              <p className="mt-1 text-sm text-slate-400">The identity shown across your fantasy community.</p>
+            </div>
+            <Link href="/settings" className="text-sm font-semibold text-cyan-300 hover:text-cyan-200">Edit</Link>
+          </div>
+          <p className="min-h-16 text-sm leading-7 text-slate-300">{hasBio ? profile.bio : 'Add a short bio to tell your league rivals who they are competing against.'}</p>
+          <div className="mt-5 flex flex-wrap gap-2 text-xs text-slate-400">
+            <span className="rounded-full border border-slate-700 bg-slate-950/60 px-3 py-1.5">{profile.country_code || 'Country not set'}</span>
+            <span className="rounded-full border border-slate-700 bg-slate-950/60 px-3 py-1.5">{profile.timezone || 'UTC'}</span>
+            <span className="rounded-full border border-slate-700 bg-slate-950/60 px-3 py-1.5">{profile.role === 'admin' ? 'Admin access' : 'Manager account'}</span>
+          </div>
+        </section>
+
+        <section className="rounded-2xl border border-slate-800 bg-slate-900/70 p-6">
+          <h2 className="text-lg font-bold text-white">Account health</h2>
+          <p className="mt-1 text-sm text-slate-400">Keep your manager profile ready for competition.</p>
+          <div className="mt-5 space-y-3">
+            {[
+              ['Profile identity', Boolean(profile.display_name || profile.username)],
+              ['Fantasy squad', hasFantasyTeam],
+              ['Bio added', hasBio],
+              ['Preferences set', Boolean(profile.timezone)],
+            ].map(([label, complete]) => (
+              <div key={String(label)} className="flex items-center justify-between rounded-lg border border-slate-800 bg-slate-950/50 px-3 py-2.5">
+                <span className="text-sm text-slate-300">{String(label)}</span>
+                <span className={complete ? 'text-emerald-300' : 'text-amber-300'}>{complete ? 'Ready' : 'Review'}</span>
+              </div>
+            ))}
+          </div>
+          <Link href="/account" className="mt-5 inline-flex text-sm font-semibold text-cyan-300 hover:text-cyan-200">Manage account details →</Link>
+        </section>
       </div>
     </div>
   );
