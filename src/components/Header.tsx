@@ -272,6 +272,9 @@ export function Header() {
       <Link href="/account" onClick={() => setUserMenuOpen(false)} className="block rounded-md px-3 py-2 text-sm text-slate-300 hover:bg-slate-800 hover:text-white">
         Account
       </Link>
+      <Link href="/settings" onClick={() => setUserMenuOpen(false)} className="block rounded-md px-3 py-2 text-sm text-slate-300 hover:bg-slate-800 hover:text-white">
+        Settings
+      </Link>
       {profile?.role === 'admin' && (
         <Link
           href="/admin/dashboard"
