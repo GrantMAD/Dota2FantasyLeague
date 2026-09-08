@@ -13,6 +13,10 @@ interface UserSquadPlayer {
   team_id?: number | null;
 }
 
+interface LineupEntry {
+  professional_players?: UserSquadPlayer | null;
+}
+
 export default function MatchesPage() {
   const [matches, setMatches] = useState<MatchData[]>([]);
   const [loading, setLoading] = useState(true);
@@ -46,10 +50,11 @@ export default function MatchesPage() {
             const lineupRes = await fetch(`/api/fantasy/lineup?gameweekId=${activeGw.id}`);
             if (lineupRes.ok) {
               const lineupData = await lineupRes.json();
-              const players: UserSquadPlayer[] = (lineupData.lineup || [])
-                .map((slot: any) => slot.professional_players)
-                .filter(Boolean)
-                .map((p: any) => ({
+              const lineup: LineupEntry[] = Array.isArray(lineupData.lineup) ? lineupData.lineup : [];
+              const players: UserSquadPlayer[] = lineup
+                .map((slot) => slot.professional_players)
+                .filter((player): player is UserSquadPlayer => Boolean(player))
+                .map((p) => ({
                   id: p.id,
                   name: p.in_game_name || p.name,
                   team_id: p.team_id,
@@ -60,8 +65,8 @@ export default function MatchesPage() {
         } catch {
           // Squad enrichment is non-blocking
         }
-      } catch (err: any) {
-        setError(err.message || 'Failed to load matches');
+      } catch (err: unknown) {
+        setError(err instanceof Error ? err.message : 'Failed to load matches');
       } finally {
         setLoading(false);
       }
@@ -130,7 +135,7 @@ export default function MatchesPage() {
   };
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-10">
+    <div className="matches-page max-w-7xl mx-auto px-4 py-10">
       {/* Page Header */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-8 gap-4">
         <div>
@@ -150,7 +155,7 @@ export default function MatchesPage() {
         {/* Quick link to user's lineup */}
         <Link
           href="/lineups"
-          className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold bg-slate-900 border border-slate-700/80 text-slate-200 hover:text-white hover:border-amber-500/50 transition-all shadow-sm group"
+          className="matches-active-lineup-link inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold bg-slate-900 border border-slate-700/80 text-slate-200 hover:text-white hover:border-amber-500/50 transition-all shadow-sm group"
         >
           <span>⭐ Check My Active Lineup</span>
           <span className="text-amber-400 group-hover:translate-x-0.5 transition-transform">→</span>

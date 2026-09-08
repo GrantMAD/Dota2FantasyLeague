@@ -105,7 +105,7 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
   const liveMatchesCount = matches.filter((m) => m.status === 'live').length;
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-10 space-y-8">
+    <div className="tournament-detail-page max-w-7xl mx-auto px-4 py-10 space-y-8">
       {/* Navigation Breadcrumb */}
       <div className="flex items-center justify-between">
         <Link
@@ -170,18 +170,18 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
           </div>
 
           {/* Quick Stats Grid */}
-          <div className="flex items-center gap-3 bg-slate-950/70 border border-slate-800 p-4 rounded-2xl shrink-0">
+          <div className="tournament-detail-stats flex items-center gap-3 bg-slate-950/70 border border-slate-800 p-4 rounded-2xl shrink-0">
             <div className="text-center px-3 border-r border-slate-800">
-              <div className="text-xl font-black text-white font-mono">{teams.length}</div>
-              <div className="text-[10px] uppercase tracking-wider text-slate-500 font-semibold">Teams</div>
+              <div className="tournament-detail-stat-value text-xl font-black text-white font-mono">{teams.length}</div>
+              <div className="tournament-detail-stat-label text-[10px] uppercase tracking-wider text-slate-500 font-semibold">Teams</div>
             </div>
             <div className="text-center px-3 border-r border-slate-800">
-              <div className="text-xl font-black text-amber-400 font-mono">{matches.length}</div>
-              <div className="text-[10px] uppercase tracking-wider text-slate-500 font-semibold">Matches</div>
+              <div className="tournament-detail-stat-value text-xl font-black text-amber-400 font-mono">{matches.length}</div>
+              <div className="tournament-detail-stat-label text-[10px] uppercase tracking-wider text-slate-500 font-semibold">Matches</div>
             </div>
             <div className="text-center px-3">
-              <div className="text-xl font-black text-emerald-400 font-mono">{completedMatchesCount}</div>
-              <div className="text-[10px] uppercase tracking-wider text-slate-500 font-semibold">Finished</div>
+              <div className="tournament-detail-stat-value text-xl font-black text-emerald-400 font-mono">{completedMatchesCount}</div>
+              <div className="tournament-detail-stat-label text-[10px] uppercase tracking-wider text-slate-500 font-semibold">Finished</div>
             </div>
           </div>
         </div>

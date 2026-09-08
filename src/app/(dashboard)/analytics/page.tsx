@@ -107,7 +107,7 @@ export default function AnalyticsDashboard() {
   }, [tab]);
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100">
+    <div className="analytics-page min-h-screen bg-slate-950 text-slate-100">
       <div className="mx-auto max-w-7xl px-4 py-8">
         <div className="mb-8 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
           <div>
@@ -180,10 +180,10 @@ export default function AnalyticsDashboard() {
 
               {tab === 'my' && (
                 <div className="space-y-8">
-                  <div className="rounded-2xl border border-slate-800 bg-slate-950/70 p-4">
+                  <div className="analytics-chart-panel rounded-2xl border border-slate-800 bg-slate-950/70 p-4">
                     <div className="mb-4 flex items-center justify-between">
-                      <h3 className="text-lg font-semibold text-white">Gameweek Trajectory</h3>
-                      <span className="text-xs text-slate-400">User vs average</span>
+                      <h3 className="analytics-chart-heading text-lg font-semibold text-white">Gameweek Trajectory</h3>
+                      <span className="analytics-chart-label text-xs text-slate-400">User vs average</span>
                     </div>
                     <div className="flex h-48 items-end gap-2">
                       {data.trend.length ? data.trend.map((row: TrendRow, index: number) => {
@@ -192,8 +192,8 @@ export default function AnalyticsDashboard() {
                         return (
                           <div key={`${row.gameweekId}-${index}`} className="flex flex-1 flex-col items-center gap-2">
                             <div className="flex h-36 w-full items-end justify-center gap-1">
-                              <div className="w-1/2 rounded-t-xl bg-cyan-500/90" style={{ height: `${Math.max(userHeight, 8)}%` }} title={`User: ${row.userScore}`} />
-                              <div className="w-1/2 rounded-t-xl bg-slate-600" style={{ height: `${Math.max(avgHeight, 8)}%` }} title={`Average: ${row.globalAverage}`} />
+                              <div className="analytics-user-bar w-1/2 rounded-t-xl bg-cyan-500/90" style={{ height: `${Math.max(userHeight, 8)}%` }} title={`User: ${row.userScore}`} />
+                              <div className="analytics-average-bar w-1/2 rounded-t-xl bg-slate-600" style={{ height: `${Math.max(avgHeight, 8)}%` }} title={`Average: ${row.globalAverage}`} />
                             </div>
                             <span className="text-[10px] text-slate-400">GW{index + 1}</span>
                           </div>
@@ -205,41 +205,41 @@ export default function AnalyticsDashboard() {
                   </div>
 
                   <div className="grid gap-6 lg:grid-cols-2">
-                    <div className="rounded-2xl border border-slate-800 bg-slate-950/70 p-4">
-                      <h3 className="mb-4 text-lg font-semibold text-white">Role Scoring Breakdown</h3>
+                    <div className="analytics-chart-panel rounded-2xl border border-slate-800 bg-slate-950/70 p-4">
+                      <h3 className="analytics-chart-heading mb-4 text-lg font-semibold text-white">Role Scoring Breakdown</h3>
                       <div className="space-y-3">
                         {(data.roleBreakdown.length ? data.roleBreakdown : [{ role: 'Support', points: 0 }, { role: 'Carry', points: 0 }, { role: 'Mid', points: 0 }]).map((item: RoleBreakdownRow) => (
                           <div key={item.role}>
                             <div className="mb-1 flex items-center justify-between text-sm">
-                              <span className="text-slate-300">{item.role}</span>
-                              <span className="text-white">{item.points} pts</span>
+                              <span className="analytics-chart-label text-slate-300">{item.role}</span>
+                              <span className="analytics-chart-value text-white">{item.points} pts</span>
                             </div>
-                            <div className="h-2 rounded-full bg-slate-800">
-                              <div className="h-full rounded-full bg-linear-to-r from-cyan-500 to-emerald-500" style={{ width: `${Math.min((item.points / Math.max(1, data.user.totalPoints || 1)) * 100, 100)}%` }} />
+                            <div className="analytics-bar-track h-2 rounded-full bg-slate-800">
+                              <div className="analytics-role-bar h-full rounded-full bg-linear-to-r from-cyan-500 to-emerald-500" style={{ width: `${Math.min((item.points / Math.max(1, data.user.totalPoints || 1)) * 100, 100)}%` }} />
                             </div>
                           </div>
                         ))}
                       </div>
                     </div>
 
-                    <div className="rounded-2xl border border-slate-800 bg-slate-950/70 p-4">
-                      <h3 className="mb-4 text-lg font-semibold text-white">Captaincy Efficiency</h3>
+                    <div className="analytics-chart-panel rounded-2xl border border-slate-800 bg-slate-950/70 p-4">
+                      <h3 className="analytics-chart-heading mb-4 text-lg font-semibold text-white">Captaincy Efficiency</h3>
                       <div className="space-y-4">
                         <div className="flex items-end justify-between">
-                          <span className="text-slate-400">Captain points</span>
-                          <span className="text-2xl font-bold text-white">{data.captainEfficiency.captainPoints}</span>
+                          <span className="analytics-chart-label text-slate-400">Captain points</span>
+                          <span className="analytics-chart-value text-2xl font-bold text-white">{data.captainEfficiency.captainPoints}</span>
                         </div>
                         <div className="flex items-end justify-between">
-                          <span className="text-slate-400">Ideal cap value</span>
+                          <span className="analytics-chart-label text-slate-400">Ideal cap value</span>
                           <span className="text-xl font-semibold text-cyan-300">{data.captainEfficiency.idealCapPoints}</span>
                         </div>
                         <div>
                           <div className="mb-1 flex items-center justify-between text-sm">
-                            <span className="text-slate-400">Efficiency</span>
+                            <span className="analytics-chart-label text-slate-400">Efficiency</span>
                             <span className="text-emerald-400">{data.captainEfficiency.efficiency}%</span>
                           </div>
-                          <div className="h-2 rounded-full bg-slate-800">
-                            <div className="h-full rounded-full bg-linear-to-r from-amber-500 to-emerald-500" style={{ width: `${Math.min(data.captainEfficiency.efficiency, 100)}%` }} />
+                          <div className="analytics-bar-track h-2 rounded-full bg-slate-800">
+                            <div className="analytics-efficiency-bar h-full rounded-full bg-linear-to-r from-amber-500 to-emerald-500" style={{ width: `${Math.min(data.captainEfficiency.efficiency, 100)}%` }} />
                           </div>
                         </div>
                       </div>
@@ -251,7 +251,7 @@ export default function AnalyticsDashboard() {
               {tab === 'market' && (
                 <div className="space-y-6">
                   <div className="rounded-2xl border border-slate-800 bg-slate-950/70 p-4">
-                    <h3 className="mb-4 text-lg font-semibold text-white">Value for Money</h3>
+                    <h3 className="analytics-market-heading mb-4 text-lg font-semibold text-white">Value for Money</h3>
                     <div className="overflow-hidden rounded-xl border border-slate-800">
                       <table className="min-w-full text-left text-sm">
                         <thead className="bg-slate-900 text-slate-400">
@@ -267,11 +267,11 @@ export default function AnalyticsDashboard() {
                         <tbody>
                           {(data.market.length ? data.market : [{ playerName: 'No data', team: '—', role: 'Support', price: 0, ownership: 0, roi: 0 }]).map((row: MarketRow, index: number) => (
                             <tr key={`${row.playerName}-${index}`} className="border-t border-slate-800 bg-slate-950/60">
-                              <td className="p-3 text-white">{row.playerName}</td>
-                              <td className="p-3 text-slate-300">{row.role}</td>
-                              <td className="p-3 text-slate-300">{row.team}</td>
-                              <td className="p-3 text-slate-300">${row.price}M</td>
-                              <td className="p-3 text-slate-300">{row.ownership}%</td>
+                              <td className="analytics-market-value p-3 text-white">{row.playerName}</td>
+                              <td className="analytics-market-value p-3 text-slate-300">{row.role}</td>
+                              <td className="analytics-market-value p-3 text-slate-300">{row.team}</td>
+                              <td className="analytics-market-value p-3 text-slate-300">${row.price}M</td>
+                              <td className="analytics-market-value p-3 text-slate-300">{row.ownership}%</td>
                               <td className="p-3 text-emerald-400">{row.roi}</td>
                             </tr>
                           ))}
@@ -285,7 +285,7 @@ export default function AnalyticsDashboard() {
               {tab === 'dream' && (
                 <div className="grid gap-6 lg:grid-cols-2">
                   <div className="rounded-2xl border border-slate-800 bg-slate-950/70 p-4">
-                    <h3 className="mb-4 text-lg font-semibold text-white">Gameweek Dream Team</h3>
+                    <h3 className="analytics-dream-heading mb-4 text-lg font-semibold text-white">Gameweek Dream Team</h3>
                     <div className="space-y-3">
                       {(data.dreamTeam.length ? data.dreamTeam : [{ playerName: 'Awaiting data', team: '—', role: 'Support', points: 0 }]).map((player: DreamTeamRow, index: number) => (
                         <div key={`${player.playerName}-${index}`} className="flex items-center justify-between rounded-xl border border-slate-800 bg-slate-900/60 p-3">
@@ -300,7 +300,7 @@ export default function AnalyticsDashboard() {
                   </div>
 
                   <div className="rounded-2xl border border-slate-800 bg-slate-950/70 p-4">
-                    <h3 className="mb-4 text-lg font-semibold text-white">Top Individual Performances</h3>
+                    <h3 className="analytics-dream-heading mb-4 text-lg font-semibold text-white">Top Individual Performances</h3>
                     <div className="space-y-3">
                       {(data.valueForMoney.length ? data.valueForMoney : [{ playerName: 'No standout performers yet', team: '—', role: 'Support', ownership: 0, price: 0, roi: 0 }]).map((row: MarketRow, index: number) => (
                         <div key={`${row.playerName}-${index}`} className="flex items-center justify-between rounded-xl border border-slate-800 bg-slate-900/60 p-3">

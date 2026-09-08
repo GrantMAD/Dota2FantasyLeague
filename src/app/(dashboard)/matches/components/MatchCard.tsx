@@ -120,9 +120,9 @@ export function MatchCard({ match, userSquadPlayerNames = [] }: MatchCardProps) 
             faction="radiant"
             isWinner={isRadiantWinner}
           />
-          <div className="mt-2.5 max-w-[120px]">
+          <div className="mt-2.5 max-w-30">
             <div
-              className={`text-sm font-bold truncate transition-colors ${
+              className={`match-card-team-name text-sm font-bold truncate transition-colors ${
                 isRadiantWinner
                   ? 'text-white drop-shadow-[0_0_8px_rgba(255,255,255,0.3)]'
                   : isCompleted
@@ -188,9 +188,9 @@ export function MatchCard({ match, userSquadPlayerNames = [] }: MatchCardProps) 
             faction="dire"
             isWinner={isDireWinner}
           />
-          <div className="mt-2.5 max-w-[120px]">
+          <div className="mt-2.5 max-w-30">
             <div
-              className={`text-sm font-bold truncate transition-colors ${
+              className={`match-card-team-name text-sm font-bold truncate transition-colors ${
                 isDireWinner
                   ? 'text-white drop-shadow-[0_0_8px_rgba(255,255,255,0.3)]'
                   : isCompleted
@@ -222,8 +222,8 @@ export function MatchCard({ match, userSquadPlayerNames = [] }: MatchCardProps) 
       )}
 
       {/* Hover action footer */}
-      <div className="mt-auto px-5 py-2.5 bg-slate-950/40 border-t border-slate-800/60 flex items-center justify-between text-xs text-slate-400">
-        <span className="flex items-center gap-1 text-[11px]">
+      <div className="match-card-footer mt-auto px-5 py-2.5 bg-slate-950/40 border-t border-slate-800/60 flex items-center justify-between text-xs text-slate-400">
+        <span className="match-card-footer-meta flex items-center gap-1 text-[11px]">
           {match.radiant_team?.region && (
             <span className="text-slate-500">{match.radiant_team.region} vs {match.dire_team?.region || 'INT'}</span>
           )}

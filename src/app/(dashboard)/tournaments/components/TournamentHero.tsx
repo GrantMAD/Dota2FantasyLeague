@@ -71,7 +71,7 @@ export function TournamentHero({ tournament }: TournamentHeroProps) {
 
           <Link
             href="/matches"
-            className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-2xl text-xs font-semibold bg-slate-900/90 border border-slate-700 text-slate-300 hover:text-white hover:border-slate-600 transition-colors"
+            className="tournament-live-matches-link inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-2xl text-xs font-semibold bg-slate-900/90 border border-slate-700 text-slate-300 hover:text-white hover:border-slate-600 transition-colors"
           >
             <span>View All Live Matches</span>
           </Link>

@@ -27,8 +27,6 @@ interface TournamentCardProps {
 export function TournamentCard({ tournament }: TournamentCardProps) {
   const isTier1 = tournament.tier?.toLowerCase().includes('tier 1') || tournament.tier?.toLowerCase().includes('major');
   const isTier2 = tournament.tier?.toLowerCase().includes('tier 2') || tournament.tier?.toLowerCase().includes('minor');
-  const isEligible = tournament.status === 'eligible';
-
   const startDate = new Date(tournament.start_date);
   const endDate = new Date(tournament.end_date);
   const now = new Date();
@@ -127,11 +125,11 @@ export function TournamentCard({ tournament }: TournamentCardProps) {
       </div>
 
       {/* Card Footer */}
-      <div className="px-6 py-3 bg-slate-950/40 border-t border-slate-800/60 flex items-center justify-between text-xs">
-        <span className="text-slate-400 text-[11px] font-mono">
+      <div className="tournament-card-footer px-6 py-3 bg-slate-950/40 border-t border-slate-800/60 flex items-center justify-between text-xs">
+        <span className="tournament-card-footer-series text-slate-400 text-[11px] font-mono">
           {tournament.series_count !== undefined ? `${tournament.series_count} Series` : 'Schedule Available'}
         </span>
-        <span className="text-amber-400 group-hover:text-amber-300 font-medium flex items-center gap-1 transition-colors">
+        <span className="tournament-card-footer-link text-amber-400 group-hover:text-amber-300 font-medium flex items-center gap-1 transition-colors">
           View Event Hub
           <svg className="w-3.5 h-3.5 transition-transform group-hover:translate-x-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />

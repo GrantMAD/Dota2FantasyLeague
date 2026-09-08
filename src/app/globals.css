@@ -583,6 +583,131 @@ body {
     color: #e0f7ff !important;
   }
 
+  :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) .tournament-live-matches-link {
+    color: #e0f7ff !important;
+  }
+
+  :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) .tournaments-match-center-link {
+    color: #17324d !important;
+  }
+
+  :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) .tournament-card-footer {
+    background-color: #0d1b2e !important;
+    border-top-color: #29415d !important;
+  }
+
+  :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) .tournament-card-footer-series {
+    color: #d2e6f2 !important;
+  }
+
+  :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) .tournament-card-footer-link {
+    color: #fcd34d !important;
+  }
+
+  :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) .tournament-detail-stats {
+    background-color: #0d1b2e !important;
+    border-color: #29415d !important;
+  }
+
+  :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) .tournament-detail-stats > div:nth-child(1) .tournament-detail-stat-value {
+    color: #e0f7ff !important;
+  }
+
+  :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) .tournament-detail-stats > div:nth-child(2) .tournament-detail-stat-value {
+    color: #fcd34d !important;
+  }
+
+  :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) .tournament-detail-stats > div:nth-child(3) .tournament-detail-stat-value {
+    color: #6ee7b7 !important;
+  }
+
+  :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) .tournament-detail-stat-label {
+    color: #d2e6f2 !important;
+  }
+
+  :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) .tournament-detail-stats > div {
+    border-color: #29415d !important;
+  }
+
+  :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) .tournament-detail-page .match-card-footer {
+    background-color: #0d1b2e !important;
+    border-top-color: #29415d !important;
+  }
+
+  :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) .tournament-detail-page .match-card-footer-meta,
+  :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) .tournament-detail-page .match-card-footer-meta span {
+    color: #d2e6f2 !important;
+  }
+
+  :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) .matches-page .match-card-footer {
+    background-color: #0d1b2e !important;
+    border-top-color: #29415d !important;
+  }
+
+  :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) .matches-page .match-card-footer-meta,
+  :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) .matches-page .match-card-footer-meta span {
+    color: #d2e6f2 !important;
+  }
+
+  :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) .matches-page .match-card-team-name {
+    color: #17324d !important;
+    text-shadow: none !important;
+  }
+
+  :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) .matches-active-lineup-link {
+    color: #17324d !important;
+  }
+
+  :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) .analytics-chart-panel {
+    background-color: #0d1b2e !important;
+    border-color: #29415d !important;
+  }
+
+  :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) .analytics-chart-heading {
+    color: #e0f7ff !important;
+  }
+
+  :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) .analytics-chart-label {
+    color: #d2e6f2 !important;
+  }
+
+  :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) .analytics-chart-value {
+    color: #f8fafc !important;
+  }
+
+  :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) .analytics-market-heading,
+  :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) .analytics-market-value {
+    color: #d2e6f2 !important;
+  }
+
+  :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) .analytics-dream-heading {
+    color: #d2e6f2 !important;
+  }
+
+  :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) .analytics-bar-track {
+    background-color: #29415d !important;
+  }
+
+  :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) .analytics-user-bar {
+    background-color: #22d3ee !important;
+  }
+
+  :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) .analytics-average-bar {
+    background-color: #8aa4bc !important;
+  }
+
+  :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) .analytics-role-bar {
+    background: linear-gradient(to right, #22d3ee, #34d399) !important;
+  }
+
+  :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) .analytics-efficiency-bar {
+    background: linear-gradient(to right, #fbbf24, #34d399) !important;
+  }
+
+  :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) .tournament-status-tab:not(.bg-amber-500) {
+    color: #d2e6f2 !important;
+  }
+
 /* Hide scrollbar while preserving scroll functionality */
 .no-scrollbar::-webkit-scrollbar {
   display: none;
