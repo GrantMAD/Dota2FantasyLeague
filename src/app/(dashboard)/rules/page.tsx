@@ -41,8 +41,8 @@ export default function RulesPage() {
         </div>
       </section>
 
-      <nav className="sticky top-3 z-20 mt-6 flex flex-wrap gap-2 rounded-xl border border-slate-800 bg-slate-950/95 p-2 shadow-lg backdrop-blur" aria-label="Rules sections">
-        {sections.map((section) => { const Icon = section.icon; return <a key={section.id} href={`#${section.id}`} className="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-semibold text-slate-300 transition hover:bg-slate-800 hover:text-white"><Icon className="h-3.5 w-3.5 text-amber-300" />{section.label}</a>; })}
+      <nav className="rules-nav sticky top-3 z-20 mt-6 flex flex-wrap gap-2 rounded-xl border border-slate-800 bg-slate-950/95 p-2 shadow-lg backdrop-blur" aria-label="Rules sections">
+        {sections.map((section) => { const Icon = section.icon; return <a key={section.id} href={`#${section.id}`} className="rules-nav-link inline-flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-semibold text-slate-300 transition hover:bg-slate-800 hover:text-white"><Icon className="rules-nav-icon h-3.5 w-3.5 text-amber-300" />{section.label}</a>; })}
       </nav>
 
       <section id="squad" className="mt-8 scroll-mt-24 rounded-2xl border border-slate-800 bg-slate-900/70 p-6 sm:p-8">

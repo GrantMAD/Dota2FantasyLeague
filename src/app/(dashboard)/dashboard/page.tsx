@@ -167,6 +167,22 @@ export default function DashboardPage() {
 
       {/* Main Content */}
       <section className="max-w-7xl mx-auto px-4 py-12">
+        {/* What's New — full width */}
+        <div className="dashboard-whats-new relative overflow-hidden rounded-xl mb-8 border border-amber-500/30 bg-gradient-to-r from-amber-500/10 via-slate-800/80 to-slate-800/50 px-8 py-6 flex items-center gap-6 flex-wrap shadow-lg shadow-amber-500/5">
+          {/* Left accent bar */}
+          <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-amber-400 to-orange-600 rounded-l-xl" />
+          <div className="flex items-center gap-3">
+            <span className="text-2xl">📢</span>
+            <h3 className="text-lg font-bold text-white whitespace-nowrap">What&apos;s New</h3>
+            <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-500 text-slate-900">NEW</span>
+          </div>
+          <div className="flex items-center gap-3">
+            <span className="dashboard-whats-new-title text-amber-400 font-semibold text-sm">Season 2026 Starts</span>
+            <span className="dashboard-whats-new-divider text-slate-600">|</span>
+            <span className="dashboard-whats-new-desc text-slate-300 text-sm">Fantasy season 2026 is now live — build your squad and compete!</span>
+          </div>
+        </div>
+
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Primary Actions */}
           <div className="lg:col-span-2">
@@ -343,16 +359,6 @@ export default function DashboardPage() {
 
           {/* Sidebar */}
           <div className="space-y-6 lg:pt-14">
-            {/* Recent News */}
-            <div className="dashboard-whats-new bg-slate-800/50 border border-slate-700 rounded-lg p-6">
-              <h3 className="font-semibold text-white mb-4">What&apos;s New</h3>
-              <div className="space-y-3">
-                <div className="text-xs">
-                  <p className="dashboard-whats-new-title text-amber-500 font-semibold mb-1">Season 2026 Starts</p>
-                  <p className="text-slate-400">Fantasy season 2026 is now live</p>
-                </div>
-              </div>
-            </div>
 
             {/* Upcoming Gameweek */}
             <div data-guide="dashboard-gameweek" className="bg-slate-800/50 border border-slate-700 rounded-lg p-6">

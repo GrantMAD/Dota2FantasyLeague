@@ -117,15 +117,39 @@ body {
   background-color: #e4edf4 !important;
 }
 
+/* Rules page sticky nav — light mode */
+[data-theme='light'] .rules-nav {
+  background-color: #ffffff !important;
+  background-image: none !important;
+  border-color: var(--border) !important;
+  box-shadow: 0 2px 8px rgb(0 0 0 / 0.08) !important;
+}
+
+[data-theme='light'] .rules-nav .rules-nav-link {
+  color: #1e3a4a !important;
+}
+
+[data-theme='light'] .rules-nav .rules-nav-link:hover {
+  background-color: #f0f9f7 !important;
+  color: #0f766e !important;
+}
+
+[data-theme='light'] .rules-nav .rules-nav-icon {
+  color: #0f766e !important;
+}
+
 [data-theme='light'] .dashboard-whats-new {
-  background-color: #dff5f2 !important;
+  background-image: none !important;
+  background-color: #e6faf7 !important;
   border-color: #0f766e !important;
-  box-shadow: inset 3px 0 0 #0f766e, 0 8px 24px rgb(15 118 110 / 0.12);
+  box-shadow: inset 4px 0 0 #0f766e, 0 4px 16px rgb(15 118 110 / 0.10) !important;
 }
 
 [data-theme='light'] .dashboard-whats-new-title {
   color: #0f766e !important;
 }
+
+
 
 [data-theme='light'] .profile-card .bg-slate-800\/50 {
   background-color: #d5e2ec !important;
@@ -139,6 +163,23 @@ body {
 }
 
 [data-theme='light'] .text-white { color: var(--text-primary) !important; }
+
+/* What's New banner — nested for specificity win over global text overrides */
+[data-theme='light'] .dashboard-whats-new .dashboard-whats-new-desc {
+  color: #0f2d3d !important;
+}
+
+[data-theme='light'] .dashboard-whats-new .dashboard-whats-new-divider {
+  color: #4a7c8a !important;
+}
+
+[data-theme='light'] .dashboard-whats-new .dashboard-whats-new-title {
+  color: #0d6b63 !important;
+}
+
+[data-theme='light'] .dashboard-whats-new h3 {
+  color: #0a2430 !important;
+}
 [data-theme='light'] .text-slate-300,
 [data-theme='light'] .text-gray-300 { color: var(--text-secondary) !important; }
 [data-theme='light'] .text-slate-400,
