@@ -4,6 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Eye, EyeOff } from 'lucide-react';
+import { supabase } from '@/lib/supabase';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -40,6 +41,18 @@ export default function LoginPage() {
       if (!response.ok) {
         const data = await response.json();
         throw new Error(data.error || 'Failed to sign in');
+      }
+
+      // Sync the session tokens to the browser's Supabase client (localStorage).
+      // The API route sets cookies but the client-side supabase instance is never
+      // told about the session, so getSession() would return null on all subsequent
+      // client-side fetches. setSession() fixes this.
+      const responseData = await response.json();
+      if (responseData.session?.access_token && responseData.session?.refresh_token) {
+        await supabase.auth.setSession({
+          access_token: responseData.session.access_token,
+          refresh_token: responseData.session.refresh_token,
+        });
       }
 
       // Redirect to dashboard on successful login

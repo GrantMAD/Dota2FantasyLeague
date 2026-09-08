@@ -30,6 +30,7 @@ import {
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useRef, useState, useMemo } from 'react';
 import { ThemeToggle } from './theme/ThemeToggle';
+import { fetchWithAuth } from '@/lib/fetch-with-auth';
 
 type HeaderProfile = {
   username: string;
@@ -103,7 +104,7 @@ export function Header() {
   useEffect(() => {
     async function loadProfile() {
       try {
-        const response = await fetch('/api/user/profile');
+        const response = await fetchWithAuth('/api/user/profile');
         if (!response.ok) return;
         const data = (await response.json()) as { profile: HeaderProfile | null };
         setProfile(data.profile);
@@ -118,7 +119,7 @@ export function Header() {
   useEffect(() => {
     async function loadNotifications() {
       try {
-        const response = await fetch('/api/notifications?limit=5');
+        const response = await fetchWithAuth('/api/notifications?limit=5');
         if (!response.ok) return;
         const data = (await response.json()) as { notifications: HeaderNotification[] };
         setNotifications(data.notifications ?? []);
@@ -133,7 +134,7 @@ export function Header() {
   useEffect(() => {
     async function loadQuickStats() {
       try {
-        const response = await fetch('/api/dashboard/stats');
+        const response = await fetchWithAuth('/api/dashboard/stats');
         if (!response.ok) return;
         const data = await response.json();
         setQuickStats({

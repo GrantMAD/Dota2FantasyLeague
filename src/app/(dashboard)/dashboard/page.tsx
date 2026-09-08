@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useState, useEffect } from 'react';
+import { fetchWithAuth } from '@/lib/fetch-with-auth';
 
 interface StatCard {
   icon: React.ReactNode;
@@ -51,8 +52,12 @@ export default function DashboardPage() {
   useEffect(() => {
     const fetchStats = async () => {
       try {
-        const res = await fetch('/api/dashboard/stats');
-        if (!res.ok) throw new Error('Failed to fetch stats');
+        const res = await fetchWithAuth('/api/dashboard/stats');
+        if (!res.ok) {
+          const errBody = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
+          if (res.status === 401) { window.location.href = '/login'; return; }
+          throw new Error(errBody?.error || `Failed to fetch stats (${res.status})`);
+        }
         const data = (await res.json()) as DashboardData;
         setDashboardData(data);
         
