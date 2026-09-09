@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { CheckCircle, AlertCircle, Clock, Play, SkipForward } from 'lucide-react';
+import { CheckCircle, AlertCircle, Clock, Play, SkipForward, Zap } from 'lucide-react';
 
 interface JobStatus {
   job_name: string;
@@ -116,7 +116,7 @@ export default function DataJobsPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-white">Data Ingestion Jobs</h1>
+          <h1 className="flex items-center gap-3 text-3xl font-bold text-white"><Zap className="h-8 w-8 text-amber-400" />Data Ingestion Jobs</h1>
           <p className="mt-1 text-gray-400">Monitor and control background data sync jobs</p>
         </div>
         <button

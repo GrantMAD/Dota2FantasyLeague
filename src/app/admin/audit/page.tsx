@@ -2,6 +2,8 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
+import { Database } from 'lucide-react';
+
 
 interface AuditLog {
   id: number;
@@ -69,7 +71,7 @@ export default function AdminAuditPage() {
   return (
     <div className="space-y-6 max-w-7xl mx-auto py-8">
       <div>
-        <h1 className="text-3xl font-bold text-white">Audit Log</h1>
+        <h1 className="flex items-center gap-3 text-3xl font-bold text-white"><Database className="h-8 w-8 text-amber-400" />Audit Log</h1>
         <p className="mt-1 text-slate-400">View and track system mutations.</p>
       </div>
 

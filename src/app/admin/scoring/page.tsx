@@ -1,6 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { CheckCircle } from 'lucide-react';
+
 
 export default function AdminScoringPage() {
   const [activeTab, setActiveTab] = useState<'rules' | 'balance' | 'historical' | 'simulator'>('rules');
@@ -198,7 +200,7 @@ export default function AdminScoringPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold text-white">Scoring Management</h1>
+        <h1 className="flex items-center gap-3 text-3xl font-bold text-white"><CheckCircle className="h-8 w-8 text-amber-400" />Scoring Management</h1>
         <p className="mt-1 text-slate-400">Manage rules versions and simulate outcomes</p>
       </div>
 

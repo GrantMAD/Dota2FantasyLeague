@@ -71,7 +71,7 @@ export default function DataQualityPage() {
     <div className="space-y-8">
       {/* Header */}
       <div>
-        <h1 className="text-3xl font-bold text-white">Data Quality Dashboard</h1>
+        <h1 className="flex items-center gap-3 text-3xl font-bold text-white"><AlertCircle className="h-8 w-8 text-amber-400" />Data Quality Dashboard</h1>
         <p className="mt-1 text-gray-400">Monitor data conflicts, inconsistencies, and quality metrics</p>
       </div>
 

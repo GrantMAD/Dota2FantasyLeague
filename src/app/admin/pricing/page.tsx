@@ -1,7 +1,8 @@
 'use client';
 
 import { useMemo, useState, useEffect } from 'react';
-import { ArrowUpRight, ArrowDownRight, TrendingUp, Zap } from 'lucide-react';
+import { ArrowUpRight, ArrowDownRight, TrendingUp, Zap, DollarSign } from 'lucide-react';
+
 import { simulatePriceDynamics } from '@/lib/fantasy-gameplay';
 
 interface PlayerPriceRecord {
@@ -97,7 +98,7 @@ export default function AdminPricingPage() {
     return (
       <div className="space-y-8">
         <div>
-          <h1 className="text-3xl font-bold text-white">Player Pricing</h1>
+          <h1 className="flex items-center gap-3 text-3xl font-bold text-white"><DollarSign className="h-8 w-8 text-amber-400" />Player Pricing</h1>
           <p className="mt-1 text-gray-400">Manage dynamic player market values and performance-driven adjustments</p>
         </div>
         <div className="rounded-lg border border-gray-700 bg-gray-800/50 p-12 text-center">
@@ -111,7 +112,7 @@ export default function AdminPricingPage() {
     <div className="space-y-8">
       <div className="flex items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-white">Player Pricing</h1>
+          <h1 className="flex items-center gap-3 text-3xl font-bold text-white"><DollarSign className="h-8 w-8 text-amber-400" />Player Pricing</h1>
           <p className="mt-1 text-gray-400">Manage dynamic player market values and performance-driven adjustments</p>
         </div>
         <button className="rounded bg-amber-500/20 px-4 py-2 font-medium text-amber-400 hover:bg-amber-500/30">

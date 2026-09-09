@@ -1,6 +1,8 @@
 'use client';
 
 import { useMemo, useState, useEffect } from 'react';
+import { Trophy } from 'lucide-react';
+
 
 interface TeamRecord {
   id: number;
@@ -61,7 +63,7 @@ export default function AdminTeamsPage() {
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="text-3xl font-bold text-white">Teams Management</h1>
+        <h1 className="flex items-center gap-3 text-3xl font-bold text-white"><Trophy className="h-8 w-8 text-amber-400" />Teams Management</h1>
         <p className="mt-1 text-gray-400">Track and manage professional team data</p>
       </div>
 

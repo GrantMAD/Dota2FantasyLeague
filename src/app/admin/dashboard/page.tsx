@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { AlertCircle, CheckCircle, Clock, Zap, Calendar } from 'lucide-react';
+import { AlertCircle, CheckCircle, Clock, Zap, Calendar, LayoutDashboard } from 'lucide-react';
+
 
 interface DashboardMetrics {
   activeUsers: number;
@@ -53,7 +54,7 @@ export default function AdminDashboardPage() {
     <div className="space-y-8">
       {/* Page Header */}
       <div>
-        <h1 className="text-3xl font-bold text-white">Dashboard</h1>
+        <h1 className="flex items-center gap-3 text-3xl font-bold text-white"><LayoutDashboard className="h-8 w-8 text-amber-400" />Dashboard</h1>
         <p className="mt-1 text-gray-400">System overview and key metrics</p>
       </div>
 

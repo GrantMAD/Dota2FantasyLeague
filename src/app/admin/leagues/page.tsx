@@ -76,7 +76,7 @@ export default function AdminLeaguesPage() {
   return (
     <div className="space-y-6 max-w-7xl mx-auto py-8">
       <div>
-        <h1 className="text-3xl font-bold text-white">League Management</h1>
+        <h1 className="flex items-center gap-3 text-3xl font-bold text-white"><Shield className="h-8 w-8 text-amber-400" />League Management</h1>
         <p className="mt-1 text-slate-400">Monitor and manage all active leagues across the platform.</p>
       </div>
 

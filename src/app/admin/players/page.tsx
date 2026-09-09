@@ -1,7 +1,8 @@
 'use client';
 
 import { useMemo, useState, useEffect } from 'react';
-import { Plus, Search, Pencil, Trash2 } from 'lucide-react';
+import { Plus, Search, Pencil, Trash2, Users } from 'lucide-react';
+
 
 type PlayerStatus = 'active' | 'inactive' | 'flagged';
 
@@ -50,7 +51,7 @@ export default function AdminPlayersPage() {
               name: p.in_game_name || p.name,
               team: p.professional_teams?.name || 'Free Agent',
               role: p.primary_role || 'Carry',
-              price: p.current_price || 5000000,
+              price: p.current_price || 5.5,
               status: (p.availability_status === 'inactive' ? 'inactive' : 'active') as PlayerStatus,
               fantasyPoints: p.gameweek_points || 0,
             }))
@@ -112,7 +113,7 @@ export default function AdminPlayersPage() {
     <div className="space-y-8">
       <div className="flex items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-white">Players Management</h1>
+          <h1 className="flex items-center gap-3 text-3xl font-bold text-white"><Users className="h-8 w-8 text-amber-400" />Players Management</h1>
           <p className="mt-1 text-gray-400">Review, edit, and curate professional player data</p>
         </div>
         <button
@@ -138,7 +139,7 @@ export default function AdminPlayersPage() {
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
         <StatCard label="Total Players" value={players.length} />
         <StatCard label="Active" value={players.filter((p) => p.status === 'active').length} />
-        <StatCard label="Market Value" value={new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(totalValue)} />
+        <StatCard label="Market Value" value={`$${totalValue.toFixed(1)}M`} />
       </div>
 
       <div className="rounded-lg border border-gray-700 bg-gray-800/50 p-4">
@@ -242,7 +243,7 @@ export default function AdminPlayersPage() {
                 <div className="flex items-center gap-6">
                   <div className="text-right">
                     <p className="text-xs uppercase tracking-wide text-gray-500">Price</p>
-                    <p className="text-lg font-semibold text-white">${(player.price / 1000000).toFixed(2)}M</p>
+                    <p className="text-lg font-semibold text-white">${Number(player.price).toFixed(2)}M</p>
                   </div>
                   <div className="flex gap-2">
                     <button onClick={() => handleEdit(player)} className="rounded border border-gray-600 p-2 text-gray-300 hover:bg-gray-700">

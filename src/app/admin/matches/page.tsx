@@ -1,6 +1,8 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
+import { BarChart3 } from 'lucide-react';
+
 
 interface ProfessionalTeam {
   id: number;
@@ -97,7 +99,7 @@ export default function AdminMatchesPage() {
   return (
     <div className="space-y-6 max-w-7xl mx-auto py-8">
       <div>
-        <h1 className="text-3xl font-bold text-white">Match Management</h1>
+        <h1 className="flex items-center gap-3 text-3xl font-bold text-white"><BarChart3 className="h-8 w-8 text-amber-400" />Match Management</h1>
         <p className="mt-1 text-slate-400">View match sync status and trigger re-fetches.</p>
       </div>
 

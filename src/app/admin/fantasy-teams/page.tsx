@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useCallback, useEffect, useMemo } from 'react';
-import { Search, Users, Trophy, Eye } from 'lucide-react';
+import { Search, Users, Trophy, Eye, Swords } from 'lucide-react';
+
 
 interface FantasyTeam {
   id: string;
@@ -60,7 +61,7 @@ export default function AdminFantasyTeamsPage() {
   return (
     <div className="space-y-6 max-w-7xl mx-auto py-8">
       <div>
-        <h1 className="text-3xl font-bold text-white">Fantasy Teams</h1>
+        <h1 className="flex items-center gap-3 text-3xl font-bold text-white"><Swords className="h-8 w-8 text-amber-400" />Fantasy Teams</h1>
         <p className="mt-1 text-slate-400">View and manage all user fantasy teams across the active season.</p>
       </div>
 
