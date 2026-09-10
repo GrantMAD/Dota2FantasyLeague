@@ -74,3 +74,58 @@ export async function GET(request: NextRequest, context: RouteContext) {
     return NextResponse.json({ error: 'An unexpected error occurred.' }, { status: 500 });
   }
 }
+
+/**
+ * PATCH /api/gameweeks/[id]
+ * Updates mutable fields on a gameweek (status, deadline, start_date, end_date).
+ */
+export async function PATCH(request: NextRequest, context: RouteContext) {
+  try {
+    const params = await context.params;
+    const gameweekId = parseInt(params.id, 10);
+    if (isNaN(gameweekId)) {
+      return NextResponse.json({ error: 'Invalid gameweek ID.' }, { status: 400 });
+    }
+
+    const body = await request.json();
+
+    const VALID_STATUSES = ['upcoming', 'active', 'locked'];
+    const allowed = ['status', 'deadline', 'start_date', 'end_date'];
+    const update: Record<string, unknown> = {};
+
+    for (const key of allowed) {
+      if (Object.prototype.hasOwnProperty.call(body, key)) {
+        if (key === 'status' && !VALID_STATUSES.includes(body[key])) {
+          return NextResponse.json(
+            { error: `Invalid status. Must be one of: ${VALID_STATUSES.join(', ')}` },
+            { status: 400 }
+          );
+        }
+        update[key] = body[key];
+      }
+    }
+
+    if (Object.keys(update).length === 0) {
+      return NextResponse.json({ error: 'No valid fields to update.' }, { status: 400 });
+    }
+
+    const supabase = supabaseServer();
+
+    const { data, error } = await (supabase.from('gameweeks') as any)
+      .update(update)
+      .eq('id', gameweekId)
+      .select()
+      .single();
+
+    if (error) {
+      return NextResponse.json(
+        { error: 'Failed to update gameweek.', details: error.message },
+        { status: 500 }
+      );
+    }
+
+    return NextResponse.json({ data });
+  } catch (error: unknown) {
+    return NextResponse.json({ error: 'An unexpected error occurred.' }, { status: 500 });
+  }
+}
