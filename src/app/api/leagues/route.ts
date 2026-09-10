@@ -12,6 +12,7 @@ interface LeagueRow {
   current_participants: number;
   invite_code: string | null;
   status: string;
+  created_at: string | null;
   league_participants: Array<{ id: number; user_id: string; points: number; rank: number | null; wins: number; losses: number; draws: number; users: { username: string; display_name: string | null } | null; fantasy_seasons?: { gameweek_points_latest: number | null } | null }>;
   head_to_head_matchups: Array<{ id: number; gameweek_id: number; points_a: number; points_b: number; winner_id: number | null; is_bye: boolean; participant_a: { users: { username: string; display_name: string | null } | null } | null; participant_b: { users: { username: string; display_name: string | null } | null } | null }>;
 }
@@ -27,6 +28,7 @@ function serializeLeague(league: LeagueRow) {
     currentParticipants: league.current_participants,
     inviteCode: league.invite_code ?? '',
     status: league.status,
+    createdAt: league.created_at ?? new Date().toISOString(),
     standings: league.league_participants.map((participant) => ({
       userId: participant.user_id,
       manager: participant.users?.display_name || participant.users?.username || 'Manager',
@@ -68,7 +70,7 @@ export async function GET(request: NextRequest) {
     const privacy = request.nextUrl.searchParams.get('privacy');
     const supabase = supabaseServer();
     let query = (supabase.from('leagues') as any)
-      .select('id, name, league_type, privacy_level, description, max_participants, current_participants, invite_code, status, league_participants(id, user_id, points, rank, wins, losses, draws, users(id, username, display_name, avatar_url, bio), fantasy_seasons(gameweek_points_latest)), head_to_head_matchups(id, gameweek_id, points_a, points_b, winner_id, is_bye, participant_a:league_participants!participant_a_id(users(id, username, display_name, avatar_url, bio)), participant_b:league_participants!participant_b_id(users(id, username, display_name, avatar_url, bio)))')
+      .select('id, name, league_type, privacy_level, description, max_participants, current_participants, invite_code, status, created_at, league_participants(id, user_id, points, rank, wins, losses, draws, users(id, username, display_name, avatar_url, bio), fantasy_seasons(gameweek_points_latest)), head_to_head_matchups(id, gameweek_id, points_a, points_b, winner_id, is_bye, participant_a:league_participants!participant_a_id(users(id, username, display_name, avatar_url, bio)), participant_b:league_participants!participant_b_id(users(id, username, display_name, avatar_url, bio)))')
       .eq('status', 'active')
       .order('created_at', { ascending: false });
     if (type && type !== 'all') query = query.in('league_type', type === 'h2h' ? ['h2h', 'head_to_head'] : ['classic']);
@@ -76,7 +78,7 @@ export async function GET(request: NextRequest) {
     const { data, error } = await query;
     if (error) return NextResponse.json({ error: 'Failed to load leagues.' }, { status: 500 });
     const leagues = ((data ?? []) as LeagueRow[]).filter((league) => league.privacy_level !== 'private' || league.league_participants.some((participant) => participant.user_id === user.userId));
-    return NextResponse.json({ data: leagues.map(serializeLeague), count: leagues.length });
+    return NextResponse.json({ leagues: leagues.map(serializeLeague), count: leagues.length });
   } catch (error: unknown) {
     const status = typeof error === 'object' && error !== null && 'status' in error ? Number((error as { status: number }).status) : 500;
     return NextResponse.json({ error: error instanceof Error ? error.message : 'Unable to load leagues.' }, { status });

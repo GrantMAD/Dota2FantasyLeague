@@ -42,9 +42,9 @@ export default function AdminSidebar() {
   const pathname = usePathname();
 
   return (
-    <aside className="w-64 border-r border-gray-800 bg-gray-800">
+    <aside className="flex h-full w-64 flex-col border-r border-gray-800 bg-gray-800">
       {/* Logo / Home */}
-      <div className="border-b border-gray-700 p-6">
+      <div className="border-b border-gray-700 p-6 shrink-0">
         <Link href="/admin/dashboard" className="flex items-center gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-amber-500/20">
             <LayoutDashboard className="h-6 w-6 text-amber-400" />
@@ -56,8 +56,8 @@ export default function AdminSidebar() {
         </Link>
       </div>
 
-      {/* Navigation */}
-      <nav className="space-y-2 p-4">
+      {/* Navigation — scrolls independently if items overflow */}
+      <nav className="flex-1 overflow-y-auto space-y-2 p-4">
         {adminMenuItems.map((item) => {
           const Icon = item.icon;
           const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
@@ -79,8 +79,8 @@ export default function AdminSidebar() {
         })}
       </nav>
 
-      {/* Footer */}
-      <div className="absolute bottom-0 left-0 right-0 border-t border-gray-700 bg-gray-800/50 p-4">
+      {/* Footer — stays pinned at the bottom via flex column */}
+      <div className="shrink-0 border-t border-gray-700 bg-gray-800/50 p-4">
         <div className="text-xs text-gray-500">
           <p>v0.1.0</p>
           <p className="mt-1">

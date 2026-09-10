@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { CheckCircle } from 'lucide-react';
+import { CheckCircle, X } from 'lucide-react';
 
 
 export default function AdminScoringPage() {
@@ -15,6 +15,9 @@ export default function AdminScoringPage() {
   const [historicalReport, setHistoricalReport] = useState<any>(null);
   const [historicalLoading, setHistoricalLoading] = useState(false);
   const [historicalRange, setHistoricalRange] = useState({ seasonId: '1', gameweekFrom: '', gameweekTo: '' });
+  // Publish modal state
+  const [showPublishModal, setShowPublishModal] = useState(false);
+  const [publishGameweekId, setPublishGameweekId] = useState('');
 
   // Simulator state
   const [simLoading, setSimLoading] = useState(false);
@@ -45,9 +48,10 @@ export default function AdminScoringPage() {
       setLoading(true);
       const res = await fetch('/api/admin/scoring/rules');
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error);
+      if (!res.ok) throw new Error(data.error || 'Failed to fetch rules');
       
-      const versions = Object.values(data).sort((a: any, b: any) => b.version - a.version);
+      // API returns an array of version groups
+      const versions = (Array.isArray(data) ? data : []).sort((a: any, b: any) => b.version - a.version);
       setRuleVersions(versions);
       
       if (!selectedVersion && versions.length > 0) {
@@ -67,8 +71,15 @@ export default function AdminScoringPage() {
   const handleCreateDraft = async () => {
     try {
       setLoading(true);
-      const res = await fetch('/api/admin/scoring/rules', { method: 'POST', body: JSON.stringify({}) });
-      if (!res.ok) throw new Error('Failed to create draft version');
+      const res = await fetch('/api/admin/scoring/rules', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      });
+      if (!res.ok) {
+        const d = await res.json();
+        throw new Error(d.error || 'Failed to create draft version');
+      }
       await fetchRules();
     } catch (err: any) {
       setError(err.message);
@@ -99,20 +110,23 @@ export default function AdminScoringPage() {
   };
 
   const handlePublish = async () => {
-    const gameweekId = prompt('Enter the Gameweek ID from which this version should be effective (e.g., 2):');
-    if (!gameweekId) return;
-
+    if (!publishGameweekId.trim()) {
+      setError('Please enter a Gameweek ID.');
+      return;
+    }
     try {
       setLoading(true);
+      setShowPublishModal(false);
       const res = await fetch('/api/admin/scoring/publish', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ version: selectedVersion, gameweekId })
+        body: JSON.stringify({ version: selectedVersion, gameweekId: publishGameweekId })
       });
       if (!res.ok) {
         const data = await res.json();
         throw new Error(data.error || 'Failed to publish');
       }
+      setPublishGameweekId('');
       await fetchRules();
     } catch (err: any) {
       setError(err.message);
@@ -154,7 +168,9 @@ export default function AdminScoringPage() {
     setBalanceLoading(true);
     setError(null);
     try {
-      const res = await fetch('/api/admin/scoring/balance?seasonId=1');
+      // Use the season from the first loaded rule version, fall back to 1
+      const seasonId = ruleVersions[0]?.rules?.[0]?.season_id ?? 1;
+      const res = await fetch(`/api/admin/scoring/balance?seasonId=${seasonId}`);
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to load balance report');
       setBalanceReport(data);
@@ -327,7 +343,7 @@ export default function AdminScoringPage() {
               
               {currentVersionData && (
                 <span className={`text-xs px-2 py-1 rounded-full ${isDraft ? 'bg-amber-900/50 text-amber-400' : 'bg-emerald-900/50 text-emerald-400'}`}>
-                  {isDraft ? 'DRAFT' : `Active from GW ${currentVersionData.effective_from_gameweek_id}`}
+                  {isDraft ? 'DRAFT' : currentVersionData.effective_from_gameweek_id != null ? `Active from GW ${currentVersionData.effective_from_gameweek_id}` : 'Published'}
                 </span>
               )}
             </div>
@@ -335,7 +351,7 @@ export default function AdminScoringPage() {
             <div className="flex space-x-3">
               {isDraft ? (
                 <button 
-                  onClick={handlePublish}
+                  onClick={() => { setPublishGameweekId(''); setShowPublishModal(true); }}
                   className="bg-emerald-600 hover:bg-emerald-500 text-white text-sm px-4 py-2 rounded shadow transition"
                 >
                   Publish Version {selectedVersion}
@@ -343,9 +359,9 @@ export default function AdminScoringPage() {
               ) : (
                 <button 
                   onClick={handleCreateDraft}
-                  className="bg-blue-600 hover:bg-blue-500 text-white text-sm px-4 py-2 rounded shadow transition"
+                  className="bg-emerald-600 hover:bg-emerald-500 text-white text-sm px-4 py-2 rounded shadow transition"
                 >
-                  Create New Draft
+                  Create New Draft Version
                 </button>
               )}
             </div>
@@ -354,6 +370,10 @@ export default function AdminScoringPage() {
           {/* Rules Table */}
           {loading ? (
             <div className="text-center p-12 text-slate-400">Loading rules...</div>
+          ) : ruleVersions.length === 0 ? (
+            <div className="text-center p-12 text-slate-500 bg-slate-800/30 border border-slate-700 rounded-lg">
+              No scoring rule versions found. Create a draft to get started.
+            </div>
           ) : currentVersionData && (
             <div className="bg-slate-900 rounded-lg border border-slate-700 overflow-hidden">
               <table className="min-w-full divide-y divide-slate-800">
@@ -546,6 +566,48 @@ export default function AdminScoringPage() {
             )}
           </div>
         </div>
+      )}
+
+      {/* Publish Modal */}
+      {showPublishModal && (
+        <>
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40" onClick={() => setShowPublishModal(false)} />
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <div className="bg-slate-900 border border-slate-700 rounded-xl shadow-2xl w-full max-w-sm p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg font-bold text-white">Publish Version {selectedVersion}</h2>
+                <button onClick={() => setShowPublishModal(false)} className="text-slate-400 hover:text-white p-1">
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+              <p className="text-sm text-slate-400 mb-4">
+                Enter the Gameweek ID from which these scoring rules should take effect.
+              </p>
+              <input
+                type="number"
+                min="1"
+                value={publishGameweekId}
+                onChange={e => setPublishGameweekId(e.target.value)}
+                placeholder="e.g. 2"
+                className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white text-sm mb-4 focus:outline-none focus:border-emerald-500"
+              />
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowPublishModal(false)}
+                  className="flex-1 px-4 py-2 rounded-lg border border-slate-600 text-slate-300 hover:text-white text-sm transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handlePublish}
+                  className="flex-1 px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-sm transition-colors"
+                >
+                  Publish
+                </button>
+              </div>
+            </div>
+          </div>
+        </>
       )}
     </div>
   );

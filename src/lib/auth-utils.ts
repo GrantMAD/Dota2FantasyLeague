@@ -22,16 +22,20 @@ export async function verifyAuth(request: Request): Promise<{
 }> {
   const authHeader = request.headers.get('authorization');
   const cookieHeader = request.headers.get('cookie') ?? '';
-  const cookieToken = cookieHeader
-    .split(';')
-    .map((cookie) => cookie.trim())
-    .find((cookie) => cookie.startsWith('sb-auth-token='))
-    ?.slice('sb-auth-token='.length);
-  const refreshToken = cookieHeader
-    .split(';')
-    .map((cookie) => cookie.trim())
-    .find((cookie) => cookie.startsWith('sb-refresh-token='))
-    ?.slice('sb-refresh-token='.length);
+  const cookies = cookieHeader.split(';').map((c) => c.trim());
+  // Supabase JS v2 uses the pattern: sb-<project-ref>-auth-token
+  const authCookie = cookies.find(
+    (c) => c.startsWith('sb-') && c.includes('-auth-token=')
+  );
+  const cookieToken = authCookie
+    ? authCookie.slice(authCookie.indexOf('=') + 1)
+    : undefined;
+  const refreshCookie = cookies.find(
+    (c) => c.startsWith('sb-') && c.includes('-refresh-token=')
+  );
+  const refreshToken = refreshCookie
+    ? refreshCookie.slice(refreshCookie.indexOf('=') + 1)
+    : undefined;
 
   const token = authHeader?.startsWith('Bearer ')
     ? authHeader.substring(7)

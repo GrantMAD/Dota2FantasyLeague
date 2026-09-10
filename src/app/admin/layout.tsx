@@ -14,8 +14,8 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
       <AdminSidebar />
 
       {/* Main Content */}
-      <main className="flex-1 overflow-auto">
-        <div className="min-h-screen bg-gray-900 text-white">
+      <main className="flex-1 overflow-y-auto">
+        <div className="min-h-full bg-gray-900 text-white">
           {/* Top Bar */}
           <div className="border-b border-gray-800 bg-gray-800/50 px-8 py-4">
             <div className="flex items-center justify-between">
