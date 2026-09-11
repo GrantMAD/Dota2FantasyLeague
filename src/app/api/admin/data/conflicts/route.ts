@@ -25,8 +25,8 @@ export async function GET(request: NextRequest) {
   const entityType: 'player' | 'team' | 'tournament' | 'match' | undefined = entityTypeParam 
     ? (entityTypeParam as 'player' | 'team' | 'tournament' | 'match') 
     : undefined;
-  const statusParam = searchParams.get('status') || 'unresolved';
-  const status = statusParam as 'unresolved' | 'resolved' | 'ignored';
+  const statusParam = searchParams.get('status') || 'all';
+  const status = statusParam as 'unresolved' | 'resolved' | 'ignored' | 'all';
   const limit = parseInt(searchParams.get('limit') || '50', 10);
 
   try {

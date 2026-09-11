@@ -157,24 +157,36 @@ export default function DataQualityPage() {
                     <div className="mt-3 space-y-2 rounded bg-gray-700/50 p-3 font-mono text-xs">
                       <div>
                         <span className="text-gray-400">Provider 1: </span>
-                        <span className="text-gray-300">{conflict.value_1}</span>
+                        <span className="text-gray-300">
+                          {typeof conflict.value_1 === 'object' ? JSON.stringify(conflict.value_1) : String(conflict.value_1 ?? '-')}
+                        </span>
                       </div>
                       <div>
                         <span className="text-gray-400">Provider 2: </span>
-                        <span className="text-gray-300">{conflict.value_2}</span>
+                        <span className="text-gray-300">
+                          {typeof conflict.value_2 === 'object' ? JSON.stringify(conflict.value_2) : String(conflict.value_2 ?? '-')}
+                        </span>
                       </div>
                     </div>
                   </div>
-                  <div className="shrink-0">
-                    <button
-                      onClick={() => {
-                        // TODO: Implement conflict resolution
-                        console.log('Resolve conflict:', conflict.id);
-                      }}
-                      className="rounded bg-amber-500/20 px-3 py-1 text-xs font-medium text-amber-400 hover:bg-amber-500/30"
-                    >
-                      Resolve
-                    </button>
+                  <div className="shrink-0 flex items-center gap-2">
+                    <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium uppercase ${
+                      conflict.status === 'resolved'
+                        ? 'bg-green-500/20 text-green-400'
+                        : 'bg-amber-500/20 text-amber-400'
+                    }`}>
+                      {conflict.status}
+                    </span>
+                    {conflict.status !== 'resolved' && (
+                      <button
+                        onClick={() => {
+                          console.log('Resolve conflict:', conflict.id);
+                        }}
+                        className="rounded bg-amber-500/20 px-3 py-1 text-xs font-medium text-amber-400 hover:bg-amber-500/30"
+                      >
+                        Resolve
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>
@@ -206,13 +218,14 @@ export default function DataQualityPage() {
 
 interface QualityMetricBadgeProps {
   label: string;
-  value: number;
+  value?: number | null;
   target: number;
 }
 
 function QualityMetricBadge({ label, value, target }: QualityMetricBadgeProps) {
-  const percentage = Math.round(value * 100);
-  const isGood = value >= target;
+  const numValue = typeof value === 'number' && !isNaN(value) ? value : 0;
+  const percentage = Math.round(numValue * 100);
+  const isGood = numValue >= target;
 
   return (
     <div className={`rounded-lg border p-4 ${isGood ? 'border-green-500/30 bg-green-500/10' : 'border-yellow-500/30 bg-yellow-500/10'}`}>
@@ -222,7 +235,7 @@ function QualityMetricBadge({ label, value, target }: QualityMetricBadgeProps) {
       <div className="mt-2 h-2 overflow-hidden rounded-full bg-gray-700">
         <div
           className={`h-full ${isGood ? 'bg-green-500' : 'bg-yellow-500'}`}
-          style={{ width: `${percentage}%` }}
+          style={{ width: `${Math.min(100, Math.max(0, percentage))}%` }}
         />
       </div>
       <p className={`mt-2 text-2xl font-bold ${isGood ? 'text-green-400' : 'text-yellow-400'}`}>

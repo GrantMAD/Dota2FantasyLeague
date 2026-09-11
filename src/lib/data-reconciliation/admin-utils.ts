@@ -22,7 +22,7 @@ export async function verifyAdminAuth(request: Request): Promise<string | null> 
 
 export async function getDataConflicts(
   entityType?: 'player' | 'team' | 'tournament' | 'match',
-  status: 'unresolved' | 'resolved' | 'ignored' = 'unresolved',
+  status: 'unresolved' | 'resolved' | 'ignored' | 'all' = 'all',
   limit: number = 50
 ): Promise<Record<string, unknown>[]> {
   const supabase = getSupabaseServerClient();
@@ -30,9 +30,12 @@ export async function getDataConflicts(
   let query = supabase
     .from('data_conflicts')
     .select('*')
-    .eq('status', status)
     .order('created_at', { ascending: false })
     .limit(limit);
+
+  if (status && status !== 'all') {
+    query = query.eq('status', status);
+  }
 
   if (entityType) {
     query = query.eq('entity_type', entityType);
@@ -227,7 +230,16 @@ export async function resolveDuplication(
 export async function getDataQualityMetrics(
   entityType?: 'player' | 'team' | 'tournament' | 'match',
   limit: number = 100
-): Promise<{ entities: Record<string, unknown>[]; summary: { total: number; quality_distribution: Record<string, number>; average_score: number } | null }> {
+): Promise<{
+  entities: Record<string, unknown>[];
+  overall_score?: number;
+  completeness_score?: number;
+  consistency_score?: number;
+  freshness_score?: number;
+  reliability_score?: number;
+  issues?: string[];
+  summary: { total: number; quality_distribution: Record<string, number>; average_score: number } | null;
+}> {
   const supabase = getSupabaseServerClient();
 
   let query = supabase
@@ -247,8 +259,18 @@ export async function getDataQualityMetrics(
     return { entities: [], summary: null };
   }
 
-  // Calculate summary
-  const scores = data || [];
+  // Calculate summary and overall dimensional averages
+  const scores = (data || []) as Array<{
+    overall_score?: number;
+    completeness_score?: number;
+    consistency_score?: number;
+    freshness_score?: number;
+    reliability_score?: number;
+    issues?: string[];
+    entity_type?: string;
+    entity_id?: string;
+  }>;
+
   const qualityCounts = {
     excellent: 0,
     good: 0,
@@ -257,21 +279,45 @@ export async function getDataQualityMetrics(
     critical: 0,
   };
 
+  const allIssues: string[] = [];
+
   for (const score of scores) {
-    if (score.overall_score > 0.9) qualityCounts.excellent++;
-    else if (score.overall_score > 0.8) qualityCounts.good++;
-    else if (score.overall_score > 0.7) qualityCounts.fair++;
-    else if (score.overall_score > 0.5) qualityCounts.poor++;
+    const oScore = Number(score.overall_score) || 0;
+    if (oScore > 0.9) qualityCounts.excellent++;
+    else if (oScore > 0.8) qualityCounts.good++;
+    else if (oScore > 0.7) qualityCounts.fair++;
+    else if (oScore > 0.5) qualityCounts.poor++;
     else qualityCounts.critical++;
+
+    if (Array.isArray(score.issues)) {
+      allIssues.push(...score.issues);
+    }
   }
+
+  // Check if there is an explicit global/system score row
+  const systemRow = scores.find((s) => s.entity_type === 'system' && s.entity_id === 'global');
+
+  const count = scores.length || 1;
+  const avg = (key: 'overall_score' | 'completeness_score' | 'consistency_score' | 'freshness_score' | 'reliability_score') => {
+    if (systemRow && systemRow[key] !== undefined && systemRow[key] !== null) {
+      return Number(systemRow[key]);
+    }
+    const sum = scores.reduce((acc, curr) => acc + (Number(curr[key]) || 0), 0);
+    return Math.round((sum / count) * 100) / 100;
+  };
 
   return {
     entities: scores,
+    overall_score: avg('overall_score'),
+    completeness_score: avg('completeness_score'),
+    consistency_score: avg('consistency_score'),
+    freshness_score: avg('freshness_score'),
+    reliability_score: avg('reliability_score'),
+    issues: allIssues,
     summary: {
       total: scores.length,
       quality_distribution: qualityCounts,
-      average_score:
-        scores.reduce((sum: number, s: Record<string, unknown>) => sum + (s.overall_score as number), 0) / scores.length || 0,
+      average_score: avg('overall_score'),
     },
   };
 }
