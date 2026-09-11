@@ -99,7 +99,10 @@ export default function AdminAuditPage() {
             className="px-4 py-2 bg-slate-900 border border-slate-600 rounded-lg text-white focus:outline-none focus:border-amber-500 text-sm grow md:max-w-xs"
           />
 
-          <button onClick={fetchLogs} className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white font-medium rounded-lg text-sm transition-colors">
+          <button 
+            onClick={fetchLogs} 
+            className="px-4 py-2 rounded-lg text-sm font-semibold transition-colors bg-amber-100 hover:bg-amber-200 text-amber-900 border border-amber-300 dark:bg-amber-500/20 dark:hover:bg-amber-500/30 dark:text-amber-400 dark:border-transparent"
+          >
             Refresh
           </button>
         </div>

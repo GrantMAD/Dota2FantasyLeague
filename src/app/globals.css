@@ -973,6 +973,50 @@ body {
   border-bottom-color: var(--border) !important;
 }
 
+/* Admin Audit & Table Containers Light Mode */
+[data-theme='light'] .bg-slate-800\/50.border-slate-700 {
+  background-color: var(--surface) !important;
+  border-color: var(--border) !important;
+}
+
+[data-theme='light'] .bg-slate-800\/80.border-slate-700 {
+  background-color: var(--surface-raised) !important;
+  border-color: var(--border) !important;
+}
+
+[data-theme='light'] tr.bg-slate-800\/50 {
+  background-color: var(--surface-muted) !important;
+}
+
+[data-theme='light'] tr.hover\:bg-slate-700\/30:hover {
+  background-color: var(--surface-raised) !important;
+}
+
+[data-theme='light'] .divide-slate-700\/50 > :not([hidden]) ~ :not([hidden]) {
+  border-color: var(--border) !important;
+}
+
+[data-theme='light'] button.border-slate-600.bg-slate-800 {
+  background-color: var(--surface-raised) !important;
+  border-color: var(--border) !important;
+  color: var(--text-primary) !important;
+}
+
+[data-theme='light'] button.border-slate-600.bg-slate-800:hover:not(:disabled) {
+  background-color: var(--surface-muted) !important;
+}
+
+[data-theme='light'] button.bg-amber-500\/20 {
+  background-color: #fef3c7 !important;
+  color: #92400e !important;
+  border: 1px solid #f59e0b !important;
+}
+
+[data-theme='light'] button.bg-amber-500\/20:hover {
+  background-color: #fde68a !important;
+  color: #78350f !important;
+}
+
 /* ─────────────────────────────────────────────────────────────────────────── */
 
 /* Hide scrollbar while preserving scroll functionality */
