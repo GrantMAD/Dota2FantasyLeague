@@ -157,10 +157,10 @@ export default function AdminFantasyTeamsPage() {
                       ${team.budgetRemaining}M
                     </td>
                     <td className="px-4 py-3">
-                      <span className={`text-xs px-2 py-0.5 rounded border ${
+                      <span className={`text-xs px-2 py-0.5 rounded border font-medium ${
                         team.lastActive === '2026-09-02'
-                          ? 'bg-green-500/10 text-green-400 border-green-500/20'
-                          : 'bg-slate-700/50 text-slate-400 border-slate-600'
+                          ? 'bg-green-100 text-green-800 border-green-300 dark:bg-green-500/10 dark:text-green-400 dark:border-green-500/20'
+                          : 'bg-slate-200 text-slate-800 border-slate-300 dark:bg-slate-700/50 dark:text-slate-300 dark:border-slate-600'
                       }`}>
                         {team.lastActive}
                       </span>
