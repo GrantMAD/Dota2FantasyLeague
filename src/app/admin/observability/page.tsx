@@ -53,8 +53,14 @@ export default function AdminObservabilityPage() {
         <div><h1 className="flex items-center gap-3 text-3xl font-bold text-white"><Activity className="h-8 w-8 text-amber-400" />Live Observability</h1><p className="mt-1 text-gray-400">Background job health, failures, latency, and response cache status.</p></div>
         <button onClick={load} className="rounded bg-amber-500/20 px-4 py-2 text-amber-400 hover:bg-amber-500/30">Refresh</button>
       </div>
-      <div className={`rounded border p-4 ${data.health.healthy ? 'border-emerald-700 bg-emerald-900/20 text-emerald-300' : 'border-red-700 bg-red-900/20 text-red-300'}`}>
-        System health: {data.health.healthy ? 'Healthy' : 'Needs attention'}
+      <div
+        className={`rounded border p-4 font-medium transition-colors ${
+          data.health.healthy
+            ? 'border-emerald-700 bg-emerald-900/20 text-emerald-300'
+            : 'border-red-700 bg-red-900/20 text-red-300'
+        }`}
+      >
+        <span className="font-semibold">System health:</span> {data.health.healthy ? 'Healthy' : 'Needs attention'}
         {data.health.issues?.length ? ` - ${data.health.issues.join(', ')}` : ''}
       </div>
       <div className="grid grid-cols-1 gap-4 md:grid-cols-5">

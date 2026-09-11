@@ -941,6 +941,38 @@ body {
   color: var(--text-secondary) !important;
 }
 
+/* Admin Observability Light Mode Overrides */
+[data-theme='light'] .border-emerald-700.bg-emerald-900\/20 {
+  background-color: #ecfdf5 !important;
+  border-color: #6ee7b7 !important;
+  color: #065f46 !important;
+}
+
+[data-theme='light'] .border-red-700.bg-red-900\/20 {
+  background-color: #fef2f2 !important;
+  border-color: #fca5a5 !important;
+  color: #991b1b !important;
+}
+
+[data-theme='light'] .border-gray-700.bg-gray-800\/50 {
+  background-color: var(--surface) !important;
+  border-color: var(--border) !important;
+}
+
+[data-theme='light'] .border-gray-700.bg-gray-800\/50 .text-white,
+[data-theme='light'] .border-gray-700.bg-gray-800\/50 h2.text-white,
+[data-theme='light'] .border-gray-700.bg-gray-800\/50 span.font-medium.text-white {
+  color: var(--text-primary) !important;
+}
+
+[data-theme='light'] .border-gray-700.bg-gray-800\/50 .text-gray-400 {
+  color: var(--text-muted) !important;
+}
+
+[data-theme='light'] .border-gray-700.bg-gray-800\/50 .border-b.border-gray-700 {
+  border-bottom-color: var(--border) !important;
+}
+
 /* ─────────────────────────────────────────────────────────────────────────── */
 
 /* Hide scrollbar while preserving scroll functionality */
