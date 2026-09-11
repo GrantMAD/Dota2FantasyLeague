@@ -7,11 +7,12 @@ import { supabaseServer } from '@/lib/supabase';
  */
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const supabase = supabaseServer();
-    const id = parseInt(params.id, 10);
+    const { id: rawId } = await params;
+    const id = parseInt(rawId, 10);
 
     if (isNaN(id)) {
       return NextResponse.json({ error: 'Invalid team id' }, { status: 400 });

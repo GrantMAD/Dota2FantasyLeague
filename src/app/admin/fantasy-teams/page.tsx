@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useEffect, useMemo } from 'react';
 import { Search, Users, Trophy, Eye, Swords } from 'lucide-react';
-
+import AdminTeamDetailModal from '@/components/admin/AdminTeamDetailModal';
 
 interface FantasyTeam {
   id: string;
@@ -19,6 +19,7 @@ export default function AdminFantasyTeamsPage() {
   const [teams, setTeams] = useState<FantasyTeam[]>([]);
   const [query, setQuery] = useState('');
   const [loading, setLoading] = useState(true);
+  const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null);
 
   useEffect(() => {
     async function loadFantasyTeams() {
@@ -116,24 +117,31 @@ export default function AdminFantasyTeamsPage() {
                 <th className="px-4 py-3 font-medium text-right">Leagues</th>
                 <th className="px-4 py-3 font-medium text-right">Budget Left</th>
                 <th className="px-4 py-3 font-medium">Last Active</th>
+                <th className="px-4 py-3 font-medium text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-700/50">
               {filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-6 py-12 text-center text-slate-400">
+                  <td colSpan={8} className="px-6 py-12 text-center text-slate-400">
                     No fantasy teams found.
                   </td>
                 </tr>
               ) : (
                 filtered.map((team) => (
-                  <tr key={team.id} className="hover:bg-slate-700/30 transition-colors">
+                  <tr
+                    key={team.id}
+                    onClick={() => setSelectedTeamId(team.id)}
+                    className="hover:bg-slate-700/40 cursor-pointer transition-colors group"
+                  >
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-lg bg-amber-500/20 flex items-center justify-center shrink-0">
+                        <div className="w-8 h-8 rounded-lg bg-amber-500/20 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
                           <Trophy className="w-4 h-4 text-amber-400" />
                         </div>
-                        <span className="font-medium text-white text-sm">{team.name}</span>
+                        <span className="font-medium text-white text-sm group-hover:text-amber-400 transition-colors">
+                          {team.name}
+                        </span>
                       </div>
                     </td>
                     <td className="px-4 py-3">
@@ -165,6 +173,19 @@ export default function AdminFantasyTeamsPage() {
                         {team.lastActive}
                       </span>
                     </td>
+                    <td className="px-4 py-3 text-right">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedTeamId(team.id);
+                        }}
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold text-amber-400 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 rounded-lg transition-colors"
+                        title="Inspect team details"
+                      >
+                        <Eye className="w-3.5 h-3.5" />
+                        Inspect
+                      </button>
+                    </td>
                   </tr>
                 ))
               )}
@@ -172,6 +193,14 @@ export default function AdminFantasyTeamsPage() {
           </table>
         </div>
       </div>
+
+      {/* Admin Team Detail Inspection Modal */}
+      {selectedTeamId && (
+        <AdminTeamDetailModal
+          teamId={selectedTeamId}
+          onClose={() => setSelectedTeamId(null)}
+        />
+      )}
     </div>
   );
 }

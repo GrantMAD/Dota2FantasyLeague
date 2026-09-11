@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
 
@@ -88,12 +88,39 @@ type PlayerResponse = { player?: PlayerDetail | null };
 
 export default function PlayerDetailPage() {
   const params = useParams();
+  const searchParams = useSearchParams();
   const id = params.id as string;
+  const [isFromAdminFantasyTeams, setIsFromAdminFantasyTeams] = useState(false);
   
   const [player, setPlayer] = useState<PlayerDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedMatch, setSelectedMatch] = useState<MatchHistoryItem | null>(null);
+
+  useEffect(() => {
+    // Check multiple indicators in case router.push, SSR, or client hydration varies
+    const queryFrom = searchParams.get('from');
+    const windowSearch = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('from') : null;
+    const referrer = typeof document !== 'undefined' ? document.referrer : '';
+    const storedFrom = typeof sessionStorage !== 'undefined' ? sessionStorage.getItem('player_nav_from') : null;
+
+    if (
+      queryFrom === 'admin-fantasy-teams' ||
+      windowSearch === 'admin-fantasy-teams' ||
+      storedFrom === 'admin-fantasy-teams' ||
+      referrer.includes('/admin/fantasy-teams')
+    ) {
+      setIsFromAdminFantasyTeams(true);
+      if (typeof sessionStorage !== 'undefined') {
+        sessionStorage.setItem('player_nav_from', 'admin-fantasy-teams');
+      }
+    } else if (referrer.includes('/players')) {
+      setIsFromAdminFantasyTeams(false);
+      if (typeof sessionStorage !== 'undefined') {
+        sessionStorage.removeItem('player_nav_from');
+      }
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     async function fetchPlayer() {
@@ -256,10 +283,25 @@ export default function PlayerDetailPage() {
   return (
     <div className="max-w-5xl mx-auto px-4 py-8">
       {/* Back nav */}
-      <Link href="/players" className="inline-flex items-center text-sm text-slate-400 hover:text-white mb-6 transition-colors">
-         <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
-         Back to Players
-      </Link>
+      {isFromAdminFantasyTeams ? (
+        <Link
+          href="/admin/fantasy-teams"
+          onClick={() => {
+            if (typeof sessionStorage !== 'undefined') {
+              sessionStorage.removeItem('player_nav_from');
+            }
+          }}
+          className="inline-flex items-center text-sm font-medium text-amber-400 hover:text-amber-300 mb-6 transition-colors group"
+        >
+          <svg className="w-4 h-4 mr-1.5 transition-transform group-hover:-translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
+          Back to Fantasy Teams
+        </Link>
+      ) : (
+        <Link href="/players" className="inline-flex items-center text-sm text-slate-400 hover:text-white mb-6 transition-colors">
+          <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
+          Back to Players
+        </Link>
+      )}
 
       {/* Hero Banner */}
       <div className="bg-linear-to-r from-slate-900 to-slate-800 border border-slate-700 rounded-2xl overflow-hidden mb-8 shadow-xl">
