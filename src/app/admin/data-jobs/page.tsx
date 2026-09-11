@@ -3,8 +3,38 @@
 import { useEffect, useState } from 'react';
 import { CheckCircle, AlertCircle, Clock, Play, SkipForward, Zap } from 'lucide-react';
 
+function formatDateTime(val: string | null | undefined, fallback = '-'): string {
+  if (!val) return fallback;
+  const d = new Date(val);
+  if (isNaN(d.getTime())) return fallback;
+  return d.toLocaleString();
+}
+
+function formatNextRun(val: string | null | undefined): string {
+  if (!val) return '-';
+  if (val.startsWith('Cron:')) {
+    return val;
+  }
+  const d = new Date(val);
+  if (isNaN(d.getTime())) {
+    return val;
+  }
+  const diffMs = d.getTime() - Date.now();
+  if (diffMs > 0) {
+    const diffMins = Math.round(diffMs / 60000);
+    if (diffMins < 60) {
+      return `${d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} (in ${diffMins}m)`;
+    }
+    const diffHours = Math.floor(diffMins / 60);
+    const remMins = diffMins % 60;
+    return `${d.toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })} (in ${diffHours}h ${remMins}m)`;
+  }
+  return d.toLocaleString();
+}
+
 interface JobStatus {
   job_name: string;
+  schedule?: string | null;
   status: 'idle' | 'running' | 'completed' | 'failed';
   last_run: string;
   last_duration_ms: number;
@@ -44,10 +74,11 @@ export default function DataJobsPage() {
         const rawJobs = data.jobs || [];
         const normalizedJobs = rawJobs.map((j: any) => ({
           job_name: j.name || j.job_name,
+          schedule: j.schedule || null,
           status: j.status?.status || j.status || 'idle',
           last_run: j.status?.startedAt || j.last_run || null,
           last_duration_ms: j.status?.duration || j.last_duration_ms || null,
-          next_run: j.schedule ? `Cron: ${j.schedule}` : (j.next_run || null),
+          next_run: j.next_run || (j.schedule ? `Cron: ${j.schedule}` : null),
           metadata: j.status?.result || j.metadata || null,
         }));
         setJobs(normalizedJobs);
@@ -149,7 +180,7 @@ export default function DataJobsPage() {
                   <p className="mt-1 text-xs text-red-300/80">{fj.error_message}</p>
                   {fj.next_retry_at && !fj.is_dead_letter && (
                     <p className="mt-0.5 text-xs text-slate-500">
-                      Next retry: {new Date(fj.next_retry_at).toLocaleString()}
+                      Next retry: {formatDateTime(fj.next_retry_at)}
                     </p>
                   )}
                 </div>
@@ -238,7 +269,14 @@ function JobCard({ job, onTrigger, disabled }: JobCardProps) {
           <div className="flex items-center gap-3">
             <div className={statusColor}>{statusIcon}</div>
             <div>
-              <h3 className="font-semibold text-white">{job.job_name}</h3>
+              <div className="flex items-center gap-2">
+                <h3 className="font-semibold text-white">{job.job_name}</h3>
+                {job.schedule && (
+                  <span className="rounded bg-slate-700/60 px-2 py-0.5 font-mono text-xs text-slate-400">
+                    {job.schedule}
+                  </span>
+                )}
+              </div>
               <p className={`text-sm ${statusColor}`}>
                 {job.status === 'running'
                   ? 'Running...'
@@ -255,7 +293,7 @@ function JobCard({ job, onTrigger, disabled }: JobCardProps) {
             <div>
               <p className="text-xs text-gray-400">Last Run</p>
               <p className="mt-1 font-mono text-sm text-gray-300">
-                {job.last_run ? new Date(job.last_run).toLocaleString() : 'Never'}
+                {formatDateTime(job.last_run, 'Never')}
               </p>
             </div>
             <div>
@@ -267,7 +305,7 @@ function JobCard({ job, onTrigger, disabled }: JobCardProps) {
             <div>
               <p className="text-xs text-gray-400">Next Run</p>
               <p className="mt-1 font-mono text-sm text-gray-300">
-                {job.next_run ? new Date(job.next_run).toLocaleString() : '-'}
+                {formatNextRun(job.next_run)}
               </p>
             </div>
           </div>
