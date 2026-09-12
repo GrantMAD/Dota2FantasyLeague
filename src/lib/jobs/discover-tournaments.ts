@@ -62,8 +62,8 @@ export async function discoverTournaments(): Promise<DiscoveryResult> {
               .from('tournaments')
               .update({
                 name: tournament.name,
-                status: 'active',
-                tier: tournament.tier,
+                status: 'eligible',
+                tier: tournament.tier || existing.tier,
                 last_synced_at: new Date().toISOString(),
               })
               .eq('id', existing.id);
@@ -73,30 +73,55 @@ export async function discoverTournaments(): Promise<DiscoveryResult> {
           } else {
             // Create new tournament
             // Get or create a default season first
-            const { data: season } = await supabase
+            let { data: season } = await supabase
               .from('seasons')
               .select('id')
               .order('created_at', { ascending: false })
               .limit(1)
-              .single();
+              .maybeSingle();
+
+            if (!season) {
+              const currentYear = new Date().getFullYear();
+              const { data: newSeason, error: seasonError } = await supabase
+                .from('seasons')
+                .insert({
+                  name: `Season ${currentYear}`,
+                  slug: `season-${currentYear}`,
+                  status: 'active',
+                  start_date: `${currentYear}-01-01`,
+                  end_date: `${currentYear}-12-31`,
+                  starting_budget: 100.0,
+                  max_players_per_team: 3,
+                  squad_size: 5,
+                  starters_required: 5,
+                  bench_size: 0,
+                })
+                .select('id')
+                .single();
+
+              if (!seasonError && newSeason) {
+                season = newSeason;
+              }
+            }
 
             const seasonId = season?.id || 1;
 
-            // Validate dates exist before converting
-            if (!tournament.startDate || !tournament.endDate) {
-              throw new Error(`Tournament ${tournament.id} missing start or end date`);
-            }
+            const startDateObj = tournament.startDate ? new Date(tournament.startDate) : new Date();
+            // If endDate is missing, default to 14 days after start date
+            const endDateObj = tournament.endDate
+              ? new Date(tournament.endDate)
+              : new Date(startDateObj.getTime() + 14 * 24 * 60 * 60 * 1000);
 
             const { error } = await supabase
               .from('tournaments')
               .insert({
                 season_id: seasonId,
                 name: tournament.name,
-                slug: tournament.id.toString(),
-                status: 'upcoming',
-                tier: tournament.tier,
-                start_date: new Date(tournament.startDate).toISOString().split('T')[0],
-                end_date: new Date(tournament.endDate).toISOString().split('T')[0],
+                slug: `${tournament.id}-${tournament.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')}`,
+                status: 'provisional',
+                tier: tournament.tier || 'Professional',
+                start_date: startDateObj.toISOString().split('T')[0],
+                end_date: endDateObj.toISOString().split('T')[0],
                 eligible: true,
                 last_synced_at: new Date().toISOString(),
               });

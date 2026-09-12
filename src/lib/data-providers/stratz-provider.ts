@@ -374,6 +374,13 @@ export class StratzProvider extends DataProviderBase implements DataProvider {
         lastUpdated: new Date(),
       }));
     } catch (error) {
+      if (process.env.ENABLE_PROVIDER_FALLBACK !== 'false') {
+        this.log('warn', `STRATZ tournaments fetch failed (${(error as Error).message}), falling back to OpenDota`);
+        const { OpenDotaProvider } = await import('./opendota-provider');
+        const fallback = new OpenDotaProvider();
+        return fallback.fetchTournaments(filters);
+      }
+
       throw this.createError(
         'STRATZ_TOURNAMENTS_FETCH_FAILED',
         `Failed to fetch tournaments from STRATZ: ${(error as Error).message}`,
@@ -432,6 +439,13 @@ export class StratzProvider extends DataProviderBase implements DataProvider {
         lastUpdated: new Date(),
       }));
     } catch (error) {
+      if (process.env.ENABLE_PROVIDER_FALLBACK !== 'false') {
+        this.log('warn', `STRATZ matches fetch failed (${(error as Error).message}), falling back to OpenDota`);
+        const { OpenDotaProvider } = await import('./opendota-provider');
+        const fallback = new OpenDotaProvider();
+        return fallback.fetchMatches(tournamentId, filters);
+      }
+
       throw this.createError(
         'STRATZ_MATCHES_FETCH_FAILED',
         `Failed to fetch matches from STRATZ: ${(error as Error).message}`,
@@ -546,6 +560,12 @@ export class StratzProvider extends DataProviderBase implements DataProvider {
     } catch (error) {
       if ((error as DataProviderError).code === 'STRATZ_MATCH_NOT_FOUND') {
         throw error;
+      }
+      if (process.env.ENABLE_PROVIDER_FALLBACK !== 'false') {
+        this.log('warn', `STRATZ match details fetch failed for ${matchId} (${(error as Error).message}), falling back to OpenDota`);
+        const { OpenDotaProvider } = await import('./opendota-provider');
+        const fallback = new OpenDotaProvider();
+        return fallback.fetchMatchDetails(matchId);
       }
       throw this.createError(
         'STRATZ_MATCH_DETAILS_FETCH_FAILED',

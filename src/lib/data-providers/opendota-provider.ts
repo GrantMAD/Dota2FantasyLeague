@@ -239,25 +239,26 @@ export class OpenDotaProvider extends DataProviderBase implements DataProvider {
 
   async fetchTournaments(filters?: DataProviderFilters & { status?: 'upcoming' | 'active' | 'concluded'; minTier?: string }): Promise<TournamentData[]> {
     try {
-      // OpenDota has limited tournament data via pro_matches
+      // OpenDota has limited tournament data via proMatches
       // This is a simplified implementation
-      const response = await this.request('/pro_matches', {
-        less_than_match_id: (filters?.offset || 0).toString(),
-        limit: Math.min(filters?.limit || 100, 100).toString(),
-      });
+      const queryParams: Record<string, string | number | undefined> = {};
+      if (filters?.offset && filters.offset > 0) {
+        queryParams.less_than_match_id = filters.offset.toString();
+      }
+      const response = await this.request('/proMatches', queryParams);
 
       // Group matches by tournament/event
       const tournamentsMap = new Map<string, TournamentData>();
 
       for (const match of response || []) {
-        const tournamentKey = match.series_id?.toString() || match.league_id?.toString();
+        const tournamentKey = match.leagueid ? String(match.leagueid) : (match.series_id ? String(match.series_id) : null);
 
         if (!tournamentKey) continue;
 
         if (!tournamentsMap.has(tournamentKey)) {
           tournamentsMap.set(tournamentKey, {
             id: tournamentKey,
-            name: match.series_name || `Series ${match.series_id}`,
+            name: match.league_name || match.series_name || `Tournament ${tournamentKey}`,
             region: undefined,
             prizePool: undefined,
             currency: 'USD',
@@ -272,13 +273,15 @@ export class OpenDotaProvider extends DataProviderBase implements DataProvider {
         }
 
         const tournament = tournamentsMap.get(tournamentKey)!;
-        if (!tournament.teams?.includes(String(match.radiant_team_id))) {
+        if (match.radiant_team_id && !tournament.teams?.includes(String(match.radiant_team_id))) {
           tournament.teams?.push(String(match.radiant_team_id));
         }
-        if (!tournament.teams?.includes(String(match.dire_team_id))) {
+        if (match.dire_team_id && !tournament.teams?.includes(String(match.dire_team_id))) {
           tournament.teams?.push(String(match.dire_team_id));
         }
-        tournament.matches?.push(String(match.match_id));
+        if (match.match_id) {
+          tournament.matches?.push(String(match.match_id));
+        }
       }
 
       return Array.from(tournamentsMap.values());
@@ -298,23 +301,26 @@ export class OpenDotaProvider extends DataProviderBase implements DataProvider {
     filters?: DataProviderFilters & { status?: 'scheduled' | 'live' | 'concluded' }
   ): Promise<MatchData[]> {
     try {
-      const response = await this.request('/pro_matches', {
-        less_than_match_id: (filters?.offset || 0).toString(),
-        limit: Math.min(filters?.limit || 100, 100).toString(),
-      });
+      const queryParams: Record<string, string | number | undefined> = {};
+      if (filters?.offset && filters.offset > 0) {
+        queryParams.less_than_match_id = filters.offset.toString();
+      }
+      const response = await this.request('/proMatches', queryParams);
 
-      return (response || []).map((m: any) => ({
-        id: String(m.match_id),
-        tournamentId: String(m.series_id || m.league_id),
-        team1Id: String(m.radiant_team_id),
-        team2Id: String(m.dire_team_id),
-        scheduledAt: new Date(m.start_time * 1000),
-        startedAt: m.start_time ? new Date(m.start_time * 1000) : undefined,
-        endedAt: m.start_time && m.duration ? new Date((m.start_time + m.duration) * 1000) : undefined,
-        status: m.radiant_win !== undefined ? 'concluded' : 'upcoming',
-        seriesStatus: undefined,
-        lastUpdated: new Date(),
-      }));
+      return (response || [])
+        .filter((m: any) => !tournamentId || String(m.leagueid) === tournamentId || String(m.series_id) === tournamentId)
+        .map((m: any) => ({
+          id: String(m.match_id),
+          tournamentId: String(m.leagueid || m.series_id || tournamentId || '0'),
+          team1Id: String(m.radiant_team_id),
+          team2Id: String(m.dire_team_id),
+          scheduledAt: new Date(m.start_time * 1000),
+          startedAt: m.start_time ? new Date(m.start_time * 1000) : undefined,
+          endedAt: m.start_time && m.duration ? new Date((m.start_time + m.duration) * 1000) : undefined,
+          status: m.radiant_win !== undefined ? 'concluded' : 'upcoming',
+          seriesStatus: undefined,
+          lastUpdated: new Date(),
+        }));
     } catch (error) {
       throw this.createError(
         'OPENDOTA_MATCHES_FETCH_FAILED',
