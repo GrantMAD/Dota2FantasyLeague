@@ -27,6 +27,7 @@ export default function AdminPlayersPage() {
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | PlayerStatus>('all');
+  const [rosteredOnly, setRosteredOnly] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [draft, setDraft] = useState<PlayerRecord>({
     id: 0,
@@ -41,7 +42,14 @@ export default function AdminPlayersPage() {
   useEffect(() => {
     async function loadPlayers() {
       try {
-        const res = await fetch('/api/players?limit=100');
+        const params = new URLSearchParams({
+          limit: '100',
+        });
+        if (rosteredOnly) {
+          params.append('rostered', 'true');
+        }
+
+        const res = await fetch(`/api/players?${params.toString()}`);
         if (res.ok) {
           const json = await res.json();
           const items = Array.isArray(json.data) ? json.data : [];
@@ -51,7 +59,7 @@ export default function AdminPlayersPage() {
               name: p.in_game_name || p.name,
               team: p.professional_teams?.name || 'Free Agent',
               role: p.primary_role || 'Carry',
-              price: p.current_price || 5.5,
+              price: Number(p.current_price ?? 0),
               status: (p.availability_status === 'inactive' ? 'inactive' : 'active') as PlayerStatus,
               fantasyPoints: p.gameweek_points || 0,
             }))
@@ -64,7 +72,7 @@ export default function AdminPlayersPage() {
       }
     }
     loadPlayers();
-  }, []);
+  }, [rosteredOnly]);
 
   const filteredPlayers = useMemo(() => {
     return players.filter((player) => {
@@ -72,9 +80,10 @@ export default function AdminPlayersPage() {
         .toLowerCase()
         .includes(query.toLowerCase());
       const matchesStatus = statusFilter === 'all' || player.status === statusFilter;
-      return matchesQuery && matchesStatus;
+      const matchesRostered = !rosteredOnly || player.team !== 'Free Agent';
+      return matchesQuery && matchesStatus && matchesRostered;
     });
-  }, [players, query, statusFilter]);
+  }, [players, query, statusFilter, rosteredOnly]);
 
   const totalValue = players.reduce((sum, player) => sum + player.price, 0);
 
@@ -157,7 +166,20 @@ export default function AdminPlayersPage() {
             </div>
           </div>
 
-          <div className="flex gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setRosteredOnly(!rosteredOnly)}
+              className={`flex items-center gap-2 rounded px-3 py-2 text-sm font-semibold border transition ${
+                rosteredOnly
+                  ? 'border-amber-500/50 bg-amber-500/15 text-amber-300'
+                  : 'border-gray-700 bg-gray-900/60 text-gray-400 hover:text-white'
+              }`}
+            >
+              <span className={`h-2 w-2 rounded-full ${rosteredOnly ? 'bg-amber-400' : 'bg-gray-600'}`} />
+              <span>Signed Rosters Only</span>
+            </button>
+
             {(['all', 'active', 'inactive', 'flagged'] as const).map((option) => (
               <button
                 key={option}
