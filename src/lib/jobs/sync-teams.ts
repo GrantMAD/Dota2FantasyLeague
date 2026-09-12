@@ -117,7 +117,8 @@ async function processSyncBatch(
 
   for (const team of teams) {
     try {
-      const existing = existingTeams.get(team.id);
+      const existing = existingTeams.get(team.id.toString()) || 
+        (team.name ? existingTeams.get(team.name.toLowerCase().trim()) : undefined);
 
       if (existing) {
         // Prepare update data
@@ -173,7 +174,7 @@ async function processSyncBatch(
               1,
               existingObj,
               updateData,
-              'automated_sync',
+              'sync',
               'Team data updated from STRATZ provider',
               'stratz',
               undefined,
@@ -189,7 +190,7 @@ async function processSyncBatch(
               changed_fields: versionRecord.changed_fields,
               change_reason: versionRecord.change_reason,
               changed_by_provider: versionRecord.changed_by_provider,
-              change_source: versionRecord.change_source,
+              change_source: 'sync',
               confidence_score: versionRecord.confidence_score,
               is_approved: versionRecord.is_approved,
               created_at: versionRecord.created_at,
@@ -200,6 +201,10 @@ async function processSyncBatch(
         }
 
         results.updated++;
+        existingTeams.set(team.id.toString(), existing);
+        if (team.name) {
+          existingTeams.set(team.name.toLowerCase().trim(), existing);
+        }
       } else {
         // Create new team
         const newTeamData = {
@@ -214,10 +219,17 @@ async function processSyncBatch(
         const { data: insertedTeam, error } = await supabase
           .from('professional_teams')
           .insert(newTeamData)
-          .select('id')
+          .select('id, name, slug, region, logo_url, created_at, updated_at')
           .single();
 
         if (error) throw error;
+
+        if (insertedTeam) {
+          existingTeams.set(team.id.toString(), insertedTeam as any);
+          if (team.name) {
+            existingTeams.set(team.name.toLowerCase().trim(), insertedTeam as any);
+          }
+        }
 
         // Create version record
         if (insertedTeam) {
@@ -228,7 +240,7 @@ async function processSyncBatch(
               1,
               {},
               newTeamData,
-              'automated_sync',
+              'sync',
               'New team created from STRATZ provider',
               'stratz',
               undefined,
@@ -244,7 +256,7 @@ async function processSyncBatch(
               changed_fields: versionRecord.changed_fields,
               change_reason: versionRecord.change_reason,
               changed_by_provider: versionRecord.changed_by_provider,
-              change_source: versionRecord.change_source,
+              change_source: 'sync',
               confidence_score: versionRecord.confidence_score,
               is_approved: versionRecord.is_approved,
               created_at: versionRecord.created_at,
@@ -354,6 +366,9 @@ async function getExistingTeams(): Promise<Map<string, ProfessionalTeam>> {
   for (const team of data || []) {
     if (team.data_provider_id) {
       teamMap.set(team.data_provider_id, team);
+    }
+    if (team.name) {
+      teamMap.set(team.name.toLowerCase().trim(), team);
     }
   }
 

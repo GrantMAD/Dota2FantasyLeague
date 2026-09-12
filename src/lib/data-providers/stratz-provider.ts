@@ -244,6 +244,13 @@ export class StratzProvider extends DataProviderBase implements DataProvider {
         lastUpdated: new Date(),
       }));
     } catch (error) {
+      if (process.env.ENABLE_PROVIDER_FALLBACK !== 'false') {
+        this.log('warn', `STRATZ teams fetch failed (${(error as Error).message}), falling back to OpenDota`);
+        const { OpenDotaProvider } = await import('./opendota-provider');
+        const fallback = new OpenDotaProvider();
+        return fallback.fetchTeams(filters);
+      }
+
       throw this.createError(
         'STRATZ_TEAMS_FETCH_FAILED',
         `Failed to fetch teams from STRATZ: ${(error as Error).message}`,
@@ -306,6 +313,12 @@ export class StratzProvider extends DataProviderBase implements DataProvider {
     } catch (error) {
       if ((error as DataProviderError).code === 'STRATZ_TEAM_NOT_FOUND') {
         throw error;
+      }
+      if (process.env.ENABLE_PROVIDER_FALLBACK !== 'false') {
+        this.log('warn', `STRATZ team fetch failed for ${teamId} (${(error as Error).message}), falling back to OpenDota`);
+        const { OpenDotaProvider } = await import('./opendota-provider');
+        const fallback = new OpenDotaProvider();
+        return fallback.fetchTeam(teamId);
       }
       throw this.createError(
         'STRATZ_TEAM_FETCH_FAILED',

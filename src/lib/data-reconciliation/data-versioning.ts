@@ -19,7 +19,7 @@ export interface DataVersionRecord {
   change_reason: string;
   changed_by_provider?: 'stratz' | 'opendota' | 'manual_override' | 'system';
   changed_by_user?: string; // Admin user ID for manual changes
-  change_source: 'automated_sync' | 'conflict_resolution' | 'manual_override' | 'api_correction';
+  change_source: 'sync' | 'admin_override' | 'deduplication' | 'conflict_resolution' | 'automated_sync' | 'manual_override' | 'api_correction';
   confidence_score?: number; // 0.0 to 1.0
   is_approved: boolean;
   approved_by?: string;
@@ -51,7 +51,7 @@ export function createVersionRecord(
   versionNumber: number,
   previousValues: Record<string, unknown>,
   newValues: Record<string, unknown>,
-  changeSource: 'automated_sync' | 'conflict_resolution' | 'manual_override' | 'api_correction',
+  changeSource: 'sync' | 'admin_override' | 'deduplication' | 'conflict_resolution' | 'automated_sync' | 'manual_override' | 'api_correction',
   changeReason: string,
   provider?: 'stratz' | 'opendota' | 'manual_override' | 'system',
   userId?: string,

@@ -69,14 +69,14 @@ const JOBS: JobDefinition[] = [
     schedule: '0 3 * * *', // Daily at 3 AM UTC
     handler: syncPlayers,
     enabled: process.env.ENABLE_PLAYER_SYNC !== 'false',
-    timeout: 10 * 60 * 1000, // 10 minutes
+    timeout: 30 * 60 * 1000, // 30 minutes
   },
   {
     name: 'sync-teams',
     schedule: '15 3 * * *', // Daily at 3:15 AM UTC
     handler: syncTeams,
     enabled: process.env.ENABLE_TEAM_SYNC !== 'false',
-    timeout: 10 * 60 * 1000,
+    timeout: 15 * 60 * 1000,
   },
   {
     name: 'discover-tournaments',
