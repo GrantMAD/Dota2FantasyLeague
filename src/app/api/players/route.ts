@@ -32,6 +32,7 @@ export async function GET(request: NextRequest) {
     const teamId = searchParams.get('team_id');
     const role = searchParams.get('role');
     const search = searchParams.get('search');
+    const rosteredOnly = searchParams.get('rostered') === 'true';
     const sortBy = searchParams.get('sort');
     const sortDesc = searchParams.get('desc') !== 'false'; // default true
     const limit = Math.min(parseInt(searchParams.get('limit') || '50'), 100);
@@ -40,6 +41,10 @@ export async function GET(request: NextRequest) {
     let query = supabase
       .from('professional_players')
       .select('*, professional_teams(name, logo_url)', { count: 'exact' });
+
+    if (rosteredOnly) {
+      query = query.not('team_id', 'is', null);
+    }
 
     if (teamId) {
       query = query.eq('team_id', parseInt(teamId));

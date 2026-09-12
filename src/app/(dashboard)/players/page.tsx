@@ -27,6 +27,7 @@ export default function PlayersPage() {
   
   const [search, setSearch] = useState('');
   const [roleFilter, setRoleFilter] = useState('');
+  const [rosteredOnly, setRosteredOnly] = useState(true);
   const [page, setPage] = useState(1);
   const limit = 20;
 
@@ -53,6 +54,7 @@ export default function PlayersPage() {
         });
         if (debouncedSearch) params.append('search', debouncedSearch);
         if (roleFilter) params.append('role', roleFilter);
+        if (rosteredOnly) params.append('rostered', 'true');
 
         const res = await fetch(`/api/players?${params.toString()}`);
         if (!res.ok || cancelled) return;
@@ -70,7 +72,7 @@ export default function PlayersPage() {
     return () => {
       cancelled = true;
     };
-  }, [page, limit, debouncedSearch, roleFilter]);
+  }, [page, limit, debouncedSearch, roleFilter, rosteredOnly]);
 
   const totalPages = Math.ceil(total / limit);
 
@@ -101,7 +103,7 @@ export default function PlayersPage() {
       <div className="bg-slate-800/50 border border-slate-700 rounded-lg overflow-hidden">
         
         {/* Filters and Search */}
-        <div className="p-6 border-b border-slate-700 bg-slate-800/80 flex flex-col md:flex-row gap-4">
+        <div className="p-6 border-b border-slate-700 bg-slate-800/80 flex flex-col md:flex-row items-stretch md:items-center gap-4">
           <div className="grow">
             <input
               type="text"
@@ -111,7 +113,7 @@ export default function PlayersPage() {
               className="w-full px-4 py-2.5 bg-slate-900 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:border-amber-500 transition-colors"
             />
           </div>
-          <div className="w-full md:w-64 shrink-0">
+          <div className="w-full md:w-56 shrink-0">
             <select
               value={roleFilter}
               onChange={(e) => { setRoleFilter(e.target.value); setPage(1); }}
@@ -124,6 +126,20 @@ export default function PlayersPage() {
               <option value="Support">Support</option>
               <option value="Hard Support">Hard Support</option>
             </select>
+          </div>
+          <div className="shrink-0 flex items-center">
+            <button
+              type="button"
+              onClick={() => { setRosteredOnly(!rosteredOnly); setPage(1); }}
+              className={`flex items-center gap-2 px-3.5 py-2 rounded-lg border text-xs font-semibold transition ${
+                rosteredOnly
+                  ? 'border-amber-500/50 bg-amber-500/15 text-amber-300'
+                  : 'border-slate-600 bg-slate-900 text-slate-400 hover:text-white'
+              }`}
+            >
+              <span className={`h-2 w-2 rounded-full ${rosteredOnly ? 'bg-amber-400' : 'bg-slate-600'}`} />
+              <span>Signed Rosters Only</span>
+            </button>
           </div>
         </div>
 
@@ -167,16 +183,22 @@ export default function PlayersPage() {
                       </Link>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center text-slate-300">
-                        {player.professional_teams?.logo_url ? (
-                          <span className="player-team-logo-frame mr-2 flex h-5 w-5 items-center justify-center rounded-sm">
-                            <Image src={player.professional_teams.logo_url} alt="team" width={20} height={20} unoptimized className="h-full w-full rounded-sm object-contain" />
-                          </span>
-                        ) : (
-                          <div className="w-5 h-5 mr-2 bg-slate-700 rounded-sm"></div>
-                        )}
-                        {player.professional_teams?.name || 'Unknown Team'}
-                      </div>
+                      {player.professional_teams?.name ? (
+                        <div className="flex items-center text-slate-300">
+                          {player.professional_teams.logo_url ? (
+                            <span className="player-team-logo-frame mr-2 flex h-5 w-5 items-center justify-center rounded-sm">
+                              <Image src={player.professional_teams.logo_url} alt="team" width={20} height={20} unoptimized className="h-full w-full rounded-sm object-contain" />
+                            </span>
+                          ) : (
+                            <div className="w-5 h-5 mr-2 bg-slate-700 rounded-sm"></div>
+                          )}
+                          <span className="font-medium text-slate-200">{player.professional_teams.name}</span>
+                        </div>
+                      ) : (
+                        <span className="inline-flex items-center rounded-md border border-slate-700/80 bg-slate-800/60 px-2 py-0.5 text-xs text-slate-400">
+                          Free Agent
+                        </span>
+                      )}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className={`px-2.5 py-1 text-xs font-medium rounded-full border ${getRoleColor(player.primary_role)}`}>

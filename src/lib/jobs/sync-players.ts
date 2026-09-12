@@ -140,11 +140,15 @@ async function processSyncBatch(
             }
           }
 
+          const resolvedRole = (player.roles && player.roles[0]) ? player.roles[0] : 'Carry';
+
           if (existing) {
             // Prepare update data
             const updateData: Record<string, unknown> = {
               name: player.name,
+              in_game_name: player.name,
               country: player.country,
+              primary_role: existing.primary_role || resolvedRole,
               profile_image_url: player.imageUrl,
               last_synced_at: new Date().toISOString(),
             };
@@ -234,8 +238,10 @@ async function processSyncBatch(
             // Create new player
             const newPlayerData: Record<string, unknown> = {
               name: player.name,
+              in_game_name: player.name,
               slug: player.steamId.toString(),
               country: player.country,
+              primary_role: resolvedRole,
               team_id: resolvedTeamId,
               profile_image_url: player.imageUrl,
               data_provider_id: player.steamId.toString(),

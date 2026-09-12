@@ -110,9 +110,20 @@ export default function DataJobsPage() {
   async function getAuthHeaders(): Promise<Record<string, string>> {
     try {
       const { data } = await supabase.auth.getSession();
-      if (data.session?.access_token) {
+      let token = data.session?.access_token;
+      
+      // If token expires in less than 30s or already expired, refresh it
+      if (data.session && data.session.expires_at) {
+        const expiresAtMs = data.session.expires_at * 1000;
+        if (Date.now() > expiresAtMs - 30000) {
+          const { data: refreshed } = await supabase.auth.refreshSession();
+          token = refreshed.session?.access_token || token;
+        }
+      }
+
+      if (token) {
         return {
-          Authorization: `Bearer ${data.session.access_token}`,
+          Authorization: `Bearer ${token}`,
         };
       }
     } catch {

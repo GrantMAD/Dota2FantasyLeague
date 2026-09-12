@@ -311,7 +311,7 @@ export default function PlayerDetailPage() {
          
          <div className="px-8 pb-8 relative">
             <div className="flex flex-col md:flex-row md:items-end gap-6 -mt-16">
-               <div className="w-32 h-32 rounded-xl bg-slate-800 border-4 border-slate-900 shadow-lg overflow-hidden flex items-center justify-center shrink-0 z-10">
+               <div className="relative w-32 h-32 rounded-xl bg-slate-800 border-4 border-slate-900 shadow-lg overflow-hidden flex items-center justify-center shrink-0 z-10">
                   {player.profile_image_url ? (
                      <Image src={player.profile_image_url} alt={player.in_game_name} fill sizes="128px" unoptimized className="object-cover" />
                   ) : (
