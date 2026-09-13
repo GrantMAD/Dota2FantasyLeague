@@ -620,6 +620,13 @@ export class StratzProvider extends DataProviderBase implements DataProvider {
           role: undefined,
         }));
     } catch (error) {
+      if (process.env.ENABLE_PROVIDER_FALLBACK !== 'false') {
+        this.log('warn', `STRATZ roster history fetch failed for player ${playerId} (${(error as Error).message}), falling back to OpenDota`);
+        const { OpenDotaProvider } = await import('./opendota-provider');
+        const fallback = new OpenDotaProvider();
+        return fallback.fetchRosterHistory(playerId, dateRange);
+      }
+
       throw this.createError(
         'STRATZ_ROSTER_HISTORY_FETCH_FAILED',
         `Failed to fetch roster history for player ${playerId} from STRATZ: ${(error as Error).message}`,
