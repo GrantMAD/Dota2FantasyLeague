@@ -43,6 +43,9 @@ export async function fetchMatchDetails(): Promise<FetchDetailsResult> {
       const pendingMatches = await getPendingMatches();
       console.log(`[fetchMatchDetails] Found ${pendingMatches.length} matches pending details`);
 
+      // Preload player and team maps for resolving IDs
+      const { playerMap, teamMap } = await getEntityLookupMaps();
+
       // Process matches in batches
       const batchSize = 10;
       for (let i = 0; i < pendingMatches.length; i += batchSize) {
@@ -50,21 +53,77 @@ export async function fetchMatchDetails(): Promise<FetchDetailsResult> {
 
         for (const match of batch) {
           try {
+            const externalId = match.external_match_id || match.id.toString();
             // Fetch detailed stats from provider
-            const details = await provider.fetchMatchDetails(match.external_match_id || match.id.toString());
-            console.log(`[fetchMatchDetails] Fetched details for match ${match.id}`);
+            const details = await provider.fetchMatchDetails(externalId);
+            console.log(`[fetchMatchDetails] Fetched details for match ${match.id} (external: ${externalId})`);
 
             // Extract player stats from nested teams structure and store in match_player_stats table
             const statsToInsert: Omit<MatchPlayerStats, 'id' | 'created_at' | 'updated_at'>[] = [];
+            const supabase = getSupabaseServerClient();
             
             for (const team of details.teams || []) {
+              const teamProviderId = String(team.teamId || '');
+              let dbTeamId = teamMap.get(teamProviderId);
+              
+              // Fallback to match teams if provider team ID matches or cannot be found
+              if (!dbTeamId) {
+                if (teamProviderId && teamProviderId !== '0') {
+                  const { data: newTeam } = await (supabase.from('professional_teams') as any)
+                    .insert({
+                      name: `Team ${teamProviderId}`,
+                      slug: `team-${teamProviderId}`,
+                      data_provider_id: teamProviderId,
+                    })
+                    .select('id')
+                    .maybeSingle();
+                  if (newTeam) {
+                    dbTeamId = newTeam.id;
+                    teamMap.set(teamProviderId, newTeam.id);
+                  }
+                }
+                if (!dbTeamId) {
+                  dbTeamId = match.team_a_id || match.team_b_id || 1;
+                }
+              }
+
               for (const player of team.players || []) {
+                const playerProviderId = String(player.playerId || '');
+                let dbPlayerId = playerMap.get(playerProviderId);
+
+                if (!dbPlayerId && playerProviderId && playerProviderId !== '0' && playerProviderId !== 'unknown') {
+                  // Auto-register player if not yet in database
+                  const playerName = player.heroName ? `Player (${player.heroName})` : `Player ${playerProviderId}`;
+                  const { data: newPlayer } = await (supabase.from('professional_players') as any)
+                    .insert({
+                      name: playerName,
+                      in_game_name: playerName,
+                      slug: playerProviderId,
+                      data_provider_id: playerProviderId,
+                      primary_role: 'Carry',
+                      team_id: dbTeamId,
+                      availability_status: 'available',
+                    })
+                    .select('id')
+                    .maybeSingle();
+
+                  if (newPlayer) {
+                    dbPlayerId = newPlayer.id;
+                    playerMap.set(playerProviderId, newPlayer.id);
+                  }
+                }
+
+                if (!dbPlayerId) {
+                  // Skip player if we cannot resolve an internal database ID
+                  continue;
+                }
+
                 statsToInsert.push({
                   match_id: match.id,
-                  player_id: parseInt(player.playerId),
-                  team_id: parseInt(team.teamId),
-                  hero_id: player.heroId,
-                  hero_name: player.heroName,
+                  player_id: dbPlayerId,
+                  team_id: dbTeamId,
+                  hero_id: String(player.heroId || ''),
+                  hero_name: player.heroName || `Hero ${player.heroId}`,
                   kills: player.kills || 0,
                   deaths: player.deaths || 0,
                   assists: player.assists || 0,
@@ -84,8 +143,13 @@ export async function fetchMatchDetails(): Promise<FetchDetailsResult> {
             }
 
             if (statsToInsert.length > 0) {
-              const supabase = getSupabaseServerClient();
-              const { error: statsError } = await supabase.from('match_player_stats').insert(statsToInsert);
+              // Delete existing stats for this match if re-fetching to prevent duplicate key conflicts
+              await (supabase.from('match_player_stats') as any)
+                .delete()
+                .eq('match_id', match.id);
+
+              const { error: statsError } = await (supabase.from('match_player_stats') as any)
+                .insert(statsToInsert);
 
               if (statsError) {
                 throw statsError;
@@ -93,32 +157,27 @@ export async function fetchMatchDetails(): Promise<FetchDetailsResult> {
             }
 
             result.fetched++;
+            result.scored += statsToInsert.length;
 
-            // Calculate fantasy scores for all players in match
-            const scores = await calculateFantasyScoresForMatch(match, details);
-            console.log(
-              `[fetchMatchDetails] Calculated ${scores.length} fantasy scores for match ${match.id}`
-            );
+            // Mark match as having details fetched, and store duration / winner if available
+            const updateMatchPayload: Record<string, unknown> = {
+              detailed_stats_fetched_at: new Date().toISOString(),
+              last_synced_at: new Date().toISOString(),
+            };
 
-            // Insert fantasy scores into database
-            if (scores.length > 0) {
-              const supabase = getSupabaseServerClient();
-              const { error: scoresError } = await supabase.from('gameweek_scores').insert(scores);
-
-              if (scoresError) {
-                console.warn(`Failed to insert fantasy scores: ${scoresError.message}`);
+            if (details.duration) {
+              updateMatchPayload.duration_minutes = Math.round(details.duration / 60);
+            }
+            if (details.winner) {
+              const winnerDbId = teamMap.get(String(details.winner));
+              if (winnerDbId) {
+                updateMatchPayload.winner_team_id = winnerDbId;
               }
             }
 
-            result.scored += scores.length;
-
-            // Mark match as having details fetched
-            const supabase = getSupabaseServerClient();
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            await (supabase.from('matches') as any).update({
-              detailed_stats_fetched_at: new Date().toISOString(),
-              last_synced_at: new Date().toISOString(),
-            })
+            await (supabase.from('matches') as any)
+              .update(updateMatchPayload)
               .eq('id', match.id);
           } catch (error) {
             result.errors.push(
@@ -171,91 +230,32 @@ async function getPendingMatches(): Promise<Match[]> {
   return data || [];
 }
 
-interface PlayerStatistic {
-  playerId: string;
-  heroId: string;
-  heroName: string;
-  kills: number;
-  deaths: number;
-  assists: number;
-  goldPerMinute: number;
-  experiencePerMinute: number;
-  lastHits: number;
-  denies: number;
-  heroDamage: number;
-  towerDamage: number;
-  healing: number;
-  wardsPlaced: number;
-  wardsDestroyed: number;
-  firstBloodAchieved: boolean;
-  roshansKilled: number;
-}
+async function getEntityLookupMaps(): Promise<{
+  playerMap: Map<string, number>;
+  teamMap: Map<string, number>;
+}> {
+  const supabase = getSupabaseServerClient();
 
-interface FantasyScore {
-  fantasy_season_id: number | null;
-  player_id: number;
-  gameweek_id: number;
-  total_points: number;
-  captain_multiplier: number;
-  points_with_multiplier: number;
-  is_auto_substituted: boolean;
-}
+  const [playersRes, teamsRes] = await Promise.all([
+    (supabase.from('professional_players') as any).select('id, data_provider_id'),
+    (supabase.from('professional_teams') as any).select('id, data_provider_id'),
+  ]);
 
-async function calculateFantasyScoresForMatch(
-  match: Match,
-  details: {
-    teams: Array<{
-      teamId: string;
-      players: PlayerStatistic[];
-    }>;
-  }
-): Promise<FantasyScore[]> {
-  const scores: FantasyScore[] = [];
-
-  // Extract player stats and calculate fantasy scores
-  if (!details.teams || details.teams.length === 0) {
-    return scores;
-  }
-
-  for (const team of details.teams) {
-    for (const playerStat of team.players || []) {
-      try {
-        // Basic scoring calculation
-        // This is a simplified version - full scoring logic should be more complex
-        let points = 0;
-
-        // Combat points
-        points += playerStat.kills * 5;
-        points -= playerStat.deaths * 2;
-        points += playerStat.assists * 1.5;
-
-        // Economy points
-        points += Math.floor((playerStat.goldPerMinute || 0) / 50);
-        points += Math.floor((playerStat.experiencePerMinute || 0) / 50);
-
-        // Objective points
-        points += Math.floor((playerStat.heroDamage || 0) / 10000);
-        points += (playerStat.wardsPlaced || 0) * 0.5;
-        points -= (playerStat.wardsDestroyed || 0) * 0.25;
-
-        scores.push({
-          fantasy_season_id: null,
-          player_id: parseInt(playerStat.playerId),
-          gameweek_id: match.gameweek_id || 0,
-          total_points: points,
-          captain_multiplier: 1.0,
-          points_with_multiplier: points,
-          is_auto_substituted: false,
-        });
-      } catch (error) {
-        console.warn(
-          `Failed to calculate score for player ${playerStat.playerId}: ${error}`
-        );
-      }
+  const playerMap = new Map<string, number>();
+  for (const p of playersRes.data || []) {
+    if (p.data_provider_id) {
+      playerMap.set(String(p.data_provider_id), p.id);
     }
   }
 
-  return scores;
+  const teamMap = new Map<string, number>();
+  for (const t of teamsRes.data || []) {
+    if (t.data_provider_id) {
+      teamMap.set(String(t.data_provider_id), t.id);
+    }
+  }
+
+  return { playerMap, teamMap };
 }
 
 async function logJobExecution(

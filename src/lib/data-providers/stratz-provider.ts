@@ -559,6 +559,13 @@ export class StratzProvider extends DataProviderBase implements DataProvider {
       };
     } catch (error) {
       if ((error as DataProviderError).code === 'STRATZ_MATCH_NOT_FOUND') {
+        // Even if not found on Stratz, OpenDota might have it
+        if (process.env.ENABLE_PROVIDER_FALLBACK !== 'false') {
+          this.log('warn', `STRATZ match ${matchId} not found, trying OpenDota fallback`);
+          const { OpenDotaProvider } = await import('./opendota-provider');
+          const fallback = new OpenDotaProvider();
+          return fallback.fetchMatchDetails(matchId);
+        }
         throw error;
       }
       if (process.env.ENABLE_PROVIDER_FALLBACK !== 'false') {
@@ -665,10 +672,16 @@ export class StratzProvider extends DataProviderBase implements DataProvider {
       }
 
       if (!response.ok) {
+        let errorBody = '';
+        try {
+          errorBody = await response.text();
+        } catch {
+          // ignore
+        }
         const retryable = response.status >= 500 || response.status === 429;
         throw this.createError(
           'STRATZ_HTTP_ERROR',
-          `HTTP ${response.status}: ${response.statusText}`,
+          `HTTP ${response.status}: ${response.statusText}${errorBody ? ` - ${errorBody}` : ''}`,
           response.status,
           retryable
         );
