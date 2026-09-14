@@ -345,24 +345,42 @@ export class OpenDotaProvider extends DataProviderBase implements DataProvider {
         );
       }
 
+      const parseNumeric = (val: any): number => {
+        if (typeof val === 'number') return isNaN(val) ? 0 : Math.round(val);
+        if (typeof val === 'string') {
+          const parsed = Number(val);
+          return isNaN(parsed) ? 0 : Math.round(parsed);
+        }
+        if (typeof val === 'object' && val !== null) {
+          // OpenDota healing can be a dict mapping hero/npc names to healing values
+          return Math.round(
+            Object.values(val).reduce((sum: number, cur: any) => {
+              const num = Number(cur);
+              return sum + (isNaN(num) ? 0 : num);
+            }, 0)
+          );
+        }
+        return 0;
+      };
+
       const radiantPlayers = (match.players || [])
         .filter((p: any) => p.isRadiant)
         .map((p: any) => ({
           playerId: String(p.account_id || 'unknown'),
           heroId: String(p.hero_id),
           heroName: p.hero_name || 'Unknown',
-          kills: p.kills,
-          deaths: p.deaths,
-          assists: p.assists,
-          goldPerMinute: p.gold_per_min,
-          experiencePerMinute: p.xp_per_min,
-          lastHits: p.last_hits,
-          denies: p.denies,
-          heroDamage: p.hero_damage,
-          towerDamage: p.tower_damage,
-          healing: p.healing,
-          wardsPlaced: p.obs_placed,
-          wardsDestroyed: p.obs_left,
+          kills: parseNumeric(p.kills),
+          deaths: parseNumeric(p.deaths),
+          assists: parseNumeric(p.assists),
+          goldPerMinute: parseNumeric(p.gold_per_min),
+          experiencePerMinute: parseNumeric(p.xp_per_min),
+          lastHits: parseNumeric(p.last_hits),
+          denies: parseNumeric(p.denies),
+          heroDamage: parseNumeric(p.hero_damage),
+          towerDamage: parseNumeric(p.tower_damage),
+          healing: parseNumeric(p.hero_healing ?? p.healing),
+          wardsPlaced: parseNumeric(p.obs_placed),
+          wardsDestroyed: parseNumeric(p.obs_left),
           firstBloodAchieved: false, // Would need to check match events
           roshansKilled: 0, // Would need to check match events
         }));
@@ -373,18 +391,18 @@ export class OpenDotaProvider extends DataProviderBase implements DataProvider {
           playerId: String(p.account_id || 'unknown'),
           heroId: String(p.hero_id),
           heroName: p.hero_name || 'Unknown',
-          kills: p.kills,
-          deaths: p.deaths,
-          assists: p.assists,
-          goldPerMinute: p.gold_per_min,
-          experiencePerMinute: p.xp_per_min,
-          lastHits: p.last_hits,
-          denies: p.denies,
-          heroDamage: p.hero_damage,
-          towerDamage: p.tower_damage,
-          healing: p.healing,
-          wardsPlaced: p.obs_placed,
-          wardsDestroyed: p.obs_left,
+          kills: parseNumeric(p.kills),
+          deaths: parseNumeric(p.deaths),
+          assists: parseNumeric(p.assists),
+          goldPerMinute: parseNumeric(p.gold_per_min),
+          experiencePerMinute: parseNumeric(p.xp_per_min),
+          lastHits: parseNumeric(p.last_hits),
+          denies: parseNumeric(p.denies),
+          heroDamage: parseNumeric(p.hero_damage),
+          towerDamage: parseNumeric(p.tower_damage),
+          healing: parseNumeric(p.hero_healing ?? p.healing),
+          wardsPlaced: parseNumeric(p.obs_placed),
+          wardsDestroyed: parseNumeric(p.obs_left),
           firstBloodAchieved: false,
           roshansKilled: 0,
         }));

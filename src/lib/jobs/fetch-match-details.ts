@@ -92,24 +92,36 @@ export async function fetchMatchDetails(): Promise<FetchDetailsResult> {
                 let dbPlayerId = playerMap.get(playerProviderId);
 
                 if (!dbPlayerId && playerProviderId && playerProviderId !== '0' && playerProviderId !== 'unknown') {
-                  // Auto-register player if not yet in database
-                  const playerName = player.heroName ? `Player (${player.heroName})` : `Player ${playerProviderId}`;
-                  const { data: newPlayer } = await (supabase.from('professional_players') as any)
-                    .insert({
-                      name: playerName,
-                      in_game_name: playerName,
-                      slug: playerProviderId,
-                      data_provider_id: playerProviderId,
-                      primary_role: 'Carry',
-                      team_id: dbTeamId,
-                      availability_status: 'available',
-                    })
+                  // Check database in case player wasn't in initial in-memory chunk
+                  const { data: existingPlayer } = await (supabase.from('professional_players') as any)
                     .select('id')
+                    .or(`data_provider_id.eq.${playerProviderId},slug.eq.${playerProviderId}`)
+                    .limit(1)
                     .maybeSingle();
 
-                  if (newPlayer) {
-                    dbPlayerId = newPlayer.id;
-                    playerMap.set(playerProviderId, newPlayer.id);
+                  if (existingPlayer) {
+                    dbPlayerId = existingPlayer.id;
+                    playerMap.set(playerProviderId, existingPlayer.id);
+                  } else {
+                    // Auto-register player if genuinely not in database
+                    const playerName = player.heroName ? `Player (${player.heroName})` : `Player ${playerProviderId}`;
+                    const { data: newPlayer } = await (supabase.from('professional_players') as any)
+                      .insert({
+                        name: playerName,
+                        in_game_name: playerName,
+                        slug: playerProviderId,
+                        data_provider_id: playerProviderId,
+                        primary_role: 'Carry',
+                        team_id: dbTeamId,
+                        availability_status: 'available',
+                      })
+                      .select('id')
+                      .maybeSingle();
+
+                    if (newPlayer) {
+                      dbPlayerId = newPlayer.id;
+                      playerMap.set(playerProviderId, newPlayer.id);
+                    }
                   }
                 }
 
@@ -118,27 +130,46 @@ export async function fetchMatchDetails(): Promise<FetchDetailsResult> {
                   continue;
                 }
 
+                const parseNum = (v: any): number => {
+                  if (typeof v === 'number') return isNaN(v) ? 0 : Math.round(v);
+                  if (typeof v === 'string') {
+                    const parsed = Number(v);
+                    return isNaN(parsed) ? 0 : Math.round(parsed);
+                  }
+                  if (typeof v === 'object' && v !== null) {
+                    return Math.round(
+                      Object.values(v).reduce((acc: number, item: any) => {
+                        const n = Number(item);
+                        return acc + (isNaN(n) ? 0 : n);
+                      }, 0)
+                    );
+                  }
+                  return 0;
+                };
+
+                const heroIdInt = parseInt(String(player.heroId || '0'), 10);
+
                 statsToInsert.push({
                   match_id: match.id,
                   player_id: dbPlayerId,
                   team_id: dbTeamId,
-                  hero_id: String(player.heroId || ''),
+                  hero_id: isNaN(heroIdInt) ? 0 : heroIdInt,
                   hero_name: player.heroName || `Hero ${player.heroId}`,
-                  kills: player.kills || 0,
-                  deaths: player.deaths || 0,
-                  assists: player.assists || 0,
-                  gold_per_minute: player.goldPerMinute || 0,
-                  experience_per_minute: player.experiencePerMinute || 0,
-                  last_hits: player.lastHits || 0,
-                  denies: player.denies || 0,
-                  hero_damage: player.heroDamage || 0,
-                  tower_damage: player.towerDamage || 0,
-                  healing: player.healing || 0,
-                  wards_placed: player.wardsPlaced || 0,
-                  wards_destroyed: player.wardsDestroyed || 0,
-                  first_blood_achieved: player.firstBloodAchieved || false,
-                  roshan_kills: player.roshansKilled || 0,
-                });
+                  kills: parseNum(player.kills),
+                  deaths: parseNum(player.deaths),
+                  assists: parseNum(player.assists),
+                  gold_per_minute: parseNum(player.goldPerMinute),
+                  experience_per_minute: parseNum(player.experiencePerMinute),
+                  last_hits: parseNum(player.lastHits),
+                  denies: parseNum(player.denies),
+                  hero_damage: parseNum(player.heroDamage),
+                  tower_damage: parseNum(player.towerDamage),
+                  healing: parseNum(player.healing),
+                  wards_placed: parseNum(player.wardsPlaced),
+                  wards_destroyed: parseNum(player.wardsDestroyed),
+                  first_blood_achieved: Boolean(player.firstBloodAchieved),
+                  roshan_kills: parseNum(player.roshansKilled),
+                } as any);
               }
             }
 

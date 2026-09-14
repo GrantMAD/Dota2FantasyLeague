@@ -366,14 +366,29 @@ export class FantasyScoreCalculator {
               scoreBreakdown.performance -
               scoreBreakdown.penalty;
 
-            // Upsert the score breakdown
+            // Get performance_id for this player and match
+            const { data: perf } = await (this.supabase
+              .from('player_performances') as any)
+              .select('id')
+              .eq('player_id', targetPlayerId)
+              .eq('match_id', match.id)
+              .maybeSingle();
+
+            const performanceId = perf?.id;
+
+            if (!performanceId) {
+              result.errors.push(
+                `Missing performance record for player ${targetPlayerId} in match ${match.id}`
+              );
+              continue;
+            }
+
+            // Upsert the score breakdown using performance_id
             const { error: insertError } = await (this.supabase
               .from('fantasy_points_breakdown') as any)
               .upsert(
                 {
-                  player_id: targetPlayerId,
-                  match_id: match.id,
-                  gameweek_id: match.gameweek_id,
+                  performance_id: performanceId,
                   combat_points: scoreBreakdown.combat,
                   economy_points: scoreBreakdown.economy,
                   objective_points: scoreBreakdown.objective,
@@ -383,9 +398,8 @@ export class FantasyScoreCalculator {
                   performance_index_points: scoreBreakdown.performance,
                   consistency_points: scoreBreakdown.consistency,
                   penalty_points: scoreBreakdown.penalty,
-                  total_points: totalScore,
                 },
-                { onConflict: 'player_id,match_id' },
+                { onConflict: 'performance_id' },
               );
 
             if (insertError) {
