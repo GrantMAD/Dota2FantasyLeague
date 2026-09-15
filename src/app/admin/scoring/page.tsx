@@ -22,25 +22,25 @@ export default function AdminScoringPage() {
   // Simulator state
   const [simLoading, setSimLoading] = useState(false);
   const [simResult, setSimResult] = useState<any>(null);
-  const [simForm, setSimForm] = useState({
+  const [simForm, setSimForm] = useState<Record<string, string>>({
     matchId: '1',
     playerId: '1',
     teamId: '1',
-    duration_minutes: 40,
-    winner_team_id: 1,
-    kills: 0,
-    deaths: 0,
-    assists: 0,
-    gold_per_minute: 0,
-    experience_per_minute: 0,
-    last_hits: 0,
-    denies: 0,
-    hero_damage: 0,
-    tower_damage: 0,
-    healing: 0,
-    wards_placed: 0,
-    wards_destroyed: 0,
-    roshan_kills: 0
+    duration_minutes: '40',
+    winner_team_id: '1',
+    kills: '',
+    deaths: '',
+    assists: '',
+    gold_per_minute: '',
+    experience_per_minute: '',
+    last_hits: '',
+    denies: '',
+    hero_damage: '',
+    tower_damage: '',
+    healing: '',
+    wards_placed: '',
+    wards_destroyed: '',
+    roshan_kills: ''
   });
 
   const fetchRules = async () => {
@@ -140,6 +140,11 @@ export default function AdminScoringPage() {
     setSimResult(null);
     setError(null);
     
+    const toNum = (key: string, fallback = 0) => {
+      const parsed = Number(simForm[key]);
+      return isNaN(parsed) ? fallback : parsed;
+    };
+
     try {
       const res = await fetch('/api/admin/scoring/simulate', {
         method: 'POST',
@@ -149,8 +154,21 @@ export default function AdminScoringPage() {
           playerId: simForm.playerId,
           teamId: simForm.teamId,
           metrics: {
-            ...simForm,
-            winner_team_id: simForm.winner_team_id
+            duration_minutes: toNum('duration_minutes', 40),
+            winner_team_id: toNum('winner_team_id', 1),
+            kills: toNum('kills'),
+            deaths: toNum('deaths'),
+            assists: toNum('assists'),
+            gold_per_minute: toNum('gold_per_minute'),
+            experience_per_minute: toNum('experience_per_minute'),
+            last_hits: toNum('last_hits'),
+            denies: toNum('denies'),
+            hero_damage: toNum('hero_damage'),
+            tower_damage: toNum('tower_damage'),
+            healing: toNum('healing'),
+            wards_placed: toNum('wards_placed'),
+            wards_destroyed: toNum('wards_destroyed'),
+            roshan_kills: toNum('roshan_kills'),
           }
         })
       });
@@ -207,7 +225,8 @@ export default function AdminScoringPage() {
 
   const handleSimChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
-    setSimForm(prev => ({ ...prev, [name]: Number(value) }));
+    // Store raw string so user can clear the field before typing a new value
+    setSimForm(prev => ({ ...prev, [name]: value }));
   };
 
   const currentVersionData = ruleVersions.find(v => v.version === selectedVersion);
@@ -516,46 +535,46 @@ export default function AdminScoringPage() {
               <div className="space-y-2 text-slate-300">
                 <div className="flex justify-between border-b border-slate-800 pb-1">
                   <span>Combat</span>
-                  <span className={simResult.combat > 0 ? 'text-emerald-400' : ''}>{simResult.combat.toFixed(2)}</span>
+                  <span className={(simResult.combat ?? 0) > 0 ? 'text-emerald-400' : ''}>{(simResult.combat ?? 0).toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between border-b border-slate-800 pb-1">
                   <span>Economy</span>
-                  <span className={simResult.economy > 0 ? 'text-emerald-400' : ''}>{simResult.economy.toFixed(2)}</span>
+                  <span className={(simResult.economy ?? 0) > 0 ? 'text-emerald-400' : ''}>{(simResult.economy ?? 0).toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between border-b border-slate-800 pb-1">
                   <span>Objectives</span>
-                  <span className={simResult.objective > 0 ? 'text-emerald-400' : ''}>{simResult.objective.toFixed(2)}</span>
+                  <span className={(simResult.objective ?? 0) > 0 ? 'text-emerald-400' : ''}>{(simResult.objective ?? 0).toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between border-b border-slate-800 pb-1">
                   <span>Teamfight</span>
-                  <span className={simResult.teamfight > 0 ? 'text-emerald-400' : ''}>{simResult.teamfight.toFixed(2)}</span>
+                  <span className={(simResult.teamfight ?? 0) > 0 ? 'text-emerald-400' : ''}>{(simResult.teamfight ?? 0).toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between border-b border-slate-800 pb-1">
                   <span>Win</span>
-                  <span className={simResult.win > 0 ? 'text-emerald-400' : ''}>{simResult.win.toFixed(2)}</span>
+                  <span className={(simResult.win ?? 0) > 0 ? 'text-emerald-400' : ''}>{(simResult.win ?? 0).toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between border-b border-slate-800 pb-1">
                   <span>Series</span>
-                  <span className={simResult.series > 0 ? 'text-emerald-400' : ''}>{simResult.series.toFixed(2)}</span>
+                  <span className={(simResult.series ?? 0) > 0 ? 'text-emerald-400' : ''}>{(simResult.series ?? 0).toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between border-b border-slate-800 pb-1">
                   <span>Performance</span>
-                  <span className={simResult.performance > 0 ? 'text-emerald-400' : ''}>{simResult.performance.toFixed(2)}</span>
+                  <span className={(simResult.performance ?? 0) > 0 ? 'text-emerald-400' : ''}>{(simResult.performance ?? 0).toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between border-b border-slate-800 pb-1">
                   <span>Consistency</span>
-                  <span className={simResult.consistency > 0 ? 'text-emerald-400' : ''}>{simResult.consistency.toFixed(2)}</span>
+                  <span className={(simResult.consistency ?? 0) > 0 ? 'text-emerald-400' : ''}>{(simResult.consistency ?? 0).toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between border-b border-slate-700 pb-2 mb-2">
                   <span>Penalties</span>
-                  <span className={simResult.penalty < 0 ? 'text-red-400' : ''}>{simResult.penalty.toFixed(2)}</span>
+                  <span className={(simResult.penalty ?? 0) < 0 ? 'text-red-400' : ''}>{(simResult.penalty ?? 0).toFixed(2)}</span>
                 </div>
                 
                 <div className="flex justify-between text-lg font-bold text-white pt-2">
                   <span>TOTAL</span>
                   <span className="text-blue-400">
-                    {(simResult.combat + simResult.economy + simResult.objective + simResult.teamfight + 
-                      simResult.win + simResult.series + simResult.performance + simResult.consistency + simResult.penalty).toFixed(2)}
+                    {((simResult.combat ?? 0) + (simResult.economy ?? 0) + (simResult.objective ?? 0) + (simResult.teamfight ?? 0) +
+                      (simResult.win ?? 0) + (simResult.series ?? 0) + (simResult.performance ?? 0) + (simResult.consistency ?? 0) + (simResult.penalty ?? 0)).toFixed(2)}
                   </span>
                 </div>
               </div>

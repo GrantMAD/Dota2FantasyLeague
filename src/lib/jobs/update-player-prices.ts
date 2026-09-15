@@ -50,9 +50,10 @@ class UpdatePlayerPrices {
     };
 
     try {
+      // professional_players has no price or season_id column — prices live in player_prices
       const { data: playerData, error: playersError } = await this.supabase
         .from('professional_players')
-        .select('id, current_price, season_id')
+        .select('id')
         .limit(500) as any; // eslint-disable-line @typescript-eslint/no-explicit-any
 
       if (playersError) {
@@ -63,11 +64,35 @@ class UpdatePlayerPrices {
 
       const players = (Array.isArray(playerData) ? playerData : []) as any[]; // eslint-disable-line @typescript-eslint/no-explicit-any
 
+      // Resolve active season
+      const { data: seasonData } = await (this.supabase.from('seasons') as any)
+        .select('id')
+        .order('id', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      const seasonId = Number((seasonData as any)?.id ?? 1); // eslint-disable-line @typescript-eslint/no-explicit-any
+
+      // Resolve latest closed gameweek
+      const { data: gwData } = await (this.supabase.from('gameweeks') as any)
+        .select('id')
+        .eq('status', 'closed')
+        .order('id', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      const gameweekId = Number((gwData as any)?.id ?? 1); // eslint-disable-line @typescript-eslint/no-explicit-any
+
       for (const player of players) {
         try {
           const playerId = Number((player as any).id); // eslint-disable-line @typescript-eslint/no-explicit-any
-          const currentPrice = Number((player as any).current_price ?? 0); // eslint-disable-line @typescript-eslint/no-explicit-any
-          const seasonId = Number((player as any).season_id ?? 1); // eslint-disable-line @typescript-eslint/no-explicit-any
+
+          // Look up latest price from player_prices; default to 5.0 if no history
+          const { data: priceRow } = await (this.supabase.from('player_prices') as any)
+            .select('price')
+            .eq('player_id', playerId)
+            .order('gameweek_id', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+          const currentPrice = Number((priceRow as any)?.price ?? 5.0); // eslint-disable-line @typescript-eslint/no-explicit-any
 
           const recentFormDelta = this.getRecentFormDelta(playerId, seasonId);
           const ownershipFactor = this.getOwnershipFactor(playerId, seasonId);
@@ -78,7 +103,7 @@ class UpdatePlayerPrices {
             {
               season_id: seasonId,
               player_id: playerId,
-              gameweek_id: 1,
+              gameweek_id: gameweekId,
               price: nextPrice,
               price_change: Number((nextPrice - currentPrice).toFixed(2)),
               ownership_percentage: Math.max(0, Math.min(100, ownershipFactor * 100)),

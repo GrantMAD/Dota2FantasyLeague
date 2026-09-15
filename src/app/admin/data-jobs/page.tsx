@@ -410,6 +410,10 @@ export default function DataJobsPage() {
             <div className="font-mono font-medium text-amber-400">track-roster-changes</div>
             <div className="mt-1 text-slate-400">Daily at 05:00 UTC (Transfer window auditing)</div>
           </div>
+          <div className="rounded-lg border border-amber-500/20 bg-amber-950/20 p-3">
+            <div className="font-mono font-medium text-amber-300">transition-gameweeks</div>
+            <div className="mt-1 text-slate-400">Every 5 min — closes active gameweeks when deadline passes; must run before recalculate-gameweeks</div>
+          </div>
         </div>
       </div>
     </div>

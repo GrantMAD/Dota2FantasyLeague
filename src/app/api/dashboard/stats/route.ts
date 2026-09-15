@@ -30,7 +30,7 @@ export async function GET(request: NextRequest) {
        });
     }
 
-    // Get active/upcoming gameweek
+    // Get active/upcoming gameweek; fall back to most recent closed one
     const { data: gameweeks } = await supabase
       .from('gameweeks')
       .select('id, gameweek_number, deadline, status')
@@ -38,7 +38,18 @@ export async function GET(request: NextRequest) {
       .order('start_date', { ascending: true })
       .limit(1);
 
-    const gameweek = gameweeks && gameweeks.length > 0 ? gameweeks[0] : null;
+    let gameweek = gameweeks && gameweeks.length > 0 ? gameweeks[0] : null;
+
+    // No active/upcoming GW — fall back to the latest closed one so lineup still renders
+    if (!gameweek) {
+      const { data: closedGws } = await supabase
+        .from('gameweeks')
+        .select('id, gameweek_number, deadline, status')
+        .eq('status', 'closed')
+        .order('id', { ascending: false })
+        .limit(1);
+      gameweek = closedGws && closedGws.length > 0 ? closedGws[0] : null;
+    }
     
     const freeTransfers = fantasySeason.free_transfers || 0;
     
@@ -130,14 +141,26 @@ export async function GET(request: NextRequest) {
             name: string;
             in_game_name: string | null;
             primary_role: string;
-            current_price: number | null;
             professional_teams: { name: string } | null;
           };
 
           const { data: starterPlayers } = (await supabase
             .from('professional_players')
-            .select('id, name, in_game_name, primary_role, current_price, professional_teams(name)')
+            .select('id, name, in_game_name, primary_role, professional_teams(name)')
             .in('id', starterIds)) as { data: StarterQueryPlayer[] | null };
+
+          // Bulk-fetch latest prices from player_prices for these starters
+          const { data: starterPrices } = await supabase
+            .from('player_prices')
+            .select('player_id, price, gameweek_id')
+            .eq('season_id', fantasySeason.season_id)
+            .in('player_id', starterIds)
+            .order('gameweek_id', { ascending: false });
+
+          const priceMap = new Map<number, number>();
+          for (const pr of starterPrices ?? []) {
+            if (!priceMap.has(pr.player_id)) priceMap.set(pr.player_id, Number(pr.price ?? 0));
+          }
 
           const playerMap = new Map((starterPlayers ?? []).map((p) => [p.id, p]));
           starters = slots
@@ -151,7 +174,7 @@ export async function GET(request: NextRequest) {
                 name: p.name,
                 in_game_name: p.in_game_name,
                 primary_role: p.primary_role,
-                current_price: p.current_price,
+                current_price: priceMap.get(p.id) ?? 0,
                 is_captain: row.captain_player_id === p.id,
                 is_vice_captain: row.vice_captain_player_id === p.id,
                 team_name: p.professional_teams?.name || null,
