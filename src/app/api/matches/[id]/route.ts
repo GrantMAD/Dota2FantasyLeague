@@ -81,16 +81,25 @@ export async function GET(request: NextRequest, context: RouteContext) {
       .from('match_player_stats') as any)
       .select(`
         *,
+        hero_name,
         professional_players(id, name, in_game_name, primary_role, profile_image_url)
       `)
       .eq('match_id', matchId)
       .order('team_id', { ascending: true });
 
-    // Fetch fantasy points breakdown per player for this match
-    const { data: fantasyBreakdown } = await (supabase
-      .from('fantasy_points_breakdown') as any)
-      .select('player_id, total_points, combat_points, economy_points, objective_points, win_points')
+    // fantasy_points_breakdown has no match_id column — it joins via performance_id -> player_performances.
+    // Fetch performances for this match, with nested breakdown, then flatten to player_id-keyed shape.
+    const { data: performances } = await (supabase
+      .from('player_performances') as any)
+      .select('id, player_id, fantasy_points_breakdown(combat_points, economy_points, objective_points, teamfight_points, win_points, series_points, performance_index_points, consistency_points, penalty_points, total_points)')
       .eq('match_id', matchId);
+
+    const fantasyBreakdown = (performances ?? [])
+      .filter((p: any) => p.fantasy_points_breakdown) // eslint-disable-line @typescript-eslint/no-explicit-any
+      .map((p: any) => ({ // eslint-disable-line @typescript-eslint/no-explicit-any
+        player_id: p.player_id,
+        ...(p.fantasy_points_breakdown as object),
+      }));
 
     // Fetch substitutions
     const { data: substitutions } = await (supabase

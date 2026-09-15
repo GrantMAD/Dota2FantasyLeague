@@ -54,6 +54,14 @@ export function MatchCard({ match, userSquadPlayerNames = [] }: MatchCardProps) 
     return `${m}:${s.toString().padStart(2, '0')}`;
   };
 
+  // Some teams were auto-registered during ingestion with their numeric provider ID as the name.
+  // Detect this and display as "Team [number]" rather than a bare number.
+  const formatTeamName = (name: string | undefined | null, fallback: string) => {
+    if (!name) return fallback;
+    if (/^\d+$/.test(name)) return `Team ${name}`;
+    return name;
+  };
+
   const formattedDate = new Date(match.scheduled_at).toLocaleDateString([], {
     month: 'short',
     day: 'numeric',
@@ -131,7 +139,7 @@ export function MatchCard({ match, userSquadPlayerNames = [] }: MatchCardProps) 
               }`}
               title={match.radiant_team?.name || 'Radiant'}
             >
-              {match.radiant_team?.name || 'Radiant'}
+              {formatTeamName(match.radiant_team?.name, 'Radiant')}
             </div>
             <div className="text-[10px] text-emerald-400/70 font-semibold tracking-wide uppercase mt-0.5">
               Radiant
@@ -199,7 +207,7 @@ export function MatchCard({ match, userSquadPlayerNames = [] }: MatchCardProps) 
               }`}
               title={match.dire_team?.name || 'Dire'}
             >
-              {match.dire_team?.name || 'Dire'}
+              {formatTeamName(match.dire_team?.name, 'Dire')}
             </div>
             <div className="text-[10px] text-rose-400/70 font-semibold tracking-wide uppercase mt-0.5">
               Dire

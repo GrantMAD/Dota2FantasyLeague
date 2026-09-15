@@ -25,6 +25,7 @@ type PlayerStat = {
   id: number;
   player_id: number;
   team_id: number;
+  hero_name?: string | null;
   kills: number;
   deaths: number;
   assists: number;
@@ -128,6 +129,25 @@ export default function MatchDetailPage({ params }: { params: Promise<{ id: stri
     fantasyBreakdown.map((f) => [f.player_id, Number(f.total_points || 0)])
   );
 
+  // Some teams were auto-registered during ingestion with their numeric provider ID as the name.
+  const formatTeamName = (name: string | undefined | null, fallback: string) => {
+    if (!name) return fallback;
+    if (/^\d+$/.test(name)) return `Team ${name}`;
+    return name;
+  };
+
+  // Some players were auto-registered during ingestion as "Player (HeroName)" or "Player (Unknown)".
+  // If that pattern is detected, prefer the hero_name from match_player_stats instead.
+  const cleanPlayerName = (stat: PlayerStat): string => {
+    const raw = stat.professional_players?.in_game_name || stat.professional_players?.name || '';
+    if (!raw || /^Player\s*\(/i.test(raw)) {
+      // Use hero name from the match stat row if available
+      if (stat.hero_name && stat.hero_name.toLowerCase() !== 'unknown' && !/^Hero\s+\d+$/i.test(stat.hero_name)) return stat.hero_name;
+      return `Player #${stat.player_id}`;
+    }
+    return raw;
+  };
+
   const radiantStats = playerStats.filter((p) => p.team_id === match.radiant_team_id);
   const direStats = playerStats.filter((p) => p.team_id === match.dire_team_id);
 
@@ -215,7 +235,7 @@ export default function MatchDetailPage({ params }: { params: Promise<{ id: stri
                     isRadiantWinner ? 'text-white drop-shadow-[0_0_12px_rgba(16,185,129,0.3)]' : 'text-slate-300'
                   }`}
                 >
-                  {match.radiant_team?.name || 'Radiant'}
+                  {formatTeamName(match.radiant_team?.name, 'Radiant')}
                 </h2>
                 <div className="flex items-center justify-center md:justify-end gap-2 mt-1">
                   <span className="text-xs font-bold text-emerald-400 uppercase tracking-widest">Radiant</span>
@@ -297,7 +317,7 @@ export default function MatchDetailPage({ params }: { params: Promise<{ id: stri
                     isDireWinner ? 'text-white drop-shadow-[0_0_12px_rgba(244,63,94,0.3)]' : 'text-slate-300'
                   }`}
                 >
-                  {match.dire_team?.name || 'Dire'}
+                  {formatTeamName(match.dire_team?.name, 'Dire')}
                 </h2>
                 <div className="flex items-center justify-center md:justify-start gap-2 mt-1">
                   <span className="text-xs font-bold text-rose-400 uppercase tracking-widest">Dire</span>
@@ -331,7 +351,7 @@ export default function MatchDetailPage({ params }: { params: Promise<{ id: stri
           <div className="rounded-2xl border border-emerald-900/40 bg-slate-900/60 overflow-hidden">
             <div className="px-5 py-3 bg-emerald-950/30 border-b border-emerald-900/40 flex items-center justify-between">
               <span className="text-xs font-bold text-emerald-400 tracking-wider uppercase">
-                {match.radiant_team?.name || 'Radiant'} Performances
+                {formatTeamName(match.radiant_team?.name, 'Radiant')} Performances
               </span>
               {isRadiantWinner && <span className="text-[11px] font-bold text-emerald-400">Winner</span>}
             </div>
@@ -349,7 +369,7 @@ export default function MatchDetailPage({ params }: { params: Promise<{ id: stri
                 </thead>
                 <tbody className="divide-y divide-slate-800/60">
                   {radiantStats.map((stat) => {
-                    const playerName = stat.professional_players?.in_game_name || stat.professional_players?.name || 'Player';
+                    const playerName = cleanPlayerName(stat);
                     const role = stat.professional_players?.primary_role || 'Core';
                     const fp = fantasyPointsByPlayer.get(stat.player_id);
 
@@ -387,7 +407,7 @@ export default function MatchDetailPage({ params }: { params: Promise<{ id: stri
           <div className="rounded-2xl border border-rose-900/40 bg-slate-900/60 overflow-hidden">
             <div className="px-5 py-3 bg-rose-950/30 border-b border-rose-900/40 flex items-center justify-between">
               <span className="text-xs font-bold text-rose-400 tracking-wider uppercase">
-                {match.dire_team?.name || 'Dire'} Performances
+                {formatTeamName(match.dire_team?.name, 'Dire')} Performances
               </span>
               {isDireWinner && <span className="text-[11px] font-bold text-rose-400">Winner</span>}
             </div>
@@ -405,7 +425,7 @@ export default function MatchDetailPage({ params }: { params: Promise<{ id: stri
                 </thead>
                 <tbody className="divide-y divide-slate-800/60">
                   {direStats.map((stat) => {
-                    const playerName = stat.professional_players?.in_game_name || stat.professional_players?.name || 'Player';
+                    const playerName = cleanPlayerName(stat);
                     const role = stat.professional_players?.primary_role || 'Core';
                     const fp = fantasyPointsByPlayer.get(stat.player_id);
 

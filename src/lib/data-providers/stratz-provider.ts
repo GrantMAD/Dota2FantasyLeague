@@ -484,6 +484,10 @@ export class StratzProvider extends DataProviderBase implements DataProvider {
               wardsDestroyed
               firstBloodAchieved
               roshansKilled
+              hero {
+                displayName
+                shortName
+              }
             }
           }
         }
@@ -515,7 +519,7 @@ export class StratzProvider extends DataProviderBase implements DataProvider {
             players: radiantPlayers.map((p: any) => ({
               playerId: String(p.id),
               heroId: String(p.heroId),
-              heroName: p.heroId, // TODO: Map hero ID to name
+              heroName: p.hero?.displayName || p.hero?.shortName || (p.heroId ? String(p.heroId) : undefined),
               kills: p.kills,
               deaths: p.deaths,
               assists: p.assists,
@@ -537,7 +541,7 @@ export class StratzProvider extends DataProviderBase implements DataProvider {
             players: direPlayers.map((p: any) => ({
               playerId: String(p.id),
               heroId: String(p.heroId),
-              heroName: p.heroId, // TODO: Map hero ID to name
+              heroName: p.hero?.displayName || p.hero?.shortName || (p.heroId ? String(p.heroId) : undefined),
               kills: p.kills,
               deaths: p.deaths,
               assists: p.assists,
