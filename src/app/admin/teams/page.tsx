@@ -1,7 +1,8 @@
 'use client';
 
 import { useMemo, useState, useEffect } from 'react';
-import { Trophy, Pencil, X, Check, Globe, Clock, Database, Link, Image } from 'lucide-react';
+import NextImage from 'next/image';
+import { Trophy, Pencil, X, Check, Globe, Clock, Database, Link, Image as ImageIcon } from 'lucide-react';
 
 interface TeamRecord {
   id: number;
@@ -18,6 +19,19 @@ interface TeamRecord {
   roster: number;
   status: 'active' | 'inactive' | 'pending';
   rating: number;
+}
+
+interface TeamApiRecord {
+  id: number;
+  name?: string;
+  slug?: string;
+  tag?: string;
+  region?: string;
+  logo_url?: string;
+  data_provider_id?: string;
+  last_synced_at?: string | null;
+  created_at?: string;
+  updated_at?: string;
 }
 
 const statusStyles: Record<TeamRecord['status'], string> = {
@@ -51,7 +65,7 @@ export default function AdminTeamsPage() {
           const json = await res.json();
           const items = Array.isArray(json.data) ? json.data : [];
           setTeams(
-            items.map((t: any) => ({
+            items.map((t: TeamApiRecord) => ({
               id: t.id,
               name: t.name ?? '',
               slug: t.slug ?? '',
@@ -214,11 +228,11 @@ export default function AdminTeamsPage() {
                   <img
                     src={team.logo_url}
                     alt={`${team.name} logo`}
-                    className="h-12 w-12 flex-shrink-0 rounded-md object-contain"
+                    className="h-12 w-12 shrink-0 rounded-md object-contain"
                     onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
                   />
                 ) : (
-                  <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-md bg-gray-700 text-lg font-bold text-gray-400">
+                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-md bg-gray-700 text-lg font-bold text-gray-400">
                     {team.tag ? team.tag.slice(0, 2).toUpperCase() : team.name.slice(0, 2).toUpperCase()}
                   </div>
                 )}
@@ -277,7 +291,7 @@ export default function AdminTeamsPage() {
               <MetaItem icon={<Clock className="h-3.5 w-3.5" />} label="Last synced" value={formatDate(team.last_synced_at)} />
               <MetaItem icon={<Clock className="h-3.5 w-3.5" />} label="Created" value={formatDate(team.created_at)} />
               <MetaItem icon={<Clock className="h-3.5 w-3.5" />} label="Updated" value={formatDate(team.updated_at)} />
-              <MetaItem icon={<Image className="h-3.5 w-3.5" />} label="Logo URL" value={team.logo_url || '—'} truncate />
+              <MetaItem icon={<ImageIcon className="h-3.5 w-3.5" />} label="Logo URL" value={team.logo_url || '—'} truncate />
             </div>
 
             {/* ── Inline edit panel ── */}
@@ -362,12 +376,13 @@ export default function AdminTeamsPage() {
                 {draft.logo_url && (
                   <div className="mt-4 flex items-center gap-3">
                     <span className="text-xs" style={{ color: 'var(--text-muted)' }}>Preview:</span>
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
+                    <NextImage
                       src={draft.logo_url}
                       alt="Logo preview"
+                      width={40}
+                      height={40}
+                      unoptimized
                       className="h-10 w-10 rounded object-contain"
-                      onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
                     />
                   </div>
                 )}
@@ -460,7 +475,7 @@ function MetaItem({
         {label}
       </span>
       <span
-        className={`${mono ? 'font-mono' : ''} ${truncate ? 'max-w-[200px] truncate' : ''}`}
+        className={`${mono ? 'font-mono' : ''} ${truncate ? 'max-w-50 truncate' : ''}`}
         style={{ color: 'var(--text-secondary)' }}
         title={value}
       >

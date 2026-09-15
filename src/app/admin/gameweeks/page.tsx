@@ -37,6 +37,15 @@ interface GameweekDetail {
   }>;
 }
 
+interface GameweekApiRecord {
+  id: number;
+  gameweek_number: number;
+  status?: string;
+  start_date?: string | null;
+  end_date?: string | null;
+  deadline?: string | null;
+}
+
 const statusStyles: Record<GameweekRecord['status'], string> = {
   upcoming: 'bg-gray-500/10 text-gray-300 border-gray-500/30',
   live: 'bg-green-500/10 text-green-400 border-green-500/30',
@@ -92,7 +101,7 @@ export default function AdminGameweeksPage() {
         const json = await res.json();
         const items = Array.isArray(json.gameweeks) ? json.gameweeks : [];
         setGameweeks(
-          items.map((g: any) => {
+          items.map((g: GameweekApiRecord) => {
             const dbStatus: GameweekRecord['dbStatus'] =
               g.status === 'active' ? 'active' : g.status === 'locked' ? 'locked' : 'upcoming';
             return {
@@ -114,7 +123,9 @@ export default function AdminGameweeksPage() {
     }
   }
 
-  useEffect(() => { loadGameweeks(); }, []);
+  // This effect intentionally loads external data when the admin page mounts.
+  // eslint-disable-next-line react-hooks/set-state-in-effect
+  useEffect(() => { void loadGameweeks(); }, []);
 
   const cycleStatus = async (gameweek: GameweekRecord) => {
     const nextDbStatus = NEXT_DB_STATUS[gameweek.dbStatus];
@@ -243,7 +254,7 @@ export default function AdminGameweeksPage() {
                     disabled={cycling === gameweek.id}
                     className="flex w-44 items-center justify-center gap-2 rounded bg-amber-500/20 px-4 py-2 font-medium text-amber-400 hover:bg-amber-500/30 disabled:opacity-50"
                   >
-                    <RefreshCw className={`h-4 w-4 flex-shrink-0 ${cycling === gameweek.id ? 'animate-spin' : ''}`} />
+                    <RefreshCw className={`h-4 w-4 shrink-0 ${cycling === gameweek.id ? 'animate-spin' : ''}`} />
                     {cycling === gameweek.id ? 'Saving…' : NEXT_LABEL[gameweek.dbStatus]}
                   </button>
                 </div>
@@ -294,7 +305,7 @@ export default function AdminGameweeksPage() {
                                 style={{ background: 'var(--surface-raised)', border: '1px solid var(--border)' }}
                               >
                                 <div className="flex items-center gap-3">
-                                  <Hash className="h-3.5 w-3.5 flex-shrink-0" style={{ color: 'var(--text-muted)' }} />
+                                  <Hash className="h-3.5 w-3.5 shrink-0" style={{ color: 'var(--text-muted)' }} />
                                   <span className="font-mono text-xs" style={{ color: 'var(--text-muted)' }}>{match.id}</span>
                                   <span className="font-medium" style={{ color: 'var(--text-primary)' }}>
                                     {match.professional_teams?.name ?? `Team ${match.radiant_team_id}`}

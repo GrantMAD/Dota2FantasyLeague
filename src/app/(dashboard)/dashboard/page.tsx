@@ -173,9 +173,9 @@ export default function DashboardPage() {
       {/* Main Content */}
       <section className="max-w-7xl mx-auto px-4 py-12">
         {/* What's New — full width */}
-        <div className="dashboard-whats-new relative overflow-hidden rounded-xl mb-8 border border-amber-500/30 bg-gradient-to-r from-amber-500/10 via-slate-800/80 to-slate-800/50 px-8 py-6 flex items-center gap-6 flex-wrap shadow-lg shadow-amber-500/5">
+        <div className="dashboard-whats-new relative overflow-hidden rounded-xl mb-8 border border-amber-500/30 bg-linear-to-r from-amber-500/10 via-slate-800/80 to-slate-800/50 px-8 py-6 flex items-center gap-6 flex-wrap shadow-lg shadow-amber-500/5">
           {/* Left accent bar */}
-          <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-amber-400 to-orange-600 rounded-l-xl" />
+          <div className="absolute left-0 top-0 bottom-0 w-1 bg-linear-to-b from-amber-400 to-orange-600 rounded-l-xl" />
           <div className="flex items-center gap-3">
             <span className="text-2xl">📢</span>
             <h3 className="text-lg font-bold text-white whitespace-nowrap">What&apos;s New</h3>

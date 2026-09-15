@@ -17,7 +17,6 @@ import {
   Layers,
   Activity,
   AlertOctagon,
-  Info,
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 
@@ -79,6 +78,17 @@ interface JobStatus {
   metadata?: Record<string, unknown> | null;
 }
 
+interface RawJobStatus {
+  name?: string;
+  job_name?: string;
+  schedule?: string | null;
+  status?: string | { status?: string; startedAt?: string | null; duration?: number | null; result?: Record<string, unknown> | null };
+  last_run?: string | null;
+  last_duration_ms?: number | null;
+  next_run?: string | null;
+  metadata?: Record<string, unknown> | null;
+}
+
 interface FailedJob {
   id: string;
   job_name: string;
@@ -97,30 +107,11 @@ export default function DataJobsPage() {
   const [runningJobs, setRunningJobs] = useState<Record<string, boolean>>({});
   const [retrying, setRetrying] = useState<string | null>(null);
 
-  useEffect(() => {
-    fetchJobStatus();
-    fetchFailedJobs();
-    const interval = setInterval(() => {
-      fetchJobStatus(true);
-      fetchFailedJobs();
-    }, 8000);
-    return () => clearInterval(interval);
-  }, []);
-
   async function getAuthHeaders(): Promise<Record<string, string>> {
     try {
       const { data } = await supabase.auth.getSession();
-      let token = data.session?.access_token;
+      const token = data.session?.access_token;
       
-      // If token expires in less than 30s or already expired, refresh it
-      if (data.session && data.session.expires_at) {
-        const expiresAtMs = data.session.expires_at * 1000;
-        if (Date.now() > expiresAtMs - 30000) {
-          const { data: refreshed } = await supabase.auth.refreshSession();
-          token = refreshed.session?.access_token || token;
-        }
-      }
-
       if (token) {
         return {
           Authorization: `Bearer ${token}`,
@@ -142,7 +133,7 @@ export default function DataJobsPage() {
       if (response.ok) {
         const data = await response.json();
         const rawJobs = data.jobs || [];
-        const normalizedJobs = rawJobs.map((j: any) => ({
+        const normalizedJobs = (rawJobs as RawJobStatus[]).map((j) => ({
           job_name: j.name || j.job_name,
           schedule: j.schedule || null,
           status: j.status?.status || j.status || 'idle',
@@ -175,6 +166,19 @@ export default function DataJobsPage() {
       // Silently fail if endpoint not ready
     }
   }
+
+  // Polling keeps the admin job dashboard synchronized with external job state.
+  /* eslint-disable react-hooks/set-state-in-effect, react-hooks/exhaustive-deps */
+  useEffect(() => {
+    void fetchJobStatus();
+    void fetchFailedJobs();
+    const interval = setInterval(() => {
+      void fetchJobStatus(true);
+      void fetchFailedJobs();
+    }, 8000);
+    return () => clearInterval(interval);
+  }, []);
+  /* eslint-enable react-hooks/set-state-in-effect, react-hooks/exhaustive-deps */
 
   async function triggerJob(jobName: string) {
     setRunningJobs((prev) => ({ ...prev, [jobName]: true }));
@@ -227,7 +231,7 @@ export default function DataJobsPage() {
 
   if (loading) {
     return (
-      <div className="flex min-h-[400px] flex-col items-center justify-center gap-3">
+      <div className="flex min-h-100 flex-col items-center justify-center gap-3">
         <RotateCw className="h-8 w-8 animate-spin text-amber-500" />
         <p className="text-sm font-medium text-slate-400">Loading scheduled jobs & ingestion engine...</p>
       </div>
@@ -360,7 +364,7 @@ export default function DataJobsPage() {
         </div>
 
         {jobs.length === 0 ? (
-          <div className="flex min-h-[160px] flex-col items-center justify-center rounded-xl border border-dashed border-slate-800 bg-slate-900/30 p-8 text-center">
+          <div className="flex min-h-40 flex-col items-center justify-center rounded-xl border border-dashed border-slate-800 bg-slate-900/30 p-8 text-center">
             <Clock className="h-8 w-8 text-slate-600" />
             <p className="mt-2 text-sm text-slate-400">No data jobs registered</p>
           </div>

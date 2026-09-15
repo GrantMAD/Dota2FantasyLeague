@@ -12,7 +12,7 @@ export function TournamentHero({ tournament }: TournamentHeroProps) {
   const endDate = new Date(tournament.end_date);
 
   return (
-    <div className="relative mb-12 rounded-3xl border border-amber-500/40 bg-gradient-to-r from-slate-900 via-slate-900/90 to-amber-950/30 p-8 sm:p-10 shadow-2xl overflow-hidden">
+    <div className="relative mb-12 rounded-3xl border border-amber-500/40 bg-linear-to-r from-slate-900 via-slate-900/90 to-amber-950/30 p-8 sm:p-10 shadow-2xl overflow-hidden">
       {/* Decorative ambient background */}
       <div className="absolute top-0 right-0 w-96 h-96 bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
       <div className="absolute -bottom-10 -left-10 w-72 h-72 bg-emerald-500/5 rounded-full blur-3xl pointer-events-none" />
