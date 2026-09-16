@@ -90,8 +90,8 @@ export function ActiveGameweekHero({ gameweek }: ActiveGameweekHeroProps) {
 
           {gameweek.tournaments.length > 0 && (
             <div className="flex flex-wrap gap-2">
-              {gameweek.tournaments.map((tournament) => (
-                <span key={tournament.id} className="gameweeks-tournament-chip rounded-full border border-slate-700 bg-slate-900/50 px-2.5 py-1 text-xs text-slate-200">
+              {gameweek.tournaments.map((tournament, idx) => (
+                <span key={`${gameweek.id}-hero-t-${tournament.id}-${idx}`} className="gameweeks-tournament-chip rounded-full border border-slate-700 bg-slate-900/50 px-2.5 py-1 text-xs text-slate-200">
                   {tournament.name}
                 </span>
               ))}

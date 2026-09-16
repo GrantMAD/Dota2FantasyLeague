@@ -74,8 +74,8 @@ export function GameweekCard({ gameweek, compact = false }: GameweekCardProps) {
 
       {gameweek.tournaments.length > 0 && (
         <div className="mb-4 flex flex-wrap gap-2 text-xs text-slate-300">
-          {gameweek.tournaments.slice(0, 2).map((tournament) => (
-            <span key={tournament.id} className="gameweeks-tournament-chip rounded-full border border-slate-700 bg-slate-900/60 px-2 py-1">
+          {gameweek.tournaments.slice(0, 2).map((tournament, idx) => (
+            <span key={`${gameweek.id}-t-${tournament.id}-${idx}`} className="gameweeks-tournament-chip rounded-full border border-slate-700 bg-slate-900/60 px-2 py-1">
               {tournament.name}
             </span>
           ))}

@@ -92,18 +92,18 @@ export async function GET(request: NextRequest) {
       matchCountMap.set(gwId, (matchCountMap.get(gwId) ?? 0) + 1);
 
       if (match.series_id) {
-        const current = tournamentMap.get(gwId) ?? [];
-        const existing = current.find((item) => item.id === Number(match.series_id));
-        if (!existing) {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const seriesRecord = await (supabase.from('tournament_series') as any)
-            .select('id, tournament_id, tournaments(id, name, slug)')
-            .eq('id', match.series_id)
-            .maybeSingle();
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const seriesRecord = await (supabase.from('tournament_series') as any)
+          .select('id, tournament_id, tournaments(id, name, slug)')
+          .eq('id', match.series_id)
+          .maybeSingle();
 
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const tournament = (seriesRecord as any)?.data?.tournaments;
-          if (tournament) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const tournament = (seriesRecord as any)?.data?.tournaments;
+        if (tournament) {
+          const current = tournamentMap.get(gwId) ?? [];
+          const exists = current.some((t) => t.id === Number(tournament.id));
+          if (!exists) {
             current.push({ id: Number(tournament.id), name: tournament.name, slug: tournament.slug ?? null });
             tournamentMap.set(gwId, current);
           }
