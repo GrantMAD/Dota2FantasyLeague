@@ -41,14 +41,14 @@ class CalculateGlobalRankings {
       let ranked = 0;
 
       // Find the latest closed gameweek for the snapshot
-      const { data: latestGameweek } = await this.supabase
-        .from('gameweeks')
+      const { data: latestGameweek } = await (this.supabase
+        .from('gameweeks') as any)
         .select('id')
         .eq('season_id', seasonId)
         .eq('status', 'closed')
-        .order('end_time', { ascending: false })
+        .order('end_date', { ascending: false })
         .limit(1)
-        .single() as any;
+        .maybeSingle();
 
       for (const fs of fantasySeasons) {
         // Handle ties
@@ -68,13 +68,21 @@ class CalculateGlobalRankings {
 
         // Create snapshot in season_standings
         if (latestGameweek) {
-           await (this.supabase
+          const { data: latestLineup } = await (this.supabase
+            .from('fantasy_lineups') as any)
+            .select('total_points')
+            .eq('fantasy_season_id', fs.id)
+            .eq('gameweek_id', latestGameweek.id)
+            .maybeSingle();
+
+          await (this.supabase
             .from('season_standings') as any)
             .upsert({
               fantasy_season_id: fs.id,
               gameweek_id: latestGameweek.id,
               rank: rank,
               total_points: fs.total_points,
+              gameweek_points: latestLineup?.total_points ?? 0,
               league_id: null // Global standing
             }, { onConflict: 'fantasy_season_id,gameweek_id' });
         }

@@ -71,8 +71,8 @@ class RecalculateGameweeks {
     if (allIds.length === 0) return 0;
 
     // Fetch player performances to see who actually played matches in this gameweek
-    const { data: performances } = await this.supabase
-      .from('player_performance')
+    const { data: performances } = await (this.supabase
+      .from('player_performances') as any)
       .select('player_id')
       .eq('gameweek_id', lineup.gameweek_id)
       .in('player_id', allIds);
@@ -120,15 +120,17 @@ class RecalculateGameweeks {
     if (finalScoringIds.length === 0) return 0;
 
     // Get fantasy points for all relevant players in this gameweek
-    const { data: pointsData } = await this.supabase
-      .from('fantasy_points_breakdown')
-      .select('player_id, total_points')
+    const { data: perfsWithPoints } = await (this.supabase
+      .from('player_performances') as any)
+      .select('player_id, fantasy_points_breakdown(total_points)')
       .eq('gameweek_id', lineup.gameweek_id)
       .in('player_id', finalScoringIds);
 
     const playerPointsMap = new Map<number, number>();
-    pointsData?.forEach((row: any) => {
-      playerPointsMap.set(row.player_id, row.total_points || 0);
+    (perfsWithPoints as any[])?.forEach((row: any) => {
+      const pts = Number(row.fantasy_points_breakdown?.total_points ?? 0);
+      const current = playerPointsMap.get(row.player_id) || 0;
+      playerPointsMap.set(row.player_id, current + pts);
     });
 
     const captainPlayed = playersWhoPlayed.has(lineup.captain_player_id);
@@ -194,17 +196,22 @@ class RecalculateGameweeks {
       // Get all lineups for this fantasy season
       const { data: lineupData } = (await this.supabase
         .from('fantasy_lineups')
-        .select('total_points')
+        .select('gameweek_id, total_points')
         .eq('fantasy_season_id', fantasySeasonId)) as any;
       const lineups: any[] = Array.isArray(lineupData) ? lineupData : [];
 
       if (lineups.length === 0) return false;
 
       const totalPoints = lineups.reduce((sum, lineup: any) => sum + (lineup.total_points || 0), 0);
+      const latestLineup = [...lineups].sort((a, b) => (b.gameweek_id || 0) - (a.gameweek_id || 0))[0];
+      const latestPoints = latestLineup?.total_points || 0;
 
       const { error } = await (this.supabase
         .from('fantasy_seasons') as any)
-        .update({ total_points: Math.round(totalPoints * 100) / 100 } as any)
+        .update({
+          total_points: Math.round(totalPoints * 100) / 100,
+          gameweek_points_latest: Math.round(latestPoints * 100) / 100,
+        } as any)
         .eq('id', fantasySeasonId);
 
       if (error) {
