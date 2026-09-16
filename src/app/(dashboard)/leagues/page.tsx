@@ -1,8 +1,9 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Trophy } from 'lucide-react';
+import { Trophy, Loader2, CheckCircle2 } from 'lucide-react';
 import Image from 'next/image';
+import { fetchWithAuth } from '@/lib/fetch-with-auth';
 
 type StandingEntry = {
   userId?: string;
@@ -67,10 +68,16 @@ export default function LeaguesPage() {
     description: '',
   });
 
+  const [isCreating, setIsCreating] = useState(false);
+  const [isJoining, setIsJoining] = useState(false);
+  const [createError, setCreateError] = useState<string | null>(null);
+  const [joinError, setJoinError] = useState<string | null>(null);
+  const [joinSuccess, setJoinSuccess] = useState<string | null>(null);
+
   useEffect(() => {
-    void fetch('/api/leagues')
+    void fetchWithAuth('/api/leagues')
       .then((response) => response.json())
-      .then((payload) => setLeagues(payload.data || []))
+      .then((payload) => setLeagues(payload.leagues || payload.data || []))
       .catch(() => setLeagues([]))
       .finally(() => setLoading(false));
   }, []);
@@ -80,38 +87,67 @@ export default function LeaguesPage() {
   const fixtures = visibleLeagues.flatMap((league) => league.fixtures ?? []);
 
   const onCreateLeague = async () => {
-    const response = await fetch('/api/leagues', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(form),
-    });
-
-    if (response.ok) {
-      const payload = await response.json();
-      setLeagues((current) => [payload.data, ...current]);
-      setForm({
-        name: '',
-        type: 'classic',
-        privacyLevel: 'private',
-        maxParticipants: 10,
-        description: '',
+    if (!form.name.trim() || isCreating) return;
+    setIsCreating(true);
+    setCreateError(null);
+    try {
+      const response = await fetchWithAuth('/api/leagues', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(form),
       });
+
+      const payload = await response.json();
+      if (response.ok) {
+        setLeagues((current) => [payload.data, ...current]);
+        setForm({
+          name: '',
+          type: 'classic',
+          privacyLevel: 'private',
+          maxParticipants: 10,
+          description: '',
+        });
+      } else {
+        setCreateError(payload.error || 'Failed to create league.');
+      }
+    } catch {
+      setCreateError('Network error while creating league.');
+    } finally {
+      setIsCreating(false);
     }
   };
 
   const onJoinLeague = async () => {
-    if (!joinCode.trim()) return;
+    if (!joinCode.trim() || isJoining) return;
+    setIsJoining(true);
+    setJoinError(null);
+    setJoinSuccess(null);
+    try {
+      const response = await fetchWithAuth('/api/leagues', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'join', inviteCode: joinCode }),
+      });
 
-    const response = await fetch('/api/leagues', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'join', inviteCode: joinCode }),
-    });
-
-    if (response.ok) {
       const payload = await response.json();
-      setLeagues((current) => current.map((league) => (league.inviteCode === payload.data.inviteCode ? payload.data : league)));
-      setJoinCode('');
+      if (response.ok) {
+        setLeagues((current) => {
+          const exists = current.some((l) => l.inviteCode === payload.data.inviteCode);
+          if (exists) {
+            return current.map((league) => (league.inviteCode === payload.data.inviteCode ? payload.data : league));
+          }
+          return [payload.data, ...current];
+        });
+        setJoinSuccess(payload.message || `Successfully joined ${payload.data.name}!`);
+        setJoinCode('');
+        setTimeout(() => setJoinSuccess(null), 5000);
+      } else {
+        setJoinError(payload.error || 'Failed to join league.');
+      }
+    } catch {
+      setJoinError('Network error while joining league.');
+    } finally {
+      setIsJoining(false);
     }
   };
 
@@ -317,12 +353,25 @@ export default function LeaguesPage() {
                   className="w-full rounded border border-slate-600 bg-slate-900 px-3 py-2 text-white focus:border-amber-500 focus:outline-none"
                 />
               </div>
+              {createError && (
+                <div className="rounded bg-rose-500/15 border border-rose-500/30 p-2.5 text-xs text-rose-400">
+                  {createError}
+                </div>
+              )}
               <button
                 type="button"
                 onClick={onCreateLeague}
-                className="w-full rounded bg-linear-to-r from-amber-500 to-orange-600 px-4 py-2 font-semibold text-white hover:opacity-90 transition-opacity shadow-md"
+                disabled={isCreating || !form.name.trim()}
+                className="w-full flex items-center justify-center gap-2 rounded bg-linear-to-r from-amber-500 to-orange-600 px-4 py-2 font-semibold text-white hover:opacity-90 transition-opacity shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Create league
+                {isCreating ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>Creating League...</span>
+                  </>
+                ) : (
+                  <span>Create league</span>
+                )}
               </button>
             </div>
           </div>
@@ -336,12 +385,31 @@ export default function LeaguesPage() {
                 placeholder="Enter invite code"
                 className="w-full rounded border border-slate-600 bg-slate-900 px-3 py-2 text-white placeholder-slate-500 focus:border-amber-500 focus:outline-none uppercase"
               />
+              {joinError && (
+                <div className="rounded bg-rose-500/15 border border-rose-500/30 p-2.5 text-xs text-rose-400">
+                  {joinError}
+                </div>
+              )}
+              {joinSuccess && (
+                <div className="flex items-center gap-2 rounded bg-emerald-500/15 border border-emerald-500/30 p-2.5 text-xs text-emerald-400">
+                  <CheckCircle2 className="w-4 h-4 shrink-0" />
+                  <span>{joinSuccess}</span>
+                </div>
+              )}
               <button
                 type="button"
                 onClick={onJoinLeague}
-                className="w-full rounded border border-amber-500/50 bg-amber-500/10 px-4 py-2 font-semibold text-amber-400 hover:bg-amber-500/20 transition-colors"
+                disabled={isJoining || !joinCode.trim()}
+                className="w-full flex items-center justify-center gap-2 rounded border border-amber-500/50 bg-amber-500/10 px-4 py-2 font-semibold text-amber-400 hover:bg-amber-500/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Join league
+                {isJoining ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>Joining League...</span>
+                  </>
+                ) : (
+                  <span>Join league</span>
+                )}
               </button>
             </div>
           </div>
