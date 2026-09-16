@@ -82,15 +82,18 @@ export async function GET(request: NextRequest) {
           roleMap.set(Number(player.id), player.primary_role || 'Support');
         }
 
-        const { data: scoreRows } = await supabase.from('gameweek_scores')
-          .select('player_id, total_points')
+        const { data: scoreRows } = await (supabase.from('player_performances') as any)
+          .select('player_id, fantasy_points_breakdown(total_points)')
           .in('player_id', lineupIds)
           .eq('gameweek_id', recentGameweekId);
 
         const totals = new Map<string, number>();
+        ['Carry', 'Mid', 'Offlane', 'Support', 'Hard Support'].forEach((r) => totals.set(r, 0));
+
         for (const row of scoreRows ?? []) {
           const role = roleMap.get(Number(row.player_id)) ?? 'Support';
-          totals.set(role, (totals.get(role) ?? 0) + Number(row.total_points ?? 0));
+          const pts = Number(row.fantasy_points_breakdown?.total_points ?? 0);
+          totals.set(role, (totals.get(role) ?? 0) + pts);
         }
 
         roleBreakdown = Array.from(totals.entries()).map(([role, points]) => ({ role, points: Number(points.toFixed(1)) }));
@@ -99,19 +102,43 @@ export async function GET(request: NextRequest) {
 
     let captainEfficiency = { captainPoints: 0, idealCapPoints: 0, efficiency: 0 };
     if (recentLineup && recentLineup.captain_player_id) {
-      const { data: captainScores } = await supabase.from('gameweek_scores')
-        .select('total_points')
+      const { data: captainScores } = await (supabase.from('player_performances') as any)
+        .select('fantasy_points_breakdown(total_points)')
         .eq('player_id', recentLineup.captain_player_id)
         .eq('gameweek_id', recentGameweekId);
 
-      const captainPoints = (captainScores ?? []).reduce((sum, row) => sum + Number(row.total_points ?? 0), 0);
-      const { data: recentScores } = await supabase.from('gameweek_scores')
-        .select('player_id, total_points')
-        .in('gameweek_id', recentGameweekId ? [recentGameweekId] : [0]);
+      const rawCapPoints = (captainScores ?? []).reduce((sum: number, row: any) => sum + Number(row.fantasy_points_breakdown?.total_points ?? 0), 0);
+      const captainPoints = rawCapPoints * 2;
 
-      const idealCapPoints = (recentScores ?? []).reduce((max, row) => Math.max(max, Number(row.total_points ?? 0)), 0);
-      const efficiency = idealCapPoints ? Number(((captainPoints / idealCapPoints) * 100).toFixed(1)) : 0;
-      captainEfficiency = { captainPoints: Number(captainPoints.toFixed(1)), idealCapPoints: Number(idealCapPoints.toFixed(1)), efficiency };
+      const starterIds = [
+        recentLineup.carry_id,
+        recentLineup.mid_id,
+        recentLineup.offlane_id,
+        recentLineup.support_id,
+        recentLineup.hard_support_id,
+      ].filter(Boolean);
+
+      const { data: lineupPlayerScores } = await (supabase.from('player_performances') as any)
+        .select('player_id, fantasy_points_breakdown(total_points)')
+        .in('player_id', starterIds)
+        .eq('gameweek_id', recentGameweekId);
+
+      const lineupPlayerTotals = new Map<number, number>();
+      for (const row of lineupPlayerScores ?? []) {
+        const pId = Number(row.player_id);
+        const pts = Number(row.fantasy_points_breakdown?.total_points ?? 0);
+        lineupPlayerTotals.set(pId, (lineupPlayerTotals.get(pId) ?? 0) + pts);
+      }
+
+      const bestStarterPoints = Array.from(lineupPlayerTotals.values()).reduce((max, pts) => Math.max(max, pts), 0);
+      const idealCapPoints = bestStarterPoints * 2;
+      const efficiency = idealCapPoints > 0 ? Number(((captainPoints / idealCapPoints) * 100).toFixed(1)) : (captainPoints > 0 ? 100 : 0);
+
+      captainEfficiency = {
+        captainPoints: Number(captainPoints.toFixed(1)),
+        idealCapPoints: Number(idealCapPoints.toFixed(1)),
+        efficiency,
+      };
     }
 
     const { data: squadMembers } = await supabase.from('fantasy_squads')
@@ -141,65 +168,95 @@ export async function GET(request: NextRequest) {
     }
 
     const market = [] as Array<{ playerName: string; team: string; role: string; ownership: number; price: number; roi: number; }>; 
-    const { data: marketRows } = await supabase.from('player_prices')
-      .select('player_id, price, ownership_percentage, created_at, professional_players(id, name, primary_role, professional_teams(name))')
-      .eq('season_id', season.season_id)
-      .order('created_at', { ascending: false })
-      .limit(20);
+    
+    // Fetch scoring players from player_performances in recent gameweek to compute real ROI
+    const { data: recentPerfRows } = await (supabase.from('player_performances') as any)
+      .select('player_id, fantasy_points_breakdown(total_points), professional_players(id, name, in_game_name, primary_role, professional_teams(name))')
+      .eq('gameweek_id', recentGameweekId ?? 2)
+      .not('fantasy_points_breakdown', 'is', null)
+      .limit(200);
 
-    if (marketRows) {
-      const deduped = new Map<number, (typeof marketRows)[number]>();
-      for (const row of marketRows) {
-        if (!deduped.has(Number(row.player_id))) deduped.set(Number(row.player_id), row);
+    const perfTotalsByPlayer = new Map<number, { player: any; points: number }>();
+    for (const row of recentPerfRows ?? []) {
+      const pId = Number(row.player_id);
+      const pts = Number(row.fantasy_points_breakdown?.total_points ?? 0);
+      const existing = perfTotalsByPlayer.get(pId);
+      if (existing) {
+        existing.points += pts;
+      } else {
+        perfTotalsByPlayer.set(pId, { player: row.professional_players, points: pts });
       }
+    }
 
-      const uniqueRows = Array.from(deduped.values());
-      const { data: playerScoreRows } = await supabase.from('gameweek_scores')
-        .select('player_id, total_points')
-        .in('player_id', uniqueRows.map((row) => Number(row.player_id)))
-        .order('gameweek_id', { ascending: false })
-        .limit(1000);
+    // Fetch prices and ownership for these scoring players
+    const scoringPlayerIds = Array.from(perfTotalsByPlayer.keys());
+    const { data: scoringPlayerPrices } = await supabase.from('player_prices')
+      .select('player_id, price, ownership_percentage')
+      .in('player_id', scoringPlayerIds.length ? scoringPlayerIds : [0]);
 
-      const totalScores = new Map<number, number>();
-      for (const row of playerScoreRows ?? []) {
-        totalScores.set(Number(row.player_id), (totalScores.get(Number(row.player_id)) ?? 0) + Number(row.total_points ?? 0));
-      }
+    const priceMap = new Map<number, { price: number; ownership: number }>();
+    for (const p of scoringPlayerPrices ?? []) {
+      priceMap.set(Number(p.player_id), {
+        price: Number(p.price ?? 5.0),
+        ownership: Number(p.ownership_percentage ?? 0),
+      });
+    }
 
-      for (const row of uniqueRows) {
-        const player = Array.isArray(row.professional_players) ? row.professional_players[0] : row.professional_players;
-        const team = (Array.isArray(player?.professional_teams) ? player.professional_teams[0] : player?.professional_teams) as { name?: string } | undefined;
-        const playerId = Number(row.player_id);
-        const price = Number(row.price ?? 0);
-        const ownership = Number(row.ownership_percentage ?? 0);
-        const totalPoints = totalScores.get(playerId) ?? 0;
-        market.push({
-          playerName: player?.name || 'Unknown',
-          team: team?.name || 'Free Agent',
-          role: player?.primary_role || 'Support',
-          ownership,
-          price,
-          roi: price ? Number(((totalPoints / price) * 10).toFixed(2)) : 0,
-        });
-      }
+    for (const [pId, { player, points }] of perfTotalsByPlayer.entries()) {
+      const p = Array.isArray(player) ? player[0] : player;
+      const team = (p && (Array.isArray(p.professional_teams) ? p.professional_teams[0] : p.professional_teams)) as { name?: string } | undefined;
+      const priceInfo = priceMap.get(pId) ?? { price: 5.0, ownership: 0 };
+      const price = priceInfo.price || 5.0;
+      const ownership = priceInfo.ownership;
+      const roi = Number(((points / price) * 10).toFixed(2));
+      const displayName = (p?.in_game_name && p.in_game_name !== 'Player (Unknown)')
+        ? p.in_game_name
+        : (p?.name && p.name !== 'Player (Unknown)' ? p.name : `Player #${pId}`);
+
+      market.push({
+        playerName: displayName,
+        team: team?.name || 'Free Agent',
+        role: p?.primary_role || 'Support',
+        ownership,
+        price,
+        roi,
+      });
     }
 
     market.sort((a, b) => b.roi - a.roi);
 
-    const { data: dreamRows } = await supabase.from('gameweek_scores')
-      .select('player_id, total_points, professional_players(id, name, primary_role, professional_teams(name))')
-      .order('total_points', { ascending: false })
-      .limit(20);
+    const { data: dreamRows } = await (supabase.from('player_performances') as any)
+      .select('player_id, fantasy_points_breakdown(total_points), professional_players(id, name, in_game_name, primary_role, professional_teams(name))')
+      .eq('gameweek_id', recentGameweekId ?? 2)
+      .not('fantasy_points_breakdown', 'is', null)
+      .limit(50);
 
-    const dreamTeam = (dreamRows ?? [])
+    const dreamTotals = new Map<number, { player: any; points: number }>();
+    for (const row of dreamRows ?? []) {
+      const pId = Number(row.player_id);
+      const pts = Number(row.fantasy_points_breakdown?.total_points ?? 0);
+      const existing = dreamTotals.get(pId);
+      if (existing) {
+        existing.points += pts;
+      } else {
+        dreamTotals.set(pId, { player: row.professional_players, points: pts });
+      }
+    }
+
+    const dreamTeam = Array.from(dreamTotals.values())
+      .sort((a, b) => b.points - a.points)
       .slice(0, 8)
-      .map((row) => {
-        const player = Array.isArray(row.professional_players) ? row.professional_players[0] : row.professional_players;
-        const team = (player && (Array.isArray(player.professional_teams) ? player.professional_teams[0] : player.professional_teams)) as { name?: string } | undefined;
+      .map(({ player, points }) => {
+        const p = Array.isArray(player) ? player[0] : player;
+        const team = (p && (Array.isArray(p.professional_teams) ? p.professional_teams[0] : p.professional_teams)) as { name?: string } | undefined;
+        const displayName = (p?.in_game_name && p.in_game_name !== 'Player (Unknown)')
+          ? p.in_game_name
+          : (p?.name && p.name !== 'Player (Unknown)' ? p.name : `Player #${p?.id || '?'}`);
         return {
-        playerName: player?.name || 'Unknown',
-        team: team?.name || 'Free Agent',
-        role: player?.primary_role || 'Support',
-        points: Number(row.total_points ?? 0),
+          playerName: displayName,
+          team: team?.name || 'Free Agent',
+          role: p?.primary_role || 'Support',
+          points: Number(points.toFixed(1)),
         };
       });
 

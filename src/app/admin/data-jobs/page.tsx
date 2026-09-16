@@ -133,15 +133,19 @@ export default function DataJobsPage() {
       if (response.ok) {
         const data = await response.json();
         const rawJobs = data.jobs || [];
-        const normalizedJobs = (rawJobs as RawJobStatus[]).map((j) => ({
-          job_name: j.name || j.job_name,
-          schedule: j.schedule || null,
-          status: j.status?.status || j.status || 'idle',
-          last_run: j.status?.startedAt || j.last_run || null,
-          last_duration_ms: j.status?.duration || j.last_duration_ms || null,
-          next_run: j.next_run || (j.schedule ? `Cron: ${j.schedule}` : null),
-          metadata: j.status?.result || j.metadata || null,
-        }));
+        const normalizedJobs: JobStatus[] = (rawJobs as RawJobStatus[]).map((j) => {
+          const statusObj = typeof j.status === 'object' && j.status !== null ? j.status : null;
+          const statusStr = typeof j.status === 'string' ? j.status : statusObj?.status;
+          return {
+            job_name: j.name || j.job_name || 'unknown_job',
+            schedule: j.schedule || null,
+            status: (statusStr as JobStatus['status']) || 'idle',
+            last_run: statusObj?.startedAt || j.last_run || null,
+            last_duration_ms: statusObj?.duration || j.last_duration_ms || null,
+            next_run: j.next_run || (j.schedule ? `Cron: ${j.schedule}` : null),
+            metadata: statusObj?.result || j.metadata || null,
+          };
+        });
         setJobs(normalizedJobs);
       }
     } catch (error) {
