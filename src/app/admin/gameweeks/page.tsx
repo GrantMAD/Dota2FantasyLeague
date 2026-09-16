@@ -7,13 +7,15 @@ import { Gamepad2, RefreshCw, ChevronDown, ChevronUp, Swords, Flag, Database, Cl
 interface GameweekRecord {
   id: number;
   name: string;
-  /** Display status (maps DB active → live) */
-  status: 'upcoming' | 'live' | 'locked';
+  /** Display status (maps DB active → live, closed → closed) */
+  status: 'upcoming' | 'live' | 'locked' | 'closed';
   /** Raw DB status */
-  dbStatus: 'upcoming' | 'active' | 'locked';
+  dbStatus: 'upcoming' | 'active' | 'locked' | 'closed';
   startDate: string;
   endDate: string;
   deadline: string;
+  matchCount: number;
+  topScorer: { name: string; in_game_name?: string | null; total_points: number } | null;
 }
 
 interface GameweekDetail {
@@ -44,12 +46,15 @@ interface GameweekApiRecord {
   start_date?: string | null;
   end_date?: string | null;
   deadline?: string | null;
+  match_count?: number;
+  top_scorer?: { name: string; in_game_name?: string | null; total_points: number } | null;
 }
 
 const statusStyles: Record<GameweekRecord['status'], string> = {
   upcoming: 'bg-gray-500/10 text-gray-300 border-gray-500/30',
   live: 'bg-green-500/10 text-green-400 border-green-500/30',
   locked: 'bg-blue-500/10 text-blue-400 border-blue-500/30',
+  closed: 'bg-purple-500/10 text-purple-400 border-purple-500/30',
 };
 
 const matchStatusStyles: Record<string, string> = {
@@ -64,19 +69,22 @@ const DB_TO_DISPLAY: Record<string, GameweekRecord['status']> = {
   upcoming: 'upcoming',
   active: 'live',
   locked: 'locked',
+  closed: 'closed',
 };
 
-/** Cycle: upcoming → active → locked → upcoming */
+/** Cycle: upcoming → active → locked → closed → upcoming */
 const NEXT_DB_STATUS: Record<GameweekRecord['dbStatus'], GameweekRecord['dbStatus']> = {
   upcoming: 'active',
   active: 'locked',
-  locked: 'upcoming',
+  locked: 'closed',
+  closed: 'upcoming',
 };
 
 const NEXT_LABEL: Record<GameweekRecord['dbStatus'], string> = {
   upcoming: 'Set Live',
   active: 'Lock',
-  locked: 'Reset to Upcoming',
+  locked: 'Close',
+  closed: 'Reset to Upcoming',
 };
 
 function formatDate(val: unknown) {
@@ -103,7 +111,10 @@ export default function AdminGameweeksPage() {
         setGameweeks(
           items.map((g: GameweekApiRecord) => {
             const dbStatus: GameweekRecord['dbStatus'] =
-              g.status === 'active' ? 'active' : g.status === 'locked' ? 'locked' : 'upcoming';
+              g.status === 'active' ? 'active'
+              : g.status === 'locked' ? 'locked'
+              : g.status === 'closed' ? 'closed'
+              : 'upcoming';
             return {
               id: g.id,
               name: `GW${g.gameweek_number}`,
@@ -112,6 +123,8 @@ export default function AdminGameweeksPage() {
               startDate: g.start_date ? new Date(g.start_date).toLocaleDateString() : 'TBD',
               endDate: g.end_date ? new Date(g.end_date).toLocaleDateString() : 'TBD',
               deadline: g.deadline ? new Date(g.deadline).toLocaleString() : 'TBD',
+              matchCount: g.match_count ?? 0,
+              topScorer: g.top_scorer ?? null,
             };
           })
         );
@@ -195,10 +208,11 @@ export default function AdminGameweeksPage() {
         </button>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
         <StatCard label="Live" value={gameweeks.filter((g) => g.status === 'live').length} />
         <StatCard label="Upcoming" value={gameweeks.filter((g) => g.status === 'upcoming').length} />
         <StatCard label="Locked" value={gameweeks.filter((g) => g.status === 'locked').length} />
+        <StatCard label="Closed" value={gameweeks.filter((g) => g.status === 'closed').length} />
       </div>
 
       {loading && <p className="text-center text-gray-400">Loading gameweeks…</p>}
@@ -229,6 +243,18 @@ export default function AdminGameweeksPage() {
                     <span className="mx-2 text-gray-600">•</span>
                     Deadline: {gameweek.deadline}
                   </p>
+                  <div className="mt-2 flex items-center gap-4 text-xs text-gray-500">
+                    <span>{gameweek.matchCount} match{gameweek.matchCount !== 1 ? 'es' : ''}</span>
+                    {gameweek.topScorer && (
+                      <span>
+                        Top scorer: <span className="text-amber-400 font-medium">{gameweek.topScorer.in_game_name ?? gameweek.topScorer.name}</span>
+                        <span className="ml-1 text-gray-400">{gameweek.topScorer.total_points.toFixed(2)} pts</span>
+                      </span>
+                    )}
+                    {!gameweek.topScorer && gameweek.dbStatus === 'closed' && (
+                      <span className="text-gray-600 italic">No scorer data yet</span>
+                    )}
+                  </div>
                 </div>
 
                 <div className="flex items-center gap-3">

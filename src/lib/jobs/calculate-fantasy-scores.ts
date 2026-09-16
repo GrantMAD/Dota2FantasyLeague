@@ -268,7 +268,7 @@ export class FantasyScoreCalculator {
       success: false,
       matchesProcessed: 0,
       scoresCalculated: 0,
-      gameweeksUpdated: new Set<number>().size,
+      gameweeksUpdated: 0,
       errors: [],
       duration: 0,
     };

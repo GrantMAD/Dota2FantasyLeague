@@ -68,10 +68,18 @@ export async function GET(request: NextRequest) {
           professional_teams (id, name, slug, logo_url)
         `)
         .in('gameweek_id', gameweekIds),
+      // Derive per-player totals from player_performances joined to fantasy_points_breakdown.
+      // gameweek_scores requires fantasy_season_id (per-manager) so is not suitable here.
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (supabase.from('gameweek_scores') as any)
-        .select('gameweek_id, player_id, total_points, players:player_id (id, name, in_game_name, primary_role)')
+      (supabase.from('player_performances') as any)
+        .select(`
+          gameweek_id,
+          player_id,
+          professional_players!player_performances_player_id_fkey (id, name, in_game_name, primary_role),
+          fantasy_points_breakdown (total_points)
+        `)
         .in('gameweek_id', gameweekIds)
+        .not('fantasy_points_breakdown', 'is', null)
     ]);
 
     const matchCountMap = new Map<number, number>();
@@ -103,18 +111,42 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    for (const score of scoreRows ?? []) {
-      const gwId = Number(score.gameweek_id);
-      const player = score.players;
-      const totalPoints = Number(score.total_points ?? 0);
-      const current = topScorerMap.get(gwId);
-      if (!current || totalPoints > Number(current.total_points ?? 0)) {
-        topScorerMap.set(gwId, {
-          player_id: Number(score.player_id),
-          total_points: totalPoints,
-          name: player?.name || 'Unknown',
-          in_game_name: player?.in_game_name ?? null,
+    // Aggregate per-player per-gameweek totals (a player may appear in multiple matches)
+    const perPlayerTotals = new Map<string, { gwId: number; player_id: number; total_points: number; name: string; in_game_name: string | null; primary_role: string | null }>();
+    for (const row of scoreRows ?? []) {
+      const gwId = Number(row.gameweek_id);
+      const playerId = Number(row.player_id);
+      const matchPts = Number(row.fantasy_points_breakdown?.total_points ?? 0);
+      const player = row.professional_players;
+      const key = `${playerId}:${gwId}`;
+      const existing = perPlayerTotals.get(key);
+      if (existing) {
+        existing.total_points = Math.round((existing.total_points + matchPts) * 100) / 100;
+      } else {
+        const rawName = player?.in_game_name || player?.name;
+        const displayName = (!rawName || rawName === 'Unknown' || rawName === 'Player (Unknown)')
+          ? `Player #${playerId}`
+          : rawName;
+
+        perPlayerTotals.set(key, {
+          gwId,
+          player_id: playerId,
+          total_points: matchPts,
+          name: displayName,
+          in_game_name: displayName,
           primary_role: player?.primary_role ?? null,
+        });
+      }
+    }
+    for (const entry of perPlayerTotals.values()) {
+      const current = topScorerMap.get(entry.gwId);
+      if (!current || entry.total_points > Number(current.total_points ?? 0)) {
+        topScorerMap.set(entry.gwId, {
+          player_id: entry.player_id,
+          total_points: entry.total_points,
+          name: entry.name,
+          in_game_name: entry.in_game_name,
+          primary_role: entry.primary_role,
         });
       }
     }

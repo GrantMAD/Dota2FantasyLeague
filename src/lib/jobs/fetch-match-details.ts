@@ -104,7 +104,9 @@ export async function fetchMatchDetails(): Promise<FetchDetailsResult> {
                     playerMap.set(playerProviderId, existingPlayer.id);
                   } else {
                     // Auto-register player if genuinely not in database
-                    const playerName = player.heroName ? `Player (${player.heroName})` : `Player ${playerProviderId}`;
+                    const playerName = (player.heroName && player.heroName !== 'Unknown')
+                      ? `Player (${player.heroName})`
+                      : `Player #${playerProviderId}`;
                     const { data: newPlayer } = await (supabase.from('professional_players') as any)
                       .insert({
                         name: playerName,
