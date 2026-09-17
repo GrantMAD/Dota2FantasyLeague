@@ -45,16 +45,27 @@ export default function LeaderboardPage() {
   const [countryFilter, setCountryFilter] = useState('');
   const [selectedUser, setSelectedUser] = useState<SelectedManager | null>(null);
 
-  // Example countries for the filter
-  const countries = [
-    { code: '', name: 'Global (All)' },
-    { code: 'US', name: 'United States' },
-    { code: 'UK', name: 'United Kingdom' },
-    { code: 'CN', name: 'China' },
-    { code: 'RU', name: 'Russia' },
-    { code: 'PH', name: 'Philippines' },
-    { code: 'PE', name: 'Peru' }
-  ];
+  const [countries, setCountries] = useState<{ code: string; name: string }[]>([
+    { code: '', name: 'Global (All)' }
+  ]);
+
+  useEffect(() => {
+    async function fetchCountries() {
+      try {
+        const res = await fetch('/api/leaderboard/countries');
+        const data = await res.json() as { countries?: { code: string; name: string }[] };
+        if (data.countries && data.countries.length > 0) {
+          setCountries([
+            { code: '', name: 'Global (All)' },
+            ...data.countries
+          ]);
+        }
+      } catch (err) {
+        console.error('Failed to fetch countries for filter', err);
+      }
+    }
+    fetchCountries();
+  }, []);
 
   useEffect(() => {
     async function fetchLeaderboard() {
@@ -108,18 +119,22 @@ export default function LeaderboardPage() {
           <p className="text-slate-400">See how your squad ranks against the world</p>
         </div>
         
-        <div className="flex bg-slate-800 border border-slate-700 rounded-lg p-1">
+        <div className="relative bg-slate-800 border border-slate-700 rounded-lg">
            <select 
               value={countryFilter}
               onChange={(e) => { setCountryFilter(e.target.value); setPage(1); }}
-              className="bg-transparent text-slate-300 text-sm pl-3 pr-8 py-2 focus:outline-none appearance-none cursor-pointer"
+              className="w-full bg-transparent text-slate-300 text-sm pl-4 pr-10 py-3 focus:outline-none appearance-none cursor-pointer"
            >
               {countries.map(c => (
-                 <option key={c.code} value={c.code}>{c.name}</option>
+                 <option key={c.code} value={c.code} className="bg-slate-800 text-slate-300">
+                    {c.name}
+                 </option>
               ))}
            </select>
-           <div className="flex items-center px-2 pointer-events-none text-slate-400">
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
+           <div className="absolute inset-y-0 right-0 flex items-center px-3 pointer-events-none text-slate-400">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path>
+              </svg>
            </div>
         </div>
       </div>
