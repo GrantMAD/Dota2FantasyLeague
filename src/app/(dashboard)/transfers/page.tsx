@@ -43,6 +43,7 @@ export default function TransfersPage() {
   const [search, setSearch] = useState('');
   const [roleFilter, setRoleFilter] = useState('');
   const [ownershipFilter, setOwnershipFilter] = useState<'all' | 'owned' | 'available'>('all');
+  const [rosteredOnly, setRosteredOnly] = useState(true);
   const [fantasySeasonId, setFantasySeasonId] = useState<number | null>(null);
   const [budget, setBudget] = useState(0);
   const [freeTransfers, setFreeTransfers] = useState(0);
@@ -112,6 +113,7 @@ export default function TransfersPage() {
         });
         if (search.trim()) queryParams.set('search', search.trim());
         if (roleFilter) queryParams.set('role', roleFilter);
+        if (rosteredOnly) queryParams.set('rostered', 'true');
 
         const playersRes = await fetch(`/api/players?${queryParams.toString()}`);
         const data = await playersRes.json();
@@ -302,6 +304,21 @@ export default function TransfersPage() {
                   <option value="available">Available to Buy</option>
                 </select>
               </div>
+
+              <div className="pt-1">
+                <label className="flex items-center gap-2 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={rosteredOnly}
+                    onChange={(e) => {
+                      setRosteredOnly(e.target.checked);
+                      setPage(1);
+                    }}
+                    className="w-4 h-4 rounded border-slate-700 bg-slate-900 text-amber-500 focus:ring-amber-500 accent-amber-500 cursor-pointer"
+                  />
+                  <span className="text-xs text-slate-300">Signed Rosters Only</span>
+                </label>
+              </div>
             </div>
           </div>
 
@@ -397,7 +414,7 @@ export default function TransfersPage() {
                         </td>
                         <td className="px-4 py-3 text-center">
                           <span className="transfer-role-badge inline-block bg-slate-700/80 text-slate-300 text-[10px] uppercase font-bold px-2 py-1 rounded">
-                            {player.primary_role}
+                            {player.primary_role || 'Flexible'}
                           </span>
                         </td>
                         <td className="px-4 py-3 text-right">

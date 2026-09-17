@@ -66,14 +66,14 @@ export async function GET(request: NextRequest) {
       query = query.or(`name.ilike.%${search}%,in_game_name.ilike.%${search}%`);
     }
 
-    if (sortBy !== 'price') {
-      if (sortBy === 'name') {
-        query = query.order('name', { ascending: !sortDesc });
-      } else {
-        query = query.order('name', { ascending: true });
-      }
-      query = query.range(offset, offset + limit - 1);
+    if (sortBy === 'price') {
+      query = query.order('current_price', { ascending: !sortDesc, nullsFirst: false });
+    } else if (sortBy === 'name') {
+      query = query.order('name', { ascending: !sortDesc });
+    } else {
+      query = query.order('name', { ascending: true });
     }
+    query = query.range(offset, offset + limit - 1);
 
     const { data, count, error } = await query;
 
@@ -88,14 +88,18 @@ export async function GET(request: NextRequest) {
     const playerIds = playerRows.map((player) => player.id);
     // These tables are not included in the generated local schema typings.
     const [{ data: prices }, { data: scores }] = await Promise.all([
-      (supabase.from('player_prices') as unknown as DynamicPlayerQuery<{ data: PriceRow[] | null; error: { message: string } | null }>)
-        .select('player_id, price, gameweek_id')
-        .in('player_id', playerIds)
-        .order('gameweek_id', { ascending: false }),
-      (supabase.from('gameweek_scores') as unknown as DynamicPlayerQuery<{ data: ScoreRow[] | null; error: { message: string } | null }>)
-        .select('player_id, total_points, gameweek_id')
-        .in('player_id', playerIds)
-        .order('gameweek_id', { ascending: false }),
+      playerIds.length > 0
+        ? (supabase.from('player_prices') as unknown as DynamicPlayerQuery<{ data: PriceRow[] | null; error: { message: string } | null }>)
+            .select('player_id, price, gameweek_id')
+            .in('player_id', playerIds)
+            .order('gameweek_id', { ascending: false })
+        : Promise.resolve({ data: [] }),
+      playerIds.length > 0
+        ? (supabase.from('gameweek_scores') as unknown as DynamicPlayerQuery<{ data: ScoreRow[] | null; error: { message: string } | null }>)
+            .select('player_id, total_points, gameweek_id')
+            .in('player_id', playerIds)
+            .order('gameweek_id', { ascending: false })
+        : Promise.resolve({ data: [] }),
     ]);
     const latestPrices = new Map<number, number>();
     for (const price of prices ?? []) {
@@ -107,7 +111,7 @@ export async function GET(request: NextRequest) {
       if (playerScores.length < 5) playerScores.push(Number(score.total_points ?? 0));
       recentScores.set(score.player_id, playerScores);
     }
-    let enrichedData = playerRows.map((player) => {
+    const enrichedData = playerRows.map((player) => {
       const playerScores = recentScores.get(player.id) ?? [];
       return {
         ...player,
@@ -116,14 +120,6 @@ export async function GET(request: NextRequest) {
         recent_points: playerScores.length ? Number((playerScores.reduce((sum, score) => sum + score, 0) / playerScores.length).toFixed(2)) : 0,
       };
     });
-
-    if (sortBy === 'price') {
-      enrichedData.sort((a, b) => {
-        const diff = (b.current_price ?? 0) - (a.current_price ?? 0);
-        return sortDesc ? diff : -diff;
-      });
-      enrichedData = enrichedData.slice(offset, offset + limit);
-    }
 
     const response = { data: enrichedData, total: count, limit, offset };
     setCached(cacheKey, response, 60_000);

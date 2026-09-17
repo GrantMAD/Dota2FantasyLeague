@@ -142,6 +142,13 @@ class UpdatePlayerPrices {
             result.errors.push(`Bulk upsert failed at offset ${offset}: ${upsertError.message}`);
           } else {
             result.pricesUpdated += upsertRows.length;
+            // Also keep professional_players.current_price in sync for fast direct indexing
+            const playerPriceUpdates = (upsertRows as Array<{ player_id: number; price: number }>).map((row) =>
+              (this.supabase.from('professional_players') as any) // eslint-disable-line @typescript-eslint/no-explicit-any
+                .update({ current_price: row.price })
+                .eq('id', row.player_id)
+            );
+            await Promise.allSettled(playerPriceUpdates);
           }
         }
 
