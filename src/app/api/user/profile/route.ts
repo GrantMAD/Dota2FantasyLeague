@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { verifyAuth } from '@/lib/auth-utils';
+import { verifyAuth, applyRefreshedTokens } from '@/lib/auth-utils';
 import { supabaseServer } from '@/lib/supabase';
 
 type UserProfileRecord = {
@@ -65,7 +65,7 @@ export async function GET(request: NextRequest) {
       ? fantasySeason.fantasy_squads[0]
       : fantasySeason?.fantasy_squads;
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       profile: {
         ...data,
         role: data.role || auth.role || 'user',
@@ -80,6 +80,8 @@ export async function GET(request: NextRequest) {
           : null,
       },
     });
+    applyRefreshedTokens(response, auth);
+    return response;
   } catch (error: unknown) {
     const status = typeof error === 'object' && error !== null && 'status' in error ? Number((error as { status: number }).status) : 401;
     return NextResponse.json({ error: 'Unable to load profile.' }, { status });

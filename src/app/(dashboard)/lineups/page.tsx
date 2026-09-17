@@ -55,68 +55,39 @@ export default function LineupsPage() {
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    async function fetchChipStatuses() {
+    async function fetchFantasyContext() {
       try {
         setLoading(true);
-        const [dashboardResponse, gameweekResponse] = await Promise.all([
-          fetch('/api/dashboard/stats'),
-          fetch('/api/gameweeks?status=active'),
-        ]);
+        const res = await fetch('/api/fantasy/context');
+        if (!res.ok) throw new Error('Failed to load fantasy context');
 
-        if (!dashboardResponse.ok) throw new Error('Failed to load fantasy season');
-        const dashboardData = await dashboardResponse.json();
-        const currentFantasySeasonId = dashboardData.fantasySeasonId;
-        setFantasySeasonId(currentFantasySeasonId);
+        const data = await res.json();
+        setFantasySeasonId(data.fantasySeasonId);
 
-        const gameweekData = await gameweekResponse.json();
-        let targetGw = gameweekData.gameweeks?.[0];
-
-        const fallbackRes = await fetch('/api/gameweeks');
-        const allGwData = await fallbackRes.json();
-        const allGws = allGwData.gameweeks || [];
-
-        // Check if there is an upcoming gameweek before deadline
-        const upcomingGw = allGws.find(
-          (g: any) => g.status === 'upcoming' && (!g.deadline || new Date(g.deadline) > new Date())
-        );
-        setHasUpcomingGw(Boolean(upcomingGw));
-
-        if (!targetGw) {
-          targetGw = upcomingGw || allGws[allGws.length - 1];
+        if (data.gameweek) {
+          setGameweekId(data.gameweek.id);
+          setLineupLocked(Boolean(data.gameweek.isLocked));
+          setHasUpcomingGw(Boolean(data.gameweek.hasUpcoming));
         }
 
-        if (targetGw) {
-          setGameweekId(targetGw.id);
-          setLineupLocked(
-            targetGw.status === 'closed' || 
-            Boolean(targetGw.deadline && new Date(targetGw.deadline) < new Date())
-          );
-        }
-
-        if (currentFantasySeasonId && targetGw) {
-          const [lineupResponse, playersResponse, contextResponse, tcRes, bbRes] = await Promise.all([
-            fetch(`/api/fantasy/lineup?gameweekId=${targetGw.id}&fantasySeasonId=${currentFantasySeasonId}`),
-            fetch('/api/players?limit=100'),
-            fetch('/api/fantasy/transfer-context'),
-            fetch(`/api/fantasy/triple-captain/status?fantasy_season_id=${currentFantasySeasonId}`),
-            fetch(`/api/fantasy/bench-boost/status?fantasy_season_id=${currentFantasySeasonId}`),
-          ]);
-          const lineupData = await lineupResponse.json();
-          const playersData = await playersResponse.json();
-          const contextData = await contextResponse.json();
-          setLineup(lineupData.lineup || []);
-          const ownedPlayerIds = Array.isArray(contextData.ownedPlayerIds) ? contextData.ownedPlayerIds as number[] : [];
-          setOwnedPlayers((playersData.data || []).filter((player: LineupPlayer) => ownedPlayerIds.includes(player.id)));
-          setTcStatus(await tcRes.json());
-          setBbStatus(await bbRes.json());
-        }
+        setLineup(data.lineup || []);
+        setOwnedPlayers(data.ownedPlayers || []);
+        setTcStatus(data.chips ? {
+          tripleCaptainUsed: data.chips.tripleCaptainUsed,
+          tripleCaptainGameweekId: data.chips.tripleCaptainGameweekId,
+        } : null);
+        setBbStatus(data.chips ? {
+          benchBoostUsed: data.chips.benchBoostUsed,
+          benchBoostGameweekId: data.chips.benchBoostGameweekId,
+        } : null);
       } catch (err) {
-        console.error('Failed to fetch chip statuses', err);
+        console.error('Failed to fetch fantasy context', err);
+        setError(err instanceof Error ? err.message : 'Unable to load fantasy lineup');
       } finally {
         setLoading(false);
       }
     }
-    fetchChipStatuses();
+    fetchFantasyContext();
   }, []);
 
   const updateSlot = (slot: string, playerId: number) => {

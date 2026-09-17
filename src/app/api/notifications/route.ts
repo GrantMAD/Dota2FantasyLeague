@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase';
-import { verifyAuth, AuthError } from '@/lib/auth-utils';
+import { verifyAuth, applyRefreshedTokens, AuthError } from '@/lib/auth-utils';
 
 interface NotificationRecord {
   id: number;
@@ -69,7 +69,9 @@ export async function GET(request: NextRequest) {
 
     const unreadCount = (data as NotificationRecord[] ?? []).filter((notification) => !notification.is_read).length;
 
-    return NextResponse.json({ notifications, unreadCount });
+    const response = NextResponse.json({ notifications, unreadCount });
+    applyRefreshedTokens(response, user);
+    return response;
   } catch (error: unknown) {
     const authError = error as AuthError;
     if (authError.status) {

@@ -53,17 +53,26 @@ export default function TransfersPage() {
   const [actionMessage, setActionMessage] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
 
+  // Pagination state
+  const [page, setPage] = useState(1);
+  const [totalPlayers, setTotalPlayers] = useState(0);
+  const pageSize = 20;
+
+  // Stored details for selected owned players in case they are on a different market page
+  const [ownedPlayersMap, setOwnedPlayersMap] = useState<Map<number, TransferPlayer>>(new Map());
+
   // Player Detail Modal state
   const [modalPlayer, setModalPlayer] = useState<TransferPlayer | null>(null);
   const [modalLoading, setModalLoading] = useState(false);
 
+  // 1. Initial transfer context
   useEffect(() => {
-    async function fetchPlayers() {
+    async function fetchContext() {
       try {
         const contextRes = await fetchWithAuth('/api/fantasy/transfer-context');
         const context = await contextRes.json();
         if (!contextRes.ok) throw new Error(context.error || 'Failed to load transfer context');
-        
+
         const ownedIds: number[] = context.ownedPlayerIds || [];
         setFantasySeasonId(context.fantasySeasonId);
         setBudget(context.budget || 0);
@@ -71,40 +80,60 @@ export default function TransfersPage() {
         setWildcardUsed(context.wildcardUsed || false);
         setOwnedPlayerIds(ownedIds);
 
-        // Fetch transfer market players matching search if provided
-        const queryParams = new URLSearchParams({ limit: '100' });
+        if (ownedIds.length > 0) {
+          const ownedRes = await fetch(`/api/players?ids=${ownedIds.join(',')}`);
+          if (ownedRes.ok) {
+            const ownedData = await ownedRes.json();
+            const map = new Map<number, TransferPlayer>();
+            for (const p of (ownedData.data || [])) {
+              map.set(p.id, p);
+            }
+            setOwnedPlayersMap(map);
+          }
+        }
+      } catch (err: unknown) {
+        setError(err instanceof Error ? err.message : 'Failed to load transfer context');
+      }
+    }
+    fetchContext();
+  }, []);
+
+  // 2. Fetch paginated players with debounce
+  useEffect(() => {
+    let cancelled = false;
+    const timeoutId = setTimeout(async () => {
+      try {
+        setLoading(true);
+        const queryParams = new URLSearchParams({
+          limit: pageSize.toString(),
+          offset: ((page - 1) * pageSize).toString(),
+          sort: 'price',
+          desc: 'true',
+        });
         if (search.trim()) queryParams.set('search', search.trim());
         if (roleFilter) queryParams.set('role', roleFilter);
 
         const playersRes = await fetch(`/api/players?${queryParams.toString()}`);
         const data = await playersRes.json();
         if (!playersRes.ok) throw new Error(data.error || 'Failed to load players');
+        if (cancelled) return;
 
-        let marketPlayers: TransferPlayer[] = data.data || [];
-
-        // Always ensure all owned players are in players state so selectedPlayerOutDetails can always resolve
-        const missingOwnedIds = ownedIds.filter(id => !marketPlayers.some(p => p.id === id));
-        if (missingOwnedIds.length > 0) {
-          const ownedRes = await fetch(`/api/players?ids=${missingOwnedIds.join(',')}`);
-          if (ownedRes.ok) {
-            const ownedData = await ownedRes.json();
-            marketPlayers = [...marketPlayers, ...(ownedData.data || [])];
-          }
-        }
-
-        setPlayers(marketPlayers);
+        setPlayers(data.data || []);
+        setTotalPlayers(data.total || 0);
       } catch (err: unknown) {
-        setError(err instanceof Error ? err.message : 'Failed to load players');
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : 'Failed to load players');
+        }
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
-    }
-    
-    const timeoutId = setTimeout(() => {
-      fetchPlayers();
     }, 250);
-    return () => clearTimeout(timeoutId);
-  }, [search, roleFilter]);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timeoutId);
+    };
+  }, [search, roleFilter, page]);
 
   const openPlayerModal = async (playerSummary: TransferPlayer) => {
     setModalPlayer(playerSummary);
@@ -132,7 +161,7 @@ export default function TransfersPage() {
   });
 
   const selectedPlayerInDetails = players.find((player) => player.id === selectedPlayerIn);
-  const selectedPlayerOutDetails = players.find((player) => player.id === selectedPlayerOut);
+  const selectedPlayerOutDetails = players.find((player) => player.id === selectedPlayerOut) || (selectedPlayerOut ? ownedPlayersMap.get(selectedPlayerOut) : null);
   const rolesMatch = Boolean(
     selectedPlayerInDetails &&
     selectedPlayerOutDetails &&
@@ -234,7 +263,10 @@ export default function TransfersPage() {
                   type="text"
                   placeholder="e.g. Yatoro, Nisha..."
                   value={search}
-                  onChange={(e) => setSearch(e.target.value)}
+                  onChange={(e) => {
+                    setSearch(e.target.value);
+                    setPage(1);
+                  }}
                   className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-amber-500"
                 />
               </div>
@@ -243,7 +275,10 @@ export default function TransfersPage() {
                 <label className="block text-xs font-medium text-slate-400 mb-1">Role</label>
                 <select
                   value={roleFilter}
-                  onChange={(e) => setRoleFilter(e.target.value)}
+                  onChange={(e) => {
+                    setRoleFilter(e.target.value);
+                    setPage(1);
+                  }}
                   className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-amber-500"
                 >
                   <option value="">All Roles</option>
@@ -401,6 +436,51 @@ export default function TransfersPage() {
                   )}
                 </tbody>
               </table>
+            </div>
+
+            {/* Pagination Controls */}
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 px-6 py-4 border-t border-slate-700 bg-slate-800/40">
+              <div className="text-xs text-slate-400">
+                Showing{' '}
+                <span className="font-semibold text-white">
+                  {totalPlayers === 0 ? 0 : (page - 1) * pageSize + 1}
+                </span>{' '}
+                to{' '}
+                <span className="font-semibold text-white">
+                  {Math.min(page * pageSize, totalPlayers)}
+                </span>{' '}
+                of <span className="font-semibold text-white">{totalPlayers}</span> players
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  disabled={page <= 1 || loading}
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  className="px-3 py-1.5 rounded-lg border border-slate-700 bg-slate-800 text-xs font-medium text-slate-300 hover:bg-slate-700 hover:text-white transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  ← Previous
+                </button>
+
+                <div className="flex items-center gap-1 text-xs text-slate-300">
+                  <span className="px-2 py-1 rounded bg-slate-700/80 font-mono font-bold text-amber-400">
+                    {page}
+                  </span>
+                  <span className="text-slate-500">/</span>
+                  <span className="font-mono text-slate-400">
+                    {Math.max(1, Math.ceil(totalPlayers / pageSize))}
+                  </span>
+                </div>
+
+                <button
+                  type="button"
+                  disabled={page >= Math.ceil(totalPlayers / pageSize) || loading}
+                  onClick={() => setPage((p) => p + 1)}
+                  className="px-3 py-1.5 rounded-lg border border-slate-700 bg-slate-800 text-xs font-medium text-slate-300 hover:bg-slate-700 hover:text-white transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  Next →
+                </button>
+              </div>
             </div>
           </div>
         </div>
