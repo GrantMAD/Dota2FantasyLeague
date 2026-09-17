@@ -54,6 +54,14 @@ export async function GET(request: NextRequest) {
       query = query.eq('primary_role', role);
     }
 
+    const idsParam = searchParams.get('ids');
+    if (idsParam) {
+      const ids = idsParam.split(',').map((id) => parseInt(id.trim(), 10)).filter((id) => !isNaN(id));
+      if (ids.length > 0) {
+        query = query.in('id', ids);
+      }
+    }
+
     if (search) {
       query = query.or(`name.ilike.%${search}%,in_game_name.ilike.%${search}%`);
     }

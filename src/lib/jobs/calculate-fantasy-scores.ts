@@ -128,9 +128,15 @@ export class FantasyScoreCalculator {
    * Calculate combat score (kills, deaths, assists, KDA efficiency)
    */
   private calculateCombatScore(stats: MatchPlayerStats, playerRole: string): number {
-    const baseKills = stats.kills * this.scoringRules.kill_points;
-    const baseDeaths = stats.deaths * this.scoringRules.death_points;
-    const baseAssists = stats.assists * this.scoringRules.assist_points;
+    const deathMultiplier = this.scoringRules.death_penalty !== undefined 
+      ? this.scoringRules.death_penalty 
+      : (this.scoringRules.death_points ?? -1.0);
+    const killMultiplier = this.scoringRules.kill_points ?? 1.5;
+    const assistMultiplier = this.scoringRules.assist_points ?? 0.75;
+
+    const baseKills = stats.kills * killMultiplier;
+    const baseDeaths = stats.deaths * deathMultiplier;
+    const baseAssists = stats.assists * assistMultiplier;
 
     let score = baseKills + baseDeaths + baseAssists;
 
@@ -193,9 +199,13 @@ export class FantasyScoreCalculator {
     const heroDamageScore = Math.min(stats.hero_damage / expectations.damage, 1.5) * 4.0;
     const towerDamageScore = Math.min(stats.tower_damage / expectations.tower, 1.5) * 2.0;
     const healingScore = Math.min(stats.healing / expectations.healing, 1.5) * 3.0;
-    const roshanScore = stats.roshan_kills * this.scoringRules.roshan_kill_points;
-    const wardPlacedScore = stats.wards_placed * this.scoringRules.wards_placed_points;
-    const wardDestroyedScore = stats.wards_destroyed * this.scoringRules.wards_destroyed_points;
+    const roshanKillPts = this.scoringRules.roshan_kill_points ?? 2.0;
+    const wardPlacedPts = this.scoringRules.ward_placed_points ?? this.scoringRules.wards_placed_points ?? 0.5;
+    const wardDestroyedPts = this.scoringRules.ward_kill_points ?? this.scoringRules.wards_destroyed_points ?? 0.3;
+
+    const roshanScore = stats.roshan_kills * roshanKillPts;
+    const wardPlacedScore = stats.wards_placed * wardPlacedPts;
+    const wardDestroyedScore = stats.wards_destroyed * wardDestroyedPts;
 
     return heroDamageScore + towerDamageScore + healingScore + roshanScore + wardPlacedScore + wardDestroyedScore;
   }
@@ -241,7 +251,10 @@ export class FantasyScoreCalculator {
     const performance = this.calculatePerformanceBonus(combat, economy, objective);
 
     // Win bonus (only if player's team won)
-    const win = playerTeamId === match.winner_team_id ? this.scoringRules.win_points : 0;
+    const winBonus = this.scoringRules.win_points !== undefined 
+      ? this.scoringRules.win_points 
+      : (this.scoringRules.match_win_bonus ?? 5.0);
+    const win = playerTeamId === match.winner_team_id ? winBonus : 0;
 
     // Penalties (placeholder for now - could add for unusual stats)
     const penalty = 0;

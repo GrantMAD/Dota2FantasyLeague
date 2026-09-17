@@ -49,6 +49,7 @@ export default function LineupsPage() {
   const [fantasySeasonId, setFantasySeasonId] = useState<number | null>(null);
   const [gameweekId, setGameweekId] = useState<number | null>(null);
   const [lineupLocked, setLineupLocked] = useState(false);
+  const [hasUpcomingGw, setHasUpcomingGw] = useState(false);
   const [lineup, setLineup] = useState<LineupEntry[]>([]);
   const [ownedPlayers, setOwnedPlayers] = useState<LineupPlayer[]>([]);
   const [saving, setSaving] = useState(false);
@@ -68,15 +69,33 @@ export default function LineupsPage() {
         setFantasySeasonId(currentFantasySeasonId);
 
         const gameweekData = await gameweekResponse.json();
-        const activeGameweek = gameweekData.gameweeks?.[0];
-        if (activeGameweek) {
-          setGameweekId(activeGameweek.id);
-          setLineupLocked(activeGameweek.status === 'closed' || Boolean(activeGameweek.deadline && new Date(activeGameweek.deadline) < new Date()));
+        let targetGw = gameweekData.gameweeks?.[0];
+
+        const fallbackRes = await fetch('/api/gameweeks');
+        const allGwData = await fallbackRes.json();
+        const allGws = allGwData.gameweeks || [];
+
+        // Check if there is an upcoming gameweek before deadline
+        const upcomingGw = allGws.find(
+          (g: any) => g.status === 'upcoming' && (!g.deadline || new Date(g.deadline) > new Date())
+        );
+        setHasUpcomingGw(Boolean(upcomingGw));
+
+        if (!targetGw) {
+          targetGw = upcomingGw || allGws[allGws.length - 1];
         }
 
-        if (currentFantasySeasonId && activeGameweek) {
+        if (targetGw) {
+          setGameweekId(targetGw.id);
+          setLineupLocked(
+            targetGw.status === 'closed' || 
+            Boolean(targetGw.deadline && new Date(targetGw.deadline) < new Date())
+          );
+        }
+
+        if (currentFantasySeasonId && targetGw) {
           const [lineupResponse, playersResponse, contextResponse, tcRes, bbRes] = await Promise.all([
-            fetch(`/api/fantasy/lineup?gameweekId=${activeGameweek.id}&fantasySeasonId=${currentFantasySeasonId}`),
+            fetch(`/api/fantasy/lineup?gameweekId=${targetGw.id}&fantasySeasonId=${currentFantasySeasonId}`),
             fetch('/api/players?limit=100'),
             fetch('/api/fantasy/transfer-context'),
             fetch(`/api/fantasy/triple-captain/status?fantasy_season_id=${currentFantasySeasonId}`),
@@ -251,7 +270,9 @@ export default function LineupsPage() {
             <div className="flex items-center justify-between mb-6">
               <div>
                 <h2 className="text-xl font-semibold text-white">Gameweek Lineup</h2>
-                <p className="text-sm text-slate-400">Active gameweek {gameweekId ?? 'not available'}</p>
+                <p className="text-sm text-slate-400">
+                  Gameweek {gameweekId ?? 'not available'} {lineupLocked ? '(Closed)' : ''}
+                </p>
                 {lineupLocked && <p className="mt-1 text-xs font-semibold text-red-400">Deadline passed · lineup locked</p>}
               </div>
               <button
@@ -466,10 +487,14 @@ export default function LineupsPage() {
                 <p className="lineup-chip-description text-xs text-purple-200/70 mb-3">Triple your captain&apos;s points for one gameweek.</p>
                 <button
                   onClick={() => openModal('triple-captain')}
-                  className="w-full bg-purple-600/20 hover:bg-purple-600/30 border border-purple-600/50 text-purple-400 text-xs font-bold py-2 rounded-lg transition-colors"
+                  disabled={!hasUpcomingGw}
+                  className="w-full bg-purple-600/20 hover:bg-purple-600/30 border border-purple-600/50 text-purple-400 text-xs font-bold py-2 rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                 >
-                  Play Triple Captain
+                  {hasUpcomingGw ? 'Play Triple Captain' : 'Chips Locked'}
                 </button>
+                {!hasUpcomingGw && (
+                  <p className="text-[11px] text-slate-500 text-center mt-1.5">No open upcoming gameweek</p>
+                )}
               </div>
             )}
           </div>
@@ -494,10 +519,14 @@ export default function LineupsPage() {
                 <p className="lineup-chip-description text-xs text-emerald-200/70 mb-3">Your bench players also score points for one gameweek.</p>
                 <button
                   onClick={() => openModal('bench-boost')}
-                  className="w-full bg-emerald-600/20 hover:bg-emerald-600/30 border border-emerald-600/50 text-emerald-400 text-xs font-bold py-2 rounded-lg transition-colors"
+                  disabled={!hasUpcomingGw}
+                  className="w-full bg-emerald-600/20 hover:bg-emerald-600/30 border border-emerald-600/50 text-emerald-400 text-xs font-bold py-2 rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                 >
-                  Play Bench Boost
+                  {hasUpcomingGw ? 'Play Bench Boost' : 'Chips Locked'}
                 </button>
+                {!hasUpcomingGw && (
+                  <p className="text-[11px] text-slate-500 text-center mt-1.5">No open upcoming gameweek</p>
+                )}
               </div>
             )}
           </div>

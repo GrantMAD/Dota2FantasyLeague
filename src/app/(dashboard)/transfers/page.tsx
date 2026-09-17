@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { ArrowLeftRight } from 'lucide-react';
+import { fetchWithAuth } from '@/lib/fetch-with-auth';
 
 type TransferPlayer = {
   id: number;
@@ -41,6 +42,7 @@ export default function TransfersPage() {
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [roleFilter, setRoleFilter] = useState('');
+  const [ownershipFilter, setOwnershipFilter] = useState<'all' | 'owned' | 'available'>('all');
   const [fantasySeasonId, setFantasySeasonId] = useState<number | null>(null);
   const [budget, setBudget] = useState(0);
   const [freeTransfers, setFreeTransfers] = useState(0);
@@ -58,28 +60,51 @@ export default function TransfersPage() {
   useEffect(() => {
     async function fetchPlayers() {
       try {
-        const [playersRes, contextRes] = await Promise.all([
-          fetch('/api/players?limit=100'),
-          fetch('/api/fantasy/transfer-context'),
-        ]);
-        const data = await playersRes.json();
+        const contextRes = await fetchWithAuth('/api/fantasy/transfer-context');
         const context = await contextRes.json();
-        if (!playersRes.ok) throw new Error(data.error || 'Failed to load players');
         if (!contextRes.ok) throw new Error(context.error || 'Failed to load transfer context');
-        setPlayers((data.data || []) as TransferPlayer[]);
+        
+        const ownedIds: number[] = context.ownedPlayerIds || [];
         setFantasySeasonId(context.fantasySeasonId);
         setBudget(context.budget || 0);
         setFreeTransfers(context.freeTransfers || 0);
         setWildcardUsed(context.wildcardUsed || false);
-        setOwnedPlayerIds(context.ownedPlayerIds || []);
+        setOwnedPlayerIds(ownedIds);
+
+        // Fetch transfer market players matching search if provided
+        const queryParams = new URLSearchParams({ limit: '100' });
+        if (search.trim()) queryParams.set('search', search.trim());
+        if (roleFilter) queryParams.set('role', roleFilter);
+
+        const playersRes = await fetch(`/api/players?${queryParams.toString()}`);
+        const data = await playersRes.json();
+        if (!playersRes.ok) throw new Error(data.error || 'Failed to load players');
+
+        let marketPlayers: TransferPlayer[] = data.data || [];
+
+        // Always ensure all owned players are in players state so selectedPlayerOutDetails can always resolve
+        const missingOwnedIds = ownedIds.filter(id => !marketPlayers.some(p => p.id === id));
+        if (missingOwnedIds.length > 0) {
+          const ownedRes = await fetch(`/api/players?ids=${missingOwnedIds.join(',')}`);
+          if (ownedRes.ok) {
+            const ownedData = await ownedRes.json();
+            marketPlayers = [...marketPlayers, ...(ownedData.data || [])];
+          }
+        }
+
+        setPlayers(marketPlayers);
       } catch (err: unknown) {
         setError(err instanceof Error ? err.message : 'Failed to load players');
       } finally {
         setLoading(false);
       }
     }
-    fetchPlayers();
-  }, []);
+    
+    const timeoutId = setTimeout(() => {
+      fetchPlayers();
+    }, 250);
+    return () => clearTimeout(timeoutId);
+  }, [search, roleFilter]);
 
   const openPlayerModal = async (playerSummary: TransferPlayer) => {
     setModalPlayer(playerSummary);
@@ -100,6 +125,9 @@ export default function TransfersPage() {
   const filteredPlayers = players.filter((p) => {
     if (search && !(p.in_game_name || p.name || '').toLowerCase().includes(search.toLowerCase())) return false;
     if (roleFilter && p.primary_role !== roleFilter) return false;
+    const isOwned = ownedPlayerIds.includes(p.id);
+    if (ownershipFilter === 'owned' && !isOwned) return false;
+    if (ownershipFilter === 'available' && isOwned) return false;
     return true;
   });
 
@@ -127,7 +155,7 @@ export default function TransfersPage() {
     }
     setActionLoading(true);
     try {
-      const response = await fetch('/api/fantasy/transfer', {
+      const response = await fetchWithAuth('/api/fantasy/transfer', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ fantasySeasonId, transfersIn: [selectedPlayerIn], transfersOut: [selectedPlayerOut] }),
@@ -154,7 +182,7 @@ export default function TransfersPage() {
     }
     setActionLoading(true);
     try {
-      const response = await fetch('/api/fantasy/wildcard', {
+      const response = await fetchWithAuth('/api/fantasy/wildcard', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ fantasySeasonId }),
@@ -224,6 +252,19 @@ export default function TransfersPage() {
                   <option value="Offlane">Offlane</option>
                   <option value="Support">Support</option>
                   <option value="Hard Support">Hard Support</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-slate-400 mb-1">Squad Status</label>
+                <select
+                  value={ownershipFilter}
+                  onChange={(e) => setOwnershipFilter(e.target.value as 'all' | 'owned' | 'available')}
+                  className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-amber-500"
+                >
+                  <option value="all">All Players</option>
+                  <option value="owned">My Squad (Owned)</option>
+                  <option value="available">Available to Buy</option>
                 </select>
               </div>
             </div>

@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { Database } from 'lucide-react';
+import { fetchWithAuth } from '@/lib/fetch-with-auth';
 
 
 interface AuditLog {
@@ -40,7 +41,7 @@ export default function AdminAuditPage() {
       if (actionFilter) params.append('action', actionFilter);
       if (tableFilter) params.append('table_name', tableFilter);
 
-      const res = await fetch(`/api/admin/audit?${params.toString()}`);
+      const res = await fetchWithAuth(`/api/admin/audit?${params.toString()}`);
       if (res.ok) {
         const data = await res.json();
         setLogs(data.data || []);
@@ -89,6 +90,9 @@ export default function AdminAuditPage() {
             <option value="UPDATE">UPDATE</option>
             <option value="DELETE">DELETE</option>
             <option value="CORRECTION">CORRECTION</option>
+            <option value="CHIP_ACTIVATED">CHIP_ACTIVATED</option>
+            <option value="TRANSFER">TRANSFER</option>
+            <option value="LINEUP_CHANGE">LINEUP_CHANGE</option>
           </select>
 
           <input 
@@ -136,7 +140,10 @@ export default function AdminAuditPage() {
               ) : (
                 logs.map((log) => (
                   <React.Fragment key={log.id}>
-                    <tr className="hover:bg-slate-700/30 transition-colors">
+                    <tr 
+                      onClick={() => setExpandedLogId(expandedLogId === log.id ? null : log.id)}
+                      className="hover:bg-slate-700/30 transition-colors cursor-pointer"
+                    >
                       <td className="px-4 py-3 text-sm text-slate-300">
                         {new Date(log.created_at).toLocaleString()}
                       </td>
@@ -150,7 +157,10 @@ export default function AdminAuditPage() {
                       <td className="px-4 py-3 text-sm text-slate-300">{log.changed_by_user?.username || log.changed_by || 'System'}</td>
                       <td className="px-4 py-3 text-sm text-right">
                         <button 
-                          onClick={() => setExpandedLogId(expandedLogId === log.id ? null : log.id)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setExpandedLogId(expandedLogId === log.id ? null : log.id);
+                          }}
                           className="text-amber-500 hover:text-amber-400 font-medium"
                         >
                           {expandedLogId === log.id ? 'Hide' : 'Inspect'}
