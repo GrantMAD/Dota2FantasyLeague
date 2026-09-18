@@ -43,6 +43,7 @@ export async function syncPlayers(): Promise<SyncResult> {
   try {
     // Import here to avoid circular dependencies
     const { getDataProvider } = await import('../data-providers/provider-config');
+    const { OpenDotaProvider } = await import('../data-providers/opendota-provider');
     const provider = await getDataProvider();
 
     console.log('[syncPlayers] Starting player synchronization');
@@ -51,8 +52,12 @@ export async function syncPlayers(): Promise<SyncResult> {
     const jobExecutionId = await logJobExecution('sync-players', 'started');
 
     try {
-      // Fetch all players from data provider
-      const players = await provider.fetchPlayers({ activeOnly: true });
+      // Fetch all players from data provider, with explicit OpenDota fallback at fetch level
+      let players = await provider.fetchPlayers({ activeOnly: true }).catch(async (err) => {
+        console.warn(`[syncPlayers] Primary provider fetchPlayers failed (${err.message}), falling back to OpenDota`);
+        const opendota = new OpenDotaProvider();
+        return opendota.fetchPlayers({ activeOnly: true });
+      });
       console.log(`[syncPlayers] Fetched ${players.length} players from provider`);
 
       // Get existing players for deduplication
@@ -63,11 +68,15 @@ export async function syncPlayers(): Promise<SyncResult> {
       const existingTeams = await getExistingTeams();
       console.log(`[syncPlayers] Found ${existingTeams.size} existing teams in database`);
 
+      // Fetch OpenDota proPlayers role map as high-quality role authority
+      const roleLookup = await getOpenDotaRoleLookup();
+      console.log(`[syncPlayers] Loaded ${roleLookup.size} pro player roles from OpenDota`);
+
       // Process players in batches
       const batchSize = 100;
       for (let i = 0; i < players.length; i += batchSize) {
         const batch = players.slice(i, i + batchSize);
-        const batchResults = await processSyncBatch(batch, existingPlayers, existingTeams);
+        const batchResults = await processSyncBatch(batch, existingPlayers, existingTeams, roleLookup);
 
         result.created += batchResults.created;
         result.updated += batchResults.updated;
@@ -116,7 +125,8 @@ export async function syncPlayers(): Promise<SyncResult> {
 async function processSyncBatch(
   players: PlayerData[],
   existingPlayers: Map<string, ProfessionalPlayer>,
-  existingTeams: Map<string, { id: number; name: string }> = new Map()
+  existingTeams: Map<string, { id: number; name: string }> = new Map(),
+  roleLookup: Map<string, string> = new Map()
 ): Promise<{ created: number; updated: number; skipped: number; errors: string[] }> {
   const results = { created: 0, updated: 0, skipped: 0, errors: [] as string[] };
   const supabase = getSupabaseServerClient();
@@ -140,17 +150,57 @@ async function processSyncBatch(
             }
           }
 
-          const resolvedRole = (player.roles && player.roles[0]) ? player.roles[0] : 'Carry';
+          // Map any role format to the DB player_role ENUM values:
+          // Stratz returns integers (1-5) or strings like POSITION_1, CORE, SOFT_SUPPORT, HARD_SUPPORT
+          // OpenDota returns strings already mapped to our enum (handled in the provider)
+          // The sync job must validate these before writing to the DB.
+          function normaliseRole(raw: string | number | null | undefined): string | null {
+            if (!raw && raw !== 0) return null;
+            const s = String(raw).trim().toUpperCase();
+            // Position integers (Stratz style)
+            if (s === '1' || s === 'POSITION_1' || s === 'SAFELANE') return 'Carry';
+            if (s === '2' || s === 'POSITION_2' || s === 'MIDLANE' || s === 'MID') return 'Mid';
+            if (s === '3' || s === 'POSITION_3' || s === 'OFFLANE') return 'Offlane';
+            if (s === '4' || s === 'POSITION_4' || s === 'SOFT_SUPPORT' || s === 'SUPPORT') return 'Support';
+            if (s === '5' || s === 'POSITION_5' || s === 'HARD_SUPPORT') return 'Hard Support';
+            // Already-valid enum values (case-insensitive)
+            if (s === 'CARRY') return 'Carry';
+            if (s === 'MID') return 'Mid';
+            if (s === 'OFFLANE') return 'Offlane';
+            if (s === 'SUPPORT') return 'Support';
+            if (s === 'HARD SUPPORT' || s === 'HARD_SUPPORT') return 'Hard Support';
+            if (s === 'CORE') return 'Carry';
+            return null;
+          }
+
+          // 1. Try provider role
+          let resolvedRole = normaliseRole(player.roles && player.roles[0]);
+
+          // 2. If provider has no role, lookup in OpenDota proPlayers role authority
+          if (!resolvedRole) {
+            resolvedRole = roleLookup.get(player.steamId) || 
+              (player.id ? roleLookup.get(player.id) : null) ||
+              (player.name ? roleLookup.get(player.name.toLowerCase().trim()) : null) || null;
+          }
+
+          // 3. Fallback to Carry if still unresolved
+          const finalRole = resolvedRole || 'Carry';
 
           if (existing) {
+            // Determine role to write:
+            // - Keep existing role if already set
+            // - Otherwise use newly resolved role (from provider or OpenDota lookup)
+            // - Never leave it null if we have any signal
+            const effectiveRole = existing.primary_role || resolvedRole || finalRole;
+
             // Prepare update data
             const updateData: Record<string, unknown> = {
               name: player.name,
               in_game_name: player.name,
               country: player.country,
-              primary_role: existing.primary_role || resolvedRole,
               profile_image_url: player.imageUrl,
               last_synced_at: new Date().toISOString(),
+              primary_role: effectiveRole,
             };
 
             // Only overwrite team_id if we resolved a valid team or player explicitly has no team
@@ -241,7 +291,7 @@ async function processSyncBatch(
               in_game_name: player.name,
               slug: player.steamId.toString(),
               country: player.country,
-              primary_role: resolvedRole,
+              primary_role: finalRole,
               team_id: resolvedTeamId,
               profile_image_url: player.imageUrl,
               data_provider_id: player.steamId.toString(),
@@ -439,4 +489,54 @@ async function logJobExecution(
 
     return data?.id || `job-${Date.now()}`;
   }
+}
+
+/**
+ * Fetch pro player role mappings directly from OpenDota /proPlayers endpoint.
+ * Returns a map with multiple lookup keys: steamId, account_id, and lowercased player name.
+ */
+async function getOpenDotaRoleLookup(): Promise<Map<string, string>> {
+  const roleMap: Record<number, string> = {
+    1: 'Carry',
+    2: 'Support',
+    3: 'Offlane',
+    4: 'Mid',
+  };
+
+  const lookup = new Map<string, string>();
+  try {
+    const res = await fetch('https://api.opendota.com/api/proPlayers', {
+      headers: { 'User-Agent': 'FantasyDota/1.0' },
+      signal: AbortSignal.timeout(10000),
+    });
+
+    if (!res.ok) {
+      console.warn(`[getOpenDotaRoleLookup] OpenDota returned status ${res.status}`);
+      return lookup;
+    }
+
+    const data = (await res.json()) as Array<{
+      steamid?: string;
+      account_id?: number | string;
+      name?: string;
+      personaname?: string;
+      fantasy_role?: number;
+    }>;
+
+    if (!Array.isArray(data)) return lookup;
+
+    for (const player of data) {
+      const roleName = player.fantasy_role ? roleMap[player.fantasy_role] : null;
+      if (!roleName) continue;
+
+      // Key ONLY by steamid and account_id — name-based keys cause collisions
+      // when multiple players share a display name (e.g. "Satanic", "Support", etc.)
+      if (player.steamid) lookup.set(String(player.steamid), roleName);
+      if (player.account_id) lookup.set(String(player.account_id), roleName);
+    }
+  } catch (error) {
+    console.warn(`[getOpenDotaRoleLookup] Failed to fetch OpenDota pro players: ${(error as Error).message}`);
+  }
+
+  return lookup;
 }

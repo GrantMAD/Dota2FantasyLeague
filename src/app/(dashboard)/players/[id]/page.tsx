@@ -337,7 +337,7 @@ export default function PlayerDetailPage() {
                         {player.professional_teams?.name || 'Free Agent'}
                      </span>
                      <span className="player-detail-role-badge bg-slate-700 px-2 py-0.5 rounded text-xs uppercase font-bold text-slate-300">
-                        {player.primary_role}
+                        {player.primary_role || 'Unassigned'}
                      </span>
                   </div>
                </div>

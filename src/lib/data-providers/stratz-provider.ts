@@ -667,6 +667,7 @@ export class StratzProvider extends DataProviderBase implements DataProvider {
           Authorization: `Bearer ${this.config.apiKey}`,
         },
         body: JSON.stringify({ query, variables }),
+        signal: AbortSignal.timeout(15000),
       });
 
       // Update rate limit from response headers

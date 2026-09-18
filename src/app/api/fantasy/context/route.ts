@@ -15,16 +15,17 @@ export async function GET(request: NextRequest) {
     const user = await verifyAuth(request);
     const supabase = supabaseServer();
 
-    // 1. Fetch user fantasy season
+    // 1. Fetch user fantasy season (base columns that are guaranteed to exist)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: fantasySeason, error: seasonError } = await (supabase.from('fantasy_seasons') as any)
-      .select('id, season_id, budget, free_transfers, total_points, global_rank, triple_captain_used_gameweek_id, bench_boost_used_gameweek_id, wildcard_used_gameweek_id')
+      .select('id, season_id, budget, free_transfers, total_points, global_rank')
       .eq('user_id', user.userId)
       .limit(1)
       .maybeSingle();
 
     if (seasonError) {
-      return NextResponse.json({ error: 'Failed to fetch fantasy season' }, { status: 500 });
+      console.error('[fantasy/context] fantasy_seasons query error:', seasonError);
+      return NextResponse.json({ error: 'Failed to fetch fantasy season', details: seasonError.message }, { status: 500 });
     }
 
     if (!fantasySeason) {
@@ -49,6 +50,15 @@ export async function GET(request: NextRequest) {
         ownedPlayers: [],
       });
     }
+
+    // 1b. Try to fetch chip columns separately — they may not exist in all DB versions
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const chipQueryResult = await (supabase.from('fantasy_seasons') as any)
+      .select('triple_captain_used_gameweek_id, bench_boost_used_gameweek_id, wildcard_used_gameweek_id')
+      .eq('id', fantasySeason.id)
+      .maybeSingle();
+    // If columns don't exist, chipQueryResult.error will be set — fall back to empty object
+    const chipsRow = (!chipQueryResult.error && chipQueryResult.data) ? chipQueryResult.data : {};
 
     // 2. Fetch Gameweeks: Look for active first, then upcoming, then fallback to latest closed
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -175,18 +185,19 @@ export async function GET(request: NextRequest) {
       globalRank: fantasySeason.global_rank ?? null,
       gameweek: gameweekInfo,
       chips: {
-        tripleCaptainUsed: fantasySeason.triple_captain_used_gameweek_id !== null,
-        tripleCaptainGameweekId: fantasySeason.triple_captain_used_gameweek_id,
-        benchBoostUsed: fantasySeason.bench_boost_used_gameweek_id !== null,
-        benchBoostGameweekId: fantasySeason.bench_boost_used_gameweek_id,
-        wildcardUsed: fantasySeason.wildcard_used_gameweek_id !== null,
-        wildcardUsedGameweekId: fantasySeason.wildcard_used_gameweek_id,
+        tripleCaptainUsed: chipsRow.triple_captain_used_gameweek_id != null,
+        tripleCaptainGameweekId: chipsRow.triple_captain_used_gameweek_id ?? null,
+        benchBoostUsed: chipsRow.bench_boost_used_gameweek_id != null,
+        benchBoostGameweekId: chipsRow.bench_boost_used_gameweek_id ?? null,
+        wildcardUsed: chipsRow.wildcard_used_gameweek_id != null,
+        wildcardUsedGameweekId: chipsRow.wildcard_used_gameweek_id ?? null,
       },
       lineup: populatedLineup,
       ownedPlayerIds,
       ownedPlayers,
     });
   } catch (error: unknown) {
+    console.error('[fantasy/context] Unhandled error:', error);
     const authError = error as AuthError;
     return NextResponse.json(
       { error: authError.status ? authError.message : 'Unable to load fantasy context.' },

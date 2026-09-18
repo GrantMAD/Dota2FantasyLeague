@@ -47,8 +47,9 @@ export class OpenDotaProvider extends DataProviderBase implements DataProvider {
 
   async healthCheck(): Promise<boolean> {
     try {
-      const response = await this.request('/health');
-      return !!response;
+      // Use /constants/heroes as a lightweight health check endpoint
+      const response = await this.request('/constants/heroes');
+      return Array.isArray(response) || typeof response === 'object';
     } catch (error) {
       this.log('error', 'OpenDota health check failed', error);
       return false;
@@ -494,7 +495,13 @@ export class OpenDotaProvider extends DataProviderBase implements DataProvider {
         });
       }
 
-      const response = await fetch(url.toString());
+      const response = await fetch(url.toString(), {
+        headers: {
+          'User-Agent': 'FantasyDota/1.0',
+          Accept: 'application/json',
+        },
+        signal: AbortSignal.timeout(15000),
+      });
 
       if (!response.ok) {
         const retryable = response.status >= 500 || response.status === 429;

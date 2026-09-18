@@ -202,7 +202,7 @@ export default function PlayersPage() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className={`px-2.5 py-1 text-xs font-medium rounded-full border ${getRoleColor(player.primary_role)}`}>
-                        {player.primary_role}
+                        {player.primary_role || 'Unassigned'}
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right font-semibold text-white">

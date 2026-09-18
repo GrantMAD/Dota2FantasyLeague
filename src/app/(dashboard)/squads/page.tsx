@@ -43,6 +43,7 @@ type PlayerDetails = SquadPlayer & {
 
 export default function SquadsPage() {
   const [lineup, setLineup] = useState<LineupEntry[]>([]);
+  const [ownedPlayers, setOwnedPlayers] = useState<SquadPlayer[]>([]);
   const [gameweek, setGameweek] = useState<Gameweek | null>(null);
   const [selectedPlayer, setSelectedPlayer] = useState<PlayerDetails | null>(null);
   const [playerLoading, setPlayerLoading] = useState(false);
@@ -52,22 +53,21 @@ export default function SquadsPage() {
   useEffect(() => {
     async function fetchLineup() {
       try {
-        // Fetch active gameweek
-        const gwRes = await fetch('/api/gameweeks?status=active');
-        const gwData = await gwRes.json();
-        const activeGw = gwData.gameweeks?.[0];
+        setLoading(true);
+        const res = await fetch('/api/fantasy/context');
+        if (!res.ok) throw new Error('Failed to load fantasy context');
 
-        if (activeGw) {
-          setGameweek(activeGw);
-          // Fetch lineup
-          const lineupRes = await fetch(`/api/fantasy/lineup?gameweekId=${activeGw.id}`);
-          if (lineupRes.ok) {
-            const lineupData = await lineupRes.json();
-            setLineup(lineupData.lineup || []);
-          }
+        const data = await res.json();
+        if (data.gameweek) {
+          setGameweek({
+            id: data.gameweek.id,
+            gameweek_number: data.gameweek.gameweekNumber,
+          });
         }
+        setLineup(data.lineup || []);
+        setOwnedPlayers(data.ownedPlayers || []);
       } catch (err: unknown) {
-        setError(err instanceof Error ? err.message : 'Failed to load lineup');
+        setError(err instanceof Error ? err.message : 'Failed to load squad lineup');
       } finally {
         setLoading(false);
       }
@@ -248,6 +248,14 @@ export default function SquadsPage() {
         </div>
       )}
 
+      {/* Unassigned squad members notice */}
+      {lineup.length === 0 && ownedPlayers.length > 0 && (
+        <div className="mb-6 rounded-xl border border-amber-500/30 bg-amber-900/20 px-4 py-3 text-sm text-amber-300">
+          <span className="font-semibold">You have {ownedPlayers.length} player{ownedPlayers.length !== 1 ? 's' : ''} in your squad</span> but haven't set a lineup for this gameweek yet.
+          &nbsp;<Link href="/lineups" className="underline hover:text-amber-200">Set your lineup →</Link>
+        </div>
+      )}
+
       {/* Role-based squad board */}
       <div data-guide="squad-pitch" className="mb-8 rounded-2xl border border-slate-700 bg-slate-900/50 p-4 shadow-xl sm:p-6">
         <div className="mb-5 flex items-end justify-between gap-4">
@@ -281,6 +289,44 @@ export default function SquadsPage() {
           {renderSlot('bench_3', 'Bench 3', false)}
         </div>
       </div>
+
+      {/* All squad members — always show regardless of lineup status */}
+      {ownedPlayers.length > 0 && (
+        <div className="mt-8 rounded-2xl border border-slate-700/50 bg-slate-900/30 p-4 sm:p-6">
+          <div className="mb-5 flex items-end justify-between gap-4">
+            <div>
+              <span className="text-xs font-bold uppercase tracking-widest text-slate-400">Full Roster</span>
+              <h2 className="mt-1 text-xl font-bold text-white">All Squad Members <span className="text-base font-normal text-slate-400">({ownedPlayers.length})</span></h2>
+            </div>
+            <Link href="/transfers" className="text-xs text-cyan-400 hover:text-cyan-300 underline">Manage transfers</Link>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {ownedPlayers.map((player) => (
+              <div
+                key={player.id}
+                role="button"
+                tabIndex={0}
+                onClick={() => openPlayerDetails(player.id)}
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') openPlayerDetails(player.id); }}
+                className="flex cursor-pointer items-center gap-3 rounded-xl border border-slate-700 bg-slate-800/60 px-4 py-3 transition-colors hover:border-cyan-500/40 hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-cyan-400"
+              >
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full border border-slate-600 bg-slate-700">
+                  {player.profile_image_url ? (
+                    <Image src={player.profile_image_url} alt={player.in_game_name || player.name} width={40} height={40} unoptimized className="h-full w-full object-cover" />
+                  ) : (
+                    <span className="text-xs text-slate-400">{(player.in_game_name || player.name || 'P').substring(0, 2).toUpperCase()}</span>
+                  )}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-bold text-white">{player.in_game_name || player.name}</p>
+                  <p className="truncate text-xs text-slate-400">{player.primary_role || 'Unknown'} · {player.professional_teams?.name || 'FA'}</p>
+                </div>
+                <span className="shrink-0 font-mono text-sm text-amber-400">${Number(player.current_price || 0).toFixed(1)}M</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {playerLoading && (
         <div className="fixed inset-0 z-100 flex items-center justify-center bg-slate-950/70 p-4" role="status">
