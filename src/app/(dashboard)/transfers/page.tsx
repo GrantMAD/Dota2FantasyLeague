@@ -5,6 +5,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { ArrowLeftRight } from 'lucide-react';
 import { fetchWithAuth } from '@/lib/fetch-with-auth';
+import { useToast } from '@/components/Toast';
 
 type TransferPlayer = {
   id: number;
@@ -37,6 +38,7 @@ type TransferPerformance = {
 };
 
 export default function TransfersPage() {
+  const toast = useToast();
   const [players, setPlayers] = useState<TransferPlayer[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -51,7 +53,6 @@ export default function TransfersPage() {
   const [ownedPlayerIds, setOwnedPlayerIds] = useState<number[]>([]);
   const [selectedPlayerIn, setSelectedPlayerIn] = useState<number | null>(null);
   const [selectedPlayerOut, setSelectedPlayerOut] = useState<number | null>(null);
-  const [actionMessage, setActionMessage] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
 
   // Pagination state
@@ -181,7 +182,7 @@ export default function TransfersPage() {
 
   const submitTransfer = async () => {
     if (!fantasySeasonId || selectedPlayerIn === null || selectedPlayerOut === null) {
-      setActionMessage('Select one player to buy and one player to sell.');
+      toast.info('Select Players', 'Select one player to buy and one player to sell.');
       return;
     }
     setActionLoading(true);
@@ -198,9 +199,10 @@ export default function TransfersPage() {
       setOwnedPlayerIds((current) => [...current.filter((id) => id !== selectedPlayerOut), selectedPlayerIn]);
       setSelectedPlayerIn(null);
       setSelectedPlayerOut(null);
-      setActionMessage(data.message || 'Transfer completed.');
+      const playerInName = players.find((p) => p.id === selectedPlayerIn)?.in_game_name || 'The player';
+      toast.success('Transfer Complete', `${playerInName} is now in your squad.`);
     } catch (err) {
-      setActionMessage(err instanceof Error ? err.message : 'Transfer failed');
+      toast.error('Transfer Failed', err instanceof Error ? err.message : 'Transfer failed');
     } finally {
       setActionLoading(false);
     }
@@ -208,7 +210,7 @@ export default function TransfersPage() {
 
   const activateWildcard = async () => {
     if (!fantasySeasonId) {
-      setActionMessage('Create a fantasy team before using the wildcard.');
+      toast.info('No Squad', 'Create a fantasy team before using the wildcard.');
       return;
     }
     setActionLoading(true);
@@ -222,9 +224,9 @@ export default function TransfersPage() {
       if (!response.ok) throw new Error(data.error || 'Wildcard activation failed');
       setWildcardUsed(true);
       setFreeTransfers(99);
-      setActionMessage(data.message || 'Wildcard activated.');
+      toast.success('Wildcard Played', 'Unlimited free transfers are now active.');
     } catch (err) {
-      setActionMessage(err instanceof Error ? err.message : 'Wildcard activation failed');
+      toast.error('Wildcard Failed', err instanceof Error ? err.message : 'Wildcard activation failed');
     } finally {
       setActionLoading(false);
     }
@@ -330,7 +332,7 @@ export default function TransfersPage() {
             </button>
           </div>
 
-          {(selectedPlayerIn !== null || selectedPlayerOut !== null || actionMessage) && (
+          {(selectedPlayerIn !== null || selectedPlayerOut !== null) && (
             <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-5 shadow-sm">
               <h4 className="text-sm font-semibold text-white mb-2">Pending Swaps</h4>
               <p className="text-xs text-slate-300 mb-3 leading-relaxed">
@@ -343,7 +345,6 @@ export default function TransfersPage() {
                   Transfers must be role-for-role. Select a {selectedPlayerOutDetails?.primary_role || 'matching'} to buy.
                 </p>
               )}
-              {actionMessage && <p className="text-xs text-amber-400 mb-3 bg-amber-500/10 p-2 rounded border border-amber-500/20">{actionMessage}</p>}
               <button disabled={actionLoading || selectedPlayerIn === null || selectedPlayerOut === null || !rolesMatch} onClick={submitTransfer} className="w-full bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold py-2.5 rounded-lg transition-colors disabled:opacity-50 shadow-md">
                 {actionLoading ? 'Processing...' : 'Confirm Transfer'}
               </button>

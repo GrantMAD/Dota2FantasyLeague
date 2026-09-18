@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import { UserCheck } from 'lucide-react';
+import { useToast } from '@/components/Toast';
 
 type ChipType = 'triple-captain' | 'bench-boost' | null;
 
@@ -38,13 +39,12 @@ const SpinnerIcon = () => (
 );
 
 export default function LineupsPage() {
+  const toast = useToast();
   const [tcStatus, setTcStatus] = useState<ChipStatus | null>(null);
   const [bbStatus, setBbStatus] = useState<ChipStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeModal, setActiveModal] = useState<ChipType>(null);
   const [activating, setActivating] = useState(false);
-  const [message, setMessage] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
 
   const [fantasySeasonId, setFantasySeasonId] = useState<number | null>(null);
   const [gameweekId, setGameweekId] = useState<number | null>(null);
@@ -82,7 +82,7 @@ export default function LineupsPage() {
         } : null);
       } catch (err) {
         console.error('Failed to fetch fantasy context', err);
-        setError(err instanceof Error ? err.message : 'Unable to load fantasy lineup');
+        toast.error('Load Error', err instanceof Error ? err.message : 'Unable to load fantasy lineup');
       } finally {
         setLoading(false);
       }
@@ -93,11 +93,10 @@ export default function LineupsPage() {
   const updateSlot = (slot: string, playerId: number) => {
     const existingSlot = lineup.find((entry) => entry.player_id === playerId && entry.slot !== slot)?.slot;
     if (existingSlot) {
-      setError(`${ownedPlayers.find((player) => player.id === playerId)?.in_game_name || 'This player'} is already assigned to ${existingSlot.replace('_', ' ')}.`);
+      toast.error('Cannot Assign Player', `${ownedPlayers.find((player) => player.id === playerId)?.in_game_name || 'This player'} is already assigned to ${existingSlot.replace('_', ' ')}.`);
       return;
     }
 
-    setError(null);
     const player = ownedPlayers.find((entry) => entry.id === playerId);
     setLineup((current) => [
       ...current.filter((entry) => entry.slot !== slot),
@@ -141,7 +140,7 @@ export default function LineupsPage() {
 
   const saveLineup = async () => {
     if (lineupLocked) {
-      setError('The gameweek deadline has passed. Lineup changes are locked.');
+      toast.error('Cannot Save Lineup', 'The gameweek deadline has passed. Lineup changes are locked.');
       return;
     }
 
@@ -152,19 +151,18 @@ export default function LineupsPage() {
     const viceCaptainCount = lineup.filter((entry) => entry.is_vice_captain).length;
 
     if (!gameweekId || missingSlots.length > 0 || lineup.length !== 8) {
-      setError('Fill every lineup slot before saving.');
+      toast.error('Cannot Save Lineup', 'Fill every lineup slot before saving.');
       return;
     }
     if (duplicatePlayers) {
-      setError('Each player can only be assigned to one lineup slot.');
+      toast.error('Cannot Save Lineup', 'Each player can only be assigned to one lineup slot.');
       return;
     }
     if (captainCount !== 1 || viceCaptainCount !== 1) {
-      setError('Select exactly one captain and one vice-captain before saving.');
+      toast.error('Cannot Save Lineup', 'Select exactly one captain and one vice-captain before saving.');
       return;
     }
     setSaving(true);
-    setError(null);
     try {
       const response = await fetch('/api/fantasy/lineup', {
         method: 'PUT',
@@ -173,29 +171,25 @@ export default function LineupsPage() {
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || 'Failed to save lineup');
-      setMessage(data.message || 'Lineup saved successfully.');
+      toast.success('Lineup Saved', 'Your starting 5 has been updated.');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to save lineup');
+      toast.error('Lineup Not Saved', err instanceof Error ? err.message : 'Failed to save lineup');
     } finally {
       setSaving(false);
     }
   };
 
   const openModal = (chip: ChipType) => {
-    setMessage(null);
-    setError(null);
     setActiveModal(chip);
   };
 
   const handleActivate = async () => {
     if (!activeModal) return;
     if (!fantasySeasonId) {
-      setError('Create a fantasy squad before activating a chip.');
+      toast.error('Chip Activation Failed', 'Create a fantasy squad before activating a chip.');
       return;
     }
     setActivating(true);
-    setMessage(null);
-    setError(null);
 
     const isTripleCaptain = activeModal === 'triple-captain';
     const endpoint = isTripleCaptain ? '/api/fantasy/triple-captain' : '/api/fantasy/bench-boost';
@@ -212,14 +206,15 @@ export default function LineupsPage() {
         throw new Error(data.error || `Failed to activate ${isTripleCaptain ? 'Triple Captain' : 'Bench Boost'}`);
       }
 
-      setMessage(data.message);
       if (isTripleCaptain) {
+        toast.success('Triple Captain Active', 'Your captain earns 3× points this gameweek.');
         setTcStatus({ ...tcStatus, tripleCaptainUsed: true, tripleCaptainGameweekId: data.gameweekId });
       } else {
+        toast.success('Bench Boost Active', 'All bench players score full points this gameweek.');
         setBbStatus({ ...bbStatus, benchBoostUsed: true, benchBoostGameweekId: data.gameweekId });
       }
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Activation failed');
+      toast.error('Chip Activation Failed', err instanceof Error ? err.message : 'Activation failed');
     } finally {
       setActivating(false);
       setActiveModal(null);
@@ -539,23 +534,20 @@ export default function LineupsPage() {
               <div className="bg-amber-900/20 border border-amber-700/30 rounded p-3 text-xs text-amber-200/80">
                 <strong>Warning:</strong> You can only use this chip once per season. This action cannot be undone once the gameweek deadline passes.
               </div>
-
-              {error && <div className="text-red-400 text-sm bg-red-900/20 p-2 rounded">{error}</div>}
-              {message && <div className="text-emerald-400 text-sm bg-emerald-900/20 p-2 rounded">{message}</div>}
             </div>
 
             {/* Modal footer */}
             <div className="px-6 py-4 bg-slate-800 flex justify-end gap-3 border-t border-slate-700">
               <button
                 onClick={() => setActiveModal(null)}
-                disabled={activating || !!message}
+                disabled={activating}
                 className="px-4 py-2 text-sm text-slate-300 hover:text-white transition-colors disabled:opacity-50"
               >
                 Cancel
               </button>
               <button
                 onClick={handleActivate}
-                disabled={activating || !!message}
+                disabled={activating}
                 className={`text-white text-sm font-semibold px-6 py-2 rounded-lg transition-colors disabled:opacity-50 flex items-center gap-2 ${
                   activeModal === 'triple-captain'
                     ? 'bg-purple-600 hover:bg-purple-500 shadow-lg shadow-purple-900/20'
@@ -564,7 +556,7 @@ export default function LineupsPage() {
               >
                 {activating ? (
                   <><SpinnerIcon /> Activating...</>
-                ) : message ? 'Activated!' : 'Confirm Activation'}
+                ) : 'Confirm Activation'}
               </button>
             </div>
           </div>

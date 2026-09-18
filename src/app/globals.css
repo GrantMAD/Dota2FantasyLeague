@@ -1030,3 +1030,20 @@ body {
   scrollbar-width: none;
 }
 
+/* ─── Toast Notification Animations ──────────────────────────────────────── */
+
+@keyframes toast-slide-in {
+  from {
+    opacity: 0;
+    transform: translateX(calc(100% + 1rem));
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.animate-toast-in {
+  animation: toast-slide-in 200ms ease-out both;
+}
+

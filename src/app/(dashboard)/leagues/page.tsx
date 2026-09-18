@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { Trophy, Loader2, CheckCircle2 } from 'lucide-react';
 import Image from 'next/image';
 import { fetchWithAuth } from '@/lib/fetch-with-auth';
+import { useToast } from '@/components/Toast';
 
 type StandingEntry = {
   userId?: string;
@@ -52,6 +53,7 @@ type LeagueRecord = {
 };
 
 export default function LeaguesPage() {
+  const toast = useToast();
   const [tab, setTab] = useState<'classic' | 'h2h'>('classic');
   const [leagues, setLeagues] = useState<LeagueRecord[]>([]);
   const [loading, setLoading] = useState(true);
@@ -100,6 +102,7 @@ export default function LeaguesPage() {
       const payload = await response.json();
       if (response.ok) {
         setLeagues((current) => [payload.data, ...current]);
+        toast.success('League Created', `${payload.data.name} is live! Share your invite code to get started.`);
         setForm({
           name: '',
           type: 'classic',
@@ -108,10 +111,14 @@ export default function LeaguesPage() {
           description: '',
         });
       } else {
-        setCreateError(payload.error || 'Failed to create league.');
+        const errorMsg = payload.error || 'Failed to create league.';
+        setCreateError(errorMsg);
+        toast.error('Could Not Create League', errorMsg);
       }
     } catch {
-      setCreateError('Network error while creating league.');
+      const netMsg = 'Network error while creating league.';
+      setCreateError(netMsg);
+      toast.error('Could Not Create League', netMsg);
     } finally {
       setIsCreating(false);
     }
@@ -138,14 +145,20 @@ export default function LeaguesPage() {
           }
           return [payload.data, ...current];
         });
-        setJoinSuccess(payload.message || `Successfully joined ${payload.data.name}!`);
+        const successMsg = payload.message || `Successfully joined ${payload.data.name}!`;
+        setJoinSuccess(successMsg);
+        toast.success('Joined League', successMsg);
         setJoinCode('');
         setTimeout(() => setJoinSuccess(null), 5000);
       } else {
-        setJoinError(payload.error || 'Failed to join league.');
+        const err = payload.error || 'Failed to join league.';
+        setJoinError(err);
+        toast.error('Could Not Join League', err);
       }
     } catch {
-      setJoinError('Network error while joining league.');
+      const netErr = 'Network error while joining league.';
+      setJoinError(netErr);
+      toast.error('Could Not Join League', netErr);
     } finally {
       setIsJoining(false);
     }

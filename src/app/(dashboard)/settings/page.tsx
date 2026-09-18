@@ -4,6 +4,7 @@ import { Suspense, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { useTheme, type Theme } from '@/components/theme/ThemeProvider';
+import { useToast } from '@/components/Toast';
 
 type SettingsTab = 'overview' | 'account' | 'profile' | 'notifications' | 'security';
 
@@ -18,6 +19,7 @@ const tabs: Array<{ key: SettingsTab; label: string; description: string }> = [
 ];
 
 function SettingsContent() {
+  const toast = useToast();
   const { theme, setTheme } = useTheme();
   const searchParams = useSearchParams();
   const requestedSection = searchParams.get('section');
@@ -90,9 +92,12 @@ function SettingsContent() {
 
       if (!res.ok) throw new Error('Unable to save profile');
       setMessage('Profile preferences saved successfully');
+      toast.success('Settings Saved', 'Your changes have been applied.');
     } catch (error: unknown) {
-      setMessage(error instanceof Error ? error.message : 'Profile update failed');
+      const errMsg = error instanceof Error ? error.message : 'Profile update failed';
+      setMessage(errMsg);
       setMessageIsError(true);
+      toast.error('Save Failed', errMsg);
     } finally {
       setSaving(false);
     }
@@ -105,9 +110,11 @@ function SettingsContent() {
     try {
       await setTheme(nextTheme);
       setMessage(`${nextTheme === 'dark' ? 'Dark' : 'Light'} theme saved`);
+      toast.info('Theme Updated', `Switched to ${nextTheme} mode.`);
     } catch {
       setMessage('Theme preference could not be saved');
       setMessageIsError(true);
+      toast.error('Save Failed', 'Theme preference could not be saved');
     } finally {
       setThemeSaving(false);
     }
@@ -131,9 +138,12 @@ function SettingsContent() {
       if (!res.ok || !data.profile) throw new Error(data.error || 'Unable to save account details');
       setAccountData({ username: data.profile.username || accountData.username, email: data.profile.email || accountData.email });
       setMessage('Account details saved successfully');
+      toast.success('Settings Saved', 'Your account details have been updated.');
     } catch (error: unknown) {
-      setMessage(error instanceof Error ? error.message : 'Account update failed');
+      const errMsg = error instanceof Error ? error.message : 'Account update failed';
+      setMessage(errMsg);
       setMessageIsError(true);
+      toast.error('Save Failed', errMsg);
     } finally {
       setSaving(false);
     }

@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
+import { useToast } from '@/components/Toast';
 
 type NotificationCategory = 'all' | 'unread' | 'deadline' | 'market' | 'scoring' | 'league';
 
@@ -25,6 +26,7 @@ const categories: Array<{ key: NotificationCategory; label: string; countKey?: s
 ];
 
 export default function NotificationsPage() {
+  const toast = useToast();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -55,9 +57,13 @@ export default function NotificationsPage() {
       const res = await fetch(`/api/notifications/${id}/read`, { method: 'PUT' });
       if (res.ok) {
         setNotifications((current) => current.map((notification) => (notification.id === id ? { ...notification, is_read: true } : notification)));
+        toast.info('Marked as Read');
+      } else {
+        toast.error('Action Failed', 'Could not mark notification as read');
       }
     } catch (requestError) {
       console.error('Failed to mark read', requestError);
+      toast.error('Action Failed', 'Could not mark notification as read');
     }
   };
 
@@ -66,8 +72,11 @@ export default function NotificationsPage() {
       const response = await fetch('/api/notifications', { method: 'PUT' });
       if (!response.ok) throw new Error('Failed to mark notifications as read');
       setNotifications((current) => current.map((notification) => ({ ...notification, is_read: true })));
+      toast.info('All Notifications Marked as Read');
     } catch (requestError) {
-      setError(requestError instanceof Error ? requestError.message : 'Failed to mark notifications as read');
+      const msg = requestError instanceof Error ? requestError.message : 'Failed to mark notifications as read';
+      setError(msg);
+      toast.error('Action Failed', msg);
     }
   };
 
@@ -76,8 +85,11 @@ export default function NotificationsPage() {
       const response = await fetch('/api/notifications', { method: 'DELETE' });
       if (!response.ok) throw new Error('Failed to clear read notifications');
       setNotifications((current) => current.filter((notification) => !notification.is_read));
+      toast.success('Cleared', 'Read notifications have been removed');
     } catch (requestError) {
-      setError(requestError instanceof Error ? requestError.message : 'Failed to clear read notifications');
+      const msg = requestError instanceof Error ? requestError.message : 'Failed to clear read notifications';
+      setError(msg);
+      toast.error('Action Failed', msg);
     }
   };
 
