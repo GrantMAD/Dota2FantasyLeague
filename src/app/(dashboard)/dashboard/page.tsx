@@ -2,6 +2,19 @@
 
 import Link from 'next/link';
 import { useState, useEffect } from 'react';
+import {
+  UserCheck,
+  ArrowLeftRight,
+  Trophy,
+  UserRound,
+  Users,
+  DollarSign,
+  Wallet,
+  BarChart3,
+  Zap,
+  Megaphone,
+  Shield,
+} from 'lucide-react';
 import { fetchWithAuth } from '@/lib/fetch-with-auth';
 
 interface StatCard {
@@ -63,42 +76,42 @@ export default function DashboardPage() {
         
         setStats([
           {
-            icon: '👥',
+            icon: <Users className="w-5 h-5 text-cyan-400" />,
             label: 'Active Squads',
             value: data.activeSquadCount || 0,
             trend: data.activeSquadCount > 0 ? 'Ready' : 'Create one',
             trendColor: data.activeSquadCount > 0 ? 'text-green-500' : 'text-amber-500',
           },
           {
-            icon: '💰',
+            icon: <DollarSign className="w-5 h-5 text-emerald-400" />,
             label: 'Squad Value',
             value: `${Number(data.squadValue || 0).toFixed(1)}M`,
             trend: 'Current squad',
             trendColor: 'text-slate-400',
           },
           {
-            icon: '🏦',
+            icon: <Wallet className="w-5 h-5 text-amber-400" />,
             label: 'Bank Balance',
             value: `${Number(data.bankBalance || 0).toFixed(1)}M`,
             trend: 'Available budget',
             trendColor: 'text-amber-500',
           },
           {
-            icon: '🏆',
+            icon: <Trophy className="w-5 h-5 text-yellow-400" />,
             label: 'Total Points',
             value: data.totalPoints || 0,
             trend: 'Overall',
             trendColor: 'text-slate-400',
           },
           {
-            icon: '📊',
+            icon: <BarChart3 className="w-5 h-5 text-teal-400" />,
             label: 'Global Rank',
             value: data.globalRank || '-',
             trend: data.globalRank ? 'Active' : 'Unranked',
             trendColor: data.globalRank ? 'text-green-500' : 'text-slate-400',
           },
           {
-            icon: '⚡',
+            icon: <Zap className="w-5 h-5 text-orange-400" />,
             label: 'Free Transfers',
             value: data.freeTransfers || 0,
             trend: 'Ready to use',
@@ -153,10 +166,12 @@ export default function DashboardPage() {
               {stats.map((stat, idx) => (
                 <div
                   key={idx}
-                  className="bg-slate-800/50 border border-slate-700 rounded-lg p-4 hover:border-slate-600 transition-all"
+                  className="bg-slate-800/50 border border-slate-700 rounded-lg p-4 hover:border-slate-600 transition-all group"
                 >
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="text-3xl">{stat.icon}</div>
+                  <div className="flex items-start justify-between mb-3">
+                    <div className="p-2.5 rounded-lg bg-slate-900/60 border border-slate-700/60 flex items-center justify-center group-hover:border-slate-600 transition-colors">
+                      {stat.icon}
+                    </div>
                   </div>
                   <p className="text-slate-400 text-sm mb-1">{stat.label}</p>
                   <p className="text-2xl font-bold text-white mb-2">{stat.value}</p>
@@ -177,7 +192,9 @@ export default function DashboardPage() {
           {/* Left accent bar */}
           <div className="absolute left-0 top-0 bottom-0 w-1 bg-linear-to-b from-amber-400 to-orange-600 rounded-l-xl" />
           <div className="flex items-center gap-3">
-            <span className="text-2xl">📢</span>
+            <span className="p-2 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-400 flex items-center justify-center">
+              <Megaphone className="w-5 h-5" />
+            </span>
             <h3 className="text-lg font-bold text-white whitespace-nowrap">What&apos;s New</h3>
             <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-500 text-slate-900">NEW</span>
           </div>
@@ -198,7 +215,9 @@ export default function DashboardPage() {
                   href="/lineups"
                   className="bg-slate-800/50 border border-slate-700 rounded-lg p-6 hover:border-amber-500/50 hover:bg-slate-800 transition-all group"
                 >
-                  <div className="text-3xl mb-3">📋</div>
+                  <div className="mb-3 text-amber-400 group-hover:scale-110 transition-transform inline-block">
+                    <UserCheck className="w-8 h-8" />
+                  </div>
                   <h3 className="text-lg font-semibold text-white mb-2 group-hover:text-amber-500">
                     Set Lineup
                   </h3>
@@ -209,7 +228,9 @@ export default function DashboardPage() {
                   href="/transfers"
                   className="bg-slate-800/50 border border-slate-700 rounded-lg p-6 hover:border-amber-500/50 hover:bg-slate-800 transition-all group"
                 >
-                  <div className="text-3xl mb-3">🔄</div>
+                  <div className="mb-3 text-amber-400 group-hover:scale-110 transition-transform inline-block">
+                    <ArrowLeftRight className="w-8 h-8" />
+                  </div>
                   <h3 className="text-lg font-semibold text-white mb-2 group-hover:text-amber-500">
                     Transfer Market
                   </h3>
@@ -220,7 +241,9 @@ export default function DashboardPage() {
                   href="/leagues"
                   className="bg-slate-800/50 border border-slate-700 rounded-lg p-6 hover:border-amber-500/50 hover:bg-slate-800 transition-all group"
                 >
-                  <div className="text-3xl mb-3">🏅</div>
+                  <div className="mb-3 text-amber-400 group-hover:scale-110 transition-transform inline-block">
+                    <Trophy className="w-8 h-8" />
+                  </div>
                   <h3 className="text-lg font-semibold text-white mb-2 group-hover:text-amber-500">
                     Leagues
                   </h3>
@@ -231,7 +254,9 @@ export default function DashboardPage() {
                   href="/players"
                   className="bg-slate-800/50 border border-slate-700 rounded-lg p-6 hover:border-amber-500/50 hover:bg-slate-800 transition-all group"
                 >
-                  <div className="text-3xl mb-3">👨‍💼</div>
+                  <div className="mb-3 text-amber-400 group-hover:scale-110 transition-transform inline-block">
+                    <UserRound className="w-8 h-8" />
+                  </div>
                   <h3 className="text-lg font-semibold text-white mb-2 group-hover:text-amber-500">
                     Players
                   </h3>
@@ -249,7 +274,9 @@ export default function DashboardPage() {
               </div>
             ) : !dashboardData?.activeSquadCount ? (
               <div className="bg-slate-800/30 border border-slate-700 rounded-lg p-8 text-center">
-                <div className="text-5xl mb-4">🛡️</div>
+                <div className="w-16 h-16 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center mx-auto mb-4 text-slate-500">
+                  <Shield className="w-8 h-8" />
+                </div>
                 <h3 className="text-xl font-semibold text-white mb-2">No Active Squads</h3>
                 <p className="text-slate-400 mb-6">
                   Create or select a squad to get started with your fantasy league
@@ -266,7 +293,9 @@ export default function DashboardPage() {
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-5 border-b border-slate-700/80">
                   <div>
                     <div className="flex items-center gap-2 mb-1">
-                      <span className="text-xl">🛡️</span>
+                      <span className="p-1 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20 flex items-center justify-center">
+                        <Shield className="w-4 h-4" />
+                      </span>
                       <h3 className="text-lg font-bold text-white">
                         {dashboardData.squadName || 'Active Squad'}
                       </h3>

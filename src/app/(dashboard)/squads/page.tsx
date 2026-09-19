@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Image from 'next/image';
-import { Users } from 'lucide-react';
+import { Users, Plus, ArrowRight, ShieldAlert, Sparkles } from 'lucide-react';
 import Link from 'next/link';
 
 type SquadPlayer = {
@@ -161,17 +161,36 @@ export default function SquadsPage() {
     );
   }
 
+  const roleParamMap: Record<string, string> = {
+    carry: 'Carry',
+    mid: 'Mid',
+    offlane: 'Offlane',
+    support: 'Support',
+    hard_support: 'Hard Support',
+  };
+
   const renderSlot = (slotName: string, roleLabel: string, isStarter: boolean = true) => {
     const playerEntry = lineup.find((p) => p.slot === slotName);
+    const targetRole = roleParamMap[slotName];
+    const transferUrl = targetRole ? `/transfers?role=${encodeURIComponent(targetRole)}` : '/transfers';
 
     if (!playerEntry) {
       return (
-        <Link href="/transfers" className="flex min-h-24 flex-1 items-center justify-between rounded-xl border border-dashed border-slate-700 bg-slate-900/40 px-5 py-4 transition-colors hover:border-cyan-500/50 hover:bg-slate-800">
+        <Link
+          href={transferUrl}
+          className="group flex min-h-24 flex-1 items-center justify-between rounded-xl border-2 border-dashed border-slate-700/80 bg-slate-900/40 px-5 py-4 transition-all hover:border-amber-500/60 hover:bg-slate-800/60"
+        >
           <div>
-            <p className="text-xs font-bold uppercase tracking-widest text-cyan-400">{roleLabel}</p>
-            <p className="mt-1 text-sm text-slate-500">No player selected</p>
+            <p className="text-xs font-bold uppercase tracking-widest text-cyan-400 group-hover:text-amber-400 transition-colors">
+              {roleLabel}
+            </p>
+            <p className="mt-1 text-sm text-slate-400 group-hover:text-slate-300 transition-colors">
+              Slot empty • <span className="text-amber-400/90 font-medium">Add player →</span>
+            </p>
           </div>
-          <span className="squad-empty-slot-icon flex h-9 w-9 items-center justify-center rounded-full border border-slate-600 text-xl text-slate-400">+</span>
+          <span className="squad-empty-slot-icon flex h-10 w-10 items-center justify-center rounded-full border border-slate-600 bg-slate-800 text-slate-300 group-hover:border-amber-500 group-hover:bg-amber-500 group-hover:text-slate-950 transition-all shadow-sm">
+            <Plus className="w-5 h-5" />
+          </span>
         </Link>
       );
     }
@@ -179,12 +198,19 @@ export default function SquadsPage() {
     const player = playerEntry.professional_players;
     if (!player) {
       return (
-        <Link href="/transfers" className="flex min-h-24 flex-1 items-center justify-between rounded-xl border border-dashed border-slate-700 bg-slate-900/40 px-5 py-4 transition-colors hover:border-cyan-500/50 hover:bg-slate-800">
+        <Link
+          href={transferUrl}
+          className="group flex min-h-24 flex-1 items-center justify-between rounded-xl border-2 border-dashed border-slate-700/80 bg-slate-900/40 px-5 py-4 transition-all hover:border-amber-500/60 hover:bg-slate-800/60"
+        >
           <div>
-            <p className="text-xs font-bold uppercase tracking-widest text-cyan-400">{roleLabel}</p>
-            <p className="mt-1 text-sm text-slate-500">Player data unavailable</p>
+            <p className="text-xs font-bold uppercase tracking-widest text-cyan-400 group-hover:text-amber-400 transition-colors">
+              {roleLabel}
+            </p>
+            <p className="mt-1 text-sm text-slate-400">Player data unavailable • <span className="text-amber-400/90 font-medium">Pick replacement →</span></p>
           </div>
-          <span className="squad-empty-slot-icon flex h-9 w-9 items-center justify-center rounded-full border border-slate-600 text-xl text-slate-400">+</span>
+          <span className="squad-empty-slot-icon flex h-10 w-10 items-center justify-center rounded-full border border-slate-600 bg-slate-800 text-slate-300 group-hover:border-amber-500 group-hover:bg-amber-500 group-hover:text-slate-950 transition-all shadow-sm">
+            <Plus className="w-5 h-5" />
+          </span>
         </Link>
       );
     }
@@ -248,11 +274,54 @@ export default function SquadsPage() {
         </div>
       )}
 
+      {/* Empty Squad Onboarding Banner */}
+      {ownedPlayers.length === 0 && (
+        <div className="mb-8 relative overflow-hidden rounded-2xl border border-amber-500/40 bg-linear-to-r from-amber-500/10 via-slate-800/90 to-slate-900 p-6 sm:p-8 shadow-xl shadow-amber-500/5">
+          <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-linear-to-b from-amber-400 to-orange-600 rounded-l-2xl" />
+          <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+            <div className="max-w-2xl">
+              <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-amber-500/20 border border-amber-500/30 text-amber-400 text-xs font-bold mb-3">
+                <Sparkles className="w-3.5 h-3.5" />
+                GET STARTED
+              </div>
+              <h2 className="text-2xl font-bold text-white mb-2">Build Your Fantasy Squad</h2>
+              <p className="text-slate-300 text-sm leading-relaxed mb-4">
+                Your squad is currently empty. Head over to the Transfer Market to acquire your 5 core starters and 3 substitutes within your $100.0M budget.
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs text-slate-400">
+                <div className="flex items-center gap-2">
+                  <span className="w-5 h-5 rounded-full bg-slate-700 text-amber-400 font-bold flex items-center justify-center text-[10px]">1</span>
+                  Pick 5 starting roles
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="w-5 h-5 rounded-full bg-slate-700 text-amber-400 font-bold flex items-center justify-center text-[10px]">2</span>
+                  Add 3 bench players
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="w-5 h-5 rounded-full bg-slate-700 text-amber-400 font-bold flex items-center justify-center text-[10px]">3</span>
+                  Earn points every GW
+                </div>
+              </div>
+            </div>
+            <Link
+              href="/transfers"
+              className="inline-flex items-center gap-2 px-6 py-3 rounded-xl font-bold text-sm bg-linear-to-r from-amber-500 to-orange-600 text-white hover:shadow-lg hover:shadow-orange-500/25 transition-all shrink-0"
+            >
+              Build Your Squad
+              <ArrowRight className="w-4 h-4" />
+            </Link>
+          </div>
+        </div>
+      )}
+
       {/* Unassigned squad members notice */}
       {lineup.length === 0 && ownedPlayers.length > 0 && (
-        <div className="mb-6 rounded-xl border border-amber-500/30 bg-amber-900/20 px-4 py-3 text-sm text-amber-300">
-          <span className="font-semibold">You have {ownedPlayers.length} player{ownedPlayers.length !== 1 ? 's' : ''} in your squad</span> but haven't set a lineup for this gameweek yet.
-          &nbsp;<Link href="/lineups" className="underline hover:text-amber-200">Set your lineup →</Link>
+        <div className="mb-6 rounded-xl border border-amber-500/30 bg-amber-900/20 px-4 py-3 text-sm text-amber-300 flex items-center gap-3">
+          <ShieldAlert className="w-5 h-5 text-amber-400 shrink-0" />
+          <div>
+            <span className="font-semibold">You have {ownedPlayers.length} player{ownedPlayers.length !== 1 ? 's' : ''} in your squad</span> but haven&apos;t set a lineup for this gameweek yet.
+            &nbsp;<Link href="/lineups" className="underline hover:text-amber-200 font-medium">Set your lineup →</Link>
+          </div>
         </div>
       )}
 

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Image from 'next/image';
-import { UserCheck } from 'lucide-react';
+import { UserCheck, TrendingUp, TrendingDown, Minus } from 'lucide-react';
 import { useToast } from '@/components/Toast';
 
 type ChipType = 'triple-captain' | 'bench-boost' | null;
@@ -20,6 +20,10 @@ type LineupPlayer = {
   in_game_name?: string | null;
   primary_role?: string | null;
   profile_image_url?: string | null;
+  current_price?: number;
+  last_gw_points?: number;
+  recent_points?: number;
+  form_trend?: 'up' | 'down' | 'flat';
   professional_teams?: { name?: string | null } | null;
 };
 
@@ -299,7 +303,16 @@ export default function LineupsPage() {
                         className="w-full rounded border border-amber-500/40 bg-slate-800 px-3 py-2 text-sm text-white focus:border-amber-500 focus:outline-none disabled:opacity-50"
                       >
                         <option value="">Select captain</option>
-                        {ownedPlayers.map((player) => <option key={player.id} value={player.id}>{player.in_game_name || player.name}</option>)}
+                        {ownedPlayers.map((player) => {
+                          const trendSymbol = player.form_trend === 'up' ? '▲' : player.form_trend === 'down' ? '▼' : '▬';
+                          const gwPtsStr = player.last_gw_points != null ? `${player.last_gw_points} pts ${trendSymbol}` : '';
+                          const details = [player.primary_role, gwPtsStr].filter(Boolean).join(' · ');
+                          return (
+                            <option key={player.id} value={player.id}>
+                              {player.in_game_name || player.name} {details ? `(${details})` : ''}
+                            </option>
+                          );
+                        })}
                       </select>
                     </div>
                     <div>
@@ -311,7 +324,16 @@ export default function LineupsPage() {
                         className="w-full rounded border border-slate-600 bg-slate-800 px-3 py-2 text-sm text-white focus:border-slate-400 focus:outline-none disabled:opacity-50"
                       >
                         <option value="">Select vice-captain</option>
-                        {ownedPlayers.map((player) => <option key={player.id} value={player.id}>{player.in_game_name || player.name}</option>)}
+                        {ownedPlayers.map((player) => {
+                          const trendSymbol = player.form_trend === 'up' ? '▲' : player.form_trend === 'down' ? '▼' : '▬';
+                          const gwPtsStr = player.last_gw_points != null ? `${player.last_gw_points} pts ${trendSymbol}` : '';
+                          const details = [player.primary_role, gwPtsStr].filter(Boolean).join(' · ');
+                          return (
+                            <option key={player.id} value={player.id}>
+                              {player.in_game_name || player.name} {details ? `(${details})` : ''}
+                            </option>
+                          );
+                        })}
                       </select>
                     </div>
                   </div>
@@ -340,24 +362,55 @@ export default function LineupsPage() {
                             className="w-full rounded border border-slate-600 bg-slate-800 px-3 py-2 text-sm text-white focus:border-amber-500 focus:outline-none"
                           >
                             <option value="">Select player</option>
-                            {ownedPlayers.map((player) => (
-                              <option key={player.id} value={player.id}>
-                                {player.in_game_name || player.name} · {player.primary_role}
-                              </option>
-                            ))}
+                            {ownedPlayers.map((player) => {
+                              const trendSymbol = player.form_trend === 'up' ? '▲' : player.form_trend === 'down' ? '▼' : '▬';
+                              const priceStr = player.current_price != null ? `$${Number(player.current_price).toFixed(1)}M` : '';
+                              const gwPtsStr = player.last_gw_points != null ? `${player.last_gw_points} pts` : '';
+                              const extras = [player.primary_role, priceStr, gwPtsStr ? `GW: ${gwPtsStr} ${trendSymbol}` : ''].filter(Boolean).join(' · ');
+                              return (
+                                <option key={player.id} value={player.id}>
+                                  {player.in_game_name || player.name} {extras ? `(${extras})` : ''}
+                                </option>
+                              );
+                            })}
                           </select>
                           {selected?.professional_players && (
-                            <div className="mt-3 flex items-center gap-3 rounded-lg border border-slate-700 bg-slate-800/60 p-2.5">
-                              <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full border border-slate-600 bg-slate-700">
-                                {selected.professional_players.profile_image_url ? (
-                                  <Image src={selected.professional_players.profile_image_url} alt={selected.professional_players.in_game_name || selected.professional_players.name} width={36} height={36} unoptimized className="h-full w-full object-cover" />
-                                ) : (
-                                  <span className="player-avatar-initials text-xs font-bold">{(selected.professional_players.in_game_name || selected.professional_players.name || 'P').slice(0, 2).toUpperCase()}</span>
-                                )}
+                            <div className="mt-3 flex items-center justify-between gap-3 rounded-lg border border-slate-700 bg-slate-800/60 p-3">
+                              <div className="flex items-center gap-3 min-w-0">
+                                <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full border border-slate-600 bg-slate-700">
+                                  {selected.professional_players.profile_image_url ? (
+                                    <Image src={selected.professional_players.profile_image_url} alt={selected.professional_players.in_game_name || selected.professional_players.name} width={40} height={40} unoptimized className="h-full w-full object-cover" />
+                                  ) : (
+                                    <span className="player-avatar-initials text-xs font-bold">{(selected.professional_players.in_game_name || selected.professional_players.name || 'P').slice(0, 2).toUpperCase()}</span>
+                                  )}
+                                </div>
+                                <div className="min-w-0">
+                                  <p className="truncate text-sm font-semibold text-white">{selected.professional_players.in_game_name || selected.professional_players.name}</p>
+                                  <p className="truncate text-xs text-slate-400">{selected.professional_players.professional_teams?.name || 'Free Agent'} · <span className="text-amber-400/90 font-medium">${Number(selected.professional_players.current_price || 0).toFixed(1)}M</span></p>
+                                </div>
                               </div>
-                              <div className="min-w-0">
-                                <p className="truncate text-sm font-semibold text-white">{selected.professional_players.in_game_name || selected.professional_players.name}</p>
-                                <p className="truncate text-xs text-slate-400">{selected.professional_players.professional_teams?.name || 'Free Agent'}</p>
+                              <div className="flex items-center gap-3 shrink-0 text-right">
+                                <div className="text-right">
+                                  <div className="text-[10px] uppercase tracking-wider text-slate-400">Last GW</div>
+                                  <div className="text-xs font-mono font-bold text-white flex items-center justify-end gap-1">
+                                    {selected.professional_players.last_gw_points ?? 0} pts
+                                    {selected.professional_players.form_trend === 'up' && (
+                                      <TrendingUp className="w-3.5 h-3.5 text-emerald-400 inline" />
+                                    )}
+                                    {selected.professional_players.form_trend === 'down' && (
+                                      <TrendingDown className="w-3.5 h-3.5 text-red-400 inline" />
+                                    )}
+                                    {(!selected.professional_players.form_trend || selected.professional_players.form_trend === 'flat') && (
+                                      <Minus className="w-3.5 h-3.5 text-slate-400 inline" />
+                                    )}
+                                  </div>
+                                </div>
+                                <div className="text-right border-l border-slate-700/80 pl-3">
+                                  <div className="text-[10px] uppercase tracking-wider text-slate-400">Avg</div>
+                                  <div className="text-xs font-mono font-semibold text-slate-300">
+                                    {selected.professional_players.recent_points ?? 0}
+                                  </div>
+                                </div>
                               </div>
                             </div>
                           )}
@@ -400,24 +453,47 @@ export default function LineupsPage() {
                             className="w-full rounded border border-slate-600 bg-slate-800 px-3 py-2 text-sm text-white focus:border-amber-500 focus:outline-none"
                           >
                             <option value="">Select player</option>
-                            {ownedPlayers.map((player) => (
-                              <option key={player.id} value={player.id}>
-                                {player.in_game_name || player.name} · {player.primary_role}
-                              </option>
-                            ))}
+                            {ownedPlayers.map((player) => {
+                              const trendSymbol = player.form_trend === 'up' ? '▲' : player.form_trend === 'down' ? '▼' : '▬';
+                              const priceStr = player.current_price != null ? `$${Number(player.current_price).toFixed(1)}M` : '';
+                              const gwPtsStr = player.last_gw_points != null ? `${player.last_gw_points} pts` : '';
+                              const extras = [player.primary_role, priceStr, gwPtsStr ? `GW: ${gwPtsStr} ${trendSymbol}` : ''].filter(Boolean).join(' · ');
+                              return (
+                                <option key={player.id} value={player.id}>
+                                  {player.in_game_name || player.name} {extras ? `(${extras})` : ''}
+                                </option>
+                              );
+                            })}
                           </select>
                           {selected?.professional_players && (
-                            <div className="mt-3 flex items-center gap-3 rounded-lg border border-slate-700 bg-slate-800/60 p-2.5">
-                              <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full border border-slate-600 bg-slate-700">
-                                {selected.professional_players.profile_image_url ? (
-                                  <Image src={selected.professional_players.profile_image_url} alt={selected.professional_players.in_game_name || selected.professional_players.name} width={36} height={36} unoptimized className="h-full w-full object-cover" />
-                                ) : (
-                                  <span className="player-avatar-initials text-xs font-bold">{(selected.professional_players.in_game_name || selected.professional_players.name || 'P').slice(0, 2).toUpperCase()}</span>
-                                )}
+                            <div className="mt-3 flex items-center justify-between gap-2 rounded-lg border border-slate-700 bg-slate-800/60 p-2.5">
+                              <div className="flex items-center gap-2.5 min-w-0">
+                                <div className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full border border-slate-600 bg-slate-700">
+                                  {selected.professional_players.profile_image_url ? (
+                                    <Image src={selected.professional_players.profile_image_url} alt={selected.professional_players.in_game_name || selected.professional_players.name} width={32} height={32} unoptimized className="h-full w-full object-cover" />
+                                  ) : (
+                                    <span className="player-avatar-initials text-xs font-bold">{(selected.professional_players.in_game_name || selected.professional_players.name || 'P').slice(0, 2).toUpperCase()}</span>
+                                  )}
+                                </div>
+                                <div className="min-w-0">
+                                  <p className="truncate text-xs font-semibold text-white">{selected.professional_players.in_game_name || selected.professional_players.name}</p>
+                                  <p className="truncate text-[11px] text-slate-400">${Number(selected.professional_players.current_price || 0).toFixed(1)}M</p>
+                                </div>
                               </div>
-                              <div className="min-w-0">
-                                <p className="truncate text-sm font-semibold text-white">{selected.professional_players.in_game_name || selected.professional_players.name}</p>
-                                <p className="truncate text-xs text-slate-400">{selected.professional_players.professional_teams?.name || 'Free Agent'}</p>
+                              <div className="text-right shrink-0">
+                                <div className="text-[9px] uppercase tracking-wider text-slate-400">Last GW</div>
+                                <div className="text-xs font-mono font-bold text-white flex items-center justify-end gap-1">
+                                  {selected.professional_players.last_gw_points ?? 0}
+                                  {selected.professional_players.form_trend === 'up' && (
+                                    <TrendingUp className="w-3 h-3 text-emerald-400 inline" />
+                                  )}
+                                  {selected.professional_players.form_trend === 'down' && (
+                                    <TrendingDown className="w-3 h-3 text-red-400 inline" />
+                                  )}
+                                  {(!selected.professional_players.form_trend || selected.professional_players.form_trend === 'flat') && (
+                                    <Minus className="w-3 h-3 text-slate-400 inline" />
+                                  )}
+                                </div>
                               </div>
                             </div>
                           )}

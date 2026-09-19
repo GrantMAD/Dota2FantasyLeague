@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { ArrowLeftRight } from 'lucide-react';
+import { ArrowLeftRight, CheckCircle2, Minus, Plus } from 'lucide-react';
 import { fetchWithAuth } from '@/lib/fetch-with-auth';
 import { useToast } from '@/components/Toast';
 
@@ -46,6 +46,7 @@ export default function TransfersPage() {
   const [roleFilter, setRoleFilter] = useState('');
   const [ownershipFilter, setOwnershipFilter] = useState<'all' | 'owned' | 'available'>('all');
   const [rosteredOnly, setRosteredOnly] = useState(true);
+  const [pinOwnedFirst, setPinOwnedFirst] = useState(true);
   const [fantasySeasonId, setFantasySeasonId] = useState<number | null>(null);
   const [budget, setBudget] = useState(0);
   const [freeTransfers, setFreeTransfers] = useState(0);
@@ -136,7 +137,7 @@ export default function TransfersPage() {
       cancelled = true;
       clearTimeout(timeoutId);
     };
-  }, [search, roleFilter, page]);
+  }, [search, roleFilter, page, rosteredOnly]);
 
   const openPlayerModal = async (playerSummary: TransferPlayer) => {
     setModalPlayer(playerSummary);
@@ -162,6 +163,27 @@ export default function TransfersPage() {
     if (ownershipFilter === 'available' && isOwned) return false;
     return true;
   });
+
+  // When pinOwnedFirst is active, gather owned squad players matching current filters (even if on another page)
+  // and prioritize them at the very top of the list.
+  const displayedPlayers = (() => {
+    if (!pinOwnedFirst || ownershipFilter === 'available') {
+      return filteredPlayers;
+    }
+
+    // Get all owned players from our map that match search and role filters
+    const matchingOwnedSquad: TransferPlayer[] = [];
+    ownedPlayersMap.forEach((p) => {
+      if (search && !(p.in_game_name || p.name || '').toLowerCase().includes(search.toLowerCase())) return;
+      if (roleFilter && p.primary_role !== roleFilter) return;
+      matchingOwnedSquad.push(p);
+    });
+
+    const ownedIdSet = new Set(matchingOwnedSquad.map((p) => p.id));
+    const nonOwned = filteredPlayers.filter((p) => !ownedIdSet.has(p.id) && !ownedPlayerIds.includes(p.id));
+
+    return [...matchingOwnedSquad, ...nonOwned];
+  })();
 
   const selectedPlayerInDetails = players.find((player) => player.id === selectedPlayerIn);
   const selectedPlayerOutDetails = players.find((player) => player.id === selectedPlayerOut) || (selectedPlayerOut ? ownedPlayersMap.get(selectedPlayerOut) : null);
@@ -307,7 +329,7 @@ export default function TransfersPage() {
                 </select>
               </div>
 
-              <div className="pt-1">
+              <div className="pt-1 space-y-2">
                 <label className="flex items-center gap-2 cursor-pointer select-none">
                   <input
                     type="checkbox"
@@ -319,6 +341,16 @@ export default function TransfersPage() {
                     className="w-4 h-4 rounded border-slate-700 bg-slate-900 text-amber-500 focus:ring-amber-500 accent-amber-500 cursor-pointer"
                   />
                   <span className="text-xs text-slate-300">Signed Rosters Only</span>
+                </label>
+
+                <label className="flex items-center gap-2 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={pinOwnedFirst}
+                    onChange={(e) => setPinOwnedFirst(e.target.checked)}
+                    className="w-4 h-4 rounded border-slate-700 bg-slate-900 text-amber-500 focus:ring-amber-500 accent-amber-500 cursor-pointer"
+                  />
+                  <span className="text-xs text-slate-300">Show My Squad at Top</span>
                 </label>
               </div>
             </div>
@@ -378,79 +410,89 @@ export default function TransfersPage() {
                     <tr>
                       <td colSpan={6} className="px-4 py-8 text-center text-slate-400">Loading transfer candidates...</td>
                     </tr>
-                  ) : filteredPlayers.length === 0 ? (
+                  ) : displayedPlayers.length === 0 ? (
                     <tr>
                       <td colSpan={6} className="px-4 py-8 text-center text-slate-400">No players found matching your criteria.</td>
                     </tr>
                   ) : (
-                    filteredPlayers.map((player) => (
-                      <tr
-                        key={player.id}
-                        onClick={() => openPlayerModal(player)}
-                        className="hover:bg-slate-700/40 transition-colors group cursor-pointer"
-                      >
-                        <td className="px-4 py-3">
-                          <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-full bg-slate-700 border border-slate-600 overflow-hidden shrink-0 flex items-center justify-center">
-                              {player.profile_image_url ? (
-                                <Image src={player.profile_image_url} alt={player.in_game_name || player.name} width={40} height={40} unoptimized className="w-full h-full object-cover" />
-                              ) : (
-                                <span className="player-avatar-initials text-xs font-bold">
-                                  {(player.in_game_name || player.name || '').substring(0, 2).toUpperCase()}
-                                </span>
-                              )}
-                            </div>
-                            <div>
-                              <div className="font-bold text-white group-hover:text-amber-400 transition-colors flex items-center gap-1.5">
-                                {player.in_game_name || player.name}
-                                {ownedPlayerIds.includes(player.id) && (
-                                  <span className="rounded bg-emerald-500/20 text-emerald-400 text-[10px] font-semibold px-1.5 py-0.2 border border-emerald-500/30">
-                                    Owned
+                    displayedPlayers.map((player) => {
+                      const isOwned = ownedPlayerIds.includes(player.id);
+                      return (
+                        <tr
+                          key={player.id}
+                          onClick={() => openPlayerModal(player)}
+                          className={`transition-colors group cursor-pointer ${
+                            isOwned
+                              ? 'bg-emerald-950/20 hover:bg-emerald-950/35 border-l-2 border-l-emerald-500'
+                              : 'hover:bg-slate-700/40'
+                          }`}
+                        >
+                          <td className="px-4 py-3">
+                            <div className="flex items-center gap-3">
+                              <div className={`w-10 h-10 rounded-full border overflow-hidden shrink-0 flex items-center justify-center ${
+                                isOwned ? 'bg-slate-800 border-emerald-500/50' : 'bg-slate-700 border-slate-600'
+                              }`}>
+                                {player.profile_image_url ? (
+                                  <Image src={player.profile_image_url} alt={player.in_game_name || player.name} width={40} height={40} unoptimized className="w-full h-full object-cover" />
+                                ) : (
+                                  <span className="player-avatar-initials text-xs font-bold">
+                                    {(player.in_game_name || player.name || '').substring(0, 2).toUpperCase()}
                                   </span>
                                 )}
                               </div>
-                              <div className="text-xs text-slate-400">{player.professional_teams?.name || 'Free Agent'}</div>
+                              <div>
+                                <div className="font-bold text-white group-hover:text-amber-400 transition-colors flex items-center gap-1.5">
+                                  {player.in_game_name || player.name}
+                                  {isOwned && (
+                                    <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/20 text-emerald-400 text-[10px] font-semibold px-2 py-0.5 border border-emerald-500/30">
+                                      <CheckCircle2 className="w-3 h-3" />
+                                      In Squad
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="text-xs text-slate-400">{player.professional_teams?.name || 'Free Agent'}</div>
+                              </div>
                             </div>
-                          </div>
-                        </td>
-                        <td className="px-4 py-3 text-center">
-                          <span className="transfer-role-badge inline-block bg-slate-700/80 text-slate-300 text-[10px] uppercase font-bold px-2 py-1 rounded">
-                            {player.primary_role || 'Flexible'}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3 text-right">
-                          <div className="font-mono font-bold text-amber-400">${player.current_price}M</div>
-                        </td>
-                        <td className="px-4 py-3 text-right">
-                          <div className="transfer-form-average text-sm text-slate-200 font-mono">{player.recent_points ?? '-'}</div>
-                        </td>
-                        <td className="px-4 py-3 text-right">
-                          <div className="text-sm font-bold text-white font-mono">{player.gameweek_points ?? '-'}</div>
-                        </td>
-                        <td className="px-4 py-3 text-center" onClick={(e) => e.stopPropagation()}>
-                          <button
-                            type="button"
-                            onClick={(e) => handlePlayerAction(player.id, e)}
-                            className={`transfer-action-button p-1.5 rounded-md transition-colors ${
-                              ownedPlayerIds.includes(player.id)
-                                ? selectedPlayerOut === player.id
-                                  ? 'bg-red-600 text-white'
-                                  : 'bg-slate-700 hover:bg-red-600 text-slate-200 hover:text-white'
-                                : selectedPlayerIn === player.id
-                                ? 'bg-amber-500 text-slate-900'
-                                : 'bg-slate-700 hover:bg-emerald-600 text-white'
-                            }`}
-                            title={ownedPlayerIds.includes(player.id) ? 'Select to sell' : 'Select to buy'}
-                          >
-                            {ownedPlayerIds.includes(player.id) ? (
-                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20 12H4"></path></svg>
-                            ) : (
-                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4"></path></svg>
-                            )}
-                          </button>
-                        </td>
-                      </tr>
-                    ))
+                          </td>
+                          <td className="px-4 py-3 text-center">
+                            <span className="transfer-role-badge inline-block bg-slate-700/80 text-slate-300 text-[10px] uppercase font-bold px-2 py-1 rounded">
+                              {player.primary_role || 'Flexible'}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-right">
+                            <div className="font-mono font-bold text-amber-400">${player.current_price}M</div>
+                          </td>
+                          <td className="px-4 py-3 text-right">
+                            <div className="transfer-form-average text-sm text-slate-200 font-mono">{player.recent_points ?? '-'}</div>
+                          </td>
+                          <td className="px-4 py-3 text-right">
+                            <div className="text-sm font-bold text-white font-mono">{player.gameweek_points ?? '-'}</div>
+                          </td>
+                          <td className="px-4 py-3 text-center" onClick={(e) => e.stopPropagation()}>
+                            <button
+                              type="button"
+                              onClick={(e) => handlePlayerAction(player.id, e)}
+                              className={`transfer-action-button inline-flex items-center justify-center p-2 rounded-lg font-medium text-xs transition-all shadow-sm ${
+                                isOwned
+                                  ? selectedPlayerOut === player.id
+                                    ? 'bg-red-600 text-white ring-2 ring-red-400'
+                                    : 'bg-slate-700/80 hover:bg-red-600 text-slate-200 hover:text-white border border-slate-600/60'
+                                  : selectedPlayerIn === player.id
+                                  ? 'bg-amber-500 text-slate-900 ring-2 ring-amber-300 font-bold'
+                                  : 'bg-slate-700/80 hover:bg-emerald-600 text-white border border-slate-600/60'
+                              }`}
+                              title={isOwned ? 'Select to sell from squad' : 'Select to buy'}
+                            >
+                              {isOwned ? (
+                                <Minus className="w-4 h-4" />
+                              ) : (
+                                <Plus className="w-4 h-4" />
+                              )}
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })
                   )}
                 </tbody>
               </table>

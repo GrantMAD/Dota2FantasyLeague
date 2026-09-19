@@ -145,11 +145,17 @@ export async function GET(request: NextRequest) {
         .in('id', allRelevantPlayerIds);
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: prices } = await (supabase.from('player_prices') as any)
-        .select('player_id, price, gameweek_id')
-        .eq('season_id', fantasySeason.season_id)
-        .in('player_id', allRelevantPlayerIds)
-        .order('gameweek_id', { ascending: false });
+      const [{ data: prices }, { data: scores }] = await Promise.all([
+        (supabase.from('player_prices') as any)
+          .select('player_id, price, gameweek_id')
+          .eq('season_id', fantasySeason.season_id)
+          .in('player_id', allRelevantPlayerIds)
+          .order('gameweek_id', { ascending: false }),
+        (supabase.from('gameweek_scores') as any)
+          .select('player_id, total_points, gameweek_id')
+          .in('player_id', allRelevantPlayerIds)
+          .order('gameweek_id', { ascending: false }),
+      ]);
 
       const latestPrices = new Map<number, number>();
       for (const price of prices ?? []) {
@@ -158,10 +164,33 @@ export async function GET(request: NextRequest) {
         }
       }
 
+      const playerScoresMap = new Map<number, number[]>();
+      for (const score of scores ?? []) {
+        const list = playerScoresMap.get(score.player_id) ?? [];
+        if (list.length < 5) list.push(Number(score.total_points ?? 0));
+        playerScoresMap.set(score.player_id, list);
+      }
+
       for (const p of players ?? []) {
+        const pScores = playerScoresMap.get(p.id) ?? [];
+        const lastGwPts = pScores[0] ?? 0;
+        const avgPts = pScores.length
+          ? Number((pScores.reduce((sum, val) => sum + val, 0) / pScores.length).toFixed(1))
+          : 0;
+
+        // Form trend comparing latest score to average
+        let trend: 'up' | 'down' | 'flat' = 'flat';
+        if (pScores.length >= 2) {
+          if (pScores[0] > pScores[1] + 1.0) trend = 'up';
+          else if (pScores[0] < pScores[1] - 1.0) trend = 'down';
+        }
+
         playerMap.set(p.id, {
           ...p,
-          current_price: latestPrices.get(p.id) ?? 0,
+          current_price: latestPrices.get(p.id) ?? Number(p.current_price ?? 0),
+          last_gw_points: lastGwPts,
+          recent_points: avgPts,
+          form_trend: trend,
         });
       }
     }
