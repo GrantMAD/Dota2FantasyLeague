@@ -56,18 +56,24 @@ export class OpenDotaProvider extends DataProviderBase implements DataProvider {
     }
   }
 
-  async fetchPlayers(filters?: DataProviderFilters): Promise<PlayerData[]> {
+  async fetchPlayers(filters?: DataProviderFilters, rawData?: any[]): Promise<PlayerData[]> {
     try {
-      // Use OpenDota's dedicated /proPlayers endpoint
-      const rawPlayers = await this.request('/proPlayers');
+      // Use pre-fetched raw data if provided (avoids duplicate HTTP call from sync job),
+      // otherwise fetch from OpenDota's dedicated /proPlayers endpoint.
+      const rawPlayers = rawData ?? await this.request('/proPlayers');
 
       if (!Array.isArray(rawPlayers)) {
         throw new Error('Invalid proPlayers response from OpenDota');
       }
 
-      // Filter to active pro players with teams and names
+      // Filter to genuinely active pro players:
+      // - Must have a name
+      // - Must be flagged as pro by OpenDota
+      // - Must be on an active team (team_id must be a real non-zero value)
+      // This excludes retired players who still carry is_pro=true but have no team,
+      // and players with a stale team_name string but no team_id.
       const validPlayers = rawPlayers.filter(
-        (p: any) => p.name && (p.is_pro || p.team_name)
+        (p: any) => p.name && p.is_pro && p.team_id && p.team_id !== 0
       );
 
       // Map OpenDota fantasy_role integer to role name
@@ -515,5 +521,30 @@ export class OpenDotaProvider extends DataProviderBase implements DataProvider {
 
       return response.json();
     });
+  }
+}
+
+/**
+ * Fetch the raw /proPlayers array from OpenDota exactly once.
+ *
+ * Exported so sync-players.ts can pre-fetch the data once at the top of the job
+ * and reuse it for both role-lookup building AND fallback player mapping,
+ * eliminating the duplicate HTTP call that previously fired on every sync run.
+ */
+export async function fetchRawOpenDotaProPlayers(): Promise<any[]> {
+  try {
+    const res = await fetch('https://api.opendota.com/api/proPlayers', {
+      headers: { 'User-Agent': 'FantasyDota/1.0' },
+      signal: AbortSignal.timeout(10000),
+    });
+    if (!res.ok) {
+      console.warn(`[fetchRawOpenDotaProPlayers] OpenDota returned status ${res.status}`);
+      return [];
+    }
+    const data = await res.json();
+    return Array.isArray(data) ? data : [];
+  } catch (error) {
+    console.warn(`[fetchRawOpenDotaProPlayers] Failed: ${(error as Error).message}`);
+    return [];
   }
 }

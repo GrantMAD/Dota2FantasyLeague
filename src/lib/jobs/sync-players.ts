@@ -43,7 +43,7 @@ export async function syncPlayers(): Promise<SyncResult> {
   try {
     // Import here to avoid circular dependencies
     const { getDataProvider } = await import('../data-providers/provider-config');
-    const { OpenDotaProvider } = await import('../data-providers/opendota-provider');
+    const { fetchRawOpenDotaProPlayers } = await import('../data-providers/opendota-provider');
     const provider = await getDataProvider();
 
     console.log('[syncPlayers] Starting player synchronization');
@@ -52,11 +52,21 @@ export async function syncPlayers(): Promise<SyncResult> {
     const jobExecutionId = await logJobExecution('sync-players', 'started');
 
     try {
-      // Fetch all players from data provider, with explicit OpenDota fallback at fetch level
+      // 1. Pre-fetch raw OpenDota proPlayers ONCE — reused for both role lookup and
+      //    fallback player mapping. Eliminates the duplicate HTTP call that previously
+      //    fired on every sync run (once for role lookup, once on STRATZ failure).
+      const rawOpenDotaPlayers = await fetchRawOpenDotaProPlayers();
+      console.log(`[syncPlayers] OpenDota pre-fetch: ${rawOpenDotaPlayers.length} total players fetched`);
+
+      // 2. Build role lookup from already-fetched data (no extra HTTP call)
+      const roleLookup = buildRoleLookupFromRaw(rawOpenDotaPlayers);
+      console.log(`[syncPlayers] Built role lookup for ${roleLookup.size} players`);
+
+      // 3. Fetch players from primary provider (STRATZ).
+      //    On failure, map the pre-fetched OpenDota data instead of fetching again.
       let players = await provider.fetchPlayers({ activeOnly: true }).catch(async (err) => {
-        console.warn(`[syncPlayers] Primary provider fetchPlayers failed (${err.message}), falling back to OpenDota`);
-        const opendota = new OpenDotaProvider();
-        return opendota.fetchPlayers({ activeOnly: true });
+        console.warn(`[syncPlayers] Primary provider failed (${err.message}), using pre-fetched OpenDota data`);
+        return mapRawOpenDotaPlayersToPlayerData(rawOpenDotaPlayers);
       });
       console.log(`[syncPlayers] Fetched ${players.length} players from provider`);
 
@@ -67,10 +77,6 @@ export async function syncPlayers(): Promise<SyncResult> {
       // Get existing teams to resolve provider team ID to internal database ID
       const existingTeams = await getExistingTeams();
       console.log(`[syncPlayers] Found ${existingTeams.size} existing teams in database`);
-
-      // Fetch OpenDota proPlayers role map as high-quality role authority
-      const roleLookup = await getOpenDotaRoleLookup();
-      console.log(`[syncPlayers] Loaded ${roleLookup.size} pro player roles from OpenDota`);
 
       // Process players in batches
       const batchSize = 100;
@@ -492,10 +498,39 @@ async function logJobExecution(
 }
 
 /**
- * Fetch pro player role mappings directly from OpenDota /proPlayers endpoint.
- * Returns a map with multiple lookup keys: steamId, account_id, and lowercased player name.
+ * Build a role lookup map from an already-fetched raw OpenDota proPlayers array.
+ *
+ * Replaces getOpenDotaRoleLookup() — accepts pre-fetched data instead of firing
+ * its own HTTP call, so the sync job only ever hits /proPlayers once per run.
+ *
+ * Keys by steamid AND account_id only — name-based keys cause collisions
+ * when multiple players share a display name (e.g. "Satanic", "Support").
  */
-async function getOpenDotaRoleLookup(): Promise<Map<string, string>> {
+function buildRoleLookupFromRaw(rawPlayers: any[]): Map<string, string> {
+  const roleMap: Record<number, string> = {
+    1: 'Carry',
+    2: 'Support',
+    3: 'Offlane',
+    4: 'Mid',
+  };
+  const lookup = new Map<string, string>();
+  for (const player of rawPlayers) {
+    const roleName = player.fantasy_role ? roleMap[player.fantasy_role] : null;
+    if (!roleName) continue;
+    if (player.steamid) lookup.set(String(player.steamid), roleName);
+    if (player.account_id) lookup.set(String(player.account_id), roleName);
+  }
+  return lookup;
+}
+
+/**
+ * Map pre-fetched raw OpenDota proPlayers data to the PlayerData shape.
+ *
+ * Used as the STRATZ fallback: when STRATZ fails, sync-players reuses the
+ * data that was already pre-fetched for role-lookup — no second HTTP call.
+ * Applies the same active-player filter as OpenDotaProvider.fetchPlayers().
+ */
+function mapRawOpenDotaPlayersToPlayerData(rawPlayers: any[]): import('@/lib/data-providers/provider-interface').PlayerData[] {
   const roleMap: Record<number, string> = {
     1: 'Carry',
     2: 'Support',
@@ -503,40 +538,28 @@ async function getOpenDotaRoleLookup(): Promise<Map<string, string>> {
     4: 'Mid',
   };
 
-  const lookup = new Map<string, string>();
-  try {
-    const res = await fetch('https://api.opendota.com/api/proPlayers', {
-      headers: { 'User-Agent': 'FantasyDota/1.0' },
-      signal: AbortSignal.timeout(10000),
-    });
+  const activePlayers = rawPlayers.filter(
+    (p: any) => p.name && p.is_pro && p.team_id && p.team_id !== 0
+  );
 
-    if (!res.ok) {
-      console.warn(`[getOpenDotaRoleLookup] OpenDota returned status ${res.status}`);
-      return lookup;
-    }
+  console.log(
+    `[syncPlayers] OpenDota: ${rawPlayers.length} total, ${activePlayers.length} active ` +
+    `(filtered out ${rawPlayers.length - activePlayers.length} inactive)`
+  );
 
-    const data = (await res.json()) as Array<{
-      steamid?: string;
-      account_id?: number | string;
-      name?: string;
-      personaname?: string;
-      fantasy_role?: number;
-    }>;
-
-    if (!Array.isArray(data)) return lookup;
-
-    for (const player of data) {
-      const roleName = player.fantasy_role ? roleMap[player.fantasy_role] : null;
-      if (!roleName) continue;
-
-      // Key ONLY by steamid and account_id — name-based keys cause collisions
-      // when multiple players share a display name (e.g. "Satanic", "Support", etc.)
-      if (player.steamid) lookup.set(String(player.steamid), roleName);
-      if (player.account_id) lookup.set(String(player.account_id), roleName);
-    }
-  } catch (error) {
-    console.warn(`[getOpenDotaRoleLookup] Failed to fetch OpenDota pro players: ${(error as Error).message}`);
-  }
-
-  return lookup;
+  return activePlayers.map((p: any) => ({
+    id: String(p.account_id),
+    steamId: p.steamid ? String(p.steamid) : String(p.account_id),
+    name: p.name || p.personaname,
+    tag: p.team_tag || undefined,
+    country: p.country_code || p.loccountrycode || undefined,
+    roles: [roleMap[p.fantasy_role] || 'Carry'],
+    team: p.team_id
+      ? { id: String(p.team_id), name: p.team_name || 'Independent' }
+      : undefined,
+    isActive: true,
+    profileUrl: p.profileurl || `https://opendota.com/players/${p.account_id}`,
+    imageUrl: p.avatarfull || p.avatarmedium || p.avatar,
+    lastUpdated: new Date(),
+  }));
 }
