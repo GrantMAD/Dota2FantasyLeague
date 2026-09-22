@@ -37,6 +37,11 @@ type TransferPerformance = {
   fantasy_points_breakdown?: { total_points?: number | null } | null;
 };
 
+// 5 starters + 3 bench = 8 player squad
+const SQUAD_MAX_SIZE = 8;
+const STARTER_ROLES = ['Carry', 'Mid', 'Offlane', 'Support', 'Hard Support'] as const;
+type StarterRole = typeof STARTER_ROLES[number];
+
 export default function TransfersPage() {
   const toast = useToast();
   const [players, setPlayers] = useState<TransferPlayer[]>([]);
@@ -52,6 +57,9 @@ export default function TransfersPage() {
   const [freeTransfers, setFreeTransfers] = useState(0);
   const [wildcardUsed, setWildcardUsed] = useState(false);
   const [ownedPlayerIds, setOwnedPlayerIds] = useState<number[]>([]);
+  // Building mode: multi-select keyed by player ID so details survive filter/page changes
+  const [buildingSelections, setBuildingSelections] = useState<Map<number, TransferPlayer>>(new Map());
+  // Transfer mode: single swap
   const [selectedPlayerIn, setSelectedPlayerIn] = useState<number | null>(null);
   const [selectedPlayerOut, setSelectedPlayerOut] = useState<number | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
@@ -193,12 +201,73 @@ export default function TransfersPage() {
     selectedPlayerInDetails.primary_role === selectedPlayerOutDetails.primary_role
   );
 
-  const handlePlayerAction = (playerId: number, e?: React.MouseEvent) => {
+  const handlePlayerAction = (playerId: number, player?: TransferPlayer, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
     if (ownedPlayerIds.includes(playerId)) {
-      setSelectedPlayerOut(selectedPlayerOut === playerId ? null : playerId);
+      if (!isBuilding) setSelectedPlayerOut(selectedPlayerOut === playerId ? null : playerId);
+    } else if (isBuilding) {
+      const spotsLeft = SQUAD_MAX_SIZE - ownedPlayerIds.length - buildingSelections.size;
+      setBuildingSelections((prev) => {
+        const next = new Map(prev);
+        if (next.has(playerId)) {
+          next.delete(playerId);
+        } else if (spotsLeft > 0 && player) {
+          next.set(playerId, player);
+        }
+        return next;
+      });
     } else {
       setSelectedPlayerIn(selectedPlayerIn === playerId ? null : playerId);
+    }
+  };
+
+  // Building mode: squad is below max size
+  const isBuilding = ownedPlayerIds.length < SQUAD_MAX_SIZE;
+
+  // Derive role slots from building selections — uses stored player objects, not current page
+  const selectedRolesFilled = new Map<StarterRole, TransferPlayer>(); // role -> player
+  const benchSelections: TransferPlayer[] = [];
+  for (const [, player] of buildingSelections) {
+    const role = player.primary_role as StarterRole | undefined;
+    if (role && STARTER_ROLES.includes(role) && !selectedRolesFilled.has(role)) {
+      selectedRolesFilled.set(role, player);
+    } else {
+      benchSelections.push(player);
+    }
+  }
+  const neededStarterRoles = STARTER_ROLES.filter((r) => !selectedRolesFilled.has(r));
+  const benchSlotsTotal = SQUAD_MAX_SIZE - STARTER_ROLES.length; // 3
+  const totalSelected = buildingSelections.size;
+  const spotsRemaining = SQUAD_MAX_SIZE - ownedPlayerIds.length - totalSelected;
+  const selectionCost = [...buildingSelections.values()].reduce(
+    (sum, p) => sum + (p.current_price ?? 0),
+    0
+  );
+
+
+  const submitAddToSquad = async () => {
+    if (!fantasySeasonId || buildingSelections.size === 0) {
+      toast.info('Select Players', 'Select the players you want in your squad, then confirm.');
+      return;
+    }
+    const selectedIds = [...buildingSelections.keys()];
+    setActionLoading(true);
+    try {
+      const response = await fetchWithAuth('/api/fantasy/squad/add', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fantasySeasonId, playerIds: selectedIds }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Failed to add players');
+      setBudget(Number(data.budget ?? budget));
+      setOwnedPlayerIds((current) => [...current, ...selectedIds]);
+      setBuildingSelections(new Map());
+      toast.success('Squad Updated', `${selectedIds.length} player${selectedIds.length > 1 ? 's' : ''} added! (${data.squadSize}/${data.squadMaxSize})`);
+    } catch (err) {
+      toast.error('Failed to Add Players', err instanceof Error ? err.message : 'Could not add players');
+    } finally {
+      setActionLoading(false);
     }
   };
 
@@ -364,20 +433,109 @@ export default function TransfersPage() {
             </button>
           </div>
 
-          {(selectedPlayerIn !== null || selectedPlayerOut !== null) && (
+          {isBuilding ? (
+            // ── BUILDING MODE PANEL ────────────────────────────────────────────
+            <div className="bg-slate-800/50 border border-amber-600/40 rounded-xl p-5 shadow-sm">
+              <h4 className="text-sm font-semibold text-amber-400 mb-1">Build Your Squad</h4>
+              <p className="text-xs text-slate-400 mb-4">
+                {ownedPlayerIds.length + totalSelected}/{SQUAD_MAX_SIZE} players · {spotsRemaining > 0 ? `${spotsRemaining} spot${spotsRemaining !== 1 ? 's' : ''} left` : 'Squad full!'}
+              </p>
+
+              {/* Starter role slots */}
+              <div className="space-y-1.5 mb-3">
+                {STARTER_ROLES.map((role) => {
+                  const p = selectedRolesFilled.get(role);
+                  return (
+                    <div key={role} className={`flex items-center justify-between rounded-lg px-3 py-2 text-xs ${
+                      p ? 'bg-emerald-900/30 border border-emerald-700/50' : 'bg-slate-700/30 border border-slate-600/40'
+                    }`}>
+                      <span className={`font-semibold uppercase tracking-wider ${p ? 'text-emerald-400' : 'text-slate-500'}`}>{role}</span>
+                      {p ? (
+                        <div className="flex items-center gap-2">
+                          <span className="text-white font-medium">{p.in_game_name || p.name}</span>
+                          <button
+                            onClick={() => setBuildingSelections((prev) => { const next = new Map(prev); next.delete(p.id); return next; })}
+                            className="text-slate-400 hover:text-red-400 transition-colors"
+                          >✕</button>
+                        </div>
+                      ) : (
+                        <span className="text-slate-500 italic">Needed</span>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Bench slots */}
+              <div className="space-y-1.5 mb-4">
+                {Array.from({ length: benchSlotsTotal }).map((_, i) => {
+                  const p = benchSelections[i];
+                  return (
+                    <div key={`bench-${i}`} className={`flex items-center justify-between rounded-lg px-3 py-2 text-xs ${
+                      p ? 'bg-slate-700/50 border border-slate-600' : 'bg-slate-800/30 border border-slate-700/30'
+                    }`}>
+                      <span className="text-slate-500 font-semibold uppercase tracking-wider">Bench {i + 1}</span>
+                      {p ? (
+                        <div className="flex items-center gap-2">
+                          <span className="text-slate-300">{p.in_game_name || p.name}</span>
+                          <button
+                            onClick={() => setBuildingSelections((prev) => { const next = new Map(prev); next.delete(p.id); return next; })}
+                            className="text-slate-400 hover:text-red-400 transition-colors"
+                          >✕</button>
+                        </div>
+                      ) : (
+                        <span className="text-slate-600 italic">Optional</span>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Cost summary */}
+              {totalSelected > 0 && (
+                <div className="flex justify-between text-xs mb-4 px-1">
+                  <span className="text-slate-400">Selection cost</span>
+                  <span className="font-mono text-amber-400 font-bold">${selectionCost.toFixed(1)}M</span>
+                </div>
+              )}
+
+              {neededStarterRoles.length > 0 && totalSelected > 0 && (
+                <p className="text-xs text-amber-300/80 mb-3 bg-amber-900/20 border border-amber-700/30 rounded-lg px-3 py-2">
+                  Still needed: {neededStarterRoles.join(', ')}
+                </p>
+              )}
+
+              <button
+                disabled={actionLoading || buildingSelections.size === 0}
+                onClick={submitAddToSquad}
+                className="w-full bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold py-2.5 rounded-lg transition-colors disabled:opacity-50 shadow-md"
+              >
+                {actionLoading ? 'Adding...' : totalSelected === 0 ? 'Select players from the list →' : `Confirm ${totalSelected} Player${totalSelected !== 1 ? 's' : ''}`}
+              </button>
+            </div>
+          ) : (selectedPlayerIn !== null || selectedPlayerOut !== null) && (
+            // ── TRANSFER MODE PANEL ────────────────────────────────────────────
             <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-5 shadow-sm">
-              <h4 className="text-sm font-semibold text-white mb-2">Pending Swaps</h4>
+              <h4 className="text-sm font-semibold text-white mb-2">Pending Transfer</h4>
               <p className="text-xs text-slate-300 mb-3 leading-relaxed">
-                {selectedPlayerIn ? `Buying: ${selectedPlayerInDetails?.in_game_name || 'Player'} (${selectedPlayerInDetails?.primary_role || 'Role unknown'})` : 'Select a player to buy.'}
+                {selectedPlayerIn
+                  ? `Buying: ${selectedPlayerInDetails?.in_game_name || 'Player'} (${selectedPlayerInDetails?.primary_role || 'Role unknown'})`
+                  : 'Select a player to buy.'}
                 <br />
-                {selectedPlayerOut ? `Selling: ${selectedPlayerOutDetails?.in_game_name || 'Player'} (${selectedPlayerOutDetails?.primary_role || 'Role unknown'})` : 'Select an owned player to sell.'}
+                {selectedPlayerOut
+                  ? `Selling: ${selectedPlayerOutDetails?.in_game_name || 'Player'} (${selectedPlayerOutDetails?.primary_role || 'Role unknown'})`
+                  : 'Select an owned player to sell.'}
               </p>
               {selectedPlayerIn !== null && selectedPlayerOut !== null && !rolesMatch && (
                 <p className="mb-3 rounded border border-red-500/30 bg-red-500/10 p-2 text-xs text-red-300">
                   Transfers must be role-for-role. Select a {selectedPlayerOutDetails?.primary_role || 'matching'} to buy.
                 </p>
               )}
-              <button disabled={actionLoading || selectedPlayerIn === null || selectedPlayerOut === null || !rolesMatch} onClick={submitTransfer} className="w-full bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold py-2.5 rounded-lg transition-colors disabled:opacity-50 shadow-md">
+              <button
+                disabled={actionLoading || selectedPlayerIn === null || selectedPlayerOut === null || !rolesMatch}
+                onClick={submitTransfer}
+                className="w-full bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold py-2.5 rounded-lg transition-colors disabled:opacity-50 shadow-md"
+              >
                 {actionLoading ? 'Processing...' : 'Confirm Transfer'}
               </button>
             </div>
@@ -471,20 +629,33 @@ export default function TransfersPage() {
                           <td className="px-4 py-3 text-center" onClick={(e) => e.stopPropagation()}>
                             <button
                               type="button"
-                              onClick={(e) => handlePlayerAction(player.id, e)}
+                              onClick={(e) => handlePlayerAction(player.id, player, e)}
                               className={`transfer-action-button inline-flex items-center justify-center p-2 rounded-lg font-medium text-xs transition-all shadow-sm ${
                                 isOwned
                                   ? selectedPlayerOut === player.id
                                     ? 'bg-red-600 text-white ring-2 ring-red-400'
                                     : 'bg-slate-700/80 hover:bg-red-600 text-slate-200 hover:text-white border border-slate-600/60'
+                                  : isBuilding
+                                  ? buildingSelections.has(player.id)
+                                    ? 'bg-amber-500 text-slate-900 ring-2 ring-amber-300 font-bold'
+                                    : spotsRemaining <= 0
+                                    ? 'bg-slate-700/40 text-slate-600 cursor-not-allowed border border-slate-700'
+                                    : 'bg-slate-700/80 hover:bg-emerald-600 text-white border border-slate-600/60'
                                   : selectedPlayerIn === player.id
                                   ? 'bg-amber-500 text-slate-900 ring-2 ring-amber-300 font-bold'
                                   : 'bg-slate-700/80 hover:bg-emerald-600 text-white border border-slate-600/60'
                               }`}
-                              title={isOwned ? 'Select to sell from squad' : 'Select to buy'}
+                              title={
+                                isOwned ? 'In your squad' :
+                                isBuilding && buildingSelections.has(player.id) ? 'Click to deselect' :
+                                isBuilding && spotsRemaining <= 0 ? 'Squad full' :
+                                isBuilding ? 'Click to select' : 'Select to buy'
+                              }
                             >
                               {isOwned ? (
                                 <Minus className="w-4 h-4" />
+                              ) : isBuilding && buildingSelections.has(player.id) ? (
+                                <CheckCircle2 className="w-4 h-4" />
                               ) : (
                                 <Plus className="w-4 h-4" />
                               )}

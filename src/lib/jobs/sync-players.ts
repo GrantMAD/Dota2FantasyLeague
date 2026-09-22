@@ -62,12 +62,21 @@ export async function syncPlayers(): Promise<SyncResult> {
       const roleLookup = buildRoleLookupFromRaw(rawOpenDotaPlayers);
       console.log(`[syncPlayers] Built role lookup for ${roleLookup.size} players`);
 
-      // 3. Fetch players from primary provider (STRATZ).
-      //    On failure, map the pre-fetched OpenDota data instead of fetching again.
-      let players = await provider.fetchPlayers({ activeOnly: true }).catch(async (err) => {
-        console.warn(`[syncPlayers] Primary provider failed (${err.message}), using pre-fetched OpenDota data`);
-        return mapRawOpenDotaPlayersToPlayerData(rawOpenDotaPlayers);
-      });
+      // 3. Fetch players.
+      //    - If the primary provider IS OpenDota: reuse the pre-fetched raw data directly
+      //      (avoids a duplicate /proPlayers HTTP call — the data is already in memory).
+      //    - If the primary provider is STRATZ: call it; on failure fall back to the
+      //      pre-fetched OpenDota data (still no extra HTTP call on fallback).
+      let players: import('@/lib/data-providers/provider-interface').PlayerData[];
+      if (provider.name === 'OpenDota') {
+        players = mapRawOpenDotaPlayersToPlayerData(rawOpenDotaPlayers);
+        console.log(`[syncPlayers] Using pre-fetched OpenDota data: ${players.length} active players`);
+      } else {
+        players = await provider.fetchPlayers({ activeOnly: true }).catch(async (err) => {
+          console.warn(`[syncPlayers] Primary provider failed (${err.message}), using pre-fetched OpenDota data`);
+          return mapRawOpenDotaPlayersToPlayerData(rawOpenDotaPlayers);
+        });
+      }
       console.log(`[syncPlayers] Fetched ${players.length} players from provider`);
 
       // Get existing players for deduplication

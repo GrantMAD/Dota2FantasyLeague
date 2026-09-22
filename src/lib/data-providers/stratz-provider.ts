@@ -70,49 +70,63 @@ export class StratzProvider extends DataProviderBase implements DataProvider {
 
   async fetchPlayers(filters?: DataProviderFilters): Promise<PlayerData[]> {
     try {
+      // STRATZ API v2 schema: bulk pro player data is via proSteamAccounts.
+      // The old player(request: { isLive: true }) query was removed; player()
+      // now requires steamAccountId for single-player lookups only.
       const query = `
-        query {
-          player(request: {
-            skip: ${filters?.offset || 0}
-            take: ${Math.min(filters?.limit || 500, 500)}
-            isLive: ${filters?.activeOnly !== false}
-          }) {
-            id
-            steamId
+        query GetProPlayers {
+          proSteamAccounts {
+            steamAccountId
             name
-            realName
-            countryCode
-            roles
-            team(request: {}) {
+            isPro
+            fantasyRole
+            team {
               id
               name
               tag
             }
-            avatar
-            profileUri
+            countries
+            steam {
+              avatar
+              profileUrl
+            }
           }
         }
       `;
 
       const response = await this.graphqlRequest(query);
-      const players = response?.data?.player || [];
+      const accounts = response?.data?.proSteamAccounts || [];
 
-      return players.map((p: any) => ({
-        id: String(p.id),
-        steamId: String(p.steamId),
-        name: p.name || p.realName,
-        tag: p.tag,
-        country: p.countryCode,
-        roles: p.roles || [],
-        team: p.team
-          ? {
-              id: String(p.team.id),
-              name: p.team.name,
-            }
+      const roleMap: Record<number, string> = {
+        1: 'Carry',
+        2: 'Support',
+        3: 'Offlane',
+        4: 'Mid',
+        5: 'Hard Support',
+      };
+
+      // Filter to genuinely active players: must have a name, be flagged pro,
+      // and be on a team — mirrors OpenDota new filter logic.
+      const activePlayers = accounts.filter(
+        (a: any) => a.name && a.isPro && a.team?.id
+      );
+
+      const offset = filters?.offset || 0;
+      const limit = filters?.limit || activePlayers.length;
+
+      return activePlayers.slice(offset, offset + limit).map((a: any) => ({
+        id: String(a.steamAccountId),
+        steamId: String(a.steamAccountId),
+        name: a.name,
+        tag: a.team?.tag,
+        country: Array.isArray(a.countries) ? a.countries[0] : (a.countries ?? undefined),
+        roles: a.fantasyRole ? [roleMap[a.fantasyRole] || 'Carry'] : ['Carry'],
+        team: a.team
+          ? { id: String(a.team.id), name: a.team.name }
           : undefined,
         isActive: true,
-        profileUrl: p.profileUri ? `https://stratz.com${p.profileUri}` : undefined,
-        imageUrl: p.avatar,
+        profileUrl: a.steam?.profileUrl,
+        imageUrl: a.steam?.avatar,
         lastUpdated: new Date(),
       }));
     } catch (error) {

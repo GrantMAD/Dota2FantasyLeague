@@ -108,7 +108,9 @@ export function getAvailableProviders(): ProviderType[] {
 
 function buildProviderConfig(): ProviderConfig {
   const primaryProvider = (
-    process.env.NEXT_PUBLIC_DATA_PROVIDER || 'stratz'
+    // Default to OpenDota: free, no API key required, STRATZ schema has changed.
+    // Set NEXT_PUBLIC_DATA_PROVIDER=stratz to override.
+    process.env.NEXT_PUBLIC_DATA_PROVIDER || 'opendota'
   ).toLowerCase() as ProviderType;
 
   // Validate primary provider
