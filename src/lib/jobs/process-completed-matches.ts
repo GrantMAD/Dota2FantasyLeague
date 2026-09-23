@@ -115,8 +115,12 @@ class ProcessCompletedMatches {
         .eq('locked', true)) as any;
       const lineups: any[] = Array.isArray(lineupData) ? lineupData : [];
 
-      if (lineupsError || lineups.length === 0) {
+      if (lineupsError) {
         console.warn('Failed to fetch lineups for substitution:', lineupsError);
+        return 0;
+      }
+
+      if (lineups.length === 0) {
         return 0;
       }
 
