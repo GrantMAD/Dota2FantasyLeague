@@ -104,33 +104,45 @@ const JOB_METADATA: Record<string, {
     description: 'Detects team transfers and player availability changes since the last sync.',
     category: 'sync',
   },
-  'transition-gameweeks': {
-    description: 'Auto-closes gameweeks when their deadline passes. Runs every 5 min in production.',
-    category: 'maintenance',
+  'process-completed-matches': {
+    manualStep: 7,
+    requires: ['fetch-match-details'],
+    description: 'Converts match player stats into player performances and evaluates bench substitutions.',
+    category: 'scoring',
+  },
+  'calculate-fantasy-scores': {
+    manualStep: 8,
+    requires: ['process-completed-matches'],
+    description: 'Calculates full deterministic fantasy point breakdowns for all player performances.',
+    category: 'scoring',
   },
   'recalculate-gameweeks': {
+    manualStep: 9,
+    requires: ['calculate-fantasy-scores'],
     description: 'Aggregates fantasy points per player per gameweek. Runs after match details are in.',
     category: 'scoring',
   },
   'recalculate-leagues': {
-    description: 'Updates league standings and H2H records.',
-    category: 'scoring',
-  },
-  'calculate-fantasy-scores': {
-    description: 'Calculates full fantasy point breakdowns for all player performances.',
+    manualStep: 10,
+    requires: ['recalculate-gameweeks'],
+    description: 'Updates classic and head-to-head league standings and match records.',
     category: 'scoring',
   },
   'calculate-global-rankings': {
-    description: 'Recomputes global season rankings across all users.',
+    manualStep: 11,
+    requires: ['recalculate-leagues'],
+    description: 'Recomputes global season leaderboard standings across all users.',
     category: 'scoring',
   },
   'update-player-prices': {
+    manualStep: 12,
+    requires: ['calculate-fantasy-scores'],
     description: 'Adjusts player market prices based on ownership and recent performance.',
     category: 'scoring',
   },
-  'process-completed-matches': {
-    description: 'Finalises completed match records and triggers downstream scoring.',
-    category: 'scoring',
+  'transition-gameweeks': {
+    description: 'Auto-closes gameweeks when their deadline passes. Runs every 5 min in production.',
+    category: 'maintenance',
   },
   'send-deadline-notifications': {
     description: 'Pushes gameweek deadline reminder notifications to users.',
@@ -474,22 +486,41 @@ export default function DataJobsPage() {
             <div className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-amber-500/40 bg-amber-500/20">
               <span className="text-[10px] font-bold text-amber-400">i</span>
             </div>
-            <div>
+            <div className="w-full">
               <p className="text-xs font-semibold text-amber-300">Manual initialisation order</p>
               <p className="mt-0.5 text-xs text-slate-400">
-                In production all pipelines run automatically on their cron schedule. When seeding a fresh database, trigger the
-                {' '}<span className="font-semibold text-amber-400">Data Sync</span> jobs manually in step order (badges below).
-                Wait for each to show <span className="font-semibold text-emerald-400">Success</span> before running the next.
+                When seeding or updating after new matches, trigger jobs in step order. Wait for each to show{' '}
+                <span className="font-semibold text-emerald-400">Success</span> before running the next.
               </p>
-              <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[11px]">
-                {[1,2,3,4,5,6].map((n) => {
-                  const jobName = Object.entries(JOB_METADATA).find(([, m]) => m.manualStep === n)?.[0];
-                  return jobName ? (
-                    <span key={n} className="inline-flex items-center gap-1 rounded-md border border-amber-500/20 bg-amber-950/30 px-2 py-0.5 font-mono text-amber-300">
-                      <span className="font-bold text-amber-400">{n}.</span> {jobName}
-                    </span>
-                  ) : null;
-                })}
+              
+              {/* Phase 1: Data Ingestion */}
+              <div className="mt-2.5">
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-amber-400/80">Phase 1: Data Ingestion</span>
+                <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[11px]">
+                  {[1, 2, 3, 4, 5, 6].map((n) => {
+                    const jobName = Object.entries(JOB_METADATA).find(([, m]) => m.manualStep === n)?.[0];
+                    return jobName ? (
+                      <span key={n} className="inline-flex items-center gap-1 rounded-md border border-amber-500/20 bg-amber-950/30 px-2 py-0.5 font-mono text-amber-300">
+                        <span className="font-bold text-amber-400">{n}.</span> {jobName}
+                      </span>
+                    ) : null;
+                  })}
+                </div>
+              </div>
+
+              {/* Phase 2: Scoring & Standings */}
+              <div className="mt-2.5">
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-purple-400/80">Phase 2: Scoring &amp; Standings</span>
+                <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[11px]">
+                  {[7, 8, 9, 10, 11, 12].map((n) => {
+                    const jobName = Object.entries(JOB_METADATA).find(([, m]) => m.manualStep === n)?.[0];
+                    return jobName ? (
+                      <span key={n} className="inline-flex items-center gap-1 rounded-md border border-purple-500/20 bg-purple-950/30 px-2 py-0.5 font-mono text-purple-300">
+                        <span className="font-bold text-purple-400">{n}.</span> {jobName}
+                      </span>
+                    ) : null;
+                  })}
+                </div>
               </div>
             </div>
           </div>

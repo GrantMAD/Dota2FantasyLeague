@@ -41,115 +41,164 @@ export async function trackRosterChanges(): Promise<TrackingResult> {
     const jobExecutionId = await logJobExecution('track-roster-changes', 'started');
 
     try {
-      // Get all active players
-      const players = await getActivePlayers();
-      console.log(`[trackRosterChanges] Checking ${players.length} players for changes`);
+      // If provider is OpenDota, use the single bulk /proPlayers endpoint to detect team transfers
+      // rather than spamming 500 individual teammate HTTP requests that hit rate limits.
+      if (provider.name === 'OpenDota') {
+        const { fetchRawOpenDotaProPlayers } = await import('../data-providers/opendota-provider');
+        const rawPlayers = await fetchRawOpenDotaProPlayers();
+        const supabase = getSupabaseServerClient();
 
-      for (const player of players) {
-        try {
-          // Fetch roster history for this player
-          const history = await provider.fetchRosterHistory(
-            player.data_provider_id || player.id.toString(),
-            {
-              from: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000), // Last 30 days
-              to: new Date(),
-            }
-          );
-
-          if (history.length === 0) {
-            result.tracked++;
-            continue;
+        // Get all DB teams for mapping provider team_id -> DB team id
+        const { data: dbTeams } = await supabase
+          .from('professional_teams')
+          .select('id, data_provider_id');
+        const teamMap = new Map<string, number>();
+        for (const t of dbTeams || []) {
+          if (t.data_provider_id) {
+            teamMap.set(String(t.data_provider_id), t.id);
           }
+        }
 
-          console.log(
-            `[trackRosterChanges] Player ${player.name}: ${history.length} roster changes`
-          );
+        // Get players currently in our DB
+        const { data: dbPlayers } = await supabase
+          .from('professional_players')
+          .select('id, data_provider_id, team_id, name');
 
-          // Get existing roster history
-          const existingHistory = await getPlayerRosterHistory(player.id);
-
-          // Process new changes
-          for (const change of history) {
-            try {
-              const existingChange = existingHistory.find(
-                h => h.changed_at === change.changedAt.toISOString().split('T')[0] &&
-                     h.team_id === parseInt(change.teamId)
-              );
-
-              if (!existingChange) {
-                // New roster change - insert into team_roster_history table
-                const supabase = getSupabaseServerClient();
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                const { error } = await (supabase.from('team_roster_history') as any).insert({
-                  team_id: parseInt(change.teamId),
-                  player_id: player.id,
-                  change_type: change.changeType,
-                  changed_at: new Date(change.changedAt).toISOString(),
-                  previous_team_id: change.previousTeam ? parseInt(change.previousTeam) : null,
-                  role: change.role,
-                });
-
-                if (error) {
-                  throw error;
-                }
-
-                result.rosterChanges++;
-
-                // If player left a team, mark as temporarily unavailable
-                if (change.changeType === 'left') {
-                  const { error: updateError } = await supabase
-                    .from('professional_players')
-                    .update({
-                      availability_status: 'unavailable',
-                      availability_reason: 'Left team, currently a free agent',
-                      last_synced_at: new Date().toISOString(),
-                    })
-                    .eq('id', player.id);
-
-                  if (!updateError) {
-                    result.unavailablePlayers++;
-                  }
-
-                  console.log(
-                    `[trackRosterChanges] Player ${player.name} left team (temporarily unavailable)`
-                  );
-                }
-
-                // If player joined a new team, update their team_id and restore availability
-                if (change.changeType === 'joined') {
-                  const { error: updateError } = await supabase
-                    .from('professional_players')
-                    .update({
-                      team_id: parseInt(change.teamId),
-                      availability_status: 'available',
-                      availability_reason: null,
-                      last_synced_at: new Date().toISOString(),
-                    })
-                    .eq('id', player.id);
-
-                  if (updateError) {
-                    result.errors.push(
-                      `Failed to update team_id for player ${player.id} on join: ${updateError.message}`
-                    );
-                  } else {
-                    console.log(
-                      `[trackRosterChanges] Player ${player.name} joined team ${change.teamId} — team_id updated`
-                    );
-                  }
-                }
-              }
-            } catch (error) {
-              result.errors.push(
-                `Failed to process change for player ${player.id}: ${(error as Error).message}`
-              );
-            }
+        const dbPlayerMap = new Map<string, { id: number; team_id: number | null; name: string }>();
+        for (const p of dbPlayers || []) {
+          if (p.data_provider_id) {
+            dbPlayerMap.set(String(p.data_provider_id), p);
           }
+        }
+
+        for (const raw of rawPlayers) {
+          const rawId = String(raw.account_id || raw.steamid);
+          const dbPlayer = dbPlayerMap.get(rawId);
+          if (!dbPlayer) continue;
 
           result.tracked++;
-        } catch (error) {
-          result.errors.push(
-            `Failed to track roster changes for player ${player.id}: ${(error as Error).message}`
-          );
+
+          const newTeamId = raw.team_id && raw.team_id !== 0
+            ? (teamMap.get(String(raw.team_id)) ?? null)
+            : null;
+
+          // Check if team changed
+          if (newTeamId !== dbPlayer.team_id) {
+            const previousTeam = dbPlayer.team_id;
+            const changeType = newTeamId ? (previousTeam ? 'transferred' : 'joined') : 'left';
+
+            // Insert into history
+            await (supabase.from('team_roster_history') as any).insert({
+              team_id: newTeamId || previousTeam || 0,
+              player_id: dbPlayer.id,
+              change_type: changeType,
+              changed_at: new Date().toISOString(),
+              previous_team_id: previousTeam,
+            });
+
+            // Update player record
+            await supabase
+              .from('professional_players')
+              .update({
+                team_id: newTeamId,
+                availability_status: newTeamId ? 'available' : 'unavailable',
+                availability_reason: newTeamId ? null : 'Left team, currently a free agent',
+                last_synced_at: new Date().toISOString(),
+              })
+              .eq('id', dbPlayer.id);
+
+            result.rosterChanges++;
+            if (!newTeamId) {
+              result.unavailablePlayers++;
+            }
+          }
+        }
+      } else {
+        // STRATZ provider per-player history
+        const players = await getActivePlayers();
+        console.log(`[trackRosterChanges] Checking ${players.length} players for changes`);
+
+        for (const player of players) {
+          try {
+            const history = await provider.fetchRosterHistory(
+              player.data_provider_id || player.id.toString(),
+              {
+                from: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000), // Last 30 days
+                to: new Date(),
+              }
+            );
+
+            if (history.length === 0) {
+              result.tracked++;
+              continue;
+            }
+
+            console.log(
+              `[trackRosterChanges] Player ${player.name}: ${history.length} roster changes`
+            );
+
+            const existingHistory = await getPlayerRosterHistory(player.id);
+
+            for (const change of history) {
+              try {
+                const existingChange = existingHistory.find(
+                  h => h.changed_at === change.changedAt.toISOString().split('T')[0] &&
+                       h.team_id === parseInt(change.teamId)
+                );
+
+                if (!existingChange) {
+                  const supabase = getSupabaseServerClient();
+                  await (supabase.from('team_roster_history') as any).insert({
+                    team_id: parseInt(change.teamId),
+                    player_id: player.id,
+                    change_type: change.changeType,
+                    changed_at: new Date(change.changedAt).toISOString(),
+                    previous_team_id: change.previousTeam ? parseInt(change.previousTeam) : null,
+                    role: change.role,
+                  });
+
+                  result.rosterChanges++;
+
+                  if (change.changeType === 'left') {
+                    const { error: updateError } = await supabase
+                      .from('professional_players')
+                      .update({
+                        availability_status: 'unavailable',
+                        availability_reason: 'Left team, currently a free agent',
+                        last_synced_at: new Date().toISOString(),
+                      })
+                      .eq('id', player.id);
+
+                    if (!updateError) {
+                      result.unavailablePlayers++;
+                    }
+                  }
+
+                  if (change.changeType === 'joined') {
+                    await supabase
+                      .from('professional_players')
+                      .update({
+                        team_id: parseInt(change.teamId),
+                        availability_status: 'available',
+                        availability_reason: null,
+                        last_synced_at: new Date().toISOString(),
+                      })
+                      .eq('id', player.id);
+                  }
+                }
+              } catch (error) {
+                result.errors.push(
+                  `Failed to process change for player ${player.id}: ${(error as Error).message}`
+                );
+              }
+            }
+
+            result.tracked++;
+          } catch (error) {
+            result.errors.push(
+              `Failed to track roster changes for player ${player.id}: ${(error as Error).message}`
+            );
+          }
         }
       }
 
