@@ -175,12 +175,17 @@ export class OpenDotaProvider extends DataProviderBase implements DataProvider {
         );
       }
 
-      return teams
+      // Filter to genuine pro teams with non-empty names and valid IDs
+      const validTeams = teams.filter(
+        (t: any) => t.team_id && t.name && typeof t.name === 'string' && t.name.trim().length > 0
+      );
+
+      return validTeams
         .slice(filters?.offset || 0, (filters?.offset || 0) + (filters?.limit || 100))
         .map((t: any) => ({
           id: String(t.team_id),
-          name: t.name,
-          tag: t.tag,
+          name: t.name.trim(),
+          tag: (t.tag ? String(t.tag).trim() : '') || t.name.trim().substring(0, 4).toUpperCase(),
           region: undefined,
           country: undefined,
           foundedDate: undefined,

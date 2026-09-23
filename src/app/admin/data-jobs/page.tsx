@@ -59,6 +59,107 @@ function formatNextRun(val: string | null | undefined): string {
   return d.toLocaleString();
 }
 
+// ---------------------------------------------------------------------------
+// Static metadata: manual run order, dependencies, and descriptions
+// ---------------------------------------------------------------------------
+const JOB_METADATA: Record<string, {
+  manualStep?: number;      // 1-6 for the ordered data-sync jobs; undefined = auto-only
+  requires?: string[];      // job names that must run first
+  description: string;      // short human description
+  category: 'sync' | 'scoring' | 'notification' | 'maintenance';
+}> = {
+  'sync-teams': {
+    manualStep: 1,
+    requires: [],
+    description: 'Pulls pro team roster data from STRATZ / OpenDota. Must run before everything else.',
+    category: 'sync',
+  },
+  'sync-players': {
+    manualStep: 2,
+    requires: ['sync-teams'],
+    description: 'Syncs all professional players and links them to their teams.',
+    category: 'sync',
+  },
+  'discover-tournaments': {
+    manualStep: 3,
+    requires: ['sync-teams'],
+    description: 'Discovers active tournaments and attaches them to the current season.',
+    category: 'sync',
+  },
+  'fetch-matches': {
+    manualStep: 4,
+    requires: ['discover-tournaments'],
+    description: 'Fetches match headers for all active tournaments and assigns them to gameweeks.',
+    category: 'sync',
+  },
+  'fetch-match-details': {
+    manualStep: 5,
+    requires: ['fetch-matches'],
+    description: 'Fetches per-player stats for each completed match to power fantasy scoring.',
+    category: 'sync',
+  },
+  'track-roster-changes': {
+    manualStep: 6,
+    requires: ['sync-players', 'sync-teams'],
+    description: 'Detects team transfers and player availability changes since the last sync.',
+    category: 'sync',
+  },
+  'transition-gameweeks': {
+    description: 'Auto-closes gameweeks when their deadline passes. Runs every 5 min in production.',
+    category: 'maintenance',
+  },
+  'recalculate-gameweeks': {
+    description: 'Aggregates fantasy points per player per gameweek. Runs after match details are in.',
+    category: 'scoring',
+  },
+  'recalculate-leagues': {
+    description: 'Updates league standings and H2H records.',
+    category: 'scoring',
+  },
+  'calculate-fantasy-scores': {
+    description: 'Calculates full fantasy point breakdowns for all player performances.',
+    category: 'scoring',
+  },
+  'calculate-global-rankings': {
+    description: 'Recomputes global season rankings across all users.',
+    category: 'scoring',
+  },
+  'update-player-prices': {
+    description: 'Adjusts player market prices based on ownership and recent performance.',
+    category: 'scoring',
+  },
+  'process-completed-matches': {
+    description: 'Finalises completed match records and triggers downstream scoring.',
+    category: 'scoring',
+  },
+  'send-deadline-notifications': {
+    description: 'Pushes gameweek deadline reminder notifications to users.',
+    category: 'notification',
+  },
+  'send-price-change-notifications': {
+    description: 'Alerts users when their owned players have a price change.',
+    category: 'notification',
+  },
+  'send-rank-notifications': {
+    description: 'Notifies users of significant rank changes after scoring.',
+    category: 'notification',
+  },
+};
+
+const CATEGORY_COLOURS: Record<string, string> = {
+  sync:         'border-amber-500/30 bg-amber-500/10 text-amber-300',
+  scoring:      'border-sky-500/30 bg-sky-500/10 text-sky-300',
+  notification: 'border-violet-500/30 bg-violet-500/10 text-violet-300',
+  maintenance:  'border-slate-600/60 bg-slate-800/40 text-slate-400',
+};
+
+const CATEGORY_LABELS: Record<string, string> = {
+  sync:         'Data Sync',
+  scoring:      'Scoring',
+  notification: 'Notifications',
+  maintenance:  'Maintenance',
+};
+
 interface JobResultSummary {
   created?: number;
   updated?: number;
@@ -364,7 +465,34 @@ export default function DataJobsPage() {
       <div className="space-y-3">
         <div className="flex items-center justify-between px-1">
           <h2 className="text-xs font-bold uppercase tracking-wider text-slate-400">Available Pipelines</h2>
-          <span className="text-xs text-slate-400">Automatic background sync enabled</span>
+          <span className="text-xs text-slate-400">Automatic background sync enabled in production</span>
+        </div>
+
+        {/* Manual run order banner */}
+        <div className="rounded-xl border border-amber-500/20 bg-amber-950/10 px-4 py-3">
+          <div className="flex items-start gap-3">
+            <div className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-amber-500/40 bg-amber-500/20">
+              <span className="text-[10px] font-bold text-amber-400">i</span>
+            </div>
+            <div>
+              <p className="text-xs font-semibold text-amber-300">Manual initialisation order</p>
+              <p className="mt-0.5 text-xs text-slate-400">
+                In production all pipelines run automatically on their cron schedule. When seeding a fresh database, trigger the
+                {' '}<span className="font-semibold text-amber-400">Data Sync</span> jobs manually in step order (badges below).
+                Wait for each to show <span className="font-semibold text-emerald-400">Success</span> before running the next.
+              </p>
+              <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[11px]">
+                {[1,2,3,4,5,6].map((n) => {
+                  const jobName = Object.entries(JOB_METADATA).find(([, m]) => m.manualStep === n)?.[0];
+                  return jobName ? (
+                    <span key={n} className="inline-flex items-center gap-1 rounded-md border border-amber-500/20 bg-amber-950/30 px-2 py-0.5 font-mono text-amber-300">
+                      <span className="font-bold text-amber-400">{n}.</span> {jobName}
+                    </span>
+                  ) : null;
+                })}
+              </div>
+            </div>
+          </div>
         </div>
 
         {jobs.length === 0 ? (
@@ -374,13 +502,18 @@ export default function DataJobsPage() {
           </div>
         ) : (
           <div className="grid grid-cols-1 gap-3">
-            {jobs.map((job) => (
+            {[...jobs].sort((a, b) => {
+              const stepA = JOB_METADATA[a.job_name]?.manualStep ?? 999;
+              const stepB = JOB_METADATA[b.job_name]?.manualStep ?? 999;
+              return stepA - stepB;
+            }).map((job) => (
               <JobCard
                 key={job.job_name}
                 job={job}
                 isLocallyRunning={Boolean(runningJobs[job.job_name])}
                 onTrigger={() => triggerJob(job.job_name)}
                 disabled={refreshing}
+                jobMeta={JOB_METADATA[job.job_name]}
               />
             ))}
           </div>
@@ -437,9 +570,10 @@ interface JobCardProps {
   isLocallyRunning: boolean;
   onTrigger: () => void;
   disabled: boolean;
+  jobMeta?: typeof JOB_METADATA[string];
 }
 
-function JobCard({ job, isLocallyRunning, onTrigger, disabled }: JobCardProps) {
+function JobCard({ job, isLocallyRunning, onTrigger, disabled, jobMeta }: JobCardProps) {
   const [expanded, setExpanded] = useState(false);
   const [copied, setCopied] = useState(false);
 
@@ -487,9 +621,23 @@ function JobCard({ job, isLocallyRunning, onTrigger, disabled }: JobCardProps) {
           {/* Main Info */}
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2">
+              {/* Manual step badge */}
+              {jobMeta?.manualStep && (
+                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-amber-500/50 bg-amber-500/15 text-xs font-bold text-amber-400">
+                  {jobMeta.manualStep}
+                </span>
+              )}
+
               <span className="font-mono text-base font-semibold text-white tracking-wide">
                 {job.job_name}
               </span>
+
+              {/* Category badge */}
+              {jobMeta?.category && (
+                <span className={`inline-flex items-center rounded-md border px-2 py-0.5 text-[11px] font-medium ${CATEGORY_COLOURS[jobMeta.category]}`}>
+                  {CATEGORY_LABELS[jobMeta.category]}
+                </span>
+              )}
 
               {/* Status Badge */}
               {isRunning ? (
@@ -521,6 +669,25 @@ function JobCard({ job, isLocallyRunning, onTrigger, disabled }: JobCardProps) {
                 </span>
               )}
             </div>
+
+            {/* Description & dependency hints */}
+            {jobMeta && (
+              <div className="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1">
+                {jobMeta.description && (
+                  <p className="text-xs text-slate-500">{jobMeta.description}</p>
+                )}
+                {jobMeta.requires && jobMeta.requires.length > 0 && (
+                  <div className="flex items-center gap-1.5 text-[11px] text-slate-500">
+                    <span className="shrink-0">Requires:</span>
+                    {jobMeta.requires.map((dep) => (
+                      <span key={dep} className="rounded border border-amber-800/40 bg-amber-950/30 px-1.5 py-0.5 font-mono text-amber-400/80">
+                        {dep}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Quick Metrics Bar: Last Run, Duration, Next Run */}
             <div className="mt-3 flex flex-wrap items-center gap-y-1 gap-x-6 text-xs text-slate-400">

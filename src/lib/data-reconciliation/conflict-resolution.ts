@@ -41,8 +41,8 @@ export interface ProviderConfidence {
  */
 export const PROVIDER_PRECEDENCE: Record<DataProvider, number> = {
   manual_override: 3, // Admin corrections always win
-  stratz: 2, // Primary data source
-  opendota: 1, // Fallback source
+  opendota: 2,        // Primary data source
+  stratz: 1,          // Fallback source
 };
 
 /**
@@ -51,38 +51,38 @@ export const PROVIDER_PRECEDENCE: Record<DataProvider, number> = {
  */
 export const FIELD_CONFIDENCE: Record<string, Record<DataProvider, number>> = {
   name: {
-    stratz: 0.95,
-    opendota: 0.90,
+    opendota: 0.95,
+    stratz: 0.90,
     manual_override: 1.0,
   },
   steamId: {
-    stratz: 0.98,
-    opendota: 0.95,
+    opendota: 0.98,
+    stratz: 0.95,
     manual_override: 1.0,
   },
   team_id: {
-    stratz: 0.92,
-    opendota: 0.85,
+    opendota: 0.95,
+    stratz: 0.88,
     manual_override: 1.0,
   },
   profileImageUrl: {
-    stratz: 0.88,
-    opendota: 0.80,
+    opendota: 0.90,
+    stratz: 0.85,
     manual_override: 1.0,
   },
   country: {
-    stratz: 0.85,
-    opendota: 0.75,
+    opendota: 0.85,
+    stratz: 0.80,
     manual_override: 1.0,
   },
   matchResult: {
-    stratz: 0.99,
-    opendota: 0.98,
+    opendota: 0.99,
+    stratz: 0.98,
     manual_override: 1.0,
   },
   playerStats: {
-    stratz: 0.97,
-    opendota: 0.96,
+    opendota: 0.98,
+    stratz: 0.96,
     manual_override: 1.0,
   },
 };

@@ -88,10 +88,11 @@ export async function syncPlayers(): Promise<SyncResult> {
       console.log(`[syncPlayers] Found ${existingTeams.size} existing teams in database`);
 
       // Process players in batches
+      const providerName = (provider.name || 'opendota').toLowerCase();
       const batchSize = 100;
       for (let i = 0; i < players.length; i += batchSize) {
         const batch = players.slice(i, i + batchSize);
-        const batchResults = await processSyncBatch(batch, existingPlayers, existingTeams, roleLookup);
+        const batchResults = await processSyncBatch(batch, existingPlayers, existingTeams, roleLookup, providerName);
 
         result.created += batchResults.created;
         result.updated += batchResults.updated;
@@ -141,7 +142,8 @@ async function processSyncBatch(
   players: PlayerData[],
   existingPlayers: Map<string, ProfessionalPlayer>,
   existingTeams: Map<string, { id: number; name: string }> = new Map(),
-  roleLookup: Map<string, string> = new Map()
+  roleLookup: Map<string, string> = new Map(),
+  providerName: string = 'opendota'
 ): Promise<{ created: number; updated: number; skipped: number; errors: string[] }> {
   const results = { created: 0, updated: 0, skipped: 0, errors: [] as string[] };
   const supabase = getSupabaseServerClient();
@@ -235,19 +237,24 @@ async function processSyncBatch(
               // Store conflict records for admin review
               const changedFields = detectFieldChanges(existingObj, updateData);
               for (const fieldName of Object.keys(changedFields.changed)) {
-                try {
-                  await supabase.from('data_conflicts').insert({
-                    entity_type: 'player',
-                    entity_id: existing.id.toString(),
-                    field_name: fieldName,
-                    value_1: existingObj[fieldName as keyof typeof existingObj],
-                    value_2: updateData[fieldName as keyof typeof updateData],
-                    provider_1: existing.data_provider_id || 'unknown',
-                    provider_2: 'stratz',
-                    status: 'unresolved',
-                  });
-                } catch (conflictError) {
-                  console.warn(`Failed to log conflict for field ${fieldName}: ${conflictError}`);
+                const val1 = existingObj[fieldName as keyof typeof existingObj];
+                const val2 = updateData[fieldName as keyof typeof updateData];
+
+                if (hasConflict(val1, val2)) {
+                  try {
+                    await supabase.from('data_conflicts').insert({
+                      entity_type: 'player',
+                      entity_id: existing.id.toString(),
+                      field_name: fieldName,
+                      value_1: val1,
+                      value_2: val2,
+                      provider_1: 'database',
+                      provider_2: providerName,
+                      status: 'unresolved',
+                    });
+                  } catch (conflictError) {
+                    console.warn(`Failed to log conflict for field ${fieldName}: ${conflictError}`);
+                  }
                 }
               }
             }
@@ -273,8 +280,8 @@ async function processSyncBatch(
                   existingObj,
                   updateData,
                   'sync',
-                  'Player data updated from STRATZ provider',
-                  'stratz',
+                  `Player data updated from ${providerName.toUpperCase()} provider`,
+                  providerName as any,
                   undefined,
                   0.9
                 );
@@ -334,8 +341,8 @@ async function processSyncBatch(
                   {},
                   newPlayerData,
                   'sync',
-                  'New player created from STRATZ provider',
-                  'stratz',
+                  `New player created from ${providerName.toUpperCase()} provider`,
+                  providerName as any,
                   undefined,
                   0.9
                 );
@@ -367,7 +374,7 @@ async function processSyncBatch(
                   'team_id',
                 ]);
                 const freshness = calculateFreshnessScore(new Date());
-                const reliability = calculateReliabilityScore({ stratz: 0.9 });
+                const reliability = calculateReliabilityScore({ [providerName]: 0.95 });
                 const consistency = 1.0; // New player has no conflicts
 
                 const overallScore = (completeness * 0.3 + consistency * 0.25 + freshness * 0.2 + reliability * 0.25);
