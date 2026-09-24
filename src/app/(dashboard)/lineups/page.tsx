@@ -148,14 +148,14 @@ export default function LineupsPage() {
       return;
     }
 
-    const expectedSlots = ['carry', 'mid', 'offlane', 'support', 'hard_support', 'bench_1', 'bench_2', 'bench_3'];
-    const missingSlots = expectedSlots.filter((slot) => !lineup.some((entry) => entry.slot === slot));
+    const starterSlots = ['carry', 'mid', 'offlane', 'support', 'hard_support'];
+    const missingStarters = starterSlots.filter((slot) => !lineup.some((entry) => entry.slot === slot));
     const duplicatePlayers = new Set(lineup.map((entry) => entry.player_id)).size !== lineup.length;
     const captainCount = lineup.filter((entry) => entry.is_captain).length;
     const viceCaptainCount = lineup.filter((entry) => entry.is_vice_captain).length;
 
-    if (!gameweekId || missingSlots.length > 0 || lineup.length !== 8) {
-      toast.error('Cannot Save Lineup', 'Fill every lineup slot before saving.');
+    if (!gameweekId || missingStarters.length > 0) {
+      toast.error('Cannot Save Lineup', 'Fill all 5 starting slots (Carry, Mid, Offlane, Support, Hard Support) before saving.');
       return;
     }
     if (duplicatePlayers) {
@@ -175,6 +175,9 @@ export default function LineupsPage() {
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || 'Failed to save lineup');
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('fantasy:stats-updated'));
+      }
       toast.success('Lineup Saved', 'Your starting 5 has been updated.');
     } catch (err) {
       toast.error('Lineup Not Saved', err instanceof Error ? err.message : 'Failed to save lineup');
@@ -225,6 +228,28 @@ export default function LineupsPage() {
     }
   };
 
+  const starterSlots = ['carry', 'mid', 'offlane', 'support', 'hard_support'];
+  const hasAllStarters = starterSlots.every((slot) => lineup.some((entry) => entry.slot === slot));
+  const startingPlayers = lineup.filter((entry) => starterSlots.includes(entry.slot) && entry.player_id);
+  const startingPlayerDetails = startingPlayers.map((entry) => {
+    return ownedPlayers.find((p) => p.id === entry.player_id) || entry.professional_players;
+  }).filter(Boolean) as LineupPlayer[];
+  const hasCaptainAndVice = lineup.filter((e) => e.is_captain).length === 1 && lineup.filter((e) => e.is_vice_captain).length === 1;
+  const isLineupReady = hasAllStarters && hasCaptainAndVice;
+
+  // Filter owned players matching a specific slot role
+  // Support and Hard Support both accept Support & Hard Support players interchangeably
+  const getEligiblePlayersForSlot = (slot: string) => {
+    return ownedPlayers.filter((player) => {
+      const role = player.primary_role;
+      if (slot === 'carry') return role === 'Carry';
+      if (slot === 'mid') return role === 'Mid';
+      if (slot === 'offlane') return role === 'Offlane';
+      if (slot === 'support' || slot === 'hard_support') return role === 'Support' || role === 'Hard Support';
+      return true; // Bench accepts any role
+    });
+  };
+
   return (
     <div className="max-w-7xl mx-auto px-4 py-12">
       <h1 className="mb-2 flex items-center gap-3 text-3xl font-bold text-white">
@@ -249,7 +274,7 @@ export default function LineupsPage() {
                 type="button"
                 data-guide="lineup-save-btn"
                 onClick={saveLineup}
-                disabled={saving || lineup.length !== 8 || lineupLocked}
+                disabled={saving || !isLineupReady || lineupLocked}
                 className="rounded-lg bg-amber-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50 transition-opacity"
               >
                 {saving ? 'Saving...' : lineupLocked ? 'Lineup Locked' : 'Save Lineup'}
@@ -280,7 +305,7 @@ export default function LineupsPage() {
               </div>
             ) : ownedPlayers.length === 0 ? (
               <div data-guide="lineup-empty" className="py-16 text-center text-slate-400">
-                Create a squad and add eight players before setting a lineup.
+                Create a squad and add players before setting a lineup.
               </div>
             ) : (
               <div className="space-y-8">
@@ -293,17 +318,35 @@ export default function LineupsPage() {
                     </h3>
                     <span className="text-xs text-slate-400">Active point scorers</span>
                   </div>
+
+                  {/* Informational Guidance Notice */}
+                  <div className="flex items-start gap-2.5 bg-amber-500/10 border border-amber-500/30 rounded-lg p-3.5 mb-4 text-xs text-amber-200/90 leading-relaxed">
+                    <span className="text-amber-400 text-sm shrink-0">ℹ️</span>
+                    <div>
+                      <p className="font-semibold text-amber-300 mb-0.5">Lineup Selection Order</p>
+                      <p className="text-slate-300">
+                        Please assign your <span className="text-white font-medium">5 core starting players</span> in the slots below first. Once selected, you can appoint your <span className="text-amber-400 font-semibold">Captain</span> and <span className="text-cyan-400 font-semibold">Vice-Captain</span> from your starting lineup.
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Captain & Vice-Captain Controls */}
                   <div data-guide="lineup-captain-controls" className="mb-4 grid grid-cols-1 gap-3 rounded-lg border border-slate-700 bg-slate-900/60 p-4 md:grid-cols-2">
                     <div>
-                      <label className="mb-2 block text-xs font-bold uppercase tracking-wider text-amber-400">Captain · 2x points</label>
+                      <div className="flex items-center justify-between mb-2">
+                        <label className="block text-xs font-bold uppercase tracking-wider text-amber-400">Captain · 2x points</label>
+                        {startingPlayerDetails.length === 0 && (
+                          <span className="text-[11px] text-amber-400/70 italic">Pick starting 5 first</span>
+                        )}
+                      </div>
                       <select
                         value={lineup.find((entry) => entry.is_captain)?.player_id ?? ''}
                         onChange={(event) => event.target.value && setCaptain(Number(event.target.value), false)}
-                        disabled={lineupLocked}
+                        disabled={lineupLocked || startingPlayerDetails.length === 0}
                         className="w-full rounded border border-amber-500/40 bg-slate-800 px-3 py-2 text-sm text-white focus:border-amber-500 focus:outline-none disabled:opacity-50"
                       >
-                        <option value="">Select captain</option>
-                        {ownedPlayers.map((player) => {
+                        <option value="">{startingPlayerDetails.length === 0 ? 'Assign starting players below first' : 'Select captain'}</option>
+                        {startingPlayerDetails.map((player) => {
                           const trendSymbol = player.form_trend === 'up' ? '▲' : player.form_trend === 'down' ? '▼' : '▬';
                           const gwPtsStr = player.last_gw_points != null ? `${player.last_gw_points} pts ${trendSymbol}` : '';
                           const details = [player.primary_role, gwPtsStr].filter(Boolean).join(' · ');
@@ -316,15 +359,20 @@ export default function LineupsPage() {
                       </select>
                     </div>
                     <div>
-                      <label className="mb-2 block text-xs font-bold uppercase tracking-wider text-slate-300">Vice-Captain · backup</label>
+                      <div className="flex items-center justify-between mb-2">
+                        <label className="block text-xs font-bold uppercase tracking-wider text-slate-300">Vice-Captain · backup</label>
+                        {startingPlayerDetails.length === 0 && (
+                          <span className="text-[11px] text-slate-400 italic">Pick starting 5 first</span>
+                        )}
+                      </div>
                       <select
                         value={lineup.find((entry) => entry.is_vice_captain)?.player_id ?? ''}
                         onChange={(event) => event.target.value && setCaptain(Number(event.target.value), true)}
-                        disabled={lineupLocked}
+                        disabled={lineupLocked || startingPlayerDetails.length === 0}
                         className="w-full rounded border border-slate-600 bg-slate-800 px-3 py-2 text-sm text-white focus:border-slate-400 focus:outline-none disabled:opacity-50"
                       >
-                        <option value="">Select vice-captain</option>
-                        {ownedPlayers.map((player) => {
+                        <option value="">{startingPlayerDetails.length === 0 ? 'Assign starting players below first' : 'Select vice-captain'}</option>
+                        {startingPlayerDetails.map((player) => {
                           const trendSymbol = player.form_trend === 'up' ? '▲' : player.form_trend === 'down' ? '▼' : '▬';
                           const gwPtsStr = player.last_gw_points != null ? `${player.last_gw_points} pts ${trendSymbol}` : '';
                           const details = [player.primary_role, gwPtsStr].filter(Boolean).join(' · ');
@@ -341,15 +389,22 @@ export default function LineupsPage() {
                   <div className="space-y-3">
                     {['carry', 'mid', 'offlane', 'support', 'hard_support'].map((slot, index) => {
                       const selected = lineup.find((entry) => entry.slot === slot);
+                      const eligiblePlayers = getEligiblePlayersForSlot(slot);
+                      const displayRole = slot === 'support' ? 'Support (Pos 4)' : slot === 'hard_support' ? 'Hard Support (Pos 5)' : slot.replace('_', ' ');
                       return (
                         <div
                           key={slot}
                           data-guide={index === 0 ? 'lineup-first-slot' : undefined}
                           className="rounded-lg border border-slate-700 bg-slate-900/40 p-4 transition-colors"
                         >
-                          <label className="mb-2 block text-xs font-bold uppercase tracking-wider text-slate-300">
-                            {slot.replace('_', ' ')}
-                          </label>
+                          <div className="flex items-center justify-between mb-2">
+                            <label className="block text-xs font-bold uppercase tracking-wider text-slate-300">
+                              {displayRole}
+                            </label>
+                            {eligiblePlayers.length === 0 && (
+                              <span className="text-[11px] text-amber-400/80">No {displayRole} in your squad</span>
+                            )}
+                          </div>
                           <select
                             value={selected?.player_id ?? ''}
                             onChange={(event) => {
@@ -361,8 +416,8 @@ export default function LineupsPage() {
                             }}
                             className="w-full rounded border border-slate-600 bg-slate-800 px-3 py-2 text-sm text-white focus:border-amber-500 focus:outline-none"
                           >
-                            <option value="">Select player</option>
-                            {ownedPlayers.map((player) => {
+                            <option value="">Select player ({displayRole})</option>
+                            {eligiblePlayers.map((player) => {
                               const trendSymbol = player.form_trend === 'up' ? '▲' : player.form_trend === 'down' ? '▼' : '▬';
                               const priceStr = player.current_price != null ? `$${Number(player.current_price).toFixed(1)}M` : '';
                               const gwPtsStr = player.last_gw_points != null ? `${player.last_gw_points} pts` : '';

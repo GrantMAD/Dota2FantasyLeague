@@ -164,6 +164,41 @@ async function processSyncBatch(
               (player.team.name ? existingTeams.get(player.team.name.toLowerCase().trim()) : undefined);
             if (teamMatch) {
               resolvedTeamId = teamMatch.id;
+            } else if (player.team.name && player.team.name.trim()) {
+              // If team is not yet in DB, auto-create it so the player is not orphaned as a Free Agent
+              try {
+                const teamName = player.team.name.trim();
+                const { data: newTeam, error: teamErr } = await supabase
+                  .from('professional_teams')
+                  .insert({
+                    name: teamName,
+                    slug: player.team.id.toString(),
+                    data_provider_id: player.team.id.toString(),
+                    last_synced_at: new Date().toISOString(),
+                  })
+                  .select('id, name')
+                  .single();
+
+                if (newTeam && !teamErr) {
+                  resolvedTeamId = newTeam.id;
+                  existingTeams.set(player.team.id.toString(), { id: newTeam.id, name: newTeam.name });
+                  existingTeams.set(teamName.toLowerCase(), { id: newTeam.id, name: newTeam.name });
+                } else if (teamErr?.code === '23505') {
+                  // If duplicate name, fetch existing team ID
+                  const { data: dupTeam } = await supabase
+                    .from('professional_teams')
+                    .select('id, name')
+                    .ilike('name', teamName)
+                    .single();
+                  if (dupTeam) {
+                    resolvedTeamId = dupTeam.id;
+                    existingTeams.set(player.team.id.toString(), { id: dupTeam.id, name: dupTeam.name });
+                    existingTeams.set(teamName.toLowerCase(), { id: dupTeam.id, name: dupTeam.name });
+                  }
+                }
+              } catch (teamCreateErr) {
+                console.warn(`Failed to auto-create team ${player.team.name}:`, teamCreateErr);
+              }
             }
           }
 

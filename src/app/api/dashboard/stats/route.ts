@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase';
 import { verifyAuth, applyRefreshedTokens, AuthError } from '@/lib/auth-utils';
+import { getOrCreateFantasySeason } from '@/lib/fantasy-season';
 
 export async function GET(request: NextRequest) {
   try {
@@ -8,12 +9,8 @@ export async function GET(request: NextRequest) {
     const supabase = supabaseServer();
 
     // Phase 1: Parallel initial queries (fantasy_season, active/upcoming gameweek, user leagues)
-    const [fantasySeasonRes, gameweeksRes, leaguesRes] = await Promise.all([
-      supabase
-        .from('fantasy_seasons')
-        .select('id, season_id, budget, total_points, global_rank, free_transfers')
-        .eq('user_id', user.userId)
-        .maybeSingle(),
+    const [fantasySeason, gameweeksRes, leaguesRes] = await Promise.all([
+      getOrCreateFantasySeason(supabase, user.userId),
       supabase
         .from('gameweeks')
         .select('id, gameweek_number, deadline, status')
@@ -44,18 +41,17 @@ export async function GET(request: NextRequest) {
       gameweek = closedGws && closedGws.length > 0 ? closedGws[0] : null;
     }
 
-    const fantasySeason = fantasySeasonRes.data;
     const leagues = leaguesRes.data || [];
 
-    if (!fantasySeason) {
+    if (!fantasySeason || !fantasySeason.id) {
       const emptyResponse = NextResponse.json({
         fantasySeasonId: null,
         gameweek,
         totalPoints: 0,
         globalRank: null,
-        bankBalance: 0,
+        bankBalance: 100,
         squadValue: 0,
-        freeTransfers: 0,
+        freeTransfers: 2,
         activeSquadCount: 0,
         captain: null,
         viceCaptain: null,
@@ -65,7 +61,7 @@ export async function GET(request: NextRequest) {
       return emptyResponse;
     }
 
-    const freeTransfers = fantasySeason.free_transfers || 0;
+    const freeTransfers = fantasySeason.free_transfers ?? 2;
 
     // Phase 2: Parallel squad info and lineup query
     const [squadRes, squadCountRes, lineupRes] = await Promise.all([

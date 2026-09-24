@@ -65,12 +65,13 @@ export async function PUT(request: NextRequest) {
     const body = await request.json();
     const gameweekId = Number(body.gameweekId);
     const lineup = Array.isArray(body.lineup) ? body.lineup : [];
-    if (!gameweekId || lineup.length !== 8) return NextResponse.json({ error: 'A complete eight-player lineup is required.' }, { status: 400 });
+    if (!gameweekId || lineup.length < 5) return NextResponse.json({ error: 'At least 5 starting players are required.' }, { status: 400 });
     const captains = lineup.filter((entry: { isCaptain?: boolean }) => entry.isCaptain);
     const viceCaptains = lineup.filter((entry: { isViceCaptain?: boolean }) => entry.isViceCaptain);
     if (captains.length !== 1 || viceCaptains.length !== 1) return NextResponse.json({ error: 'Select exactly one captain and one vice-captain.' }, { status: 400 });
     const bySlot = new Map<string, { playerId: number; isCaptain?: boolean; isViceCaptain?: boolean }>(lineup.map((entry: { slot: string; playerId: number; isCaptain?: boolean; isViceCaptain?: boolean }) => [entry.slot, entry]));
-    if (slots.some((slot) => !bySlot.has(slot))) return NextResponse.json({ error: 'Every lineup slot must be filled.' }, { status: 400 });
+    const starterSlots = ['carry', 'mid', 'offlane', 'support', 'hard_support'] as const;
+    if (starterSlots.some((slot) => !bySlot.has(slot))) return NextResponse.json({ error: 'Every starting lineup slot (Carry, Mid, Offlane, Support, Hard Support) must be filled.' }, { status: 400 });
 
     const supabase = supabaseServer();
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -100,9 +101,9 @@ export async function PUT(request: NextRequest) {
       offlane_id: bySlot.get('offlane')!.playerId,
       support_id: bySlot.get('support')!.playerId,
       hard_support_id: bySlot.get('hard_support')!.playerId,
-      bench_1_id: bySlot.get('bench_1')!.playerId,
-      bench_2_id: bySlot.get('bench_2')!.playerId,
-      bench_3_id: bySlot.get('bench_3')!.playerId,
+      bench_1_id: bySlot.get('bench_1')?.playerId ?? null,
+      bench_2_id: bySlot.get('bench_2')?.playerId ?? null,
+      bench_3_id: bySlot.get('bench_3')?.playerId ?? null,
       updated_at: new Date().toISOString(),
     };
     // eslint-disable-next-line @typescript-eslint/no-explicit-any

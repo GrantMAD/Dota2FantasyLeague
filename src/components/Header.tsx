@@ -150,7 +150,15 @@ export function Header() {
     }
 
     void loadQuickStats();
-  }, []);
+
+    const handleStatsUpdate = () => {
+      void loadQuickStats();
+    };
+    window.addEventListener('fantasy:stats-updated', handleStatsUpdate);
+    return () => {
+      window.removeEventListener('fantasy:stats-updated', handleStatsUpdate);
+    };
+  }, [pathname]);
 
   // Global Ctrl+K / Cmd+K handler
   useEffect(() => {
@@ -578,7 +586,7 @@ export function Header() {
                 >
                   <ArrowLeftRight className="h-3 w-3 text-cyan-400" />
                   <span>
-                    <span className="font-semibold text-white">{quickStats?.freeTransfers ?? 1}</span> FT
+                    <span className="font-semibold text-white">{quickStats?.freeTransfers ?? 2}</span> FT
                   </span>
                 </Link>
               </div>

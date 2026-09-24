@@ -1,18 +1,32 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyAuth } from '@/lib/auth-utils';
 import { supabaseServer } from '@/lib/supabase';
+import { getOrCreateFantasySeason } from '@/lib/fantasy-season';
 
 export async function GET(request: NextRequest) {
   try {
     const { userId } = await verifyAuth(request);
     const supabase = supabaseServer();
-    const { data: fantasySeason, error: seasonError } = await (supabase.from('fantasy_seasons') as any)
-      .select('id, budget, free_transfers, wildcard_used_gameweek_id')
-      .eq('user_id', userId)
-      .limit(1)
+    const fantasySeason = await getOrCreateFantasySeason(supabase, userId);
+
+    if (!fantasySeason || !fantasySeason.id) {
+      return NextResponse.json({
+        fantasySeasonId: null,
+        budget: 100,
+        freeTransfers: 2,
+        wildcardUsed: false,
+        ownedPlayerIds: [],
+      });
+    }
+
+    // Try to get wildcard status
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: wildcardData } = await (supabase.from('fantasy_seasons') as any)
+      .select('wildcard_used_gameweek_id')
+      .eq('id', fantasySeason.id)
       .maybeSingle();
-    if (seasonError) return NextResponse.json({ error: 'Failed to load transfer context.' }, { status: 500 });
-    if (!fantasySeason) return NextResponse.json({ fantasySeasonId: null, budget: 0, freeTransfers: 0, wildcardUsed: false, ownedPlayerIds: [] });
+
+    const wildcardUsedGameweekId = wildcardData?.wildcard_used_gameweek_id ?? null;
 
     const { data: squad, error: squadError } = await (supabase.from('fantasy_squads') as any)
       .select('id, fantasy_squad_members(player_id, removed_date)')
@@ -27,10 +41,10 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       fantasySeasonId: fantasySeason.id,
-      budget: Number(fantasySeason.budget ?? 0),
-      freeTransfers: Number(fantasySeason.free_transfers ?? 1),
-      wildcardUsed: fantasySeason.wildcard_used_gameweek_id !== null,
-      wildcardUsedGameweekId: fantasySeason.wildcard_used_gameweek_id,
+      budget: Number(fantasySeason.budget ?? 100),
+      freeTransfers: Number(fantasySeason.free_transfers ?? 2),
+      wildcardUsed: wildcardUsedGameweekId !== null,
+      wildcardUsedGameweekId,
       ownedPlayerIds,
     });
   } catch (error: unknown) {

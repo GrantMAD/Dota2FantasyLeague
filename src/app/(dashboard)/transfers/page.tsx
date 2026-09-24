@@ -50,11 +50,10 @@ export default function TransfersPage() {
   const [search, setSearch] = useState('');
   const [roleFilter, setRoleFilter] = useState('');
   const [ownershipFilter, setOwnershipFilter] = useState<'all' | 'owned' | 'available'>('all');
-  const [rosteredOnly, setRosteredOnly] = useState(true);
   const [pinOwnedFirst, setPinOwnedFirst] = useState(true);
   const [fantasySeasonId, setFantasySeasonId] = useState<number | null>(null);
-  const [budget, setBudget] = useState(0);
-  const [freeTransfers, setFreeTransfers] = useState(0);
+  const [budget, setBudget] = useState(100);
+  const [freeTransfers, setFreeTransfers] = useState(2);
   const [wildcardUsed, setWildcardUsed] = useState(false);
   const [ownedPlayerIds, setOwnedPlayerIds] = useState<number[]>([]);
   // Building mode: multi-select keyed by player ID so details survive filter/page changes
@@ -123,7 +122,6 @@ export default function TransfersPage() {
         });
         if (search.trim()) queryParams.set('search', search.trim());
         if (roleFilter) queryParams.set('role', roleFilter);
-        if (rosteredOnly) queryParams.set('rostered', 'true');
 
         const playersRes = await fetch(`/api/players?${queryParams.toString()}`);
         const data = await playersRes.json();
@@ -145,7 +143,7 @@ export default function TransfersPage() {
       cancelled = true;
       clearTimeout(timeoutId);
     };
-  }, [search, roleFilter, page, rosteredOnly]);
+  }, [search, roleFilter, page]);
 
   const openPlayerModal = async (playerSummary: TransferPlayer) => {
     setModalPlayer(playerSummary);
@@ -163,9 +161,18 @@ export default function TransfersPage() {
     }
   };
 
+  // Support and Hard Support are grouped together since pro data doesn't always
+  // distinguish Pos 4 from Pos 5 — matches the API's .in() filter behaviour.
+  const roleMatches = (playerRole: string, filter: string): boolean => {
+    if (!filter) return true;
+    const supportGroup = ['Support', 'Hard Support'];
+    if (supportGroup.includes(filter)) return supportGroup.includes(playerRole);
+    return playerRole === filter;
+  };
+
   const filteredPlayers = players.filter((p) => {
     if (search && !(p.in_game_name || p.name || '').toLowerCase().includes(search.toLowerCase())) return false;
-    if (roleFilter && p.primary_role !== roleFilter) return false;
+    if (roleFilter && !roleMatches(p.primary_role, roleFilter)) return false;
     const isOwned = ownedPlayerIds.includes(p.id);
     if (ownershipFilter === 'owned' && !isOwned) return false;
     if (ownershipFilter === 'available' && isOwned) return false;
@@ -183,7 +190,7 @@ export default function TransfersPage() {
     const matchingOwnedSquad: TransferPlayer[] = [];
     ownedPlayersMap.forEach((p) => {
       if (search && !(p.in_game_name || p.name || '').toLowerCase().includes(search.toLowerCase())) return;
-      if (roleFilter && p.primary_role !== roleFilter) return;
+      if (roleFilter && !roleMatches(p.primary_role, roleFilter)) return;
       matchingOwnedSquad.push(p);
     });
 
@@ -193,12 +200,20 @@ export default function TransfersPage() {
     return [...matchingOwnedSquad, ...nonOwned];
   })();
 
+  // Normalise player role for squad slot purposes:
+  // 'Hard Support' and 'Support' both map to the 'Support' slot since the DB
+  // stores support players under either label interchangeably.
+  const normaliseSlotRole = (role: string): StarterRole => {
+    if (role === 'Hard Support') return 'Support';
+    return role as StarterRole;
+  };
+
   const selectedPlayerInDetails = players.find((player) => player.id === selectedPlayerIn);
   const selectedPlayerOutDetails = players.find((player) => player.id === selectedPlayerOut) || (selectedPlayerOut ? ownedPlayersMap.get(selectedPlayerOut) : null);
   const rolesMatch = Boolean(
     selectedPlayerInDetails &&
     selectedPlayerOutDetails &&
-    selectedPlayerInDetails.primary_role === selectedPlayerOutDetails.primary_role
+    normaliseSlotRole(selectedPlayerInDetails.primary_role) === normaliseSlotRole(selectedPlayerOutDetails.primary_role)
   );
 
   const handlePlayerAction = (playerId: number, player?: TransferPlayer, e?: React.MouseEvent) => {
@@ -224,15 +239,40 @@ export default function TransfersPage() {
   // Building mode: squad is below max size
   const isBuilding = ownedPlayerIds.length < SQUAD_MAX_SIZE;
 
-  // Derive role slots from building selections — uses stored player objects, not current page
-  const selectedRolesFilled = new Map<StarterRole, TransferPlayer>(); // role -> player
-  const benchSelections: TransferPlayer[] = [];
-  for (const [, player] of buildingSelections) {
-    const role = player.primary_role as StarterRole | undefined;
-    if (role && STARTER_ROLES.includes(role) && !selectedRolesFilled.has(role)) {
-      selectedRolesFilled.set(role, player);
+  // Derive role slots from both already-owned squad players AND building selections.
+  // Owned players take precedence in starter slots.
+  // Support-type players ('Support' or 'Hard Support') can fill EITHER the Support OR
+  // Hard Support starter slot — first selected fills Support, second fills Hard Support.
+  type SlotEntry = { player: TransferPlayer; isOwned: boolean };
+  const selectedRolesFilled = new Map<StarterRole, SlotEntry>(); // slot -> player
+  const benchSelections: SlotEntry[] = [];
+  const SUPPORT_GROUP: StarterRole[] = ['Support', 'Hard Support'];
+
+  // 1. First assign already owned players from the squad
+  const allSquadCandidates: SlotEntry[] = [
+    ...ownedPlayerIds.map((id) => {
+      const p = ownedPlayersMap.get(id) || players.find((x) => x.id === id);
+      return p ? { player: p, isOwned: true } : null;
+    }).filter((x): x is SlotEntry => x !== null),
+    ...[...buildingSelections.values()].map((p) => ({ player: p, isOwned: false })),
+  ];
+
+  for (const entry of allSquadCandidates) {
+    const rawRole = entry.player.primary_role as StarterRole | undefined;
+    const isSupportType = rawRole && SUPPORT_GROUP.includes(rawRole);
+
+    if (isSupportType) {
+      if (!selectedRolesFilled.has('Support')) {
+        selectedRolesFilled.set('Support', entry);
+      } else if (!selectedRolesFilled.has('Hard Support')) {
+        selectedRolesFilled.set('Hard Support', entry);
+      } else {
+        benchSelections.push(entry);
+      }
+    } else if (rawRole && STARTER_ROLES.includes(rawRole) && !selectedRolesFilled.has(rawRole)) {
+      selectedRolesFilled.set(rawRole, entry);
     } else {
-      benchSelections.push(player);
+      benchSelections.push(entry);
     }
   }
   const neededStarterRoles = STARTER_ROLES.filter((r) => !selectedRolesFilled.has(r));
@@ -263,6 +303,9 @@ export default function TransfersPage() {
       setBudget(Number(data.budget ?? budget));
       setOwnedPlayerIds((current) => [...current, ...selectedIds]);
       setBuildingSelections(new Map());
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('fantasy:stats-updated'));
+      }
       toast.success('Squad Updated', `${selectedIds.length} player${selectedIds.length > 1 ? 's' : ''} added! (${data.squadSize}/${data.squadMaxSize})`);
     } catch (err) {
       toast.error('Failed to Add Players', err instanceof Error ? err.message : 'Could not add players');
@@ -290,6 +333,9 @@ export default function TransfersPage() {
       setOwnedPlayerIds((current) => [...current.filter((id) => id !== selectedPlayerOut), selectedPlayerIn]);
       setSelectedPlayerIn(null);
       setSelectedPlayerOut(null);
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('fantasy:stats-updated'));
+      }
       const playerInName = players.find((p) => p.id === selectedPlayerIn)?.in_game_name || 'The player';
       toast.success('Transfer Complete', `${playerInName} is now in your squad.`);
     } catch (err) {
@@ -315,6 +361,9 @@ export default function TransfersPage() {
       if (!response.ok) throw new Error(data.error || 'Wildcard activation failed');
       setWildcardUsed(true);
       setFreeTransfers(99);
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('fantasy:stats-updated'));
+      }
       toast.success('Wildcard Played', 'Unlimited free transfers are now active.');
     } catch (err) {
       toast.error('Wildcard Failed', err instanceof Error ? err.message : 'Wildcard activation failed');
@@ -383,6 +432,12 @@ export default function TransfersPage() {
                   <option value="Support">Support</option>
                   <option value="Hard Support">Hard Support</option>
                 </select>
+                {(roleFilter === 'Support' || roleFilter === 'Hard Support') && (
+                  <p className="mt-1.5 text-xs text-amber-400/80 flex items-start gap-1">
+                    <span className="mt-0.5 shrink-0">ℹ️</span>
+                    <span>Support & Hard Support players are shown together — pro data doesn&apos;t always distinguish Pos 4 from Pos 5.</span>
+                  </p>
+                )}
               </div>
 
               <div>
@@ -399,19 +454,6 @@ export default function TransfersPage() {
               </div>
 
               <div className="pt-1 space-y-2">
-                <label className="flex items-center gap-2 cursor-pointer select-none">
-                  <input
-                    type="checkbox"
-                    checked={rosteredOnly}
-                    onChange={(e) => {
-                      setRosteredOnly(e.target.checked);
-                      setPage(1);
-                    }}
-                    className="w-4 h-4 rounded border-slate-700 bg-slate-900 text-amber-500 focus:ring-amber-500 accent-amber-500 cursor-pointer"
-                  />
-                  <span className="text-xs text-slate-300">Signed Rosters Only</span>
-                </label>
-
                 <label className="flex items-center gap-2 cursor-pointer select-none">
                   <input
                     type="checkbox"
@@ -444,19 +486,31 @@ export default function TransfersPage() {
               {/* Starter role slots */}
               <div className="space-y-1.5 mb-3">
                 {STARTER_ROLES.map((role) => {
-                  const p = selectedRolesFilled.get(role);
+                  const entry = selectedRolesFilled.get(role);
+                  const p = entry?.player;
+                  const isOwned = entry?.isOwned;
+                  // Label the Support slot to hint it accepts Pos 4 & 5 players
+                  const label = role === 'Support' ? 'Support (Pos 4)' : role === 'Hard Support' ? 'Hard Support (Pos 5)' : role;
                   return (
                     <div key={role} className={`flex items-center justify-between rounded-lg px-3 py-2 text-xs ${
                       p ? 'bg-emerald-900/30 border border-emerald-700/50' : 'bg-slate-700/30 border border-slate-600/40'
                     }`}>
-                      <span className={`font-semibold uppercase tracking-wider ${p ? 'text-emerald-400' : 'text-slate-500'}`}>{role}</span>
+                      <span className={`font-semibold uppercase tracking-wider ${p ? 'text-emerald-400' : 'text-slate-500'}`}>
+                        {label}
+                      </span>
                       {p ? (
                         <div className="flex items-center gap-2">
                           <span className="text-white font-medium">{p.in_game_name || p.name}</span>
-                          <button
-                            onClick={() => setBuildingSelections((prev) => { const next = new Map(prev); next.delete(p.id); return next; })}
-                            className="text-slate-400 hover:text-red-400 transition-colors"
-                          >✕</button>
+                          {isOwned ? (
+                            <span className="text-[10px] text-emerald-400 font-semibold px-1.5 py-0.5 rounded bg-emerald-500/20 border border-emerald-500/30">
+                              Owned
+                            </span>
+                          ) : (
+                            <button
+                              onClick={() => setBuildingSelections((prev) => { const next = new Map(prev); next.delete(p.id); return next; })}
+                              className="text-slate-400 hover:text-red-400 transition-colors"
+                            >✕</button>
+                          )}
                         </div>
                       ) : (
                         <span className="text-slate-500 italic">Needed</span>
@@ -466,10 +520,20 @@ export default function TransfersPage() {
                 })}
               </div>
 
+              {/* Support slot explainer */}
+              <div className="flex items-start gap-1.5 bg-slate-700/20 border border-slate-600/30 rounded-lg px-3 py-2 mb-3">
+                <span className="text-amber-400/70 text-xs mt-0.5 shrink-0">ℹ️</span>
+                <p className="text-xs text-slate-400 leading-relaxed">
+                  <span className="text-slate-300 font-medium">Support slots:</span> Pick any support-type player for both Pos 4 &amp; Pos 5 — your 1st pick fills <span className="text-slate-200">Support (Pos 4)</span>, your 2nd fills <span className="text-slate-200">Hard Support (Pos 5)</span>.
+                </p>
+              </div>
+
               {/* Bench slots */}
               <div className="space-y-1.5 mb-4">
                 {Array.from({ length: benchSlotsTotal }).map((_, i) => {
-                  const p = benchSelections[i];
+                  const entry = benchSelections[i];
+                  const p = entry?.player;
+                  const isOwned = entry?.isOwned;
                   return (
                     <div key={`bench-${i}`} className={`flex items-center justify-between rounded-lg px-3 py-2 text-xs ${
                       p ? 'bg-slate-700/50 border border-slate-600' : 'bg-slate-800/30 border border-slate-700/30'
@@ -478,10 +542,16 @@ export default function TransfersPage() {
                       {p ? (
                         <div className="flex items-center gap-2">
                           <span className="text-slate-300">{p.in_game_name || p.name}</span>
-                          <button
-                            onClick={() => setBuildingSelections((prev) => { const next = new Map(prev); next.delete(p.id); return next; })}
-                            className="text-slate-400 hover:text-red-400 transition-colors"
-                          >✕</button>
+                          {isOwned ? (
+                            <span className="text-[10px] text-emerald-400 font-semibold px-1.5 py-0.5 rounded bg-emerald-500/20 border border-emerald-500/30">
+                              Owned
+                            </span>
+                          ) : (
+                            <button
+                              onClick={() => setBuildingSelections((prev) => { const next = new Map(prev); next.delete(p.id); return next; })}
+                              className="text-slate-400 hover:text-red-400 transition-colors"
+                            >✕</button>
+                          )}
                         </div>
                       ) : (
                         <span className="text-slate-600 italic">Optional</span>

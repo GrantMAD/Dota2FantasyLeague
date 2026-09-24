@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyAuth, type AuthError } from '@/lib/auth-utils';
 import { supabaseServer } from '@/lib/supabase';
+import { getOrCreateFantasySeason } from '@/lib/fantasy-season';
 
 const slots = ['carry', 'mid', 'offlane', 'support', 'hard_support', 'bench_1', 'bench_2', 'bench_3'] as const;
 type Slot = (typeof slots)[number];
@@ -15,25 +16,15 @@ export async function GET(request: NextRequest) {
     const user = await verifyAuth(request);
     const supabase = supabaseServer();
 
-    // 1. Fetch user fantasy season (base columns that are guaranteed to exist)
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: fantasySeason, error: seasonError } = await (supabase.from('fantasy_seasons') as any)
-      .select('id, season_id, budget, free_transfers, total_points, global_rank')
-      .eq('user_id', user.userId)
-      .limit(1)
-      .maybeSingle();
+    // 1. Fetch user fantasy season (auto-provision if new user)
+    const fantasySeason = await getOrCreateFantasySeason(supabase, user.userId);
 
-    if (seasonError) {
-      console.error('[fantasy/context] fantasy_seasons query error:', seasonError);
-      return NextResponse.json({ error: 'Failed to fetch fantasy season', details: seasonError.message }, { status: 500 });
-    }
-
-    if (!fantasySeason) {
+    if (!fantasySeason || !fantasySeason.id) {
       return NextResponse.json({
         fantasySeasonId: null,
         seasonId: null,
-        budget: 0,
-        freeTransfers: 0,
+        budget: 100,
+        freeTransfers: 2,
         totalPoints: 0,
         globalRank: null,
         gameweek: null,

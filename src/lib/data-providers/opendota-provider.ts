@@ -180,8 +180,10 @@ export class OpenDotaProvider extends DataProviderBase implements DataProvider {
         (t: any) => t.team_id && t.name && typeof t.name === 'string' && t.name.trim().length > 0
       );
 
+      const offset = filters?.offset || 0;
+      const limit = filters?.limit !== undefined ? filters.limit : validTeams.length;
       return validTeams
-        .slice(filters?.offset || 0, (filters?.offset || 0) + (filters?.limit || 100))
+        .slice(offset, offset + limit)
         .map((t: any) => ({
           id: String(t.team_id),
           name: t.name.trim(),

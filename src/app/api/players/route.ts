@@ -51,7 +51,13 @@ export async function GET(request: NextRequest) {
     }
 
     if (role) {
-      query = query.eq('primary_role', role);
+      if (role === 'Hard Support') {
+        query = query.in('primary_role', ['Hard Support', 'Support']);
+      } else if (role === 'Support') {
+        query = query.in('primary_role', ['Support', 'Hard Support']);
+      } else {
+        query = query.eq('primary_role', role);
+      }
     }
 
     const idsParam = searchParams.get('ids');
