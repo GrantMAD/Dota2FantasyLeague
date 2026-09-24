@@ -82,6 +82,28 @@ export async function GET(request: NextRequest) {
         .not('fantasy_points_breakdown', 'is', null)
     ]);
 
+    // Collect all unique series IDs from match rows first — then fetch tournaments in ONE query
+    const uniqueSeriesIds = [...new Set(
+      (matchRows ?? []).filter((m: { series_id?: number | null }) => m.series_id).map((m: { series_id: number }) => m.series_id)
+    )];
+
+    // Single batched tournament lookup (replaces N per-match awaits)
+    const seriesTournamentMap = new Map<number, { id: number; name: string; slug: string | null }>();
+    if (uniqueSeriesIds.length > 0) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: seriesRows } = await (supabase.from('tournament_series') as any)
+        .select('id, tournament_id, tournaments(id, name, slug)')
+        .in('id', uniqueSeriesIds);
+
+      for (const series of seriesRows ?? []) {
+        const t = series.tournaments;
+        if (t) {
+          seriesTournamentMap.set(Number(series.id), { id: Number(t.id), name: t.name, slug: t.slug ?? null });
+        }
+      }
+    }
+
+    // Build matchCountMap and tournamentMap purely in memory — no more per-row DB calls
     const matchCountMap = new Map<number, number>();
     const tournamentMap = new Map<number, Array<{ id: number; name: string; slug: string | null }>>();
     const flagMap = new Map<number, Array<{ flag: string; team_id: number; professional_teams?: { id: number; name: string; slug: string | null; logo_url?: string | null } | null }>>();
@@ -92,24 +114,18 @@ export async function GET(request: NextRequest) {
       matchCountMap.set(gwId, (matchCountMap.get(gwId) ?? 0) + 1);
 
       if (match.series_id) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const seriesRecord = await (supabase.from('tournament_series') as any)
-          .select('id, tournament_id, tournaments(id, name, slug)')
-          .eq('id', match.series_id)
-          .maybeSingle();
-
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const tournament = (seriesRecord as any)?.data?.tournaments;
+        const tournament = seriesTournamentMap.get(Number(match.series_id));
         if (tournament) {
           const current = tournamentMap.get(gwId) ?? [];
-          const exists = current.some((t) => t.id === Number(tournament.id));
+          const exists = current.some((t) => t.id === tournament.id);
           if (!exists) {
-            current.push({ id: Number(tournament.id), name: tournament.name, slug: tournament.slug ?? null });
+            current.push(tournament);
             tournamentMap.set(gwId, current);
           }
         }
       }
     }
+
 
     // Aggregate per-player per-gameweek totals (a player may appear in multiple matches)
     const perPlayerTotals = new Map<string, { gwId: number; player_id: number; total_points: number; name: string; in_game_name: string | null; primary_role: string | null }>();
