@@ -69,17 +69,41 @@ export async function fetchMatchDetails(): Promise<FetchDetailsResult> {
               // Fallback to match teams if provider team ID matches or cannot be found
               if (!dbTeamId) {
                 if (teamProviderId && teamProviderId !== '0') {
-                  const { data: newTeam } = await (supabase.from('professional_teams') as any)
-                    .insert({
-                      name: `Team ${teamProviderId}`,
-                      slug: `team-${teamProviderId}`,
-                      data_provider_id: teamProviderId,
-                    })
+                  let teamName = `Team ${teamProviderId}`;
+                  let logoUrl: string | undefined = undefined;
+
+                  try {
+                    const fetchedTeam = await provider.fetchTeam(teamProviderId);
+                    if (fetchedTeam?.name && fetchedTeam.name.trim().length > 0 && !/^\d+$/.test(fetchedTeam.name)) {
+                      teamName = fetchedTeam.name.trim();
+                      logoUrl = fetchedTeam.logoUrl;
+                    }
+                  } catch {
+                    // Fall back to Team <id> if provider lookup fails
+                  }
+
+                  const { data: existingByName } = await (supabase.from('professional_teams') as any)
                     .select('id')
+                    .ilike('name', teamName)
                     .maybeSingle();
-                  if (newTeam) {
-                    dbTeamId = newTeam.id;
-                    teamMap.set(teamProviderId, newTeam.id);
+
+                  if (existingByName) {
+                    dbTeamId = existingByName.id;
+                    teamMap.set(teamProviderId, existingByName.id);
+                  } else {
+                    const { data: newTeam } = await (supabase.from('professional_teams') as any)
+                      .insert({
+                        name: teamName,
+                        slug: `team-${teamProviderId}`,
+                        data_provider_id: teamProviderId,
+                        logo_url: logoUrl,
+                      })
+                      .select('id')
+                      .maybeSingle();
+                    if (newTeam) {
+                      dbTeamId = newTeam.id;
+                      teamMap.set(teamProviderId, newTeam.id);
+                    }
                   }
                 }
                 if (!dbTeamId) {

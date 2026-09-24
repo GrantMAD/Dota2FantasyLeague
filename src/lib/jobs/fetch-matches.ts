@@ -163,42 +163,10 @@ export async function fetchMatches(): Promise<FetchResult> {
               const existing = existingMatches.get(match.id);
 
               // Resolve Team A
-              let teamAId = teamIdMap.get(String(match.team1Id));
-              if (!teamAId && match.team1Id) {
-                const teamName = `Team ${match.team1Id}`;
-                const { data: newTeam } = await supabase
-                  .from('professional_teams')
-                  .insert({
-                    name: teamName,
-                    slug: `team-${match.team1Id}`,
-                    data_provider_id: String(match.team1Id),
-                  })
-                  .select('id')
-                  .maybeSingle();
-                if (newTeam) {
-                  teamAId = newTeam.id;
-                  teamIdMap.set(String(match.team1Id), newTeam.id);
-                }
-              }
+              const teamAId = await resolveOrCreateTeam(match.team1Id, teamIdMap, provider);
 
               // Resolve Team B
-              let teamBId = teamIdMap.get(String(match.team2Id));
-              if (!teamBId && match.team2Id) {
-                const teamName = `Team ${match.team2Id}`;
-                const { data: newTeam } = await supabase
-                  .from('professional_teams')
-                  .insert({
-                    name: teamName,
-                    slug: `team-${match.team2Id}`,
-                    data_provider_id: String(match.team2Id),
-                  })
-                  .select('id')
-                  .maybeSingle();
-                if (newTeam) {
-                  teamBId = newTeam.id;
-                  teamIdMap.set(String(match.team2Id), newTeam.id);
-                }
-              }
+              const teamBId = await resolveOrCreateTeam(match.team2Id, teamIdMap, provider);
 
               if (!teamAId || !teamBId) {
                 // Cannot insert match without both valid team references
@@ -354,6 +322,75 @@ async function checkMatchDetails(matchId: string): Promise<boolean> {
   }
 
   return data.detailed_stats_fetched_at !== null;
+}
+
+/**
+ * Resolves a team from the in-memory map or fetches its true name/logo from the provider
+ */
+async function resolveOrCreateTeam(
+  teamProviderId: string | number | undefined,
+  teamIdMap: Map<string, number>,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  provider: any
+): Promise<number | null> {
+  if (!teamProviderId || String(teamProviderId) === '0') return null;
+  const pIdStr = String(teamProviderId);
+  const existing = teamIdMap.get(pIdStr);
+  if (existing) return existing;
+
+  const supabase = getSupabaseServerClient();
+  let teamName = `Team ${pIdStr}`;
+  let logoUrl: string | undefined = undefined;
+
+  try {
+    const fetched = await provider.fetchTeam(pIdStr);
+    if (fetched?.name && fetched.name.trim().length > 0 && !/^\d+$/.test(fetched.name)) {
+      teamName = fetched.name.trim();
+      logoUrl = fetched.logoUrl;
+    }
+  } catch {
+    // Fall back to Team <id> if provider lookup fails
+  }
+
+  // Check if team with this name already exists in database
+  const { data: existingByName } = await (supabase.from('professional_teams') as any)
+    .select('id, data_provider_id')
+    .ilike('name', teamName)
+    .maybeSingle();
+
+  if (existingByName) {
+    teamIdMap.set(pIdStr, existingByName.id);
+    return existingByName.id;
+  }
+
+  // Insert newly discovered team
+  const { data: newTeam, error } = await (supabase.from('professional_teams') as any)
+    .insert({
+      name: teamName,
+      slug: `team-${pIdStr}`,
+      data_provider_id: pIdStr,
+      logo_url: logoUrl,
+    })
+    .select('id')
+    .maybeSingle();
+
+  if (newTeam) {
+    teamIdMap.set(pIdStr, newTeam.id);
+    return newTeam.id;
+  }
+
+  if (error?.code === '23505') {
+    const { data: retryTeam } = await (supabase.from('professional_teams') as any)
+      .select('id')
+      .or(`data_provider_id.eq.${pIdStr},name.ilike.${teamName}`)
+      .maybeSingle();
+    if (retryTeam) {
+      teamIdMap.set(pIdStr, retryTeam.id);
+      return retryTeam.id;
+    }
+  }
+
+  return null;
 }
 
 async function logJobExecution(
