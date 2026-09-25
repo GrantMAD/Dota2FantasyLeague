@@ -48,7 +48,62 @@ export async function getDataConflicts(
     return [];
   }
 
-  return data || [];
+  const conflicts = data || [];
+  if (conflicts.length === 0) return [];
+
+  // Group entity IDs by entity_type to batch-fetch names
+  const teamIds = new Set<string>();
+  const playerIds = new Set<string>();
+
+  for (const c of conflicts) {
+    if (c.entity_type === 'team' && c.entity_id) teamIds.add(String(c.entity_id));
+    if (c.entity_type === 'player' && c.entity_id) playerIds.add(String(c.entity_id));
+  }
+
+  const teamNameMap = new Map<string, string>();
+  const playerNameMap = new Map<string, string>();
+
+  if (teamIds.size > 0) {
+    try {
+      const { data: teams } = await supabase
+        .from('professional_teams')
+        .select('id, name')
+        .in('id', Array.from(teamIds));
+      if (teams) {
+        for (const t of teams) {
+          teamNameMap.set(String(t.id), t.name);
+        }
+      }
+    } catch (e) {
+      console.warn('Failed to load team names for conflicts:', e);
+    }
+  }
+
+  if (playerIds.size > 0) {
+    try {
+      const { data: players } = await supabase
+        .from('professional_players')
+        .select('id, name')
+        .in('id', Array.from(playerIds));
+      if (players) {
+        for (const p of players) {
+          playerNameMap.set(String(p.id), p.name);
+        }
+      }
+    } catch (e) {
+      console.warn('Failed to load player names for conflicts:', e);
+    }
+  }
+
+  return conflicts.map((c: Record<string, any>) => ({
+    ...c,
+    entity_name:
+      c.entity_type === 'team'
+        ? teamNameMap.get(String(c.entity_id))
+        : c.entity_type === 'player'
+        ? playerNameMap.get(String(c.entity_id))
+        : undefined,
+  }));
 }
 
 export async function resolveConflict(
@@ -56,27 +111,99 @@ export async function resolveConflict(
   resolvedValue: unknown,
   resolvedProvider: string,
   adminUserId: string,
-  notes?: string
+  notes?: string,
+  status: 'resolved' | 'ignored' = 'resolved',
+  applyToEntity: boolean = true
 ): Promise<{ success: boolean; error?: string }> {
   const supabase = getSupabaseServerClient();
 
+  // Fetch the conflict record to get entity type, id, and field
+  const { data: conflict, error: fetchError } = await supabase
+    .from('data_conflicts')
+    .select('*')
+    .eq('id', conflictId)
+    .single();
+
+  if (fetchError || !conflict) {
+    return { success: false, error: fetchError?.message || 'Conflict not found' };
+  }
+
+  const updatePayload: Record<string, unknown> = {
+    status,
+    resolved_at: new Date().toISOString(),
+    resolved_by: adminUserId,
+    notes: notes !== undefined ? notes : conflict.notes,
+  };
+
+  if (status === 'resolved') {
+    updatePayload.resolved_value = resolvedValue;
+    updatePayload.resolved_provider = resolvedProvider;
+  }
+
   const { error } = await supabase
     .from('data_conflicts')
-    .update({
-      resolved_value: resolvedValue,
-      resolved_provider: resolvedProvider,
-      status: 'resolved',
-      resolved_at: new Date().toISOString(),
-      resolved_by: adminUserId,
-      notes,
-    })
+    .update(updatePayload)
     .eq('id', conflictId);
 
   if (error) {
     return { success: false, error: error.message };
   }
 
+  // If requested and status is resolved, also update the entity table directly
+  if (applyToEntity && status === 'resolved' && conflict.entity_type && conflict.entity_id && conflict.field_name) {
+    const tableMap: Record<string, string> = {
+      player: 'professional_players',
+      team: 'professional_teams',
+      tournament: 'tournaments',
+      match: 'matches',
+    };
+    const tableName = tableMap[conflict.entity_type];
+    if (tableName) {
+      try {
+        await supabase
+          .from(tableName)
+          .update({
+            [conflict.field_name]: resolvedValue,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', conflict.entity_id);
+      } catch (applyErr) {
+        console.warn(`[resolveConflict] Failed to apply resolution to ${tableName}.${conflict.field_name}:`, applyErr);
+      }
+    }
+  }
+
   return { success: true };
+}
+
+export async function ignoreAllConflicts(
+  adminUserId: string,
+  entityType?: 'player' | 'team' | 'tournament' | 'match',
+  notes: string = 'Bulk ignored by admin'
+): Promise<{ success: boolean; count?: number; error?: string }> {
+  const supabase = getSupabaseServerClient();
+
+  let query = supabase
+    .from('data_conflicts')
+    .update({
+      status: 'ignored',
+      resolved_at: new Date().toISOString(),
+      resolved_by: adminUserId,
+      notes,
+    })
+    .eq('status', 'unresolved');
+
+  if (entityType) {
+    query = query.eq('entity_type', entityType);
+  }
+
+  const { data, error } = await query.select('id');
+
+  if (error) {
+    return { success: false, error: error.message };
+  }
+
+  return { success: true, count: data?.length ?? 0 };
 }
 
 export async function getVersionHistory(

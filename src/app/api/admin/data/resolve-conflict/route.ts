@@ -24,11 +24,25 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const { conflict_id, resolved_value, resolved_provider, notes } = body;
+    const {
+      conflict_id,
+      resolved_value,
+      resolved_provider,
+      notes,
+      status = 'resolved',
+      apply_to_entity = true,
+    } = body;
 
-    if (!conflict_id || !resolved_value || !resolved_provider) {
+    if (!conflict_id) {
       return NextResponse.json(
-        { error: 'Missing required fields: conflict_id, resolved_value, resolved_provider' },
+        { error: 'Missing required field: conflict_id' },
+        { status: 400 }
+      );
+    }
+
+    if (status === 'resolved' && (resolved_value === undefined || !resolved_provider)) {
+      return NextResponse.json(
+        { error: 'Missing required fields: resolved_value and resolved_provider are required to resolve a conflict' },
         { status: 400 }
       );
     }
@@ -36,9 +50,11 @@ export async function POST(request: NextRequest) {
     const result = await resolveConflict(
       conflict_id,
       resolved_value,
-      resolved_provider,
+      resolved_provider || 'manual',
       adminId,
-      notes
+      notes,
+      status as 'resolved' | 'ignored',
+      apply_to_entity !== false
     );
 
     if (!result.success) {
