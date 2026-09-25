@@ -229,45 +229,75 @@ class ProcessCompletedMatches {
         return result;
       }
 
-      if (!matches || (matches as any[]).length === 0) {
-        console.log('No completed matches with detailed stats to process');
+      const matchesList: any[] = Array.isArray(matches) ? matches : [];
+      const matchCount = matchesList.length;
+      if (matchCount === 0) {
+        console.log('[ProcessMatches] No completed matches with detailed stats to process');
         result.success = true;
         result.duration = Date.now() - startTime;
         return result;
       }
 
+      console.log(`[ProcessMatches] Processing ${matchCount} completed matches...`);
       const processedGameweeks = new Set<number>();
 
-      // Process each match
-      for (const match of (matches as any[])) {
-        try {
-          // Get match player stats
-          const { data: playerStats, error: statsError } = await this.supabase
-            .from('match_player_stats')
-            .select('*')
-            .eq('match_id', (match as any).id);
+      // Process matches in chunks of 25 to avoid overwhelming network or memory
+      const CHUNK_SIZE = 25;
+      for (let i = 0; i < matchCount; i += CHUNK_SIZE) {
+        const chunk = matchesList.slice(i, i + CHUNK_SIZE);
+        const matchIds = chunk.map((m) => m.id);
+        const matchGwMap = new Map<number, number>(chunk.map((m) => [m.id, m.gameweek_id]));
 
-          if (statsError || !playerStats) {
-            result.errors.push(`Failed to fetch stats for match ${(match as any).id}`);
-            continue;
-          }
+        // Fetch all player stats for this chunk of matches in ONE query
+        const { data: chunkStats, error: statsError } = await this.supabase
+          .from('match_player_stats')
+          .select('*')
+          .in('match_id', matchIds);
 
-          // Create player performances from match stats
-          for (const stats of (playerStats as any[])) {
-            const created = await this.createPlayerPerformance(
-              stats as MatchPlayerStats,
-              (match as any).gameweek_id,
-            );
-            if (created) {
-              result.performancesCreated++;
-            }
-          }
-
-          result.matchesProcessed++;
-          processedGameweeks.add((match as any).gameweek_id);
-        } catch (err: any) {
-          result.errors.push(`Error processing match ${(match as any).id}: ${err.message}`);
+        if (statsError) {
+          result.errors.push(`Failed to fetch stats for matches chunk ${i}-${i + chunk.length}: ${statsError.message}`);
+          continue;
         }
+
+        if (chunkStats && chunkStats.length > 0) {
+          const performancesToUpsert: PlayerPerformance[] = chunkStats.map((stats: any) => ({
+            player_id: stats.player_id,
+            match_id: stats.match_id,
+            gameweek_id: matchGwMap.get(stats.match_id) || 0,
+            kills: stats.kills,
+            deaths: stats.deaths,
+            assists: stats.assists,
+            gold_per_minute: stats.gold_per_minute,
+            experience_per_minute: stats.experience_per_minute,
+            last_hits: stats.last_hits,
+            denies: stats.denies,
+            hero_damage: stats.hero_damage,
+            building_damage: stats.tower_damage,
+            wards_placed: stats.wards_placed,
+            wards_destroyed: stats.wards_destroyed,
+            healing: stats.healing,
+          }));
+
+          // Bulk upsert all performances for this chunk
+          const { error: upsertError } = await (this.supabase
+            .from('player_performances') as any)
+            .upsert(performancesToUpsert as any, {
+              onConflict: 'player_id,match_id',
+            });
+
+          if (upsertError) {
+            result.errors.push(`Failed to upsert performances chunk: ${upsertError.message}`);
+          } else {
+            result.performancesCreated += performancesToUpsert.length;
+          }
+        }
+
+        result.matchesProcessed += chunk.length;
+        chunk.forEach((m) => {
+          if (m.gameweek_id) processedGameweeks.add(m.gameweek_id);
+        });
+
+        console.log(`[ProcessMatches] Processed ${result.matchesProcessed}/${matchCount} matches (${result.performancesCreated} performances saved)...`);
       }
 
       // Apply bench substitutions for all affected gameweeks
@@ -277,6 +307,7 @@ class ProcessCompletedMatches {
       }
 
       result.success = true;
+      console.log(`[ProcessMatches] Finished in ${Date.now() - startTime}ms. Created ${result.performancesCreated} performances.`);
     } catch (err: any) {
       result.errors.push(`Fatal error in process completed matches job: ${err.message}`);
       console.error('Process completed matches job failed:', err);

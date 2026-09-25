@@ -331,107 +331,111 @@ export class FantasyScoreCalculator {
       }
 
       const updatedGameweeks = new Set<number>();
+      const matchCount = matches.length;
+      console.log(`[CalculateScores] Processing fantasy scores for ${matchCount} matches...`);
 
-      // Process each match
-      for (const match of matches) {
-        try {
-          // Get match player stats for this match
-          const { data: playerStatsData, error: statsError } = (await this.supabase
-            .from('match_player_stats')
-            .select('*')
-            .eq('match_id', match.id)) as any;
-          const playerStats: any[] = Array.isArray(playerStatsData) ? playerStatsData : [];
+      // Pre-load all professional player roles into memory map so we don't query 1-by-1
+      const { data: allPlayers } = await (this.supabase
+        .from('professional_players') as any)
+        .select('id, primary_role');
+      const roleMap = new Map<number, string>(
+        (allPlayers || []).map((p: any) => [p.id, p.primary_role || 'Support'])
+      );
 
-          if (statsError) {
-            result.errors.push(`Failed to fetch stats for match ${match.id}: ${statsError.message}`);
-            continue;
-          }
+      // Process in chunks of 20 matches
+      const CHUNK_SIZE = 20;
+      for (let i = 0; i < matchCount; i += CHUNK_SIZE) {
+        const chunk = matches.slice(i, i + CHUNK_SIZE);
+        const matchIds = chunk.map((m: any) => m.id);
+        const matchMap = new Map<number, Match>(chunk.map((m: any) => [m.id, m]));
 
-          if (playerStats.length === 0) continue;
+        // Fetch stats, substitutions, and performance IDs for this chunk in parallel
+        const [statsRes, subsRes, perfsRes] = await Promise.all([
+          this.supabase.from('match_player_stats').select('*').in('match_id', matchIds),
+          this.supabase.from('match_player_substitutions').select('*').in('match_id', matchIds),
+          this.supabase.from('player_performances').select('id, player_id, match_id').in('match_id', matchIds),
+        ]);
 
-          // Fetch substitutions for this match (stand-ins)
-          const { data: substitutionsData } = (await this.supabase
-            .from('match_player_substitutions')
-            .select('*')
-            .eq('match_id', match.id)) as any;
-          const substitutions: any[] = Array.isArray(substitutionsData) ? substitutionsData : [];
-
-          result.matchesProcessed++;
-
-          // Calculate scores for each player in the match
-          for (const stats of playerStats) {
-            // Apply stand-in mapping if this player is a stand-in
-            const substitution = substitutions.find((sub) => sub.stand_in_player_id === stats.player_id);
-            const targetPlayerId = substitution ? substitution.rostered_player_id : stats.player_id;
-
-            const scoreBreakdown = await this.calculatePlayerMatchScore(
-              stats as MatchPlayerStats,
-              match as Match,
-              (stats as any).team_id,
-            );
-
-            // Store or update fantasy_points_breakdown
-            const totalScore =
-              scoreBreakdown.combat +
-              scoreBreakdown.economy +
-              scoreBreakdown.objective +
-              scoreBreakdown.win +
-              scoreBreakdown.performance -
-              scoreBreakdown.penalty;
-
-            // Get performance_id for this player and match
-            const { data: perf } = await (this.supabase
-              .from('player_performances') as any)
-              .select('id')
-              .eq('player_id', targetPlayerId)
-              .eq('match_id', match.id)
-              .maybeSingle();
-
-            const performanceId = perf?.id;
-
-            if (!performanceId) {
-              result.errors.push(
-                `Missing performance record for player ${targetPlayerId} in match ${match.id}`
-              );
-              continue;
-            }
-
-            // Upsert the score breakdown using performance_id
-            const { error: insertError } = await (this.supabase
-              .from('fantasy_points_breakdown') as any)
-              .upsert(
-                {
-                  performance_id: performanceId,
-                  combat_points: scoreBreakdown.combat,
-                  economy_points: scoreBreakdown.economy,
-                  objective_points: scoreBreakdown.objective,
-                  teamfight_points: scoreBreakdown.teamfight,
-                  win_points: scoreBreakdown.win,
-                  series_points: scoreBreakdown.series,
-                  performance_index_points: scoreBreakdown.performance,
-                  consistency_points: scoreBreakdown.consistency,
-                  penalty_points: scoreBreakdown.penalty,
-                },
-                { onConflict: 'performance_id' },
-              );
-
-            if (insertError) {
-              result.errors.push(
-                `Failed to insert score for player ${targetPlayerId} (played by ${stats.player_id}) in match ${match.id}: ${insertError.message}`,
-              );
-              continue;
-            }
-
-            result.scoresCalculated++;
-            updatedGameweeks.add(match.gameweek_id);
-          }
-        } catch (err: any) {
-          result.errors.push(`Error processing match ${match.id}: ${err.message}`);
+        if (statsRes.error) {
+          result.errors.push(`Failed to fetch stats for matches chunk ${i}-${i + chunk.length}: ${statsRes.error.message}`);
+          continue;
         }
+
+        const playerStats: any[] = (statsRes.data as any[]) || [];
+        const substitutions: any[] = (subsRes.data as any[]) || [];
+        const perfs: any[] = (perfsRes.data as any[]) || [];
+
+        // Build quick lookup for performance_id
+        const perfMap = new Map<string, string>();
+        perfs.forEach((p: any) => {
+          perfMap.set(`${p.player_id}_${p.match_id}`, p.id);
+        });
+
+        // Build quick lookup for substitutions
+        const subMap = new Map<string, number>();
+        substitutions.forEach((s: any) => {
+          subMap.set(`${s.match_id}_${s.stand_in_player_id}`, s.rostered_player_id);
+        });
+
+        const breakdownsToUpsert: any[] = [];
+
+        for (const stats of playerStats) {
+          const match = matchMap.get(stats.match_id);
+          if (!match) continue;
+
+          const rosteredId = subMap.get(`${stats.match_id}_${stats.player_id}`);
+          const targetPlayerId = rosteredId || stats.player_id;
+
+          const performanceId = perfMap.get(`${targetPlayerId}_${stats.match_id}`);
+          if (!performanceId) {
+            continue; // Will be skipped if performances haven't been created yet
+          }
+
+          const playerRole = roleMap.get(stats.player_id) || 'Support';
+          const combat = this.calculateCombatScore(stats, playerRole);
+          const economy = this.calculateEconomyScore(stats, playerRole, match.duration_minutes || 40);
+          const objective = this.calculateObjectiveScore(stats, playerRole);
+          const performance = this.calculatePerformanceBonus(combat, economy, objective);
+          const winBonus = this.scoringRules.win_points !== undefined 
+            ? this.scoringRules.win_points 
+            : (this.scoringRules.match_win_bonus ?? 5.0);
+          const win = match.winner_team_id === (stats as any).team_id ? winBonus : 0;
+
+          breakdownsToUpsert.push({
+            performance_id: performanceId,
+            combat_points: Math.round(combat * 100) / 100,
+            economy_points: Math.round(economy * 100) / 100,
+            objective_points: Math.round(objective * 100) / 100,
+            teamfight_points: 0,
+            win_points: Math.round(win * 100) / 100,
+            series_points: 0,
+            performance_index_points: Math.round(performance * 100) / 100,
+            consistency_points: 0,
+            penalty_points: 0,
+          });
+
+          if (match.gameweek_id) updatedGameweeks.add(match.gameweek_id);
+        }
+
+        if (breakdownsToUpsert.length > 0) {
+          const { error: upsertError } = await (this.supabase
+            .from('fantasy_points_breakdown') as any)
+            .upsert(breakdownsToUpsert, { onConflict: 'performance_id' });
+
+          if (upsertError) {
+            result.errors.push(`Failed to upsert breakdown chunk: ${upsertError.message}`);
+          } else {
+            result.scoresCalculated += breakdownsToUpsert.length;
+          }
+        }
+
+        result.matchesProcessed += chunk.length;
+        console.log(`[CalculateScores] Processed ${result.matchesProcessed}/${matchCount} matches (${result.scoresCalculated} scores saved)...`);
       }
 
       result.gameweeksUpdated = updatedGameweeks.size;
       result.success = true;
+      console.log(`[CalculateScores] Completed in ${Date.now() - startTime}ms. Calculated ${result.scoresCalculated} scores across ${result.gameweeksUpdated} gameweeks.`);
     } catch (err: any) {
       result.errors.push(`Fatal error in score calculation job: ${err.message}`);
       console.error('Score calculation job failed:', err);

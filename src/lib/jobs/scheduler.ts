@@ -26,6 +26,7 @@ import { sendDeadlineNotifications } from './send-deadline-notifications';
 import { sendPriceChangeNotifications } from './send-price-change-notifications';
 import { sendRankNotifications } from './send-rank-notifications';
 import { transitionGameweeks } from './transition-gameweeks';
+import { backfillPlaceholderPlayers } from './backfill-placeholder-players';
 
 type JobName =
   | 'sync-players'
@@ -43,7 +44,8 @@ type JobName =
   | 'send-deadline-notifications'
   | 'send-price-change-notifications'
   | 'send-rank-notifications'
-  | 'transition-gameweeks';
+  | 'transition-gameweeks'
+  | 'backfill-placeholder-players';
 
 interface JobDefinition {
   name: JobName;
@@ -175,6 +177,13 @@ const JOBS: JobDefinition[] = [
     handler: transitionGameweeks,
     enabled: process.env.ENABLE_SCORE_CALCULATION !== 'false',
     timeout: 10 * 60 * 1000,
+  },
+  {
+    name: 'backfill-placeholder-players',
+    schedule: '0 6 * * *', // Daily at 6 AM UTC
+    handler: backfillPlaceholderPlayers,
+    enabled: true,
+    timeout: 15 * 60 * 1000, // 15 minutes
   },
 ];
 

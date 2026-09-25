@@ -9,6 +9,7 @@ interface DashboardMetrics {
   totalFantasyTeams: number;
   activeLeagues: number;
   currentSeason: string;
+  activeGameweek?: string;
   lastSyncTime: string;
   dataConflicts: number;
   lowQualityRecords: number;
@@ -120,7 +121,7 @@ export default function AdminDashboardPage() {
             <Calendar className="h-8 w-8 text-gray-600" />
           </div>
           <div className="mt-4 text-xs text-gray-400">
-            <p>Gameweek 1 active</p>
+            <p>{metrics?.activeGameweek || 'No active gameweek'}</p>
           </div>
         </div>
       </div>

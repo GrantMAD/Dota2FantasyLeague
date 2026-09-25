@@ -9,6 +9,7 @@
 
 import { getSupabaseServerClient } from '@/lib/db/supabase-server';
 import type { Match, MatchPlayerStats } from '@/types/database';
+import { getRoleByHeroName } from '@/lib/constants/dota-heroes';
 
 interface FetchDetailsResult {
   fetched: number;
@@ -131,13 +132,14 @@ export async function fetchMatchDetails(): Promise<FetchDetailsResult> {
                     const playerName = (player.heroName && player.heroName !== 'Unknown')
                       ? `Player (${player.heroName})`
                       : `Player #${playerProviderId}`;
+                    const initialRole = getRoleByHeroName(player.heroName) || 'Carry';
                     const { data: newPlayer } = await (supabase.from('professional_players') as any)
                       .insert({
                         name: playerName,
                         in_game_name: playerName,
                         slug: playerProviderId,
                         data_provider_id: playerProviderId,
-                        primary_role: 'Carry',
+                        primary_role: initialRole,
                         team_id: dbTeamId,
                         availability_status: 'available',
                       })

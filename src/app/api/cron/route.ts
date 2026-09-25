@@ -27,6 +27,7 @@ import { processCompletedMatches } from '@/lib/jobs/process-completed-matches';
 import { calculateFantasyScores } from '@/lib/jobs/calculate-fantasy-scores';
 import { recalculateGameweeks } from '@/lib/jobs/recalculate-gameweeks';
 import { updatePlayerPrices } from '@/lib/jobs/update-player-prices';
+import { backfillPlaceholderPlayers } from '@/lib/jobs/backfill-placeholder-players';
 
 export async function GET(request: NextRequest) {
   // Verify the request is from Vercel
@@ -98,6 +99,24 @@ export async function GET(request: NextRequest) {
       } catch (error) {
         results.push({
           jobName: 'sync-teams',
+          status: 'failed',
+          error: (error as Error).message,
+        });
+      }
+    }
+
+    // 6 AM UTC - backfill placeholder players
+    if (utcHour === 6 && utcMinute === 0) {
+      try {
+        const result = await backfillPlaceholderPlayers();
+        results.push({
+          jobName: 'backfill-placeholder-players',
+          status: result.errors.length === 0 ? 'success' : 'partial',
+          error: result.errors.length > 0 ? result.errors[0] : undefined,
+        });
+      } catch (error) {
+        results.push({
+          jobName: 'backfill-placeholder-players',
           status: 'failed',
           error: (error as Error).message,
         });

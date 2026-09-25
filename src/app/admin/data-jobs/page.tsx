@@ -144,6 +144,10 @@ const JOB_METADATA: Record<string, {
     description: 'Auto-closes gameweeks when their deadline passes. Runs every 5 min in production.',
     category: 'maintenance',
   },
+  'backfill-placeholder-players': {
+    description: 'Queries OpenDota to resolve real player names, avatars, and roles for placeholder player records.',
+    category: 'maintenance',
+  },
   'send-deadline-notifications': {
     description: 'Pushes gameweek deadline reminder notifications to users.',
     category: 'notification',

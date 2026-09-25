@@ -96,13 +96,16 @@ export async function fetchMatches(): Promise<FetchResult> {
       const gameweekId = currentGameweek?.id || 1;
 
       // 3. Pre-load professional teams map (by data_provider_id and id)
+      //    Also build a name-map so we can detect stale placeholder names.
       const { data: dbTeams } = await supabase
         .from('professional_teams')
         .select('id, name, data_provider_id');
       const teamIdMap = new Map<string, number>();
+      const teamNameMap = new Map<number, string>(); // id → current name
       for (const t of dbTeams || []) {
         if (t.data_provider_id) teamIdMap.set(String(t.data_provider_id), t.id);
         teamIdMap.set(String(t.id), t.id);
+        teamNameMap.set(t.id, t.name ?? '');
       }
 
       for (const tournament of activeTournaments) {
@@ -163,10 +166,10 @@ export async function fetchMatches(): Promise<FetchResult> {
               const existing = existingMatches.get(match.id);
 
               // Resolve Team A
-              const teamAId = await resolveOrCreateTeam(match.team1Id, teamIdMap, provider);
+              const teamAId = await resolveOrCreateTeam(match.team1Id, teamIdMap, teamNameMap, provider);
 
               // Resolve Team B
-              const teamBId = await resolveOrCreateTeam(match.team2Id, teamIdMap, provider);
+              const teamBId = await resolveOrCreateTeam(match.team2Id, teamIdMap, teamNameMap, provider);
 
               if (!teamAId || !teamBId) {
                 // Cannot insert match without both valid team references
@@ -177,11 +180,14 @@ export async function fetchMatches(): Promise<FetchResult> {
               const scheduledTime = match.scheduledAt ? new Date(match.scheduledAt).toISOString() : new Date().toISOString();
 
               if (existing) {
-                // Update existing match
+                // Update existing match — also correct team IDs in case they were
+                // originally stored as placeholder / bad values (e.g. both sides = 124).
                 await supabase
                   .from('matches')
                   .update({
                     status,
+                    team_a_id: teamAId,
+                    team_b_id: teamBId,
                     last_synced_at: new Date().toISOString(),
                   })
                   .eq('id', existing.id);
@@ -330,13 +336,26 @@ async function checkMatchDetails(matchId: string): Promise<boolean> {
 async function resolveOrCreateTeam(
   teamProviderId: string | number | undefined,
   teamIdMap: Map<string, number>,
+  teamNameMap: Map<number, string>,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   provider: any
 ): Promise<number | null> {
-  if (!teamProviderId || String(teamProviderId) === '0') return null;
+  const INVALID_IDS = new Set(['0', 'null', 'undefined', 'nan', 'none', '']);
+  if (!teamProviderId || INVALID_IDS.has(String(teamProviderId).toLowerCase())) return null;
   const pIdStr = String(teamProviderId);
-  const existing = teamIdMap.get(pIdStr);
-  if (existing) return existing;
+  const existingDbId = teamIdMap.get(pIdStr);
+
+  // If we already have a DB record for this provider ID, check whether its name
+  // is still a placeholder (e.g. "Team 124"). If so, try to enrich it.
+  if (existingDbId !== undefined) {
+    const currentName = teamNameMap.get(existingDbId) ?? '';
+    const isPlaceholder = /^Team \d+$/.test(currentName) || currentName === 'Team null' || currentName === '';
+    if (!isPlaceholder) {
+      // Name is fine — return immediately
+      return existingDbId;
+    }
+    // Name is a placeholder — fall through to provider lookup and update
+  }
 
   const supabase = getSupabaseServerClient();
   let teamName = `Team ${pIdStr}`;
@@ -350,6 +369,20 @@ async function resolveOrCreateTeam(
     }
   } catch {
     // Fall back to Team <id> if provider lookup fails
+  }
+
+  // If we have an existing DB id and just retrieved the real name, update it
+  if (existingDbId !== undefined) {
+    const currentName = teamNameMap.get(existingDbId) ?? '';
+    // Only update if the new name is a genuine improvement (not still a placeholder)
+    if (teamName !== currentName && !/^Team \d+$/.test(teamName) && teamName !== 'Team null') {
+      await (supabase.from('professional_teams') as any)
+        .update({ name: teamName, logo_url: logoUrl })
+        .eq('id', existingDbId);
+      teamNameMap.set(existingDbId, teamName);
+      console.log(`[fetchMatches] Updated placeholder team ${existingDbId} name to "${teamName}"`);
+    }
+    return existingDbId;
   }
 
   // Check if team with this name already exists in database

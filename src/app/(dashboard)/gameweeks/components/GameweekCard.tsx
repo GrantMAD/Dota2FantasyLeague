@@ -117,19 +117,27 @@ export function GameweekCard({ gameweek, compact = false }: GameweekCardProps) {
       )}
 
       <div className="mt-5 flex items-center justify-between gap-3 border-t border-slate-800 pt-4">
-        {gameweek.status === 'active' ? (
-          <Link href="/lineups" className="text-sm font-medium text-amber-300 hover:text-amber-200">
-            Manage Lineup →
-          </Link>
-        ) : gameweek.status === 'upcoming' ? (
-          <Link href="/transfers" className="text-sm font-medium text-sky-300 hover:text-sky-200">
-            Review Transfers →
-          </Link>
-        ) : (
-          <Link href={`/gameweeks/${gameweek.id}`} className="gameweeks-closed-results text-sm font-medium text-slate-300 hover:text-white">
-            View Results →
-          </Link>
-        )}
+        <div className="flex items-center gap-3">
+          {gameweek.status === 'active' ? (
+            <Link href="/lineups" className="text-sm font-medium text-amber-300 hover:text-amber-200">
+              Manage Lineup →
+            </Link>
+          ) : gameweek.status === 'upcoming' ? (
+            <Link href="/transfers" className="text-sm font-medium text-sky-300 hover:text-sky-200">
+              Review Transfers →
+            </Link>
+          ) : (
+            <Link href={`/gameweeks/${gameweek.id}`} className="gameweeks-closed-results text-sm font-medium text-slate-300 hover:text-white">
+              View Results →
+            </Link>
+          )}
+
+          {(gameweek.status === 'active' || gameweek.status === 'upcoming') && (
+            <Link href={`/gameweeks/${gameweek.id}`} className="text-xs text-slate-400 hover:text-slate-200">
+              Details
+            </Link>
+          )}
+        </div>
 
         <span className={`${gameweek.status === 'closed' || gameweek.status === 'locked' ? 'gameweeks-closed-card-label' : ''} text-xs uppercase tracking-[0.16em] text-slate-500`}>
           {compact ? 'Quick view' : 'Full card'}

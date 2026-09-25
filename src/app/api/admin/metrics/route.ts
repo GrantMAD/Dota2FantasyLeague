@@ -11,12 +11,13 @@ export async function GET(request: NextRequest) {
     await verifyAdminAuth(request);
     const supabase = supabaseServer();
 
-    // Query live table counts and active season in parallel
+    // Query live table counts, active season, and active gameweek in parallel
     const [
       usersResult,
       teamsResult,
       leaguesResult,
       activeSeasonResult,
+      activeGameweekResult,
       lastJobResult,
       conflictsResult,
       failedJobsResult,
@@ -24,7 +25,13 @@ export async function GET(request: NextRequest) {
       supabase.from('users').select('*', { count: 'exact', head: true }),
       supabase.from('fantasy_teams').select('*', { count: 'exact', head: true }),
       supabase.from('leagues').select('*', { count: 'exact', head: true }),
-      supabase.from('seasons').select('name, status').eq('status', 'active').maybeSingle(),
+      supabase.from('seasons').select('id, name, status').eq('status', 'active').maybeSingle(),
+      (supabase.from('gameweeks') as any)
+        .select('id, gameweek_number, status')
+        .eq('status', 'active')
+        .order('gameweek_number', { ascending: true })
+        .limit(1)
+        .maybeSingle(),
       (supabase.from('job_execution_log') as any)
         .select('started_at')
         .order('started_at', { ascending: false })
@@ -42,6 +49,9 @@ export async function GET(request: NextRequest) {
     const totalFantasyTeams = teamsResult.count ?? 0;
     const activeLeagues = leaguesResult.count ?? 0;
     const currentSeason = activeSeasonResult.data?.name ?? 'No Active Season';
+    const activeGameweek = activeGameweekResult.data
+      ? `Gameweek ${activeGameweekResult.data.gameweek_number} active`
+      : 'No active gameweek';
     const lastSyncTime = lastJobResult.data?.started_at
       ? new Date(lastJobResult.data.started_at).toLocaleString()
       : 'Never';
@@ -55,6 +65,7 @@ export async function GET(request: NextRequest) {
         totalFantasyTeams,
         activeLeagues,
         currentSeason,
+        activeGameweek,
         lastSyncTime,
         dataConflicts,
         lowQualityRecords: 0,

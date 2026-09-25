@@ -155,7 +155,9 @@ async function processSyncBatch(
     await Promise.all(
       chunk.map(async (player) => {
         try {
-          const existing = existingPlayers.get(player.steamId);
+          // Check existing player by steamId or id (account_id)
+          const existing = existingPlayers.get(player.steamId) || 
+            (player.id ? existingPlayers.get(player.id) : undefined);
 
           // Resolve database team_id from provider team info
           let resolvedTeamId: number | null = null;
@@ -240,10 +242,11 @@ async function processSyncBatch(
 
           if (existing) {
             // Determine role to write:
-            // - Keep existing role if already set
-            // - Otherwise use newly resolved role (from provider or OpenDota lookup)
-            // - Never leave it null if we have any signal
-            const effectiveRole = existing.primary_role || resolvedRole || finalRole;
+            // If existing role is missing or was default 'Carry' while provider has a specific role, use resolvedRole
+            const hasPlaceholderName = !existing.name || existing.name.startsWith('Player (');
+            const effectiveRole = (hasPlaceholderName && resolvedRole)
+              ? resolvedRole
+              : (existing.primary_role || resolvedRole || finalRole);
 
             // Prepare update data
             const updateData: Record<string, unknown> = {
@@ -458,11 +461,14 @@ async function getExistingPlayers(): Promise<Map<string, ProfessionalPlayer>> {
     throw new Error(`Failed to fetch existing players: ${error.message}`);
   }
 
-  // Map by data_provider_id for deduplication
+  // Map by data_provider_id and slug for deduplication
   const playerMap = new Map<string, ProfessionalPlayer>();
   for (const player of data || []) {
     if (player.data_provider_id) {
       playerMap.set(player.data_provider_id, player);
+    }
+    if (player.slug && !playerMap.has(player.slug)) {
+      playerMap.set(player.slug, player);
     }
   }
 

@@ -1,7 +1,8 @@
 'use client';
 
-import { use, useEffect, useState } from 'react';
+import { use, useEffect, useState, Suspense } from 'react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { TeamLogo } from '../components/TeamLogo';
 
 type MatchDetail = {
@@ -59,8 +60,11 @@ type MatchApiResponse = {
   fantasyBreakdown?: FantasyBreakdown[];
 };
 
-export default function MatchDetailPage({ params }: { params: Promise<{ id: string }> }) {
+function MatchDetailInner({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
+  const searchParams = useSearchParams();
+  const fromGameweek = searchParams.get('from') === 'gameweek';
+  const gwId = searchParams.get('gwId');
   const [match, setMatch] = useState<MatchDetail | null>(null);
   const [playerStats, setPlayerStats] = useState<PlayerStat[]>([]);
   const [fantasyBreakdown, setFantasyBreakdown] = useState<FantasyBreakdown[]>([]);
@@ -129,9 +133,11 @@ export default function MatchDetailPage({ params }: { params: Promise<{ id: stri
     fantasyBreakdown.map((f) => [f.player_id, Number(f.total_points || 0)])
   );
 
-  // Some teams were auto-registered during ingestion with their numeric provider ID as the name.
-  const formatTeamName = (name: string | undefined | null, fallback: string) => {
-    if (!name) return fallback;
+  // Some teams were auto-registered during ingestion with their numeric provider ID as the name or 'Team null'.
+  const formatTeamName = (name: string | undefined | null, teamId: number | undefined | null, fallback: string) => {
+    if (!name || name === 'Team null' || name === 'null') {
+      return teamId ? `Team #${teamId}` : fallback;
+    }
     if (/^\d+$/.test(name)) return `Team ${name}`;
     return name;
   };
@@ -156,11 +162,11 @@ export default function MatchDetailPage({ params }: { params: Promise<{ id: stri
       {/* Navigation Breadcrumb */}
       <div className="flex items-center justify-between">
         <Link
-          href="/matches"
+          href={fromGameweek && gwId ? `/gameweeks/${gwId}` : '/matches'}
           className="inline-flex items-center gap-2 text-xs font-semibold text-slate-400 hover:text-amber-400 transition-colors"
         >
           <span>←</span>
-          <span>Back to All Matches</span>
+          <span>{fromGameweek && gwId ? `Back to Gameweek ${match?.gameweeks?.gameweek_number ?? gwId}` : 'Back to All Matches'}</span>
         </Link>
 
         {match.gameweeks && (
@@ -235,7 +241,7 @@ export default function MatchDetailPage({ params }: { params: Promise<{ id: stri
                     isRadiantWinner ? 'text-white drop-shadow-[0_0_12px_rgba(16,185,129,0.3)]' : 'text-slate-300'
                   }`}
                 >
-                  {formatTeamName(match.radiant_team?.name, 'Radiant')}
+                  {formatTeamName(match.radiant_team?.name, match.radiant_team_id, 'Radiant')}
                 </h2>
                 <div className="flex items-center justify-center md:justify-end gap-2 mt-1">
                   <span className="text-xs font-bold text-emerald-400 uppercase tracking-widest">Radiant</span>
@@ -263,23 +269,29 @@ export default function MatchDetailPage({ params }: { params: Promise<{ id: stri
           {/* Scoreboard / Timer */}
           <div className="flex flex-col items-center justify-center px-6">
             {isCompleted ? (
-              <div className="flex items-center gap-3 bg-slate-950 border border-slate-700/80 rounded-2xl px-6 py-2.5 shadow-2xl">
-                <span
-                  className={`font-mono text-3xl font-black ${
-                    isRadiantWinner ? 'text-emerald-400' : 'text-slate-400'
-                  }`}
-                >
-                  {isRadiantWinner ? '1' : '0'}
-                </span>
-                <span className="text-slate-600 font-black text-xl">:</span>
-                <span
-                  className={`font-mono text-3xl font-black ${
-                    isDireWinner ? 'text-rose-400' : 'text-slate-400'
-                  }`}
-                >
-                  {isDireWinner ? '1' : '0'}
-                </span>
-              </div>
+              isRadiantWinner || isDireWinner ? (
+                <div className="flex items-center gap-3 bg-slate-950 border border-slate-700/80 rounded-2xl px-6 py-2.5 shadow-2xl">
+                  <span
+                    className={`font-mono text-3xl font-black ${
+                      isRadiantWinner ? 'text-emerald-400' : 'text-slate-400'
+                    }`}
+                  >
+                    {isRadiantWinner ? '1' : '0'}
+                  </span>
+                  <span className="text-slate-600 font-black text-xl">:</span>
+                  <span
+                    className={`font-mono text-3xl font-black ${
+                      isDireWinner ? 'text-rose-400' : 'text-slate-400'
+                    }`}
+                  >
+                    {isDireWinner ? '1' : '0'}
+                  </span>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2 bg-slate-950 border border-slate-700/80 rounded-2xl px-5 py-2 shadow-2xl">
+                  <span className="font-mono text-xl font-black text-slate-300 tracking-wider">FT</span>
+                </div>
+              )
             ) : isLive ? (
               <div className="flex flex-col items-center">
                 <span className="font-mono text-lg font-black text-red-400 bg-red-950 border border-red-700 px-4 py-1.5 rounded-xl animate-pulse">
@@ -317,7 +329,7 @@ export default function MatchDetailPage({ params }: { params: Promise<{ id: stri
                     isDireWinner ? 'text-white drop-shadow-[0_0_12px_rgba(244,63,94,0.3)]' : 'text-slate-300'
                   }`}
                 >
-                  {formatTeamName(match.dire_team?.name, 'Dire')}
+                  {formatTeamName(match.dire_team?.name, match.dire_team_id, 'Dire')}
                 </h2>
                 <div className="flex items-center justify-center md:justify-start gap-2 mt-1">
                   <span className="text-xs font-bold text-rose-400 uppercase tracking-widest">Dire</span>
@@ -351,7 +363,7 @@ export default function MatchDetailPage({ params }: { params: Promise<{ id: stri
           <div className="rounded-2xl border border-emerald-900/40 bg-slate-900/60 overflow-hidden">
             <div className="px-5 py-3 bg-emerald-950/30 border-b border-emerald-900/40 flex items-center justify-between">
               <span className="text-xs font-bold text-emerald-400 tracking-wider uppercase">
-                {formatTeamName(match.radiant_team?.name, 'Radiant')} Performances
+                {formatTeamName(match.radiant_team?.name, match.radiant_team_id, 'Radiant')} Performances
               </span>
               {isRadiantWinner && <span className="text-[11px] font-bold text-emerald-400">Winner</span>}
             </div>
@@ -407,7 +419,7 @@ export default function MatchDetailPage({ params }: { params: Promise<{ id: stri
           <div className="rounded-2xl border border-rose-900/40 bg-slate-900/60 overflow-hidden">
             <div className="px-5 py-3 bg-rose-950/30 border-b border-rose-900/40 flex items-center justify-between">
               <span className="text-xs font-bold text-rose-400 tracking-wider uppercase">
-                {formatTeamName(match.dire_team?.name, 'Dire')} Performances
+                {formatTeamName(match.dire_team?.name, match.dire_team_id, 'Dire')} Performances
               </span>
               {isDireWinner && <span className="text-[11px] font-bold text-rose-400">Winner</span>}
             </div>
@@ -467,5 +479,18 @@ export default function MatchDetailPage({ params }: { params: Promise<{ id: stri
         </div>
       )}
     </div>
+  );
+}
+
+export default function MatchDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  return (
+    <Suspense fallback={
+      <div className="mx-auto max-w-6xl px-4 py-20 text-center">
+        <div className="w-12 h-12 border-4 border-amber-500/20 border-t-amber-500 rounded-full animate-spin mx-auto mb-4" />
+        <p className="text-slate-400 text-sm">Loading match center...</p>
+      </div>
+    }>
+      <MatchDetailInner params={params} />
+    </Suspense>
   );
 }
