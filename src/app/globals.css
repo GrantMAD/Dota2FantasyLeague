@@ -643,6 +643,21 @@ body {
     color: #d2e6f2 !important;
   }
 
+  /* Squads Page Light Mode Enhancements */
+  :root[data-theme='light'] .squad-hero-card {
+    background: radial-gradient(circle at top left, rgba(20, 184, 166, 0.12), transparent 45%), linear-gradient(135deg, #ffffff, #f1f6fb) !important;
+    border-color: #99f6e4 !important;
+    box-shadow: 0 10px 25px -5px rgba(20, 184, 166, 0.08), 0 8px 10px -6px rgba(0, 0, 0, 0.04) !important;
+  }
+
+  :root[data-theme='light'] .squad-hero-title {
+    color: #0f172a !important;
+  }
+
+  :root[data-theme='light'] .squad-hero-subtitle {
+    color: #475569 !important;
+  }
+
   :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) .tournament-card-footer-link {
     color: #fcd34d !important;
   }

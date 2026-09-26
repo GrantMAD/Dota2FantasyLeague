@@ -132,7 +132,7 @@ export async function GET(request: NextRequest) {
     if (allRelevantPlayerIds.length > 0) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { data: players } = await (supabase.from('professional_players') as any)
-        .select('id, name, in_game_name, primary_role, profile_image_url, availability_status, professional_teams(id, name, slug)')
+        .select('id, name, in_game_name, primary_role, profile_image_url, availability_status, availability_reason, professional_teams(id, name, slug)')
         .in('id', allRelevantPlayerIds);
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
