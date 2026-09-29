@@ -27,6 +27,7 @@ import { sendPriceChangeNotifications } from './send-price-change-notifications'
 import { sendRankNotifications } from './send-rank-notifications';
 import { transitionGameweeks } from './transition-gameweeks';
 import { backfillPlaceholderPlayers } from './backfill-placeholder-players';
+import { backfillTeamLogos } from './backfill-team-logos';
 
 type JobName =
   | 'sync-players'
@@ -45,7 +46,8 @@ type JobName =
   | 'send-price-change-notifications'
   | 'send-rank-notifications'
   | 'transition-gameweeks'
-  | 'backfill-placeholder-players';
+  | 'backfill-placeholder-players'
+  | 'backfill-team-logos';
 
 interface JobDefinition {
   name: JobName;
@@ -184,6 +186,13 @@ const JOBS: JobDefinition[] = [
     handler: backfillPlaceholderPlayers,
     enabled: true,
     timeout: 15 * 60 * 1000, // 15 minutes
+  },
+  {
+    name: 'backfill-team-logos',
+    schedule: '', // Manual only — run after sync-teams when logos are missing
+    handler: backfillTeamLogos,
+    enabled: false, // Never auto-run; only triggered explicitly from the admin panel
+    timeout: 30 * 60 * 1000, // 30 minutes (134 teams × 1.1s + retries)
   },
 ];
 

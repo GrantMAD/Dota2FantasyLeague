@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { Users } from 'lucide-react';
@@ -24,6 +24,12 @@ export default function PlayersPage() {
   const [players, setPlayers] = useState<Player[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
+  // Track which player IDs have a broken team logo URL so we can show the placeholder
+  const [brokenLogos, setBrokenLogos] = useState<Set<number>>(new Set());
+
+  const handleLogoError = useCallback((playerId: number) => {
+    setBrokenLogos((prev) => new Set(prev).add(playerId));
+  }, []);
   
   const [search, setSearch] = useState('');
   const [roleFilter, setRoleFilter] = useState('');
@@ -185,12 +191,25 @@ export default function PlayersPage() {
                     <td className="px-6 py-4 whitespace-nowrap">
                       {player.professional_teams?.name ? (
                         <div className="flex items-center text-slate-300">
-                          {player.professional_teams.logo_url ? (
+                          {player.professional_teams.logo_url && !brokenLogos.has(player.id) ? (
                             <span className="player-team-logo-frame mr-2 flex h-5 w-5 items-center justify-center rounded-sm">
-                              <Image src={player.professional_teams.logo_url} alt="team" width={20} height={20} unoptimized className="h-full w-full rounded-sm object-contain" />
+                              <Image
+                                src={player.professional_teams.logo_url}
+                                alt="team"
+                                width={20}
+                                height={20}
+                                unoptimized
+                                className="h-full w-full rounded-sm object-contain"
+                                onError={() => handleLogoError(player.id)}
+                              />
                             </span>
                           ) : (
-                            <div className="w-5 h-5 mr-2 bg-slate-700 rounded-sm"></div>
+                            <span
+                              className="mr-2 flex h-5 w-5 shrink-0 items-center justify-center rounded-sm bg-slate-700 text-[8px] font-bold tracking-wider text-slate-300"
+                              title={player.professional_teams.name}
+                            >
+                              {player.professional_teams.name.slice(0, 3).toUpperCase()}
+                            </span>
                           )}
                           <span className="font-medium text-slate-200">{player.professional_teams.name}</span>
                         </div>

@@ -148,6 +148,10 @@ const JOB_METADATA: Record<string, {
     description: 'Queries OpenDota to resolve real player names, avatars, and roles for placeholder player records.',
     category: 'maintenance',
   },
+  'backfill-team-logos': {
+    description: 'Individually fetches each team with a missing logo from OpenDota. Run this after sync-teams to fill logos for lower-rated teams (below the top-1000 bulk list cutoff) such as regional or recently formed rosters.',
+    category: 'maintenance',
+  },
   'send-deadline-notifications': {
     description: 'Pushes gameweek deadline reminder notifications to users.',
     category: 'notification',
