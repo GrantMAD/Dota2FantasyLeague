@@ -5,28 +5,54 @@ import { verifyAuth, AuthError } from '@/lib/auth-utils';
 // 5 starters (carry, mid, offlane, support, hard_support) + 3 bench
 const SQUAD_MAX_SIZE = 8;
 
+interface FantasySeasonBudgetRow {
+  id: number;
+  budget: number;
+}
+
+interface SquadMemberRow {
+  player_id: number;
+  removed_date: string | null;
+}
+
+interface FantasySquadRow {
+  id: number;
+  fantasy_squad_members: SquadMemberRow[];
+}
+
+interface PlayerPriceRow {
+  player_id: number;
+  price: number | null;
+}
+
 export async function POST(request: NextRequest) {
   try {
     const { userId } = await verifyAuth(request);
     const supabase = supabaseServer();
 
-    const body = await request.json();
+    const body = (await request.json()) as { fantasySeasonId?: unknown; playerIds?: unknown };
     const { fantasySeasonId, playerIds } = body;
 
     if (!fantasySeasonId || typeof fantasySeasonId !== 'number') {
       return NextResponse.json({ error: 'Invalid or missing fantasySeasonId.' }, { status: 400 });
     }
-    if (!Array.isArray(playerIds) || playerIds.length === 0) {
-      return NextResponse.json({ error: 'playerIds must be a non-empty array.' }, { status: 400 });
+    if (
+      !Array.isArray(playerIds) ||
+      playerIds.length === 0 ||
+      !playerIds.every((id): id is number => typeof id === 'number' && Number.isInteger(id))
+    ) {
+      return NextResponse.json({ error: 'playerIds must be a non-empty array of integer IDs.' }, { status: 400 });
     }
+    const selectedPlayerIds = playerIds;
 
     // 1. Verify the fantasy season belongs to this user
-    const { data: season, error: seasonError } = await (supabase
-      .from('fantasy_seasons') as any)
+    const { data: seasonData, error: seasonError } = await supabase
+      .from('fantasy_seasons')
       .select('id, budget')
       .eq('id', fantasySeasonId)
       .eq('user_id', userId)
       .maybeSingle();
+    const season = seasonData as FantasySeasonBudgetRow | null;
 
     if (seasonError || !season) {
       return NextResponse.json({ error: 'Fantasy season not found.' }, { status: 404 });
@@ -34,24 +60,26 @@ export async function POST(request: NextRequest) {
 
     // 2. Get the squad — auto-create if it doesn't exist yet
     //    (allows users to delete the squad row in Supabase and start fresh)
-    const { data: existingSquad, error: squadError } = await (supabase
-      .from('fantasy_squads') as any)
+    const { data: existingSquadData, error: squadError } = await supabase
+      .from('fantasy_squads')
       .select('id, fantasy_squad_members(player_id, removed_date)')
       .eq('fantasy_season_id', fantasySeasonId)
       .maybeSingle();
+    const existingSquad = existingSquadData as FantasySquadRow | null;
 
     if (squadError) {
       return NextResponse.json({ error: 'Failed to load squad.' }, { status: 500 });
     }
 
-    let squad = existingSquad;
+    let squad: FantasySquadRow | null = existingSquad;
     if (!squad) {
       // No squad row yet — create one automatically
-      const { data: newSquad, error: createError } = await (supabase
-        .from('fantasy_squads') as any)
+      const { data: newSquadData, error: createError } = await supabase
+        .from('fantasy_squads')
         .insert({ fantasy_season_id: fantasySeasonId, name: 'My Fantasy Squad' })
         .select('id, fantasy_squad_members(player_id, removed_date)')
         .maybeSingle();
+      const newSquad = newSquadData as FantasySquadRow | null;
 
       if (createError || !newSquad) {
         console.error('Error creating squad:', createError);
@@ -60,13 +88,11 @@ export async function POST(request: NextRequest) {
       squad = newSquad;
     }
 
-    const currentMembers = (squad.fantasy_squad_members ?? []).filter(
-      (m: any) => !m.removed_date
-    );
-    const currentMemberIds = new Set<number>(currentMembers.map((m: any) => m.player_id));
+    const currentMembers = (squad.fantasy_squad_members ?? []).filter((member) => !member.removed_date);
+    const currentMemberIds = new Set<number>(currentMembers.map((member) => member.player_id));
 
     // 3. Validate the selection
-    const uniquePlayerIds = [...new Set(playerIds)];
+    const uniquePlayerIds = [...new Set(selectedPlayerIds)];
 
     // Check none are already owned
     const alreadyOwned = uniquePlayerIds.filter((id) => currentMemberIds.has(id));
@@ -86,15 +112,16 @@ export async function POST(request: NextRequest) {
     }
 
     // 4. Get prices for all selected players
-    const { data: priceRows } = await (supabase
-      .from('player_prices') as any)
+    const { data: priceData } = await supabase
+      .from('player_prices')
       .select('player_id, price')
       .in('player_id', uniquePlayerIds)
       .order('gameweek_id', { ascending: false });
+    const priceRows = (priceData ?? []) as PlayerPriceRow[];
 
     // Build a latest-price map (first row per player_id = latest due to ordering)
     const priceMap = new Map<number, number>();
-    for (const row of priceRows ?? []) {
+    for (const row of priceRows) {
       if (!priceMap.has(row.player_id)) {
         priceMap.set(row.player_id, Number(row.price ?? 0));
       }
@@ -122,8 +149,8 @@ export async function POST(request: NextRequest) {
       cost: priceMap.get(id) ?? 0,
     }));
 
-    const { error: insertError } = await (supabase
-      .from('fantasy_squad_members') as any)
+    const { error: insertError } = await supabase
+      .from('fantasy_squad_members')
       .insert(inserts);
 
     if (insertError) {
@@ -133,8 +160,8 @@ export async function POST(request: NextRequest) {
 
     // 7. Deduct total cost from budget
     const newBudget = Number(season.budget) - totalCost;
-    await (supabase
-      .from('fantasy_seasons') as any)
+    await supabase
+      .from('fantasy_seasons')
       .update({ budget: newBudget })
       .eq('id', fantasySeasonId);
 

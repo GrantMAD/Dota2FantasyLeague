@@ -5,7 +5,7 @@ import { supabaseServer } from '@/lib/supabase';
 export async function GET(request: NextRequest) {
   try {
     const { userId } = await verifyAuth(request);
-    const { data, error } = await (supabaseServer().from('users') as any)
+    const { data, error } = await supabaseServer().from('users')
       .select('theme_preference')
       .eq('id', userId)
       .maybeSingle();
@@ -25,7 +25,7 @@ export async function PUT(request: NextRequest) {
     if (body.theme !== 'light' && body.theme !== 'dark') {
       return NextResponse.json({ error: 'Theme must be light or dark.' }, { status: 400 });
     }
-    const { error } = await (supabaseServer().from('users') as any)
+    const { error } = await supabaseServer().from('users')
       .update({ theme_preference: body.theme, updated_at: new Date().toISOString() })
       .eq('id', userId);
     if (error) return NextResponse.json({ error: 'Unable to save theme preference.' }, { status: 500 });

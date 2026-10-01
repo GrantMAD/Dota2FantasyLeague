@@ -28,9 +28,40 @@ interface Lineup {
   bench_boost_gameweek_id?: number | null;
 }
 
-interface GameweekScore {
+interface PlayerParticipationRow {
   player_id: number;
-  total_points: number;
+}
+
+interface PlayerPointsRow {
+  player_id: number;
+  fantasy_points_breakdown: { total_points: number | null } | null;
+}
+
+interface BenchPlayerRoleRow {
+  id: number;
+  primary_role: string;
+}
+
+interface SeasonLineupTotalRow {
+  gameweek_id: number;
+  total_points: number | null;
+}
+
+interface LeaderboardLineupRow {
+  id: number;
+  fantasy_season_id: number;
+  total_points: number | null;
+  fantasy_seasons: { user_id: string } | null;
+}
+
+interface ClosedGameweekRow {
+  id: number;
+  season_id: number;
+  status: string;
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
 }
 
 class RecalculateGameweeks {
@@ -71,14 +102,15 @@ class RecalculateGameweeks {
     if (allIds.length === 0) return 0;
 
     // Fetch player performances to see who actually played matches in this gameweek
-    const { data: performances } = await (this.supabase
-      .from('player_performances') as any)
+    const { data: rawPerformances } = await this.supabase
+      .from('player_performances')
       .select('player_id')
       .eq('gameweek_id', lineup.gameweek_id)
       .in('player_id', allIds);
+    const performances = (rawPerformances ?? []) as PlayerParticipationRow[];
 
     const playersWhoPlayed = new Set<number>();
-    performances?.forEach((p: any) => playersWhoPlayed.add(p.player_id));
+    performances.forEach((performance) => playersWhoPlayed.add(performance.player_id));
     
     // Fetch bench player roles for substitutions
     const { data: benchPlayersData } = await this.supabase
@@ -87,7 +119,7 @@ class RecalculateGameweeks {
       .in('id', benchIds);
       
     const benchPlayerRoles = new Map<number, string>();
-    benchPlayersData?.forEach((p: any) => {
+    (benchPlayersData ?? []).forEach((p: BenchPlayerRoleRow) => {
       benchPlayerRoles.set(p.id, p.primary_role);
     });
 
@@ -120,14 +152,15 @@ class RecalculateGameweeks {
     if (finalScoringIds.length === 0) return 0;
 
     // Get fantasy points for all relevant players in this gameweek
-    const { data: perfsWithPoints } = await (this.supabase
-      .from('player_performances') as any)
+    const { data: rawPerfsWithPoints } = await this.supabase
+      .from('player_performances')
       .select('player_id, fantasy_points_breakdown(total_points)')
       .eq('gameweek_id', lineup.gameweek_id)
       .in('player_id', finalScoringIds);
+    const perfsWithPoints = (rawPerfsWithPoints ?? []) as PlayerPointsRow[];
 
     const playerPointsMap = new Map<number, number>();
-    (perfsWithPoints as any[])?.forEach((row: any) => {
+    perfsWithPoints.forEach((row) => {
       const pts = Number(row.fantasy_points_breakdown?.total_points ?? 0);
       const current = playerPointsMap.get(row.player_id) || 0;
       playerPointsMap.set(row.player_id, current + pts);
@@ -171,9 +204,9 @@ class RecalculateGameweeks {
     try {
       const totalPoints = await this.calculateLineupTotal(lineup);
 
-      const { error } = await (this.supabase
-        .from('fantasy_lineups') as any)
-        .update({ total_points: totalPoints } as any)
+      const { error } = await this.supabase
+        .from('fantasy_lineups')
+        .update({ total_points: totalPoints })
         .eq('id', lineup.id);
 
       if (error) {
@@ -182,7 +215,7 @@ class RecalculateGameweeks {
       }
 
       return true;
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error(`Error updating lineup ${lineup.id}:`, err);
       return false;
     }
@@ -194,24 +227,24 @@ class RecalculateGameweeks {
   private async updateFantasySeasonTotal(fantasySeasonId: number): Promise<boolean> {
     try {
       // Get all lineups for this fantasy season
-      const { data: lineupData } = (await this.supabase
+      const { data: rawLineupData } = await this.supabase
         .from('fantasy_lineups')
         .select('gameweek_id, total_points')
-        .eq('fantasy_season_id', fantasySeasonId)) as any;
-      const lineups: any[] = Array.isArray(lineupData) ? lineupData : [];
+        .eq('fantasy_season_id', fantasySeasonId);
+      const lineups = (rawLineupData ?? []) as SeasonLineupTotalRow[];
 
       if (lineups.length === 0) return false;
 
-      const totalPoints = lineups.reduce((sum, lineup: any) => sum + (lineup.total_points || 0), 0);
+      const totalPoints = lineups.reduce((sum, lineup) => sum + (lineup.total_points || 0), 0);
       const latestLineup = [...lineups].sort((a, b) => (b.gameweek_id || 0) - (a.gameweek_id || 0))[0];
       const latestPoints = latestLineup?.total_points || 0;
 
-      const { error } = await (this.supabase
-        .from('fantasy_seasons') as any)
+      const { error } = await this.supabase
+        .from('fantasy_seasons')
         .update({
           total_points: Math.round(totalPoints * 100) / 100,
           gameweek_points_latest: Math.round(latestPoints * 100) / 100,
-        } as any)
+        })
         .eq('id', fantasySeasonId);
 
       if (error) {
@@ -220,7 +253,7 @@ class RecalculateGameweeks {
       }
 
       return true;
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error(`Error updating fantasy season ${fantasySeasonId}:`, err);
       return false;
     }
@@ -232,8 +265,8 @@ class RecalculateGameweeks {
   private async generateGameweekLeaderboard(gameweekId: number, seasonId: number): Promise<number> {
     try {
       // Get all lineups for this gameweek, ordered by total_points descending
-      const { data: lineups, error: lineupsError } = (await (this.supabase
-        .from('fantasy_lineups') as any)
+      const { data: lineups, error: lineupsError } = await this.supabase
+        .from('fantasy_lineups')
         .select(
           `
           id,
@@ -243,7 +276,7 @@ class RecalculateGameweeks {
         `,
         )
         .eq('gameweek_id', gameweekId)
-        .order('total_points', { ascending: false })) as any;
+        .order('total_points', { ascending: false });
 
       if (lineupsError || !lineups) return 0;
 
@@ -251,8 +284,8 @@ class RecalculateGameweeks {
       const userRanks = new Map<string, number>();
       let rank = 1;
 
-      (lineups as any[]).forEach((lineup: any) => {
-        const userId = (lineup as any).fantasy_seasons?.user_id;
+      (lineups as LeaderboardLineupRow[]).forEach((lineup) => {
+        const userId = lineup.fantasy_seasons?.user_id;
         if (userId && !userRanks.has(userId)) {
           userRanks.set(userId, rank);
           rank++;
@@ -262,9 +295,9 @@ class RecalculateGameweeks {
       // Update fantasy_seasons with new ranks
       let updated = 0;
       for (const [userId, newRank] of userRanks.entries()) {
-        const { error: updateError } = await (this.supabase
-          .from('fantasy_seasons') as any)
-          .update({ global_rank: newRank } as any)
+        const { error: updateError } = await this.supabase
+          .from('fantasy_seasons')
+          .update({ global_rank: newRank })
           .eq('user_id', userId)
           .eq('season_id', seasonId);
 
@@ -272,7 +305,7 @@ class RecalculateGameweeks {
       }
 
       return updated;
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error(`Error generating leaderboard for gameweek ${gameweekId}:`, err);
       return 0;
     }
@@ -295,11 +328,11 @@ class RecalculateGameweeks {
 
     try {
       // Find gameweeks that have closed (all matches completed)
-      const { data: gameweekData, error: gameweekError } = (await this.supabase
+      const { data: rawGameweekData, error: gameweekError } = await this.supabase
         .from('gameweeks')
         .select('id, season_id, status')
-        .eq('status', 'closed')) as any;
-      const gameweeks: any[] = Array.isArray(gameweekData) ? gameweekData : [];
+        .eq('status', 'closed');
+      const gameweeks = (rawGameweekData ?? []) as ClosedGameweekRow[];
 
       if (gameweekError) {
         result.errors.push(`Failed to fetch gameweeks: ${gameweekError.message}`);
@@ -329,17 +362,17 @@ class RecalculateGameweeks {
                 bench_boost_gameweek_id
               )
             `)
-            .eq('gameweek_id', (gameweek as any).id);
+            .eq('gameweek_id', gameweek.id);
 
           if (lineupsError) {
-            result.errors.push(`Failed to fetch lineups for gameweek ${(gameweek as any).id}`);
+            result.errors.push(`Failed to fetch lineups for gameweek ${gameweek.id}`);
             continue;
           }
 
           if (!lineups) continue;
 
           // Update each lineup's total points
-          for (const rawLineup of (lineups as any[])) {
+          for (const rawLineup of (lineups as Array<Lineup & { fantasy_seasons: { triple_captain_gameweek_id: number | null; bench_boost_gameweek_id: number | null } | null }>)) {
             const lineup = {
               ...rawLineup,
               triple_captain_gameweek_id: rawLineup.fantasy_seasons?.triple_captain_gameweek_id || null,
@@ -348,17 +381,17 @@ class RecalculateGameweeks {
             const updated = await this.updateLineupTotal(lineup as Lineup);
             if (updated) {
               result.lineupsUpdated++;
-              updatedFantasySeasons.add((lineup as any).fantasy_season_id);
+              updatedFantasySeasons.add(lineup.fantasy_season_id);
             }
           }
 
           // Generate leaderboard for this gameweek
-          const leaderboardsGenerated = await this.generateGameweekLeaderboard((gameweek as any).id, (gameweek as any).season_id);
+          const leaderboardsGenerated = await this.generateGameweekLeaderboard(gameweek.id, gameweek.season_id);
           result.leaderboardsGenerated += leaderboardsGenerated;
 
           result.gameweeksRecalculated++;
-        } catch (err: any) {
-          result.errors.push(`Error processing gameweek ${gameweek.id}: ${err.message}`);
+        } catch (err: unknown) {
+          result.errors.push(`Error processing gameweek ${gameweek.id}: ${errorMessage(err)}`);
         }
       }
 
@@ -371,8 +404,8 @@ class RecalculateGameweeks {
       }
 
       result.success = true;
-    } catch (err: any) {
-      result.errors.push(`Fatal error in recalculate gameweeks job: ${err.message}`);
+    } catch (err: unknown) {
+      result.errors.push(`Fatal error in recalculate gameweeks job: ${errorMessage(err)}`);
       console.error('Recalculate gameweeks job failed:', err);
     }
 

@@ -8,12 +8,14 @@
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from '@/types/database';
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 let supabaseClient: any = null;
 
 /**
  * Get or create Supabase server client
  * Reuses singleton instance for efficiency
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function getSupabaseServerClient(): any {
   if (supabaseClient) {
     return supabaseClient;
@@ -34,6 +36,7 @@ export function getSupabaseServerClient(): any {
       persistSession: false,
       autoRefreshToken: false,
     },
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
   }) as any;
   return supabaseClient;
 }

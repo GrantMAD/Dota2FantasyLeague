@@ -32,22 +32,22 @@ export default function NotificationsPage() {
   const [error, setError] = useState<string | null>(null);
   const [activeCategory, setActiveCategory] = useState<NotificationCategory>('all');
 
-  const fetchNotifications = async (category: NotificationCategory = activeCategory) => {
-    try {
-      const params = new URLSearchParams({ category });
-      const res = await fetch(`/api/notifications?${params.toString()}`);
-      const data = (await res.json()) as { notifications?: Notification[]; error?: string };
-      if (!res.ok) throw new Error(data.error || 'Failed to load notifications');
-      setNotifications(data.notifications || []);
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Failed to load notifications');
-    } finally {
-      setLoading(false);
-    }
-  };
-
   useEffect(() => {
-    fetchNotifications(activeCategory);
+    async function fetchNotifications() {
+      try {
+        const params = new URLSearchParams({ category: activeCategory });
+        const res = await fetch(`/api/notifications?${params.toString()}`);
+        const data = (await res.json()) as { notifications?: Notification[]; error?: string };
+        if (!res.ok) throw new Error(data.error || 'Failed to load notifications');
+        setNotifications(data.notifications || []);
+      } catch (err: unknown) {
+        setError(err instanceof Error ? err.message : 'Failed to load notifications');
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    void fetchNotifications();
   }, [activeCategory]);
 
   const unreadCount = useMemo(() => notifications.filter((notification) => !notification.is_read).length, [notifications]);

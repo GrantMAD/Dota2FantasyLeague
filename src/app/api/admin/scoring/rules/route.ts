@@ -2,6 +2,28 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase';
 import { verifyAuth } from '@/lib/auth-utils';
 
+interface ScoringRule {
+  id: number;
+  season_id: number;
+  rule_name: string;
+  rule_key: string;
+  value: number;
+  description: string | null;
+  version: number;
+  is_enabled: boolean;
+  is_published: boolean;
+  published_at: string | null;
+  effective_from_gameweek_id: number | null;
+}
+
+interface ScoringRuleVersion {
+  version: number;
+  is_published: boolean;
+  published_at: string | null;
+  effective_from_gameweek_id: number | null;
+  rules: ScoringRule[];
+}
+
 export async function GET(request: NextRequest) {
   try {
     await verifyAuth(request); // Assuming admins have valid auth for now; in prod, check role
@@ -25,7 +47,8 @@ export async function GET(request: NextRequest) {
     }
 
     // Group by version
-    const grouped = data?.reduce((acc: any, rule: any) => {
+    const rules = (data ?? []) as ScoringRule[];
+    const grouped = rules.reduce<Record<number, ScoringRuleVersion>>((acc, rule) => {
       const v = rule.version;
       if (!acc[v]) {
         acc[v] = {
@@ -40,9 +63,15 @@ export async function GET(request: NextRequest) {
       return acc;
     }, {});
 
-    return NextResponse.json(Object.values(grouped || {}));
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: error.status || 500 });
+    return NextResponse.json(Object.values(grouped));
+  } catch (error: unknown) {
+    const status = typeof error === 'object' && error !== null && 'status' in error
+      ? Number(error.status)
+      : 500;
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : 'Failed to fetch scoring rules.' },
+      { status }
+    );
   }
 }
 
@@ -82,7 +111,7 @@ export async function POST(request: NextRequest) {
 
     // 3. Insert them as the new draft version
     if (currentRules && currentRules.length > 0) {
-      const newRules = currentRules.map((r: any) => ({
+      const newRules = (currentRules as ScoringRule[]).map((r) => ({
         season_id: r.season_id,
         rule_name: r.rule_name,
         rule_key: r.rule_key,
@@ -103,8 +132,14 @@ export async function POST(request: NextRequest) {
     }
 
     return NextResponse.json({ message: 'New version created', version: newVersion });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error creating new scoring rules version:', error);
-    return NextResponse.json({ error: error.message }, { status: error.status || 500 });
+    const status = typeof error === 'object' && error !== null && 'status' in error
+      ? Number(error.status)
+      : 500;
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : 'Failed to create scoring rules version.' },
+      { status }
+    );
   }
 }

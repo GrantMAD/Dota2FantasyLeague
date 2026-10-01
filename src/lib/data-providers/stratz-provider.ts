@@ -33,6 +33,104 @@ interface RateLimitState {
   resetAt: Date;
 }
 
+interface GraphQLError {
+  message: string;
+}
+
+interface GraphQLResponse<T> {
+  data?: T;
+  errors?: GraphQLError[];
+}
+
+interface StratzPlayerRecord {
+  id: number | string;
+  steamId?: number | string | null;
+  name?: string | null;
+  realName?: string | null;
+  countryCode?: string | null;
+  roles?: string[] | null;
+  isPro?: boolean;
+  fantasyRole?: number | null;
+  tag?: string | null;
+  countries?: string | string[] | null;
+  team?: { id: number | string; name: string; tag?: string | null } | null;
+  avatar?: string | null;
+  profileUri?: string | null;
+  profileUrl?: string | null;
+  steam?: { avatar?: string | null; profileUrl?: string | null } | null;
+  teams?: StratzRosterTeam[] | null;
+}
+
+interface StratzRosterTeam {
+  id: number | string;
+  name?: string;
+  joinedDate: string;
+  leftDate?: string | null;
+}
+
+interface StratzTeamRecord {
+  id: number | string;
+  name: string;
+  tag?: string | null;
+  countryCode?: string | null;
+  founded?: string | null;
+  logo?: string | null;
+  players?: Array<{ id: number | string; joinedDate?: string | null }> | null;
+}
+
+interface StratzLeagueRecord {
+  id: number | string;
+  name: string;
+  region?: string | null;
+  prizePool?: number | null;
+  startDate: string;
+  endDate?: string | null;
+  status: string;
+  teams?: Array<{ id: number | string }> | null;
+  matches?: Array<{ id: number | string }> | null;
+}
+
+interface StratzMatchRecord {
+  id: number | string;
+  leagueId: number | string;
+  radiantTeamId: number | string;
+  direTeamId: number | string;
+  startDateTime: string;
+  endDateTime?: string | null;
+  status: string;
+  series?: { radiantWins: number; direWins: number } | null;
+}
+
+interface StratzMatchPlayerRecord {
+  id: number | string;
+  heroId?: number | string | null;
+  isRadiant: boolean;
+  kills: number;
+  deaths: number;
+  assists: number;
+  goldPerMinute: number;
+  experiencePerMinute: number;
+  lastHits: number;
+  denies: number;
+  heroDamage: number;
+  towerDamage: number;
+  healing: number;
+  wardsPlaced: number;
+  wardsDestroyed: number;
+  firstBloodAchieved: boolean;
+  roshansKilled: number;
+  hero?: { displayName?: string | null; shortName?: string | null } | null;
+}
+
+interface StratzDetailedMatchRecord {
+  id: number | string;
+  durationSeconds: number;
+  radiantTeamId: number | string;
+  direTeamId: number | string;
+  isRadiantVictory: boolean;
+  players: StratzMatchPlayerRecord[];
+}
+
 export class StratzProvider extends DataProviderBase implements DataProvider {
   name = 'STRATZ';
   version = '1.0.0';
@@ -43,7 +141,7 @@ export class StratzProvider extends DataProviderBase implements DataProvider {
     limit: 1000,
     resetAt: new Date(),
   };
-  private requestQueue: Array<() => Promise<any>> = [];
+  private requestQueue: Array<() => Promise<unknown>> = [];
   private isProcessingQueue = false;
 
   constructor(config: StratzConfig) {
@@ -60,7 +158,7 @@ export class StratzProvider extends DataProviderBase implements DataProvider {
   async healthCheck(): Promise<boolean> {
     try {
       const query = `query { constants { gameVersions { id name } } }`;
-      const response = await this.graphqlRequest(query);
+      const response = await this.graphqlRequest<{ constants?: { gameVersions?: unknown[] } }>(query);
       return !!response?.data?.constants;
     } catch (error) {
       this.log('error', 'STRATZ health check failed', error);
@@ -94,8 +192,8 @@ export class StratzProvider extends DataProviderBase implements DataProvider {
         }
       `;
 
-      const response = await this.graphqlRequest(query);
-      const accounts = response?.data?.proSteamAccounts || [];
+      const response = await this.graphqlRequest<{ proSteamAccounts?: StratzPlayerRecord[] }>(query);
+      const accounts = response.data?.proSteamAccounts || [];
 
       const roleMap: Record<number, string> = {
         1: 'Carry',
@@ -107,14 +205,12 @@ export class StratzProvider extends DataProviderBase implements DataProvider {
 
       // Filter to genuinely active players: must have a name, be flagged pro,
       // and be on a team — mirrors OpenDota new filter logic.
-      const activePlayers = accounts.filter(
-        (a: any) => a.name && a.isPro && a.team?.id
-      );
+      const activePlayers = accounts.filter((account) => account.name && account.isPro && account.team?.id);
 
       const offset = filters?.offset || 0;
       const limit = filters?.limit || activePlayers.length;
 
-      return activePlayers.slice(offset, offset + limit).map((a: any) => ({
+      return activePlayers.slice(offset, offset + limit).map((a) => ({
         id: String(a.steamAccountId),
         steamId: String(a.steamAccountId),
         name: a.name,
@@ -169,8 +265,8 @@ export class StratzProvider extends DataProviderBase implements DataProvider {
         }
       `;
 
-      const response = await this.graphqlRequest(query);
-      const p = response?.data?.player?.[0];
+      const response = await this.graphqlRequest<{ player?: StratzPlayerRecord[] }>(query);
+      const p = response.data?.player?.[0];
 
       if (!p) {
         throw this.createError(
@@ -238,10 +334,10 @@ export class StratzProvider extends DataProviderBase implements DataProvider {
         }
       `;
 
-      const response = await this.graphqlRequest(query);
-      const teams = response?.data?.team || [];
+      const response = await this.graphqlRequest<{ team?: StratzTeamRecord[] }>(query);
+      const teams = response.data?.team || [];
 
-      return teams.map((t: any) => ({
+      return teams.map((t) => ({
         id: String(t.id),
         name: t.name,
         tag: t.tag,
@@ -249,7 +345,7 @@ export class StratzProvider extends DataProviderBase implements DataProvider {
         country: t.countryCode,
         foundedDate: t.founded ? new Date(t.founded) : undefined,
         logoUrl: t.logo,
-        roster: (t.players || []).map((p: any) => ({
+        roster: (t.players || []).map((p) => ({
           playerId: String(p.id),
           joinedDate: new Date(p.joinedDate),
           position: undefined,
@@ -296,8 +392,8 @@ export class StratzProvider extends DataProviderBase implements DataProvider {
         }
       `;
 
-      const response = await this.graphqlRequest(query);
-      const t = response?.data?.team?.[0];
+      const response = await this.graphqlRequest<{ team?: StratzTeamRecord[] }>(query);
+      const t = response.data?.team?.[0];
 
       if (!t) {
         throw this.createError(
@@ -316,7 +412,7 @@ export class StratzProvider extends DataProviderBase implements DataProvider {
         country: t.countryCode,
         foundedDate: t.founded ? new Date(t.founded) : undefined,
         logoUrl: t.logo,
-        roster: (t.players || []).map((p: any) => ({
+        roster: (t.players || []).map((p) => ({
           playerId: String(p.id),
           joinedDate: new Date(p.joinedDate),
           position: undefined,
@@ -370,10 +466,10 @@ export class StratzProvider extends DataProviderBase implements DataProvider {
         }
       `;
 
-      const response = await this.graphqlRequest(query);
-      const leagues = response?.data?.league || [];
+      const response = await this.graphqlRequest<{ league?: StratzLeagueRecord[] }>(query);
+      const leagues = response.data?.league || [];
 
-      return leagues.map((l: any) => ({
+      return leagues.map((l) => ({
         id: String(l.id),
         name: l.name,
         region: l.region,
@@ -382,8 +478,8 @@ export class StratzProvider extends DataProviderBase implements DataProvider {
         startDate: new Date(l.startDate),
         endDate: l.endDate ? new Date(l.endDate) : undefined,
         status: this.mapTournamentStatus(l.status),
-        teams: (l.teams || []).map((t: any) => String(t.id)),
-        matches: (l.matches || []).map((m: any) => String(m.id)),
+        teams: (l.teams || []).map((t) => String(t.id)),
+        matches: (l.matches || []).map((m) => String(m.id)),
         tier: 'Major', // Simplified - STRATZ may have tier info
         lastUpdated: new Date(),
       }));
@@ -410,7 +506,7 @@ export class StratzProvider extends DataProviderBase implements DataProvider {
     filters?: DataProviderFilters & { status?: 'scheduled' | 'live' | 'concluded' }
   ): Promise<MatchData[]> {
     try {
-      let query = `
+      const query = `
         query {
           match(request: {
             ${tournamentId ? `leagueId: ${tournamentId}` : ''}
@@ -432,10 +528,10 @@ export class StratzProvider extends DataProviderBase implements DataProvider {
         }
       `;
 
-      const response = await this.graphqlRequest(query);
-      const matches = response?.data?.match || [];
+      const response = await this.graphqlRequest<{ match?: StratzMatchRecord[] }>(query);
+      const matches = response.data?.match || [];
 
-      return matches.map((m: any) => ({
+      return matches.map((m) => ({
         id: String(m.id),
         tournamentId: String(m.leagueId),
         team1Id: String(m.radiantTeamId),
@@ -507,8 +603,8 @@ export class StratzProvider extends DataProviderBase implements DataProvider {
         }
       `;
 
-      const response = await this.graphqlRequest(query);
-      const m = response?.data?.match?.[0];
+      const response = await this.graphqlRequest<{ match?: StratzDetailedMatchRecord[] }>(query);
+      const m = response.data?.match?.[0];
 
       if (!m) {
         throw this.createError(
@@ -520,8 +616,8 @@ export class StratzProvider extends DataProviderBase implements DataProvider {
       }
 
       // Group players by team
-      const radiantPlayers = m.players.filter((p: any) => p.isRadiant);
-      const direPlayers = m.players.filter((p: any) => !p.isRadiant);
+      const radiantPlayers = m.players.filter((player) => player.isRadiant);
+      const direPlayers = m.players.filter((player) => !player.isRadiant);
 
       return {
         matchId: String(m.id),
@@ -530,7 +626,7 @@ export class StratzProvider extends DataProviderBase implements DataProvider {
         teams: [
           {
             teamId: String(m.radiantTeamId),
-            players: radiantPlayers.map((p: any) => ({
+            players: radiantPlayers.map((p) => ({
               playerId: String(p.id),
               heroId: String(p.heroId),
               heroName: p.hero?.displayName || p.hero?.shortName || (p.heroId ? String(p.heroId) : undefined),
@@ -552,7 +648,7 @@ export class StratzProvider extends DataProviderBase implements DataProvider {
           },
           {
             teamId: String(m.direTeamId),
-            players: direPlayers.map((p: any) => ({
+            players: direPlayers.map((p) => ({
               playerId: String(p.id),
               heroId: String(p.heroId),
               heroName: p.hero?.displayName || p.hero?.shortName || (p.heroId ? String(p.heroId) : undefined),
@@ -620,16 +716,16 @@ export class StratzProvider extends DataProviderBase implements DataProvider {
         }
       `;
 
-      const response = await this.graphqlRequest(query);
-      const teams = response?.data?.player?.[0]?.teams || [];
+      const response = await this.graphqlRequest<{ player?: StratzPlayerRecord[] }>(query);
+      const teams = response.data?.player?.[0]?.teams || [];
 
       return teams
-        .filter((t: any) => {
+        .filter((t) => {
           if (!dateRange) return true;
           const joinedDate = new Date(t.joinedDate);
           return joinedDate >= dateRange.from && joinedDate <= dateRange.to;
         })
-        .map((t: any) => ({
+        .map((t) => ({
           teamId: String(t.id),
           playerId: playerId,
           changeType: 'joined' as const,
@@ -659,7 +755,7 @@ export class StratzProvider extends DataProviderBase implements DataProvider {
     return this.rateLimitState;
   }
 
-  private async graphqlRequest(query: string, variables?: Record<string, any>): Promise<any> {
+  private async graphqlRequest<T>(query: string, variables?: Record<string, unknown>): Promise<GraphQLResponse<T>> {
     return this.retry(async () => {
       // Check rate limit
       if (this.rateLimitState.remaining <= 0) {
@@ -713,11 +809,11 @@ export class StratzProvider extends DataProviderBase implements DataProvider {
         );
       }
 
-      const data = await response.json();
+      const data = await response.json() as GraphQLResponse<T>;
 
       if (data.errors) {
         const errorMsg = data.errors
-          .map((e: any) => e.message)
+          .map((error) => error.message)
           .join('; ');
         throw this.createError(
           'STRATZ_GRAPHQL_ERROR',

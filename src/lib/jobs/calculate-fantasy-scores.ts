@@ -32,8 +32,55 @@ interface MatchPlayerStats {
 interface Match {
   id: number;
   gameweek_id: number;
-  duration_minutes: number;
-  winner_team_id: number;
+  duration_minutes: number | null;
+  winner_team_id: number | null;
+}
+
+interface ScoringRuleVersionRow {
+  version: number;
+}
+
+interface ScoringRuleRow {
+  rule_key: string;
+  value: number;
+}
+
+interface PlayerRoleRow {
+  id: number;
+  primary_role: string | null;
+}
+
+interface SeasonIdRow {
+  id: number;
+}
+
+interface SubstitutionRow {
+  match_id: number;
+  rostered_player_id: number;
+  stand_in_player_id: number;
+}
+
+interface ExistingPerformanceRow {
+  id: number;
+  player_id: number;
+  match_id: number;
+}
+
+interface FantasyPointsBreakdownInsert {
+  performance_id: number;
+  combat_points: number;
+  economy_points: number;
+  objective_points: number;
+  teamfight_points: number;
+  win_points: number;
+  series_points: number;
+  performance_index_points: number;
+  consistency_points: number;
+  penalty_points: number;
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
 }
 
 interface ScoringRules {
@@ -50,10 +97,6 @@ interface ScoreBreakdown {
   performance: number;
   consistency: number;
   penalty: number;
-}
-
-interface PlayerRole {
-  role: string;
 }
 
 export class FantasyScoreCalculator {
@@ -79,7 +122,7 @@ export class FantasyScoreCalculator {
       .limit(1)
       .maybeSingle();
 
-    const version = (versionData as any)?.version || 1;
+    const version = (versionData as ScoringRuleVersionRow | null)?.version || 1;
 
     // Load enabled rules for that version
     const { data, error } = await this.supabase
@@ -96,7 +139,7 @@ export class FantasyScoreCalculator {
     }
 
     this.scoringRules = {};
-    data?.forEach((rule: any) => {
+    (data as ScoringRuleRow[] | null)?.forEach((rule) => {
       this.scoringRules[rule.rule_key] = rule.value;
     });
   }
@@ -127,7 +170,7 @@ export class FantasyScoreCalculator {
   /**
    * Calculate combat score (kills, deaths, assists, KDA efficiency)
    */
-  private calculateCombatScore(stats: MatchPlayerStats, playerRole: string): number {
+  private calculateCombatScore(stats: MatchPlayerStats): number {
     const deathMultiplier = this.scoringRules.death_penalty !== undefined 
       ? this.scoringRules.death_penalty 
       : (this.scoringRules.death_points ?? -1.0);
@@ -242,10 +285,10 @@ export class FantasyScoreCalculator {
       .eq('id', stats.player_id)
       .single();
 
-    const playerRole = (playerData as any)?.primary_role || 'Support';
+    const playerRole = (playerData as PlayerRoleRow | null)?.primary_role || 'Support';
 
     // Calculate component scores
-    const combat = this.calculateCombatScore(stats, playerRole);
+    const combat = this.calculateCombatScore(stats);
     const economy = this.calculateEconomyScore(stats, playerRole, match.duration_minutes || 40);
     const objective = this.calculateObjectiveScore(stats, playerRole);
     const performance = this.calculatePerformanceBonus(combat, economy, objective);
@@ -288,7 +331,7 @@ export class FantasyScoreCalculator {
 
     try {
       // Get all matches with detailed stats that haven't been scored yet
-      const { data: matchData, error: matchError } = (await this.supabase
+      const { data: rawMatchData, error: matchError } = await this.supabase
         .from('matches')
         .select(
           `
@@ -300,9 +343,9 @@ export class FantasyScoreCalculator {
         `,
         )
         .eq('status', 'completed')
-        .not('detailed_stats_fetched_at', 'is', null)) as any;
+        .not('detailed_stats_fetched_at', 'is', null);
 
-      const matches: any[] = Array.isArray(matchData) ? matchData : [];
+      const matches = (rawMatchData ?? []) as Match[];
 
       if (matchError) {
         result.errors.push(`Failed to fetch matches: ${matchError.message}`);
@@ -318,12 +361,12 @@ export class FantasyScoreCalculator {
       }
 
       // Get a sample season to load scoring rules
-      const { data: seasonData } = (await this.supabase
+      const { data: rawSeasonData } = await this.supabase
         .from('seasons')
         .select('id')
         .eq('status', 'active')
-        .limit(1)) as any;
-      const seasonList: any[] = Array.isArray(seasonData) ? seasonData : [];
+        .limit(1);
+      const seasonList = (rawSeasonData ?? []) as SeasonIdRow[];
       if (seasonList.length > 0) {
         await this.loadScoringRules(seasonList[0].id);
       } else {
@@ -335,19 +378,20 @@ export class FantasyScoreCalculator {
       console.log(`[CalculateScores] Processing fantasy scores for ${matchCount} matches...`);
 
       // Pre-load all professional player roles into memory map so we don't query 1-by-1
-      const { data: allPlayers } = await (this.supabase
-        .from('professional_players') as any)
+      const { data: allPlayerRows } = await this.supabase
+        .from('professional_players')
         .select('id, primary_role');
+      const allPlayers = (allPlayerRows ?? []) as PlayerRoleRow[];
       const roleMap = new Map<number, string>(
-        (allPlayers || []).map((p: any) => [p.id, p.primary_role || 'Support'])
+        allPlayers.map((player) => [player.id, player.primary_role || 'Support'])
       );
 
       // Process in chunks of 20 matches
       const CHUNK_SIZE = 20;
       for (let i = 0; i < matchCount; i += CHUNK_SIZE) {
         const chunk = matches.slice(i, i + CHUNK_SIZE);
-        const matchIds = chunk.map((m: any) => m.id);
-        const matchMap = new Map<number, Match>(chunk.map((m: any) => [m.id, m]));
+        const matchIds = chunk.map((match) => match.id);
+        const matchMap = new Map<number, Match>(chunk.map((match) => [match.id, match]));
 
         // Fetch stats, substitutions, and performance IDs for this chunk in parallel
         const [statsRes, subsRes, perfsRes] = await Promise.all([
@@ -361,23 +405,23 @@ export class FantasyScoreCalculator {
           continue;
         }
 
-        const playerStats: any[] = (statsRes.data as any[]) || [];
-        const substitutions: any[] = (subsRes.data as any[]) || [];
-        const perfs: any[] = (perfsRes.data as any[]) || [];
+        const playerStats = (statsRes.data ?? []) as MatchPlayerStats[];
+        const substitutions = (subsRes.data ?? []) as SubstitutionRow[];
+        const perfs = (perfsRes.data ?? []) as ExistingPerformanceRow[];
 
         // Build quick lookup for performance_id
         const perfMap = new Map<string, string>();
-        perfs.forEach((p: any) => {
-          perfMap.set(`${p.player_id}_${p.match_id}`, p.id);
+        perfs.forEach((performanceRow) => {
+          perfMap.set(`${performanceRow.player_id}_${performanceRow.match_id}`, performanceRow.id);
         });
 
         // Build quick lookup for substitutions
         const subMap = new Map<string, number>();
-        substitutions.forEach((s: any) => {
-          subMap.set(`${s.match_id}_${s.stand_in_player_id}`, s.rostered_player_id);
+        substitutions.forEach((substitution) => {
+          subMap.set(`${substitution.match_id}_${substitution.stand_in_player_id}`, substitution.rostered_player_id);
         });
 
-        const breakdownsToUpsert: any[] = [];
+        const breakdownsToUpsert: FantasyPointsBreakdownInsert[] = [];
 
         for (const stats of playerStats) {
           const match = matchMap.get(stats.match_id);
@@ -392,14 +436,14 @@ export class FantasyScoreCalculator {
           }
 
           const playerRole = roleMap.get(stats.player_id) || 'Support';
-          const combat = this.calculateCombatScore(stats, playerRole);
+          const combat = this.calculateCombatScore(stats);
           const economy = this.calculateEconomyScore(stats, playerRole, match.duration_minutes || 40);
           const objective = this.calculateObjectiveScore(stats, playerRole);
           const performance = this.calculatePerformanceBonus(combat, economy, objective);
           const winBonus = this.scoringRules.win_points !== undefined 
             ? this.scoringRules.win_points 
             : (this.scoringRules.match_win_bonus ?? 5.0);
-          const win = match.winner_team_id === (stats as any).team_id ? winBonus : 0;
+          const win = match.winner_team_id === stats.team_id ? winBonus : 0;
 
           breakdownsToUpsert.push({
             performance_id: performanceId,
@@ -418,8 +462,8 @@ export class FantasyScoreCalculator {
         }
 
         if (breakdownsToUpsert.length > 0) {
-          const { error: upsertError } = await (this.supabase
-            .from('fantasy_points_breakdown') as any)
+          const { error: upsertError } = await this.supabase
+            .from('fantasy_points_breakdown')
             .upsert(breakdownsToUpsert, { onConflict: 'performance_id' });
 
           if (upsertError) {
@@ -436,8 +480,8 @@ export class FantasyScoreCalculator {
       result.gameweeksUpdated = updatedGameweeks.size;
       result.success = true;
       console.log(`[CalculateScores] Completed in ${Date.now() - startTime}ms. Calculated ${result.scoresCalculated} scores across ${result.gameweeksUpdated} gameweeks.`);
-    } catch (err: any) {
-      result.errors.push(`Fatal error in score calculation job: ${err.message}`);
+    } catch (err: unknown) {
+      result.errors.push(`Fatal error in score calculation job: ${errorMessage(err)}`);
       console.error('Score calculation job failed:', err);
     }
 

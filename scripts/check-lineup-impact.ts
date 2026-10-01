@@ -25,18 +25,42 @@ loadEnv('.env');
 
 const stalePlayerIds = [11, 9, 6, 7, 13, 12, 14, 2257];
 
+interface LineupReferenceRow {
+  id: number;
+  gameweek_id: number;
+  carry_id: number | null;
+  mid_id: number | null;
+  offlane_id: number | null;
+  support_id: number | null;
+  hard_support_id: number | null;
+  bench_1_id: number | null;
+  bench_2_id: number | null;
+  bench_3_id: number | null;
+  captain_player_id: number | null;
+  vice_captain_player_id: number | null;
+  total_points: number | null;
+}
+
+interface GameweekScoreReferenceRow {
+  id: number;
+  player_id: number;
+  gameweek_id: number;
+  fantasy_points: number | null;
+}
+
 async function main() {
   const { getSupabaseServerClient } = await import('../src/lib/db/supabase-server');
   const supabase = getSupabaseServerClient();
 
   // Check fantasy_lineups for any references to the stale players
-  const { data: lineups } = await (supabase
-    .from('fantasy_lineups') as any)
+  const { data: lineupData } = await supabase
+    .from('fantasy_lineups')
     .select('id, gameweek_id, carry_id, mid_id, offlane_id, support_id, hard_support_id, bench_1_id, bench_2_id, bench_3_id, captain_player_id, vice_captain_player_id, total_points');
+  const lineups = (lineupData ?? []) as LineupReferenceRow[];
 
-  const affected = (lineups || []).filter((l: any) => {
-    const slots = [l.carry_id, l.mid_id, l.offlane_id, l.support_id, l.hard_support_id, l.bench_1_id, l.bench_2_id, l.bench_3_id, l.captain_player_id, l.vice_captain_player_id];
-    return slots.some((id: any) => stalePlayerIds.includes(id));
+  const affected = lineups.filter((lineup) => {
+    const slots = [lineup.carry_id, lineup.mid_id, lineup.offlane_id, lineup.support_id, lineup.hard_support_id, lineup.bench_1_id, lineup.bench_2_id, lineup.bench_3_id, lineup.captain_player_id, lineup.vice_captain_player_id];
+    return slots.some((id) => id !== null && stalePlayerIds.includes(id));
   });
 
   if (affected.length === 0) {
@@ -49,12 +73,13 @@ async function main() {
   }
 
   // Also check gameweek_scores
-  const { data: scores } = await (supabase
-    .from('gameweek_scores') as any)
+  const { data: scoreData } = await supabase
+    .from('gameweek_scores')
     .select('id, player_id, gameweek_id, fantasy_points')
     .in('player_id', stalePlayerIds);
+  const scores = (scoreData ?? []) as GameweekScoreReferenceRow[];
 
-  if (!scores || scores.length === 0) {
+  if (scores.length === 0) {
     console.log('No gameweek_scores reference the stale players.');
   } else {
     console.log('gameweek_scores referencing stale players (' + scores.length + '):');

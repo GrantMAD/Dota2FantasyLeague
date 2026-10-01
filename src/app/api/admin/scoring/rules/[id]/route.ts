@@ -11,6 +11,13 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     const body = await request.json();
     const { value, is_enabled } = body;
 
+    if (value !== undefined && typeof value !== 'number') {
+      return NextResponse.json({ error: 'Rule value must be a number.' }, { status: 400 });
+    }
+    if (is_enabled !== undefined && typeof is_enabled !== 'boolean') {
+      return NextResponse.json({ error: 'Rule enabled state must be a boolean.' }, { status: 400 });
+    }
+
     const supabase = supabaseServer();
 
     // 1. Verify the rule is not published yet
@@ -29,10 +36,11 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     }
 
     // 2. Update the rule
-    const updates: any = {};
+    const updates: { value?: number; is_enabled?: boolean; updated_at: string } = {
+      updated_at: new Date().toISOString(),
+    };
     if (value !== undefined) updates.value = value;
     if (is_enabled !== undefined) updates.is_enabled = is_enabled;
-    updates.updated_at = new Date().toISOString();
 
     const { error: updateError } = await supabase
       .from('scoring_rules')
@@ -42,8 +50,14 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     if (updateError) throw updateError;
 
     return NextResponse.json({ message: 'Rule updated successfully' });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error updating rule:', error);
-    return NextResponse.json({ error: error.message }, { status: error.status || 500 });
+    const status = typeof error === 'object' && error !== null && 'status' in error
+      ? Number(error.status)
+      : 500;
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : 'Unable to update scoring rule.' },
+      { status }
+    );
   }
 }

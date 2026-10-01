@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
+import Image from 'next/image';
 import { BarChart3 } from 'lucide-react';
 
 
@@ -31,37 +32,39 @@ interface Match {
 export default function AdminMatchesPage() {
   const [matches, setMatches] = useState<Match[]>([]);
   const [total, setTotal] = useState(0);
-  const [loading, setLoading] = useState(true);
+  const [loadedRequestKey, setLoadedRequestKey] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const [statusFilter, setStatusFilter] = useState('');
+  const [refreshVersion, setRefreshVersion] = useState(0);
   const [syncingMatchId, setSyncingMatchId] = useState<number | null>(null);
   const [syncMessage, setSyncMessage] = useState<string | null>(null);
 
   const limit = 25;
-
-  const fetchMatches = useCallback(async () => {
-    setLoading(true);
-    try {
-      const offset = (page - 1) * limit;
-      const params = new URLSearchParams({ limit: limit.toString(), offset: offset.toString() });
-      if (statusFilter) params.append('status', statusFilter);
-
-      const res = await fetch(`/api/admin/matches?${params.toString()}`);
-      if (res.ok) {
-        const data = await res.json();
-        setMatches(data.data || []);
-        setTotal(data.total || 0);
-      }
-    } catch (err) {
-      console.error('Failed to fetch matches', err);
-    } finally {
-      setLoading(false);
-    }
-  }, [page, statusFilter]);
+  const requestKey = JSON.stringify([page, statusFilter, refreshVersion]);
+  const loading = loadedRequestKey !== requestKey;
 
   useEffect(() => {
-    fetchMatches();
-  }, [fetchMatches]);
+    async function fetchMatches() {
+      try {
+        const offset = (page - 1) * limit;
+        const params = new URLSearchParams({ limit: limit.toString(), offset: offset.toString() });
+        if (statusFilter) params.append('status', statusFilter);
+
+        const res = await fetch(`/api/admin/matches?${params.toString()}`);
+        if (res.ok) {
+          const data = await res.json();
+          setMatches(data.data || []);
+          setTotal(data.total || 0);
+        }
+      } catch (err) {
+        console.error('Failed to fetch matches', err);
+      } finally {
+        setLoadedRequestKey(JSON.stringify([page, statusFilter, refreshVersion]));
+      }
+    }
+
+    void fetchMatches();
+  }, [page, statusFilter, refreshVersion]);
 
   const handleSync = async (matchId: number) => {
     setSyncingMatchId(matchId);
@@ -124,7 +127,7 @@ export default function AdminMatchesPage() {
             <option value="cancelled">Cancelled</option>
             <option value="postponed">Postponed</option>
           </select>
-          <button onClick={fetchMatches} className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white font-medium rounded-lg text-sm transition-colors">
+          <button onClick={() => setRefreshVersion((version) => version + 1)} className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white font-medium rounded-lg text-sm transition-colors">
             Refresh
           </button>
         </div>
@@ -160,10 +163,10 @@ export default function AdminMatchesPage() {
                       <div className="flex items-center gap-2">
                         <div className="flex flex-col items-center w-5">
                           {match.team_a?.logo_url
-                            ? <img src={match.team_a.logo_url} className="w-4 h-4 object-contain" alt="" />
+                            ? <Image src={match.team_a.logo_url} width={16} height={16} unoptimized className="w-4 h-4 object-contain" alt="" />
                             : <div className="w-4 h-4 bg-slate-700 rounded-sm" />}
                           {match.team_b?.logo_url
-                            ? <img src={match.team_b.logo_url} className="w-4 h-4 object-contain mt-1" alt="" />
+                            ? <Image src={match.team_b.logo_url} width={16} height={16} unoptimized className="w-4 h-4 object-contain mt-1" alt="" />
                             : <div className="w-4 h-4 bg-slate-700 rounded-sm mt-1" />}
                         </div>
                         <div className="flex flex-col text-sm">

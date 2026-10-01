@@ -1,7 +1,6 @@
 'use client';
 
-import { AlarmClockCheck, DollarSign, Trophy, UserCheck, Wallet, ArrowRight, ShieldAlert } from 'lucide-react';
-import Link from 'next/link';
+import { AlarmClockCheck, DollarSign, Trophy, UserCheck, Wallet, ShieldAlert } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { getDeadlineCountdown, formatGameweekDeadline } from '../../gameweeks/gameweeks-utils';
 

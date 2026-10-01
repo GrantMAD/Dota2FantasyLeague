@@ -2,7 +2,7 @@
 
 import { useEffect } from 'react';
 import Link from 'next/link';
-import { AlertTriangle, RefreshCw, LayoutDashboard, Home } from 'lucide-react';
+import { AlertTriangle, RefreshCw, LayoutDashboard } from 'lucide-react';
 
 export default function DashboardError({
   error,
@@ -29,7 +29,7 @@ export default function DashboardError({
 
         {error.message && process.env.NODE_ENV === 'development' && (
           <div className="mb-6 p-3 rounded-lg bg-slate-900/80 border border-slate-700/60 text-left">
-            <p className="text-xs font-mono text-red-300 break-words">{error.message}</p>
+            <p className="text-xs font-mono text-red-300 wrap-break-word">{error.message}</p>
             {error.digest && (
               <p className="text-[10px] font-mono text-slate-500 mt-1">Digest: {error.digest}</p>
             )}

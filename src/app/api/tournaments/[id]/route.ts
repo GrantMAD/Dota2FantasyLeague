@@ -5,6 +5,44 @@ interface RouteContext {
   params: Promise<{ id: string }>;
 }
 
+interface TournamentRecord {
+  [column: string]: unknown;
+  id: number;
+  name: string;
+  tier: string | null;
+}
+
+interface SeriesRecord {
+  id: number;
+  series_number: number | null;
+  best_of: number | null;
+  gameweek_id: number | null;
+  team_a_id: number | null;
+  team_b_id: number | null;
+}
+
+interface MatchRecord {
+  [column: string]: unknown;
+  id: number;
+  series_id: number;
+  gameweek_id: number | null;
+  team_a_id: number | null;
+  team_b_id: number | null;
+  match_number: number | null;
+  status: string;
+  scheduled_time: string;
+  duration_minutes: number | null;
+  winner_team_id: number | null;
+}
+
+interface TeamRecord {
+  id: number;
+  name: string;
+  slug: string;
+  region: string | null;
+  logo_url: string | null;
+}
+
 /**
  * GET /api/tournaments/[id]
  * Returns a single tournament with its series, matches, and competing teams.
@@ -20,11 +58,12 @@ export async function GET(request: NextRequest, context: RouteContext) {
     const supabase = supabaseServer();
 
     // 1. Fetch tournament
-    const { data: tournament, error: tError } = await (supabase
-      .from('tournaments') as any)
+    const { data: tournamentData, error: tError } = await supabase
+      .from('tournaments')
       .select('*')
       .eq('id', tournamentId)
       .maybeSingle();
+    const tournament = tournamentData as TournamentRecord | null;
 
     if (tError) {
       return NextResponse.json(
@@ -38,11 +77,12 @@ export async function GET(request: NextRequest, context: RouteContext) {
     }
 
     // 2. Fetch series belonging to this tournament
-    const { data: seriesList, error: sError } = await (supabase
-      .from('tournament_series') as any)
+    const { data: seriesData, error: sError } = await supabase
+      .from('tournament_series')
       .select('id, series_number, best_of, gameweek_id, team_a_id, team_b_id')
       .eq('tournament_id', tournamentId)
       .order('series_number', { ascending: true });
+    const seriesList = (seriesData ?? []) as SeriesRecord[];
 
     if (sError) {
       return NextResponse.json(
@@ -51,14 +91,14 @@ export async function GET(request: NextRequest, context: RouteContext) {
       );
     }
 
-    const seriesIds = (seriesList ?? []).map((s: any) => s.id);
-    const seriesMap = new Map<number, any>((seriesList ?? []).map((s: any) => [s.id, s]));
+    const seriesIds = seriesList.map((series) => series.id);
+    const seriesMap = new Map(seriesList.map((series) => [series.id, series] as const));
 
     // 3. Fetch matches belonging to those series
-    let matches: any[] = [];
+    let matches: MatchRecord[] = [];
     if (seriesIds.length > 0) {
-      const { data: matchData, error: mError } = await (supabase
-        .from('matches') as any)
+      const { data: matchData, error: mError } = await supabase
+        .from('matches')
         .select(`
           id,
           series_id,
@@ -80,43 +120,43 @@ export async function GET(request: NextRequest, context: RouteContext) {
           { status: 500 }
         );
       }
-      matches = matchData ?? [];
+      matches = (matchData ?? []) as MatchRecord[];
     }
 
     // 4. Resolve teams and logos
     const teamIds = [
       ...new Set([
-        ...(seriesList ?? []).flatMap((s: any) => [s.team_a_id, s.team_b_id]),
-        ...matches.flatMap((m: any) => [m.team_a_id, m.team_b_id]),
+        ...seriesList.flatMap((series) => [series.team_a_id, series.team_b_id]),
+        ...matches.flatMap((match) => [match.team_a_id, match.team_b_id]),
       ]),
-    ].filter(Boolean);
+    ].filter((id): id is number => id !== null);
 
-    let teams: any[] = [];
+    let teams: TeamRecord[] = [];
     if (teamIds.length > 0) {
-      const { data: teamData } = await (supabase
-        .from('professional_teams') as any)
+      const { data: teamData } = await supabase
+        .from('professional_teams')
         .select('id, name, slug, region, logo_url')
         .in('id', teamIds);
-      teams = teamData ?? [];
+      teams = (teamData ?? []) as TeamRecord[];
     }
 
-    const teamById = new Map<number, any>(teams.map((t) => [t.id, t]));
+    const teamById = new Map(teams.map((team) => [team.id, team] as const));
 
     // 5. Enrich matches with team objects, best_of, and duration_seconds
-    const enrichedMatches = matches.map((m: any) => {
-      const sInfo = seriesMap.get(m.series_id);
-      const teamA = teamById.get(m.team_a_id);
-      const teamB = teamById.get(m.team_b_id);
+    const enrichedMatches = matches.map((match) => {
+      const sInfo = seriesMap.get(match.series_id);
+      const teamA = match.team_a_id === null ? undefined : teamById.get(match.team_a_id);
+      const teamB = match.team_b_id === null ? undefined : teamById.get(match.team_b_id);
 
       return {
-        ...m,
-        match_number: m.match_number || 1,
+        ...match,
+        match_number: match.match_number || 1,
         best_of: sInfo?.best_of || 3,
         series_number: sInfo?.series_number || 1,
-        scheduled_at: m.scheduled_time,
-        duration_seconds: m.duration_minutes ? m.duration_minutes * 60 : null,
-        radiant_team_id: m.team_a_id,
-        dire_team_id: m.team_b_id,
+        scheduled_at: match.scheduled_time,
+        duration_seconds: match.duration_minutes ? match.duration_minutes * 60 : null,
+        radiant_team_id: match.team_a_id,
+        dire_team_id: match.team_b_id,
         radiant_team: teamA ? { ...teamA, tag: teamA.name.slice(0, 4).toUpperCase() } : null,
         dire_team: teamB ? { ...teamB, tag: teamB.name.slice(0, 4).toUpperCase() } : null,
         tournaments: { id: tournament.id, name: tournament.name, tier: tournament.tier },
@@ -129,7 +169,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
       series: seriesList ?? [],
       matches: enrichedMatches,
     });
-  } catch (error: unknown) {
+  } catch {
     return NextResponse.json({ error: 'An unexpected error occurred.' }, { status: 500 });
   }
 }

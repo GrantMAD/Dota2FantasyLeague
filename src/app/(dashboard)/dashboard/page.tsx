@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import {
   UserCheck,
   ArrowLeftRight,
@@ -58,6 +59,7 @@ interface DashboardData {
 }
 
 export default function DashboardPage() {
+  const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState<StatCard[]>([]);
   const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
@@ -68,7 +70,7 @@ export default function DashboardPage() {
         const res = await fetchWithAuth('/api/dashboard/stats');
         if (!res.ok) {
           const errBody = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
-          if (res.status === 401) { window.location.href = '/login'; return; }
+          if (res.status === 401) { router.push('/login'); return; }
           throw new Error(errBody?.error || `Failed to fetch stats (${res.status})`);
         }
         const data = (await res.json()) as DashboardData;
@@ -126,7 +128,7 @@ export default function DashboardPage() {
     };
     
     fetchStats();
-  }, []);
+  }, [router]);
 
   return (
     <div className="dashboard-page min-h-screen">

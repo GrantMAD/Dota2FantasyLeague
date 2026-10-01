@@ -28,11 +28,14 @@ export async function GET(request: NextRequest) {
 
     const wildcardUsedGameweekId = wildcardData?.wildcard_used_gameweek_id ?? null;
 
-    const { data: squad, error: squadError } = await (supabase.from('fantasy_squads') as any)
+    const { data: squadData, error: squadError } = await supabase.from('fantasy_squads')
       .select('id, fantasy_squad_members(player_id, removed_date)')
       .eq('fantasy_season_id', fantasySeason.id)
       .limit(1)
       .maybeSingle();
+    const squad = squadData as {
+      fantasy_squad_members: { player_id: number; removed_date: string | null }[];
+    } | null;
     if (squadError) return NextResponse.json({ error: 'Failed to load squad transfer context.' }, { status: 500 });
 
     const ownedPlayerIds = (squad?.fantasy_squad_members ?? [])

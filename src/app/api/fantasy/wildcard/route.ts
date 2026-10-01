@@ -2,6 +2,12 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase';
 import { verifyAuth, AuthError } from '@/lib/auth-utils';
 
+interface ChipActivationResult {
+  success?: boolean;
+  message?: string;
+  gameweek_id?: number | null;
+}
+
 export async function POST(request: NextRequest) {
   try {
     // 1. Authenticate user
@@ -33,17 +39,19 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const result = data as ChipActivationResult | null;
+
     // 4. Handle RPC custom response
-    if (data && (data as any).success === false) {
+    if (result?.success === false) {
       return NextResponse.json(
-        { error: (data as any).message || 'Wildcard activation failed.' },
+        { error: result.message || 'Wildcard activation failed.' },
         { status: 400 }
       );
     }
 
     return NextResponse.json({
-      message: (data as any).message || 'Wildcard activated successfully.',
-      gameweekId: (data as any).gameweek_id,
+      message: result?.message || 'Wildcard activated successfully.',
+      gameweekId: result?.gameweek_id,
     });
   } catch (error: unknown) {
     console.error('Wildcard API Error:', error);

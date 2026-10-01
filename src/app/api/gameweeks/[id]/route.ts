@@ -6,6 +6,65 @@ interface RouteContext {
   params: Promise<{ id: string }>;
 }
 
+interface TeamRecord {
+  id: number;
+  name: string;
+  logo_url: string | null;
+  region: string | null;
+  tag?: string | null;
+}
+
+interface MatchRecord {
+  id: number;
+  status: string;
+  scheduled_time: string;
+  duration_minutes: number | null;
+  series_id: number | null;
+  team_a_id: number | null;
+  team_b_id: number | null;
+  winner_team_id: number | null;
+}
+
+interface TournamentSummary {
+  id: number;
+  name: string;
+  slug: string;
+}
+
+interface SeriesRecord {
+  id: number;
+  tournaments: TournamentSummary | TournamentSummary[] | null;
+}
+
+interface TeamFlagRecord {
+  id: number;
+  flag: string;
+  team_id: number;
+  professional_teams: TeamRecord | TeamRecord[] | null;
+}
+
+interface ScoringPlayer {
+  id: number;
+  name: string;
+  in_game_name: string | null;
+  primary_role: string | null;
+  profile_image_url: string | null;
+}
+
+interface ScoreRow {
+  player_id: number;
+  professional_players: ScoringPlayer | ScoringPlayer[] | null;
+  fantasy_points_breakdown: { total_points: number | null } | { total_points: number | null }[] | null;
+}
+
+interface SeasonIdRow {
+  id: number;
+}
+
+interface LineupPointsRow {
+  total_points: number | null;
+}
+
 /**
  * GET /api/gameweeks/[id]
  * Returns a single gameweek with its matches and double/blank team flags.
@@ -21,11 +80,12 @@ export async function GET(request: NextRequest, context: RouteContext) {
     const supabase = supabaseServer();
 
     // Fetch gameweek
-    const { data: gameweek, error: gwError } = await (supabase
-      .from('gameweeks') as any)
+    const { data: gameweekData, error: gwError } = await supabase
+      .from('gameweeks')
       .select('*')
       .eq('id', gameweekId)
       .maybeSingle();
+    const gameweek = gameweekData;
 
     if (gwError) {
       return NextResponse.json(
@@ -39,8 +99,8 @@ export async function GET(request: NextRequest, context: RouteContext) {
     }
 
     // Fetch matches in this gameweek using the actual database columns (team_a_id, team_b_id, scheduled_time, duration_minutes)
-    const { data: rawMatches } = await (supabase
-      .from('matches') as any)
+    const { data: matchData } = await supabase
+      .from('matches')
       .select(`
         id,
         status,
@@ -53,10 +113,11 @@ export async function GET(request: NextRequest, context: RouteContext) {
       `)
       .eq('gameweek_id', gameweekId)
       .order('scheduled_time', { ascending: true });
+    const rawMatches = (matchData ?? []) as MatchRecord[];
 
     // Fetch double/blank team flags for this gameweek
-    const { data: flags } = await (supabase
-      .from('gameweek_team_flags') as any)
+    const { data: flagData } = await supabase
+      .from('gameweek_team_flags')
       .select(`
         id,
         flag,
@@ -64,53 +125,55 @@ export async function GET(request: NextRequest, context: RouteContext) {
         professional_teams(id, name, tag, logo_url)
       `)
       .eq('gameweek_id', gameweekId);
+    const flags = (flagData ?? []) as TeamFlagRecord[];
 
     // Fetch teams and tournament series for these matches
-    const teamIds = [...new Set((rawMatches ?? []).flatMap((m: any) => [m.team_a_id, m.team_b_id]).filter(Boolean))];
-    const seriesIds = [...new Set((rawMatches ?? []).map((m: any) => m.series_id).filter(Boolean))];
+    const teamIds = [...new Set(rawMatches.flatMap((match) => [match.team_a_id, match.team_b_id]).filter((id): id is number => id !== null))];
+    const seriesIds = [...new Set(rawMatches.map((match) => match.series_id).filter((id): id is number => id !== null))];
 
     const [{ data: teamsData }, { data: seriesRows }] = await Promise.all([
       teamIds.length > 0
-        ? (supabase.from('professional_teams') as any).select('id, name, logo_url, region').in('id', teamIds)
+        ? supabase.from('professional_teams').select('id, name, logo_url, region').in('id', teamIds)
         : Promise.resolve({ data: [] }),
       seriesIds.length > 0
-        ? (supabase.from('tournament_series') as any).select('id, tournaments(id, name, slug)').in('id', seriesIds)
+        ? supabase.from('tournament_series').select('id, tournaments(id, name, slug)').in('id', seriesIds)
         : Promise.resolve({ data: [] }),
     ]);
 
-    const teamById = new Map<number, any>(
-      (teamsData ?? []).map((t: any) => [
-        t.id,
-        {
-          id: t.id,
-          name: t.name,
-          tag: t.name ? t.name.slice(0, 4).toUpperCase() : 'TEAM',
-          logo_url: t.logo_url || null,
-          region: t.region || null,
-        },
-      ])
-    );
+    const teamRows = (teamsData ?? []) as TeamRecord[];
+    const seriesRowsTyped = (seriesRows ?? []) as SeriesRecord[];
+    const teamById = new Map<number, TeamRecord>(teamRows.map((team) => [
+      team.id,
+      {
+        id: team.id,
+        name: team.name,
+        tag: team.name ? team.name.slice(0, 4).toUpperCase() : 'TEAM',
+        logo_url: team.logo_url || null,
+        region: team.region || null,
+      },
+    ]));
 
     const tournaments: Array<{ id: number; name: string; slug?: string | null }> = [];
     const seenT = new Set<number>();
-    for (const s of seriesRows ?? []) {
-      if (s.tournaments && !seenT.has(s.tournaments.id)) {
-        seenT.add(s.tournaments.id);
-        tournaments.push(s.tournaments);
+    for (const series of seriesRowsTyped) {
+      const tournament = Array.isArray(series.tournaments) ? series.tournaments[0] : series.tournaments;
+      if (tournament && !seenT.has(tournament.id)) {
+        seenT.add(tournament.id);
+        tournaments.push(tournament);
       }
     }
 
-    const matches = (rawMatches ?? []).map((m: any) => {
-      const radiantTeam = teamById.get(m.team_a_id) || null;
-      const direTeam = teamById.get(m.team_b_id) || null;
+    const matches = rawMatches.map((match) => {
+      const radiantTeam = match.team_a_id === null ? null : teamById.get(match.team_a_id) || null;
+      const direTeam = match.team_b_id === null ? null : teamById.get(match.team_b_id) || null;
       return {
-        id: m.id,
-        status: m.status,
-        scheduled_at: m.scheduled_time,
-        radiant_team_id: m.team_a_id,
-        dire_team_id: m.team_b_id,
-        winner_team_id: m.winner_team_id,
-        duration_seconds: m.duration_minutes ? m.duration_minutes * 60 : null,
+        id: match.id,
+        status: match.status,
+        scheduled_at: match.scheduled_time,
+        radiant_team_id: match.team_a_id,
+        dire_team_id: match.team_b_id,
+        winner_team_id: match.winner_team_id,
+        duration_seconds: match.duration_minutes ? match.duration_minutes * 60 : null,
         radiant_score: null,
         dire_score: null,
         radiant_team: radiantTeam,
@@ -120,7 +183,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
     });
 
     // Fetch player performances for this gameweek to calculate top scorers
-    const { data: scoreRows } = await (supabase.from('player_performances') as any)
+    const { data: scoreData } = await supabase.from('player_performances')
       .select(`
         player_id,
         professional_players!player_performances_player_id_fkey (id, name, in_game_name, primary_role, profile_image_url),
@@ -128,6 +191,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
       `)
       .eq('gameweek_id', gameweekId)
       .not('fantasy_points_breakdown', 'is', null);
+    const scoreRows = (scoreData ?? []) as ScoreRow[];
 
     const playerPointsMap = new Map<number, {
       player_id: number;
@@ -141,8 +205,11 @@ export async function GET(request: NextRequest, context: RouteContext) {
 
     for (const row of scoreRows ?? []) {
       const playerId = Number(row.player_id);
-      const pts = Number(row.fantasy_points_breakdown?.total_points ?? 0);
-      const player = row.professional_players;
+      const breakdown = Array.isArray(row.fantasy_points_breakdown)
+        ? row.fantasy_points_breakdown[0]
+        : row.fantasy_points_breakdown;
+      const pts = Number(breakdown?.total_points ?? 0);
+      const player = Array.isArray(row.professional_players) ? row.professional_players[0] : row.professional_players;
       const rawName = player?.in_game_name || player?.name;
       const displayName = (!rawName || rawName === 'Unknown' || rawName === 'Player (Unknown)')
         ? `Player #${playerId}`
@@ -188,16 +255,17 @@ export async function GET(request: NextRequest, context: RouteContext) {
         const { verifyAuth } = await import('@/lib/auth-utils');
         const auth = await verifyAuth(request);
         if (auth?.userId) {
-          const { data: seasonRows } = await (supabase.from('fantasy_seasons') as any)
+          const { data: seasonData } = await supabase.from('fantasy_seasons')
             .select('id')
             .eq('user_id', auth.userId)
             .limit(10);
-          const seasonIds = (seasonRows ?? []).map((s: any) => s.id);
+          const seasonIds = ((seasonData ?? []) as SeasonIdRow[]).map((season) => season.id);
           if (seasonIds.length) {
-            const { data: lineupRows } = await (supabase.from('fantasy_lineups') as any)
+            const { data: lineupData } = await supabase.from('fantasy_lineups')
               .select('total_points')
               .in('fantasy_season_id', seasonIds)
               .eq('gameweek_id', gameweekId);
+            const lineupRows = (lineupData ?? []) as LineupPointsRow[];
             if (lineupRows && lineupRows.length > 0) {
               userScore = Number(lineupRows[0].total_points ?? 0);
             }
@@ -216,7 +284,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
       topScorers,
       userScore,
     });
-  } catch (error: unknown) {
+  } catch {
     return NextResponse.json({ error: 'An unexpected error occurred.' }, { status: 500 });
   }
 }
@@ -257,7 +325,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 
     const supabase = supabaseServer();
 
-    const { data, error } = await (supabase.from('gameweeks') as any)
+    const { data, error } = await supabase.from('gameweeks')
       .update(update)
       .eq('id', gameweekId)
       .select()
@@ -271,7 +339,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     }
 
     return NextResponse.json({ data });
-  } catch (error: unknown) {
+  } catch {
     return NextResponse.json({ error: 'An unexpected error occurred.' }, { status: 500 });
   }
 }

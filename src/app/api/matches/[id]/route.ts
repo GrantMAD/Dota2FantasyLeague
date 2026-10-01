@@ -5,6 +5,64 @@ interface RouteContext {
   params: Promise<{ id: string }>;
 }
 
+interface MatchRecord {
+  [column: string]: unknown;
+  id: number;
+  status: string;
+  scheduled_time: string;
+  duration_minutes: number | null;
+  gameweek_id: number | null;
+  series_id: number | null;
+  team_a_id: number | null;
+  team_b_id: number | null;
+  winner_team_id: number | null;
+}
+
+interface TeamRecord {
+  id: number;
+  name: string;
+  logo_url: string | null;
+  region: string | null;
+}
+
+interface SeriesRecord {
+  id: number;
+  tournament_id: number | null;
+  best_of: number | null;
+  series_number: number | null;
+}
+
+interface TournamentRecord {
+  id: number;
+  name: string;
+  slug: string;
+  tier: string | null;
+}
+
+interface GameweekRecord {
+  id: number;
+  gameweek_number: number;
+  status: string;
+}
+
+interface FantasyPointsRecord {
+  combat_points: number | null;
+  economy_points: number | null;
+  objective_points: number | null;
+  teamfight_points: number | null;
+  win_points: number | null;
+  series_points: number | null;
+  performance_index_points: number | null;
+  consistency_points: number | null;
+  penalty_points: number | null;
+  total_points: number | null;
+}
+
+interface PerformanceRecord {
+  player_id: number;
+  fantasy_points_breakdown: FantasyPointsRecord | FantasyPointsRecord[] | null;
+}
+
 /**
  * GET /api/matches/[id]
  * Returns a single match with full per-player stats and substitutions.
@@ -20,11 +78,12 @@ export async function GET(request: NextRequest, context: RouteContext) {
     const supabase = supabaseServer();
 
     // Fetch match details using the current schema.
-    const { data: matchRecord, error: matchError } = await (supabase
-      .from('matches') as any)
+    const { data: matchData, error: matchError } = await supabase
+      .from('matches')
       .select('id, status, scheduled_time, duration_minutes, gameweek_id, series_id, team_a_id, team_b_id, winner_team_id')
       .eq('id', matchId)
       .maybeSingle();
+    const matchRecord = matchData as MatchRecord | null;
 
     if (matchError) {
       return NextResponse.json(
@@ -38,34 +97,37 @@ export async function GET(request: NextRequest, context: RouteContext) {
     }
 
     const [{ data: teams }, { data: series }] = await Promise.all([
-      (supabase.from('professional_teams') as any)
+      supabase.from('professional_teams')
         .select('id, name, logo_url, region')
-        .in('id', [matchRecord.team_a_id, matchRecord.team_b_id]),
-      (supabase.from('tournament_series') as any)
+        .in('id', [matchRecord.team_a_id, matchRecord.team_b_id].filter((id): id is number => id !== null)),
+      supabase.from('tournament_series')
         .select('id, tournament_id, best_of, series_number')
         .eq('id', matchRecord.series_id)
         .maybeSingle(),
     ]);
+      const teamRows = (teams ?? []) as TeamRecord[];
+      const seriesRecord = series as SeriesRecord | null;
 
-    const { data: tournament } = series
-      ? await (supabase.from('tournaments') as any).select('id, name, slug, tier').eq('id', series.tournament_id).maybeSingle()
+      const { data: tournamentData } = seriesRecord?.tournament_id
+        ? await supabase.from('tournaments').select('id, name, slug, tier').eq('id', seriesRecord.tournament_id).maybeSingle()
       : { data: null };
-    const { data: gameweek } = await (supabase.from('gameweeks') as any)
+      const tournament = tournamentData as TournamentRecord | null;
+      const { data: gameweekData } = await supabase.from('gameweeks')
       .select('id, gameweek_number, status')
       .eq('id', matchRecord.gameweek_id)
       .maybeSingle();
+      const gameweek = gameweekData as GameweekRecord | null;
 
-    const teamById = new Map<number, { id: number; name: string; logo_url: string | null; region?: string }>(
-      (teams ?? []).map((team: any) => [team.id, team])
-    );
-    const buildTeam = (teamId: number) => {
+      const teamById = new Map(teamRows.map((team) => [team.id, team] as const));
+      const buildTeam = (teamId: number | null) => {
+        if (teamId === null) return null;
       const team = teamById.get(teamId);
       return team ? { ...team, tag: team.name.slice(0, 4).toUpperCase() } : null;
     };
     const match = {
       ...matchRecord,
-      best_of: series?.best_of || 3,
-      series_number: series?.series_number || 1,
+      best_of: seriesRecord?.best_of || 3,
+      series_number: seriesRecord?.series_number || 1,
       scheduled_at: matchRecord.scheduled_time,
       duration_seconds: matchRecord.duration_minutes ? matchRecord.duration_minutes * 60 : null,
       radiant_team_id: matchRecord.team_a_id,
@@ -77,7 +139,9 @@ export async function GET(request: NextRequest, context: RouteContext) {
     };
 
     // Fetch per-player stats for this match
+    // The generated local schema does not include this table.
     const { data: playerStats } = await (supabase
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       .from('match_player_stats') as any)
       .select(`
         *,
@@ -89,21 +153,22 @@ export async function GET(request: NextRequest, context: RouteContext) {
 
     // fantasy_points_breakdown has no match_id column — it joins via performance_id -> player_performances.
     // Fetch performances for this match, with nested breakdown, then flatten to player_id-keyed shape.
-    const { data: performances } = await (supabase
-      .from('player_performances') as any)
+    const { data: performanceData } = await supabase
+      .from('player_performances')
       .select('id, player_id, fantasy_points_breakdown(combat_points, economy_points, objective_points, teamfight_points, win_points, series_points, performance_index_points, consistency_points, penalty_points, total_points)')
       .eq('match_id', matchId);
 
-    const fantasyBreakdown = (performances ?? [])
-      .filter((p: any) => p.fantasy_points_breakdown) // eslint-disable-line @typescript-eslint/no-explicit-any
-      .map((p: any) => ({ // eslint-disable-line @typescript-eslint/no-explicit-any
-        player_id: p.player_id,
-        ...(p.fantasy_points_breakdown as object),
-      }));
+    const performances = (performanceData ?? []) as PerformanceRecord[];
+    const fantasyBreakdown = performances.flatMap((performance) => {
+      const breakdown = Array.isArray(performance.fantasy_points_breakdown)
+        ? performance.fantasy_points_breakdown[0]
+        : performance.fantasy_points_breakdown;
+      return breakdown ? [{ player_id: performance.player_id, ...breakdown }] : [];
+    });
 
     // Fetch substitutions
-    const { data: substitutions } = await (supabase
-      .from('match_player_substitutions') as any)
+    const { data: substitutions } = await supabase
+      .from('match_player_substitutions')
       .select(`
         id,
         rostered_player_id,
@@ -119,7 +184,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
       fantasyBreakdown: fantasyBreakdown ?? [],
       substitutions: substitutions ?? [],
     });
-  } catch (error: unknown) {
+  } catch {
     return NextResponse.json({ error: 'An unexpected error occurred.' }, { status: 500 });
   }
 }

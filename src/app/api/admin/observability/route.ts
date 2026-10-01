@@ -4,12 +4,21 @@ import { getAllJobStatuses, getJobs, healthCheck } from '@/lib/jobs/scheduler';
 import { getCacheStats } from '@/lib/response-cache';
 import { supabaseServer } from '@/lib/supabase';
 
+interface JobRunRow {
+  job_name: string;
+  status: string;
+  started_at: string | null;
+  completed_at: string | null;
+  error_message: string | null;
+  metadata: { duration_ms?: number } | null;
+}
+
 export async function GET(request: NextRequest) {
   try {
     await verifyAdminAuth(request);
     const supabase = supabaseServer();
     const [{ data: recentRuns, error: runError }, health] = await Promise.all([
-      (supabase.from('job_execution_log') as any)
+      supabase.from('job_execution_log')
         .select('job_name, status, started_at, completed_at, error_message, metadata')
         .order('started_at', { ascending: false })
         .limit(100),
@@ -17,11 +26,11 @@ export async function GET(request: NextRequest) {
     ]);
 
     if (runError) return NextResponse.json({ error: 'Failed to load observability data.' }, { status: 500 });
-    const runs = recentRuns ?? [];
+    const runs = (recentRuns ?? []) as JobRunRow[];
     const durations: number[] = runs
-      .map((run: { metadata?: { duration_ms?: number } }) => Number(run.metadata?.duration_ms ?? 0))
+      .map((run) => Number(run.metadata?.duration_ms ?? 0))
       .filter((duration: number) => duration > 0);
-    const failures = runs.filter((run: { status: string }) => run.status === 'failed').length;
+    const failures = runs.filter((run) => run.status === 'failed').length;
 
     return NextResponse.json({
       generatedAt: new Date().toISOString(),

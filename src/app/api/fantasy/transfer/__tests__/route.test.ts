@@ -4,11 +4,8 @@ import { NextRequest } from 'next/server';
 import { POST } from '../route';
 
 // We mock the modules that interact with DB/Auth
-import * as authUtils from '@/lib/auth-utils';
-import * as supabaseLib from '@/lib/supabase';
-
 describe('Transfer API Route', () => {
-  it('should return 401 if unauthorized', async (t) => {
+  it('should return 401 if unauthorized', async () => {
     // Basic test to verify the route exists and catches auth errors
     const req = new NextRequest('http://localhost:3000/api/fantasy/transfer', {
       method: 'POST',

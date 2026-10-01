@@ -23,29 +23,38 @@ function loadEnv(file: string) {
 loadEnv('.env.local');
 loadEnv('.env');
 
+interface FantasySeasonRow {
+  id: number;
+  user_id: string;
+  total_points: number;
+  global_rank: number | null;
+  budget: number;
+}
+
 async function main() {
   const { getSupabaseServerClient } = await import('../src/lib/db/supabase-server');
   const supabase = getSupabaseServerClient();
 
   // Show current state
-  const { data: seasons } = await (supabase
-    .from('fantasy_seasons') as any)
+  const { data: seasonData } = await supabase
+    .from('fantasy_seasons')
     .select('id, user_id, total_points, global_rank, budget');
+  const seasons = (seasonData ?? []) as FantasySeasonRow[];
 
   console.log('Current fantasy_seasons:');
-  for (const s of seasons || []) {
-    console.log(`  id=${s.id} | user_id=${s.user_id} | total_points=${s.total_points} | budget=${s.budget}`);
+  for (const season of seasons) {
+    console.log(`  id=${season.id} | user_id=${season.user_id} | total_points=${season.total_points} | budget=${season.budget}`);
   }
 
-  if (!seasons || seasons.length === 0) {
+  if (seasons.length === 0) {
     console.log('No fantasy_seasons found.');
     return;
   }
 
   // Reset total_points and global_rank to 0/null for all test seasons
-  const seasonIds = seasons.map((s: any) => s.id);
-  const { error } = await (supabase
-    .from('fantasy_seasons') as any)
+  const seasonIds = seasons.map((season) => season.id);
+  const { error } = await supabase
+    .from('fantasy_seasons')
     .update({ total_points: 0, global_rank: null })
     .in('id', seasonIds);
 

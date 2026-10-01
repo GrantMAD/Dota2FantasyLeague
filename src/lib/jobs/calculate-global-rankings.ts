@@ -8,6 +8,35 @@ interface JobResult {
   duration: number;
 }
 
+interface FantasySeasonPointsRow {
+  id: number;
+  total_points: number;
+}
+
+interface GameweekIdRow {
+  id: number;
+}
+
+interface SquadMemberPlayerRow {
+  player_id: number;
+}
+
+interface SeasonIdRow {
+  id: number;
+}
+
+interface FilteredMutationQuery extends PromiseLike<unknown> {
+  eq(column: string, value: number): FilteredMutationQuery;
+}
+
+interface FilteredMutationTable<TValues> {
+  update(values: TValues): FilteredMutationQuery;
+}
+
+interface UpsertTable<TValues> {
+  upsert(values: TValues, options: { onConflict: string }): PromiseLike<unknown>;
+}
+
 class CalculateGlobalRankings {
   private supabase: ReturnType<typeof createClient>;
 
@@ -28,7 +57,7 @@ class CalculateGlobalRankings {
         .from('fantasy_seasons')
         .select('id, total_points')
         .eq('season_id', seasonId)
-        .order('total_points', { ascending: false }) as any;
+        .order('total_points', { ascending: false });
 
       if (fetchError || !fantasySeasons) {
         console.error('Failed to fetch fantasy seasons:', fetchError);
@@ -41,16 +70,17 @@ class CalculateGlobalRankings {
       let ranked = 0;
 
       // Find the latest closed gameweek for the snapshot
-      const { data: latestGameweek } = await (this.supabase
-        .from('gameweeks') as any)
+      const { data: latestGameweekData } = await this.supabase
+        .from('gameweeks')
         .select('id')
         .eq('season_id', seasonId)
         .eq('status', 'closed')
         .order('end_date', { ascending: false })
         .limit(1)
         .maybeSingle();
+      const latestGameweek = latestGameweekData as GameweekIdRow | null;
 
-      for (const fs of fantasySeasons) {
+      for (const fs of fantasySeasons as FantasySeasonPointsRow[]) {
         // Handle ties
         if (fs.total_points === prevPoints) {
           tieCount++;
@@ -61,23 +91,29 @@ class CalculateGlobalRankings {
         }
 
         // Update fantasy_seasons table
-        await (this.supabase
-          .from('fantasy_seasons') as any)
-          .update({ global_rank: rank })
+        const seasonUpdates = this.supabase.from('fantasy_seasons') as unknown as FilteredMutationTable<{ global_rank: number }>;
+        await seasonUpdates.update({ global_rank: rank })
           .eq('id', fs.id);
 
         // Create snapshot in season_standings
         if (latestGameweek) {
-          const { data: latestLineup } = await (this.supabase
-            .from('fantasy_lineups') as any)
+          const { data: latestLineupData } = await this.supabase
+            .from('fantasy_lineups')
             .select('total_points')
             .eq('fantasy_season_id', fs.id)
             .eq('gameweek_id', latestGameweek.id)
             .maybeSingle();
+          const latestLineup = latestLineupData as { total_points: number | null } | null;
 
-          await (this.supabase
-            .from('season_standings') as any)
-            .upsert({
+          const standingUpsert = this.supabase.from('season_standings') as unknown as UpsertTable<{
+            fantasy_season_id: number;
+            gameweek_id: number;
+            rank: number;
+            total_points: number;
+            gameweek_points: number;
+            league_id: null;
+          }>;
+          await standingUpsert.upsert({
               fantasy_season_id: fs.id,
               gameweek_id: latestGameweek.id,
               rank: rank,
@@ -91,8 +127,8 @@ class CalculateGlobalRankings {
       }
 
       return ranked;
-    } catch (err: any) {
-      console.error('Error calculating global rankings:', err);
+    } catch (error: unknown) {
+      console.error('Error calculating global rankings:', error);
       return 0;
     }
   }
@@ -121,26 +157,27 @@ class CalculateGlobalRankings {
        const { data: squadMembers, error: membersError } = await this.supabase
          .from('fantasy_squad_members')
          .select('player_id')
-         .is('removed_date', null) as any;
+         .is('removed_date', null);
 
        if (membersError || !squadMembers) {
          return 0;
        }
 
        const playerCounts: Record<number, number> = {};
-       for (const member of squadMembers) {
+      for (const member of squadMembers as SquadMemberPlayerRow[]) {
          playerCounts[member.player_id] = (playerCounts[member.player_id] || 0) + 1;
        }
 
        let updated = 0;
 
        // Find current gameweek
-       const { data: currentGameweek } = await this.supabase
+      const { data: currentGameweekData } = await this.supabase
         .from('gameweeks')
         .select('id')
         .eq('season_id', seasonId)
         .eq('status', 'active')
-        .single() as any;
+        .single();
+             const currentGameweek = currentGameweekData as GameweekIdRow | null;
 
        if (!currentGameweek) return 0;
 
@@ -151,9 +188,10 @@ class CalculateGlobalRankings {
 
          // We assume player_prices row for current gameweek already exists from update-player-prices job
          // If not, we might need to upsert.
-         await (this.supabase
-           .from('player_prices') as any)
-           .update({ ownership_percentage: ownershipPercentage })
+         await this.supabase
+           .from('player_prices')
+         const priceUpdate = this.supabase.from('player_prices') as unknown as FilteredMutationTable<{ ownership_percentage: number }>;
+         await priceUpdate.update({ ownership_percentage: ownershipPercentage })
            .eq('player_id', playerId)
            .eq('gameweek_id', currentGameweek.id);
          
@@ -164,8 +202,8 @@ class CalculateGlobalRankings {
        // We could zero them out or leave as default.
        
        return updated;
-    } catch (err: any) {
-       console.error('Error calculating ownership:', err);
+     } catch (error: unknown) {
+       console.error('Error calculating ownership:', error);
        return 0;
     }
   }
@@ -183,11 +221,12 @@ class CalculateGlobalRankings {
 
     try {
       // Get active season
-      const { data: season } = await this.supabase
+      const { data: seasonData } = await this.supabase
         .from('seasons')
         .select('id')
         .eq('status', 'active')
-        .single() as any;
+        .single();
+      const season = seasonData as SeasonIdRow | null;
       
       if (!season) {
          result.errors.push('No active season found');
@@ -199,9 +238,9 @@ class CalculateGlobalRankings {
       result.ownershipRecordsUpdated = await this.calculateOwnership(season.id);
 
       result.success = true;
-    } catch (err: any) {
-      result.errors.push(`Fatal error in global rankings job: ${err.message}`);
-      console.error('Global rankings job failed:', err);
+    } catch (error: unknown) {
+      result.errors.push(`Fatal error in global rankings job: ${error instanceof Error ? error.message : String(error)}`);
+      console.error('Global rankings job failed:', error);
     }
 
     result.duration = Date.now() - startTime;

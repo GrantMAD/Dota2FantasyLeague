@@ -50,7 +50,7 @@ export async function POST(request: NextRequest) {
     console.log(`[Webhook] match-result received: matchId=${matchId}, status=${status}`);
 
     return NextResponse.json({ received: true, matchId });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('[Webhook] Error processing match-result payload:', error);
     return NextResponse.json({ error: 'Invalid request body.' }, { status: 400 });
   }

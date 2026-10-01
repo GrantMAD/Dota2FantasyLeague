@@ -30,8 +30,14 @@ export async function POST(request: NextRequest) {
     if (updateError) throw updateError;
 
     return NextResponse.json({ message: 'Scoring rules version published successfully' });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error publishing scoring rules:', error);
-    return NextResponse.json({ error: error.message }, { status: error.status || 500 });
+    const status = typeof error === 'object' && error !== null && 'status' in error
+      ? Number(error.status)
+      : 500;
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : 'Unable to publish scoring rules.' },
+      { status }
+    );
   }
 }

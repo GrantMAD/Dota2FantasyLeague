@@ -5,6 +5,86 @@ import { verifyAdminAuth, createErrorResponse } from '@/lib/auth-utils';
 const slots = ['carry', 'mid', 'offlane', 'support', 'hard_support', 'bench_1', 'bench_2', 'bench_3'] as const;
 type Slot = (typeof slots)[number];
 
+interface AdminPlayerRecord {
+  id: number;
+  name: string;
+  in_game_name: string | null;
+  primary_role: string;
+  profile_image_url: string | null;
+  country?: string | null;
+  availability_status?: string | null;
+  professional_teams?: { id: number; name: string; slug: string; logo_url: string | null } | null;
+}
+
+interface SquadMemberRecord {
+  id: number;
+  player_id: number;
+  cost: number;
+  acquired_date: string | null;
+  removed_date: string | null;
+  professional_players: AdminPlayerRecord | null;
+}
+
+interface SquadRecord {
+  id: number;
+  name: string;
+  created_at: string;
+  fantasy_squad_members: SquadMemberRecord[];
+}
+
+interface LineupRecord extends Record<string, unknown> {
+  id: number;
+  fantasy_season_id: number;
+  gameweek_id: number;
+  total_points: number | null;
+  locked: boolean;
+  locked_at: string | null;
+  captain_player_id: number | null;
+  vice_captain_player_id: number | null;
+  gameweeks: { gameweek_number: number; status: string } | null;
+}
+
+interface TransferRecord {
+  id: number;
+  gameweek_id: number;
+  player_id_out: number | null;
+  player_id_in: number | null;
+  transfer_fee: number | null;
+  created_at: string;
+  gameweeks: { gameweek_number: number } | null;
+}
+
+interface LeagueParticipationRecord {
+  id: number;
+  points: number | null;
+  rank: number | null;
+  joined_at: string | null;
+  leagues: {
+    id: number;
+    name: string;
+    league_type: string;
+    privacy_level: string;
+    current_participants: number;
+    max_participants: number;
+  } | null;
+}
+
+interface AdminFantasySeasonRecord {
+  id: number;
+  user_id: string;
+  season_id: number;
+  budget: number | null;
+  total_points: number | null;
+  global_rank: number | null;
+  free_transfers: number | null;
+  triple_captain_gameweek_id: number | null;
+  bench_boost_gameweek_id: number | null;
+  wildcard_used_gameweek_id: number | null;
+  created_at: string;
+  users: { id: string; username: string; display_name: string | null; avatar_url: string | null; created_at: string } | null;
+  seasons: { id: number; name: string; status: string } | null;
+}
+
 function getSlotId(row: Record<string, unknown>, slot: Slot): number | null {
   const value = row[`${slot}_id`];
   return typeof value === 'number' ? value : value ? Number(value) : null;
@@ -36,7 +116,7 @@ export async function GET(
     const supabase = supabaseServer();
 
     // 1. Fetch fantasy season & manager profile
-    const { data: fantasySeason, error: seasonError } = await (supabase.from('fantasy_seasons') as any)
+    const { data: rawFantasySeason, error: seasonError } = await supabase.from('fantasy_seasons')
       .select(`
         id,
         user_id,
@@ -64,6 +144,7 @@ export async function GET(
       `)
       .eq('id', fantasySeasonId)
       .maybeSingle();
+    const fantasySeason = rawFantasySeason as AdminFantasySeasonRecord | null;
 
     if (seasonError || !fantasySeason) {
       return NextResponse.json(
@@ -73,7 +154,7 @@ export async function GET(
     }
 
     // 2. Fetch Squad and Active Squad Members
-    const { data: squads } = await (supabase.from('fantasy_squads') as any)
+    const { data: rawSquads } = await supabase.from('fantasy_squads')
       .select(`
         id,
         name,
@@ -103,12 +184,13 @@ export async function GET(
       `)
       .eq('fantasy_season_id', fantasySeasonId);
 
+    const squads = (rawSquads ?? []) as SquadRecord[];
     const squad = squads?.[0] || null;
     const allMembers = squad?.fantasy_squad_members || [];
-    const activeMembers = allMembers.filter((m: any) => !m.removed_date);
+    const activeMembers = allMembers.filter((member) => !member.removed_date);
 
     // 3. Fetch Gameweek Lineups
-    const { data: rawLineups } = await (supabase.from('fantasy_lineups') as any)
+    const { data: rawLineupData } = await supabase.from('fantasy_lineups')
       .select(`
         *,
         gameweeks (
@@ -122,10 +204,11 @@ export async function GET(
       `)
       .eq('fantasy_season_id', fantasySeasonId)
       .order('gameweek_id', { ascending: false });
+    const rawLineups = (rawLineupData ?? []) as LineupRecord[];
 
     // Collect all player IDs from lineups to resolve player details if needed
     const lineupPlayerIds = new Set<number>();
-    (rawLineups || []).forEach((row: any) => {
+    rawLineups.forEach((row) => {
       slots.forEach((s) => {
         const pid = getSlotId(row, s);
         if (pid) lineupPlayerIds.add(pid);
@@ -133,14 +216,14 @@ export async function GET(
     });
 
     // Also include active squad player IDs
-    activeMembers.forEach((m: any) => {
-      if (m.player_id) lineupPlayerIds.add(m.player_id);
+    activeMembers.forEach((member) => {
+      if (member.player_id) lineupPlayerIds.add(member.player_id);
     });
 
     // Fetch players metadata for all lineup players
-    let playerMap: Record<number, any> = {};
+    const playerMap: Record<number, AdminPlayerRecord> = {};
     if (lineupPlayerIds.size > 0) {
-      const { data: playersData } = await (supabase.from('professional_players') as any)
+      const { data: rawPlayersData } = await supabase.from('professional_players')
         .select(`
           id,
           name,
@@ -157,13 +240,14 @@ export async function GET(
           )
         `)
         .in('id', Array.from(lineupPlayerIds));
+      const playersData = (rawPlayersData ?? []) as AdminPlayerRecord[];
 
-      (playersData || []).forEach((p: any) => {
-        playerMap[p.id] = p;
+      playersData.forEach((player) => {
+        playerMap[player.id] = player;
       });
     }
 
-    const formattedLineups = (rawLineups || []).map((row: any) => {
+    const formattedLineups = rawLineups.map((row) => {
       const lineupSlots = slots.map((slot) => {
         const playerId = getSlotId(row, slot);
         return playerId
@@ -193,7 +277,7 @@ export async function GET(
     });
 
     // 4. Fetch Transfers
-    const { data: rawTransfers } = await (supabase.from('player_transfers') as any)
+    const { data: rawTransferData } = await supabase.from('player_transfers')
       .select(`
         id,
         gameweek_id,
@@ -208,18 +292,19 @@ export async function GET(
       `)
       .eq('fantasy_season_id', fantasySeasonId)
       .order('created_at', { ascending: false });
+    const rawTransfers = (rawTransferData ?? []) as TransferRecord[];
 
     // Collect transfer player IDs
     const transferPlayerIds = new Set<number>();
-    (rawTransfers || []).forEach((t: any) => {
-      if (t.player_id_out) transferPlayerIds.add(t.player_id_out);
-      if (t.player_id_in) transferPlayerIds.add(t.player_id_in);
+    rawTransfers.forEach((transfer) => {
+      if (transfer.player_id_out) transferPlayerIds.add(transfer.player_id_out);
+      if (transfer.player_id_in) transferPlayerIds.add(transfer.player_id_in);
     });
 
     if (transferPlayerIds.size > 0) {
       const missingIds = Array.from(transferPlayerIds).filter((id) => !playerMap[id]);
       if (missingIds.length > 0) {
-        const { data: additionalPlayers } = await (supabase.from('professional_players') as any)
+        const { data: rawAdditionalPlayers } = await supabase.from('professional_players')
           .select(`
             id,
             name,
@@ -234,14 +319,15 @@ export async function GET(
             )
           `)
           .in('id', missingIds);
+        const additionalPlayers = (rawAdditionalPlayers ?? []) as AdminPlayerRecord[];
 
-        (additionalPlayers || []).forEach((p: any) => {
-          playerMap[p.id] = p;
+        additionalPlayers.forEach((player) => {
+          playerMap[player.id] = player;
         });
       }
     }
 
-    const formattedTransfers = (rawTransfers || []).map((t: any) => ({
+    const formattedTransfers = rawTransfers.map((t) => ({
       id: t.id,
       gameweek_id: t.gameweek_id,
       gameweek_number: t.gameweeks?.gameweek_number || null,
@@ -252,7 +338,7 @@ export async function GET(
     }));
 
     // 5. Fetch Leagues
-    const { data: rawLeagues } = await (supabase.from('league_participants') as any)
+    const { data: rawLeagueData } = await supabase.from('league_participants')
       .select(`
         id,
         points,
@@ -268,8 +354,9 @@ export async function GET(
         )
       `)
       .eq('fantasy_season_id', fantasySeasonId);
+    const rawLeagues = (rawLeagueData ?? []) as LeagueParticipationRecord[];
 
-    const formattedLeagues = (rawLeagues || []).map((lp: any) => ({
+    const formattedLeagues = rawLeagues.map((lp) => ({
       id: lp.id,
       points: Number(lp.points || 0),
       rank: lp.rank,
@@ -304,7 +391,7 @@ export async function GET(
       squad: {
         id: squad?.id || null,
         name: squad?.name || 'Fantasy Squad',
-        members: activeMembers.map((m: any) => ({
+        members: activeMembers.map((m) => ({
           id: m.id,
           player_id: m.player_id,
           cost: Number(m.cost || 0),
@@ -316,7 +403,7 @@ export async function GET(
       transfers: formattedTransfers,
       leagues: formattedLeagues,
     });
-  } catch (error: any) {
-    return createErrorResponse(error);
+  } catch (error: unknown) {
+    return createErrorResponse(error instanceof Error ? error : new Error(String(error)));
   }
 }

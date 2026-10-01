@@ -1,18 +1,15 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import {
   X,
   Trophy,
-  Activity,
-  Shield,
   Coins,
   TrendingUp,
   Flame,
-  Award,
   Swords,
-  Target,
   ExternalLink,
   MapPin,
   CheckCircle2,
@@ -25,9 +22,42 @@ interface AdminPlayerDetailModalProps {
   onNavigate?: () => void;
 }
 
+interface AdminPlayerPerformance {
+  id: number;
+  gameweek_id: number;
+  kills: number | null;
+  deaths: number | null;
+  assists: number | null;
+  gold_per_minute: number | null;
+  experience_per_minute: number | null;
+  last_hits: number | null;
+  denies: number | null;
+  hero_damage: number | null;
+  fantasy_points_breakdown?: { total_points: number | null } | null;
+}
+
+interface AdminPlayerData {
+  id: number;
+  name: string;
+  in_game_name: string | null;
+  profile_image_url: string | null;
+  availability_status: string | null;
+  primary_role: string | null;
+  real_name?: string | null;
+  country?: string | null;
+  current_price: number;
+  total_season_points: number;
+  last_gw_points: number;
+  ownership_percentage: number;
+  data_provider_id?: string | null;
+  last_synced_at?: string | null;
+  professional_teams?: { name: string; logo_url: string | null; region?: string | null } | null;
+  performances?: AdminPlayerPerformance[] | null;
+}
+
 export default function AdminPlayerDetailModal({ playerId, onClose, onNavigate }: AdminPlayerDetailModalProps) {
   const router = useRouter();
-  const [playerData, setPlayerData] = useState<any>(null);
+  const [playerData, setPlayerData] = useState<AdminPlayerData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -43,8 +73,6 @@ export default function AdminPlayerDetailModal({ playerId, onClose, onNavigate }
     if (!playerId) return;
 
     let isMounted = true;
-    setLoading(true);
-    setError(null);
 
     async function fetchPlayer() {
       try {
@@ -53,12 +81,12 @@ export default function AdminPlayerDetailModal({ playerId, onClose, onNavigate }
           const err = await res.json().catch(() => ({}));
           throw new Error(err.error || `Failed to fetch player (${res.status})`);
         }
-        const json = await res.json();
+        const json = (await res.json()) as { player?: AdminPlayerData | null };
         if (isMounted) {
           setPlayerData(json.player || null);
         }
-      } catch (err: any) {
-        if (isMounted) setError(err.message || 'Error loading player profile');
+      } catch (error: unknown) {
+        if (isMounted) setError(error instanceof Error ? error.message : 'Error loading player profile');
       } finally {
         if (isMounted) setLoading(false);
       }
@@ -79,7 +107,7 @@ export default function AdminPlayerDetailModal({ playerId, onClose, onNavigate }
 
   return (
     <div
-      className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fadeIn"
+      className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fadeIn"
       onClick={onClose}
       role="dialog"
       aria-modal="true"
@@ -89,7 +117,7 @@ export default function AdminPlayerDetailModal({ playerId, onClose, onNavigate }
         onClick={(e) => e.stopPropagation()}
       >
         {/* Modal Top Header with gradient banner */}
-        <div className="relative bg-gradient-to-r from-amber-600/30 via-slate-800/80 to-slate-900 p-6 border-b border-slate-700">
+        <div className="relative bg-linear-to-r from-amber-600/30 via-slate-800/80 to-slate-900 p-6 border-b border-slate-700">
           <button
             onClick={onClose}
             className="absolute top-4 right-4 p-2 text-slate-400 hover:text-white bg-slate-800/80 hover:bg-slate-700 rounded-lg transition-colors"
@@ -102,9 +130,12 @@ export default function AdminPlayerDetailModal({ playerId, onClose, onNavigate }
             {/* Player Avatar */}
             <div className="relative">
               {player?.profile_image_url ? (
-                <img
+                <Image
                   src={player.profile_image_url}
                   alt={player.in_game_name || player.name}
+                  width={80}
+                  height={80}
+                  unoptimized
                   className="w-20 h-20 rounded-2xl object-cover bg-slate-800 border-2 border-amber-500/40 shadow-lg shadow-amber-500/10"
                 />
               ) : (
@@ -147,7 +178,7 @@ export default function AdminPlayerDetailModal({ playerId, onClose, onNavigate }
               {team && (
                 <div className="flex items-center gap-2 mt-2">
                   {team.logo_url && (
-                    <img src={team.logo_url} alt={team.name} className="w-4 h-4 object-contain" />
+                    <Image src={team.logo_url} alt={team.name} width={16} height={16} unoptimized className="w-4 h-4 object-contain" />
                   )}
                   <span className="text-xs font-semibold text-amber-400">{team.name}</span>
                   {team.region && (
@@ -175,7 +206,7 @@ export default function AdminPlayerDetailModal({ playerId, onClose, onNavigate }
             {/* KPI Cards */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               {/* Market Price */}
-              <div className="bg-gradient-to-br from-amber-500/10 via-amber-500/5 to-slate-800/40 p-3.5 rounded-xl border border-amber-500/30 shadow-sm">
+              <div className="bg-linear-to-br from-amber-500/10 via-amber-500/5 to-slate-800/40 p-3.5 rounded-xl border border-amber-500/30 shadow-sm">
                 <div className="flex items-center gap-1.5 text-xs text-amber-300/90 font-medium">
                   <div className="p-1 rounded-md bg-amber-500/20 text-amber-400">
                     <Coins className="w-3.5 h-3.5" />
@@ -188,7 +219,7 @@ export default function AdminPlayerDetailModal({ playerId, onClose, onNavigate }
               </div>
 
               {/* Season Points */}
-              <div className="bg-gradient-to-br from-emerald-500/10 via-emerald-500/5 to-slate-800/40 p-3.5 rounded-xl border border-emerald-500/30 shadow-sm">
+              <div className="bg-linear-to-br from-emerald-500/10 via-emerald-500/5 to-slate-800/40 p-3.5 rounded-xl border border-emerald-500/30 shadow-sm">
                 <div className="flex items-center gap-1.5 text-xs text-emerald-300/90 font-medium">
                   <div className="p-1 rounded-md bg-emerald-500/20 text-emerald-400">
                     <Trophy className="w-3.5 h-3.5" />
@@ -201,7 +232,7 @@ export default function AdminPlayerDetailModal({ playerId, onClose, onNavigate }
               </div>
 
               {/* Latest GW Points */}
-              <div className="bg-gradient-to-br from-purple-500/10 via-purple-500/5 to-slate-800/40 p-3.5 rounded-xl border border-purple-500/30 shadow-sm">
+              <div className="bg-linear-to-br from-purple-500/10 via-purple-500/5 to-slate-800/40 p-3.5 rounded-xl border border-purple-500/30 shadow-sm">
                 <div className="flex items-center gap-1.5 text-xs text-purple-300/90 font-medium">
                   <div className="p-1 rounded-md bg-purple-500/20 text-purple-400">
                     <Flame className="w-3.5 h-3.5" />
@@ -214,7 +245,7 @@ export default function AdminPlayerDetailModal({ playerId, onClose, onNavigate }
               </div>
 
               {/* Ownership */}
-              <div className="bg-gradient-to-br from-sky-500/10 via-sky-500/5 to-slate-800/40 p-3.5 rounded-xl border border-sky-500/30 shadow-sm">
+              <div className="bg-linear-to-br from-sky-500/10 via-sky-500/5 to-slate-800/40 p-3.5 rounded-xl border border-sky-500/30 shadow-sm">
                 <div className="flex items-center gap-1.5 text-xs text-sky-300/90 font-medium">
                   <div className="p-1 rounded-md bg-sky-500/20 text-sky-400">
                     <TrendingUp className="w-3.5 h-3.5" />
@@ -252,7 +283,7 @@ export default function AdminPlayerDetailModal({ playerId, onClose, onNavigate }
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-800">
-                      {performances.slice(0, 8).map((perf: any) => {
+                      {performances.slice(0, 8).map((perf) => {
                         const pts = perf.fantasy_points_breakdown?.total_points ?? null;
                         return (
                           <tr key={perf.id} className="hover:bg-slate-800/50 transition-colors">
@@ -302,9 +333,6 @@ export default function AdminPlayerDetailModal({ playerId, onClose, onNavigate }
         <div className="p-4 border-t border-slate-800 bg-slate-950 flex items-center justify-between">
           <button
             onClick={() => {
-              if (typeof sessionStorage !== 'undefined') {
-                sessionStorage.setItem('player_nav_from', 'admin-fantasy-teams');
-              }
               if (onNavigate) {
                 onNavigate();
               } else {

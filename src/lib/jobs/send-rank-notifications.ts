@@ -9,6 +9,30 @@ interface JobResult {
   duration: number;
 }
 
+interface ClosedGameweekRow {
+  id: number;
+  gameweek_number: number;
+  season_id: number;
+}
+
+interface FantasySeasonRankRow {
+  user_id: string;
+  global_rank: number;
+  total_points: number;
+}
+
+interface PushSubscriptionRecord {
+  endpoint: string;
+}
+
+interface RankNotificationInsert {
+  user_id: string;
+  type: 'rank_update';
+  title: string;
+  message: string;
+  metadata: { gameweek_id: number; rank: number };
+}
+
 class SendRankNotifications {
   private supabase: ReturnType<typeof createClient>;
 
@@ -19,7 +43,7 @@ class SendRankNotifications {
     );
   }
 
-  private async dispatchWebPush(subscription: any, payload: any) {
+  private async dispatchWebPush(subscription: PushSubscriptionRecord, payload: { title: string; body: string }) {
     console.log(`[PUSH NOTIFICATION] Sending to ${subscription.endpoint}: ${payload.title}`);
     return true;
   }
@@ -45,26 +69,28 @@ class SendRankNotifications {
         .limit(1);
 
       if (gwError) throw gwError;
-      if (!gameweeks || gameweeks.length === 0) {
+      const closedGameweeks = (gameweeks ?? []) as ClosedGameweekRow[];
+      if (closedGameweeks.length === 0) {
         return { ...result, duration: Date.now() - startTime };
       }
 
-      const gw = gameweeks[0];
+      const gw = closedGameweeks[0];
 
       // 2. Fetch users and their current global rank
       const { data: fantasySeasons, error: fsError } = await this.supabase
         .from('fantasy_seasons')
         .select('user_id, global_rank, total_points')
-        .eq('season_id', (gw as any).season_id)
+        .eq('season_id', gw.season_id)
         .not('global_rank', 'is', null);
 
       if (fsError) throw fsError;
-      if (!fantasySeasons) {
+      const rankedSeasons = (fantasySeasons ?? []) as FantasySeasonRankRow[];
+      if (rankedSeasons.length === 0) {
         return { ...result, duration: Date.now() - startTime };
       }
 
       // 3. For each user, check if we've notified them about this gameweek's final rank
-      for (const season of fantasySeasons as any[]) {
+      for (const season of rankedSeasons) {
         result.usersProcessed++;
         const userId = season.user_id;
 
@@ -73,22 +99,25 @@ class SendRankNotifications {
           .select('id')
           .eq('user_id', userId)
           .eq('type', 'rank_update')
-          .contains('metadata', { gameweek_id: (gw as any).id })
+          .contains('metadata', { gameweek_id: gw.id })
           .limit(1)
           .maybeSingle();
 
         if (existingNotif) continue;
 
         // Create notification
-        const title = `Gameweek ${(gw as any).gameweek_number} Results Are In!`;
+        const title = `Gameweek ${gw.gameweek_number} Results Are In!`;
         const message = `The gameweek has concluded. You are currently ranked #${season.global_rank} globally with ${season.total_points} total points.`;
         
-        const { error: insertError } = await (this.supabase.from('user_notifications') as any).insert({
+        const notificationTable = this.supabase.from('user_notifications') as unknown as {
+          insert(values: RankNotificationInsert): PromiseLike<{ error: { message: string } | null }>;
+        };
+        const { error: insertError } = await notificationTable.insert({
           user_id: userId,
           type: 'rank_update',
           title,
           message,
-          metadata: { gameweek_id: (gw as any).id, rank: season.global_rank },
+          metadata: { gameweek_id: gw.id, rank: season.global_rank },
         });
 
         if (insertError) {
@@ -109,16 +138,16 @@ class SendRankNotifications {
             try {
               await this.dispatchWebPush(sub, { title, body: message });
               result.pushNotificationsSent++;
-            } catch (e) {
+            } catch {
               // Ignore push failure internally
             }
           }
         }
       }
 
-    } catch (error: any) {
+    } catch (error: unknown) {
       result.success = false;
-      result.errors.push(error.message || String(error));
+      result.errors.push(error instanceof Error ? error.message : String(error));
     }
 
     result.duration = Date.now() - startTime;

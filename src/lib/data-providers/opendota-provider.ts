@@ -29,6 +29,89 @@ interface OpenDotaConfig {
   };
 }
 
+interface OpenDotaProPlayer {
+  account_id: number;
+  steamid?: string | null;
+  name?: string | null;
+  personaname?: string | null;
+  is_pro?: boolean;
+  team_id?: number | null;
+  team_name?: string | null;
+  team_tag?: string | null;
+  fantasy_role?: number | null;
+  country_code?: string | null;
+  loccountrycode?: string | null;
+  profileurl?: string | null;
+  avatar?: string | null;
+  avatarmedium?: string | null;
+  avatarfull?: string | null;
+}
+
+interface OpenDotaTeam {
+  team_id: number;
+  name: string;
+  tag?: string | null;
+  country?: string | null;
+  created_at?: number | null;
+  logo_url?: string | null;
+}
+
+interface OpenDotaRosterPlayer {
+  account_id: number;
+  time_joined: number;
+}
+
+interface OpenDotaProMatch {
+  match_id: number;
+  leagueid?: number | null;
+  series_id?: number | null;
+  league_name?: string | null;
+  series_name?: string | null;
+  radiant_team_id?: number | null;
+  dire_team_id?: number | null;
+  start_time: number;
+  duration?: number | null;
+  radiant_win?: boolean;
+}
+
+interface OpenDotaMatchPlayer {
+  isRadiant: boolean;
+  account_id?: number | null;
+  hero_id: number;
+  hero_name?: string | null;
+  kills?: number | string | null;
+  deaths?: number | string | null;
+  assists?: number | string | null;
+  gold_per_min?: number | string | null;
+  xp_per_min?: number | string | null;
+  last_hits?: number | string | null;
+  denies?: number | string | null;
+  hero_damage?: number | string | null;
+  tower_damage?: number | string | null;
+  hero_healing?: number | string | Record<string, unknown> | null;
+  healing?: number | string | Record<string, unknown> | null;
+  obs_placed?: number | string | null;
+  obs_left?: number | string | null;
+}
+
+interface OpenDotaMatchDetails {
+  duration: number;
+  radiant_win: boolean;
+  radiant_team_id: number;
+  dire_team_id: number;
+  players?: OpenDotaMatchPlayer[] | null;
+}
+
+interface OpenDotaPlayerDetails {
+  profile?: {
+    personaname?: string | null;
+    name?: string | null;
+    loccountrycode?: string | null;
+    last_login?: string | null;
+    avatarfull?: string | null;
+  } | null;
+}
+
 export class OpenDotaProvider extends DataProviderBase implements DataProvider {
   name = 'OpenDota';
   version = '1.0.0';
@@ -50,11 +133,11 @@ export class OpenDotaProvider extends DataProviderBase implements DataProvider {
     return true;
   }
 
-  async fetchPlayers(filters?: DataProviderFilters, rawData?: any[]): Promise<PlayerData[]> {
+  async fetchPlayers(filters?: DataProviderFilters, rawData?: OpenDotaProPlayer[]): Promise<PlayerData[]> {
     try {
       // Use pre-fetched raw data if provided (avoids duplicate HTTP call from sync job),
       // otherwise fetch from OpenDota's dedicated /proPlayers endpoint.
-      const rawPlayers = rawData ?? await this.request('/proPlayers');
+      const rawPlayers = rawData ?? await this.request<OpenDotaProPlayer[]>('/proPlayers');
 
       if (!Array.isArray(rawPlayers)) {
         throw new Error('Invalid proPlayers response from OpenDota');
@@ -66,9 +149,7 @@ export class OpenDotaProvider extends DataProviderBase implements DataProvider {
       // - Must be on an active team (team_id must be a real non-zero value)
       // This excludes retired players who still carry is_pro=true but have no team,
       // and players with a stale team_name string but no team_id.
-      const validPlayers = rawPlayers.filter(
-        (p: any) => p.name && p.is_pro && p.team_id && p.team_id !== 0
-      );
+      const validPlayers = rawPlayers.filter((player) => player.name && player.is_pro && player.team_id && player.team_id !== 0);
 
       // Map OpenDota fantasy_role integer to role name
       const roleMap: Record<number, string> = {
@@ -78,7 +159,7 @@ export class OpenDotaProvider extends DataProviderBase implements DataProvider {
         4: 'Mid',
       };
 
-      const mapped: PlayerData[] = validPlayers.map((p: any) => {
+      const mapped: PlayerData[] = validPlayers.map((p) => {
         const steamId = p.steamid ? String(p.steamid) : String(p.account_id);
         const primaryRole = roleMap[p.fantasy_role] || 'Carry';
 
@@ -118,7 +199,7 @@ export class OpenDotaProvider extends DataProviderBase implements DataProvider {
 
   async fetchPlayer(playerId: string): Promise<PlayerData> {
     try {
-      const player = await this.request(`/players/${playerId}`);
+      const player = await this.request<OpenDotaPlayerDetails>(`/players/${playerId}`);
 
       if (!player || !player.profile) {
         throw this.createError(
@@ -158,7 +239,7 @@ export class OpenDotaProvider extends DataProviderBase implements DataProvider {
 
   async fetchTeams(filters?: DataProviderFilters): Promise<TeamData[]> {
     try {
-      const teams = await this.request('/teams');
+      const teams = await this.request<OpenDotaTeam[]>('/teams');
 
       if (!Array.isArray(teams)) {
         throw this.createError(
@@ -170,15 +251,13 @@ export class OpenDotaProvider extends DataProviderBase implements DataProvider {
       }
 
       // Filter to genuine pro teams with non-empty names and valid IDs
-      const validTeams = teams.filter(
-        (t: any) => t.team_id && t.name && typeof t.name === 'string' && t.name.trim().length > 0
-      );
+      const validTeams = teams.filter((team) => team.team_id && team.name && team.name.trim().length > 0);
 
       const offset = filters?.offset || 0;
       const limit = filters?.limit !== undefined ? filters.limit : validTeams.length;
       return validTeams
         .slice(offset, offset + limit)
-        .map((t: any) => ({
+        .map((t) => ({
           id: String(t.team_id),
           name: t.name.trim(),
           tag: (t.tag ? String(t.tag).trim() : '') || t.name.trim().substring(0, 4).toUpperCase(),
@@ -203,7 +282,7 @@ export class OpenDotaProvider extends DataProviderBase implements DataProvider {
 
   async fetchTeam(teamId: string): Promise<TeamData> {
     try {
-      const team = await this.request(`/teams/${teamId}`);
+      const team = await this.request<OpenDotaTeam>(`/teams/${teamId}`);
 
       if (!team) {
         throw this.createError(
@@ -214,7 +293,7 @@ export class OpenDotaProvider extends DataProviderBase implements DataProvider {
         );
       }
 
-      const roster = await this.request(`/teams/${teamId}/players`);
+      const roster = await this.request<OpenDotaRosterPlayer[]>(`/teams/${teamId}/players`);
 
       return {
         id: String(teamId),
@@ -224,7 +303,7 @@ export class OpenDotaProvider extends DataProviderBase implements DataProvider {
         country: team.country,
         foundedDate: team.created_at ? new Date(team.created_at * 1000) : undefined,
         logoUrl: team.logo_url,
-        roster: (roster || []).map((r: any) => ({
+        roster: (roster || []).map((r) => ({
           playerId: String(r.account_id),
           joinedDate: new Date(r.time_joined * 1000),
           position: undefined,
@@ -254,7 +333,7 @@ export class OpenDotaProvider extends DataProviderBase implements DataProvider {
       if (filters?.offset && filters.offset > 0) {
         queryParams.less_than_match_id = filters.offset.toString();
       }
-      const response = await this.request('/proMatches', queryParams);
+      const response = await this.request<OpenDotaProMatch[]>('/proMatches', queryParams);
 
       // Group matches by tournament/event
       const tournamentsMap = new Map<string, TournamentData>();
@@ -314,11 +393,11 @@ export class OpenDotaProvider extends DataProviderBase implements DataProvider {
       if (filters?.offset && filters.offset > 0) {
         queryParams.less_than_match_id = filters.offset.toString();
       }
-      const response = await this.request('/proMatches', queryParams);
+      const response = await this.request<OpenDotaProMatch[]>('/proMatches', queryParams);
 
       return (response || [])
-        .filter((m: any) => !tournamentId || String(m.leagueid) === tournamentId || String(m.series_id) === tournamentId)
-        .map((m: any) => ({
+        .filter((match) => !tournamentId || String(match.leagueid) === tournamentId || String(match.series_id) === tournamentId)
+        .map((m) => ({
           id: String(m.match_id),
           tournamentId: String(m.leagueid || m.series_id || tournamentId || '0'),
           team1Id: String(m.radiant_team_id),
@@ -343,7 +422,7 @@ export class OpenDotaProvider extends DataProviderBase implements DataProvider {
 
   async fetchMatchDetails(matchId: string): Promise<MatchDetailsData> {
     try {
-      const match = await this.request(`/matches/${matchId}`);
+      const match = await this.request<OpenDotaMatchDetails>(`/matches/${matchId}`);
 
       if (!match) {
         throw this.createError(
@@ -354,7 +433,7 @@ export class OpenDotaProvider extends DataProviderBase implements DataProvider {
         );
       }
 
-      const parseNumeric = (val: any): number => {
+      const parseNumeric = (val: unknown): number => {
         if (typeof val === 'number') return isNaN(val) ? 0 : Math.round(val);
         if (typeof val === 'string') {
           const parsed = Number(val);
@@ -363,7 +442,7 @@ export class OpenDotaProvider extends DataProviderBase implements DataProvider {
         if (typeof val === 'object' && val !== null) {
           // OpenDota healing can be a dict mapping hero/npc names to healing values
           return Math.round(
-            Object.values(val).reduce((sum: number, cur: any) => {
+            Object.values(val as Record<string, unknown>).reduce((sum: number, cur) => {
               const num = Number(cur);
               return sum + (isNaN(num) ? 0 : num);
             }, 0)
@@ -373,8 +452,8 @@ export class OpenDotaProvider extends DataProviderBase implements DataProvider {
       };
 
       const radiantPlayers = (match.players || [])
-        .filter((p: any) => p.isRadiant)
-        .map((p: any) => ({
+        .filter((player) => player.isRadiant)
+        .map((p) => ({
           playerId: String(p.account_id || 'unknown'),
           heroId: String(p.hero_id),
           heroName: p.hero_name || getHeroNameById(p.hero_id),
@@ -395,8 +474,8 @@ export class OpenDotaProvider extends DataProviderBase implements DataProvider {
         }));
 
       const direPlayers = (match.players || [])
-        .filter((p: any) => !p.isRadiant)
-        .map((p: any) => ({
+        .filter((player) => !player.isRadiant)
+        .map((p) => ({
           playerId: String(p.account_id || 'unknown'),
           heroId: String(p.hero_id),
           heroName: p.hero_name || getHeroNameById(p.hero_id),
@@ -448,12 +527,13 @@ export class OpenDotaProvider extends DataProviderBase implements DataProvider {
 
   async fetchRosterHistory(
     playerId: string,
-    dateRange?: { from: Date; to: Date }
+    _dateRange?: { from: Date; to: Date }
   ): Promise<RosterChangeData[]> {
+    void _dateRange;
     try {
       // OpenDota has limited roster change history
       // This would require tracking team rosters over time
-      const response = await this.request(`/players/${playerId}/teammates`);
+      await this.request<unknown[]>(`/players/${playerId}/teammates`);
 
       // This endpoint shows teammates, not roster history
       // Would need a different approach for true roster history
@@ -479,10 +559,10 @@ export class OpenDotaProvider extends DataProviderBase implements DataProvider {
     };
   }
 
-  private async request(
+  private async request<T = unknown>(
     endpoint: string,
     queryParams?: Record<string, string | number | undefined>
-  ): Promise<any> {
+  ): Promise<T> {
     return this.retry(async () => {
       // Rate limiting
       const timeSinceLastRequest = Date.now() - this.lastRequestTime;
@@ -520,7 +600,7 @@ export class OpenDotaProvider extends DataProviderBase implements DataProvider {
         );
       }
 
-      return response.json();
+      return await response.json() as T;
     });
   }
 }
@@ -532,7 +612,7 @@ export class OpenDotaProvider extends DataProviderBase implements DataProvider {
  * and reuse it for both role-lookup building AND fallback player mapping,
  * eliminating the duplicate HTTP call that previously fired on every sync run.
  */
-export async function fetchRawOpenDotaProPlayers(): Promise<any[]> {
+export async function fetchRawOpenDotaProPlayers(): Promise<OpenDotaProPlayer[]> {
   try {
     const res = await fetch('https://api.opendota.com/api/proPlayers', {
       headers: { 'User-Agent': 'FantasyDota/1.0' },
@@ -542,8 +622,12 @@ export async function fetchRawOpenDotaProPlayers(): Promise<any[]> {
       console.warn(`[fetchRawOpenDotaProPlayers] OpenDota returned status ${res.status}`);
       return [];
     }
-    const data = await res.json();
-    return Array.isArray(data) ? data : [];
+    const data: unknown = await res.json();
+    return Array.isArray(data)
+      ? data.filter((player): player is OpenDotaProPlayer =>
+          typeof player === 'object' && player !== null && 'account_id' in player && typeof player.account_id === 'number'
+        )
+      : [];
   } catch (error) {
     console.warn(`[fetchRawOpenDotaProPlayers] Failed: ${(error as Error).message}`);
     return [];

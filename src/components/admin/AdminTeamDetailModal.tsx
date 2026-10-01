@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import Image from 'next/image';
 import {
   X,
   Trophy,
@@ -9,12 +10,7 @@ import {
   ArrowRightLeft,
   Calendar,
   Award,
-  Zap,
-  Shield,
-  Star,
-  ExternalLink,
   ChevronRight,
-  Activity,
   AlertCircle
 } from 'lucide-react';
 import AdminPlayerDetailModal from '@/components/admin/AdminPlayerDetailModal';
@@ -188,8 +184,6 @@ export default function AdminTeamDetailModal({ teamId, onClose }: AdminTeamDetai
     if (!teamId) return;
 
     let isMounted = true;
-    setLoading(true);
-    setError(null);
 
     async function loadData() {
       try {
@@ -205,8 +199,8 @@ export default function AdminTeamDetailModal({ teamId, onClose }: AdminTeamDetai
             setSelectedGwId(json.lineups[0].gameweek_id);
           }
         }
-      } catch (err: any) {
-        if (isMounted) setError(err.message || 'Failed to load team details');
+      } catch (error: unknown) {
+        if (isMounted) setError(error instanceof Error ? error.message : 'Failed to load team details');
       } finally {
         if (isMounted) setLoading(false);
       }
@@ -431,9 +425,9 @@ export default function AdminTeamDetailModal({ teamId, onClose }: AdminTeamDetai
                               <div
                                 key={member.id}
                                 onClick={() => playerId && setSelectedPlayerId(playerId)}
-                                className="group relative p-3.5 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-gradient-to-br dark:from-slate-800 dark:to-slate-800/80 hover:border-amber-500/70 shadow-sm hover:shadow-lg hover:shadow-amber-500/5 hover:-translate-y-0.5 transition-all duration-200 cursor-pointer overflow-hidden text-left flex flex-col justify-between"
+                                className="group relative p-3.5 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-linear-to-br dark:from-slate-800 dark:to-slate-800/80 hover:border-amber-500/70 shadow-sm hover:shadow-lg hover:shadow-amber-500/5 hover:-translate-y-0.5 transition-all duration-200 cursor-pointer overflow-hidden text-left flex flex-col justify-between"
                               >
-                                <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-amber-500/30 via-amber-500 to-amber-500/30 group-hover:h-1.5 transition-all" />
+                                <div className="absolute top-0 left-0 right-0 h-1 bg-linear-to-r from-amber-500/30 via-amber-500 to-amber-500/30 group-hover:h-1.5 transition-all" />
 
                                 <div>
                                   <div className="flex items-center justify-between gap-1 mb-2.5">
@@ -449,9 +443,12 @@ export default function AdminTeamDetailModal({ teamId, onClose }: AdminTeamDetai
                                   <div className="flex items-center gap-2.5 mt-2">
                                     <div className="relative shrink-0">
                                       {player?.profile_image_url ? (
-                                        <img
+                                        <Image
                                           src={player.profile_image_url}
                                           alt={player.in_game_name || player.name}
+                                          width={44}
+                                          height={44}
+                                          unoptimized
                                           className="w-11 h-11 rounded-xl object-cover bg-slate-100 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 group-hover:border-amber-500 transition-colors shadow-sm"
                                         />
                                       ) : (
@@ -538,9 +535,12 @@ export default function AdminTeamDetailModal({ teamId, onClose }: AdminTeamDetai
                                     <div className="flex items-center gap-2.5 mt-2">
                                       <div className="relative shrink-0">
                                         {player?.profile_image_url ? (
-                                          <img
+                                          <Image
                                             src={player.profile_image_url}
                                             alt={player.in_game_name || player.name}
+                                            width={44}
+                                            height={44}
+                                            unoptimized
                                             className="w-11 h-11 rounded-xl object-cover bg-slate-100 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 group-hover:border-slate-400 transition-colors shadow-sm"
                                           />
                                         ) : (

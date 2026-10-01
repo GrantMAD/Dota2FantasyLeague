@@ -1,6 +1,7 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
+import Image from 'next/image';
 import {
   AlertCircle,
   CheckCircle,
@@ -18,8 +19,6 @@ import {
   Trophy,
   Swords,
   ExternalLink,
-  Image as ImageIcon,
-  HelpCircle,
   CheckCheck,
 } from 'lucide-react';
 import { fetchWithAuth } from '@/lib/fetch-with-auth';
@@ -135,10 +134,13 @@ function getConflictGuidance(conflict: DataConflict): {
 export default function DataQualityPage() {
   const [conflicts, setConflicts] = useState<DataConflict[]>([]);
   const [metrics, setMetrics] = useState<QualityMetrics | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [completedRequest, setCompletedRequest] = useState<{ filterKey: string; refreshVersion: number } | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [entityFilter, setEntityFilter] = useState<EntityFilter>('all');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
+  const [refreshVersion, setRefreshVersion] = useState(0);
+  const filterKey = JSON.stringify([entityFilter, statusFilter]);
+  const loading = completedRequest?.filterKey !== filterKey;
 
   // Track image load failures to show graceful fallback
   const [failedImages, setFailedImages] = useState<Record<string, boolean>>({});
@@ -160,42 +162,49 @@ export default function DataQualityPage() {
   const [bulkIgnoring, setBulkIgnoring] = useState<boolean>(false);
   const [showIgnoreAllModal, setShowIgnoreAllModal] = useState<boolean>(false);
 
-  const fetchData = useCallback(async (isRefresh = false) => {
-    if (isRefresh) setRefreshing(true);
-    else setLoading(true);
-
-    try {
-      const entityParam = entityFilter !== 'all' ? `entity_type=${entityFilter}` : '';
-      const statusParam = statusFilter !== 'all' ? `status=${statusFilter}` : '';
-      const queryParams = [entityParam, statusParam].filter(Boolean).join('&');
-      const conflictsUrl = `/api/admin/data/conflicts${queryParams ? `?${queryParams}` : ''}`;
-
-      const [conflictsRes, metricsRes] = await Promise.all([
-        fetchWithAuth(conflictsUrl),
-        fetchWithAuth('/api/admin/data/quality'),
-      ]);
-
-      if (conflictsRes.ok) {
-        const data = await conflictsRes.json();
-        setConflicts(data.conflicts || []);
-      }
-
-      if (metricsRes.ok) {
-        const data = await metricsRes.json();
-        setMetrics(data);
-      }
-    } catch (error) {
-      console.error('Failed to fetch data quality info:', error);
-      setFeedback({ type: 'error', message: 'Failed to load data conflicts or metrics.' });
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  }, [entityFilter, statusFilter]);
-
   useEffect(() => {
+    let isMounted = true;
+
+    async function fetchData() {
+      try {
+        const entityParam = entityFilter !== 'all' ? `entity_type=${entityFilter}` : '';
+        const statusParam = statusFilter !== 'all' ? `status=${statusFilter}` : '';
+        const queryParams = [entityParam, statusParam].filter(Boolean).join('&');
+        const conflictsUrl = `/api/admin/data/conflicts${queryParams ? `?${queryParams}` : ''}`;
+
+        const [conflictsRes, metricsRes] = await Promise.all([
+          fetchWithAuth(conflictsUrl),
+          fetchWithAuth('/api/admin/data/quality'),
+        ]);
+
+        if (conflictsRes.ok) {
+          const data = await conflictsRes.json();
+          if (isMounted) setConflicts(data.conflicts || []);
+        }
+
+        if (metricsRes.ok) {
+          const data = await metricsRes.json();
+          if (isMounted) setMetrics(data);
+        }
+      } catch (error) {
+        console.error('Failed to fetch data quality info:', error);
+        if (isMounted) setFeedback({ type: 'error', message: 'Failed to load data conflicts or metrics.' });
+      } finally {
+        if (isMounted) {
+          setCompletedRequest({
+            filterKey: JSON.stringify([entityFilter, statusFilter]),
+            refreshVersion,
+          });
+          setRefreshing(false);
+        }
+      }
+    }
+
     void fetchData();
-  }, [fetchData]);
+    return () => {
+      isMounted = false;
+    };
+  }, [entityFilter, statusFilter, refreshVersion]);
 
   // Direct 1-click resolution
   const handleQuickResolve = async (
@@ -248,11 +257,11 @@ export default function DataQualityPage() {
             : c
         )
       );
-    } catch (err: any) {
-      console.error('Resolution failed:', err);
+    } catch (error: unknown) {
+      console.error('Resolution failed:', error);
       setFeedback({
         type: 'error',
-        message: err.message || 'Error occurred while resolving conflict',
+        message: error instanceof Error ? error.message : 'Error occurred while resolving conflict',
       });
     } finally {
       setActionLoadingId(null);
@@ -296,11 +305,11 @@ export default function DataQualityPage() {
             : c
         )
       );
-    } catch (err: any) {
-      console.error('Ignore failed:', err);
+    } catch (error: unknown) {
+      console.error('Ignore failed:', error);
       setFeedback({
         type: 'error',
-        message: err.message || 'Error occurred while ignoring conflict',
+        message: error instanceof Error ? error.message : 'Error occurred while ignoring conflict',
       });
     } finally {
       setActionLoadingId(null);
@@ -347,11 +356,11 @@ export default function DataQualityPage() {
       );
 
       setShowIgnoreAllModal(false);
-    } catch (err: any) {
-      console.error('Bulk ignore failed:', err);
+    } catch (error: unknown) {
+      console.error('Bulk ignore failed:', error);
       setFeedback({
         type: 'error',
-        message: err.message || 'Error occurred while bulk ignoring conflicts',
+        message: error instanceof Error ? error.message : 'Error occurred while bulk ignoring conflicts',
       });
     } finally {
       setBulkIgnoring(false);
@@ -452,11 +461,11 @@ export default function DataQualityPage() {
       );
 
       setModalConflict(null);
-    } catch (err: any) {
-      console.error('Modal resolution failed:', err);
+    } catch (error: unknown) {
+      console.error('Modal resolution failed:', error);
       setFeedback({
         type: 'error',
-        message: err.message || 'Error occurred while resolving conflict',
+        message: error instanceof Error ? error.message : 'Error occurred while resolving conflict',
       });
     } finally {
       setModalSubmitting(false);
@@ -529,7 +538,10 @@ export default function DataQualityPage() {
             </button>
           )}
           <button
-            onClick={() => void fetchData(true)}
+            onClick={() => {
+              setRefreshing(true);
+              setRefreshVersion((version) => version + 1);
+            }}
             disabled={refreshing}
             className="inline-flex items-center gap-2 rounded-lg border border-gray-700 bg-gray-800 px-4 py-2 text-sm font-medium text-gray-200 transition-colors hover:bg-gray-700 hover:text-white disabled:opacity-50"
           >
@@ -804,9 +816,12 @@ export default function DataQualityPage() {
                                   Broken Image
                                 </div>
                               ) : (
-                                <img
+                                <Image
                                   src={String(conflict.value_1)}
                                   alt={`${provider1Name} preview`}
+                                  fill
+                                  sizes="64px"
+                                  unoptimized
                                   className="max-h-full max-w-full object-contain"
                                   onError={() =>
                                     setFailedImages((prev) => ({
@@ -878,9 +893,12 @@ export default function DataQualityPage() {
                                   Broken Image
                                 </div>
                               ) : (
-                                <img
+                                <Image
                                   src={String(conflict.value_2)}
                                   alt={`${provider2Name} preview`}
+                                  fill
+                                  sizes="64px"
+                                  unoptimized
                                   className="max-h-full max-w-full object-contain"
                                   onError={() =>
                                     setFailedImages((prev) => ({
@@ -954,7 +972,7 @@ export default function DataQualityPage() {
                         )}
                       </div>
                       {conflict.notes && (
-                        <p className="mt-2 text-gray-300 break-words">
+                        <p className="mt-2 text-gray-300 wrap-break-word">
                           <span className="font-medium text-gray-400">Notes:</span> {conflict.notes}
                         </p>
                       )}

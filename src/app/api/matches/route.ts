@@ -2,6 +2,41 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase';
 import { getCached, setCached } from '@/lib/response-cache';
 
+interface MatchRecord {
+  [column: string]: unknown;
+  id: number;
+  status: string;
+  scheduled_time: string;
+  duration_minutes: number | null;
+  gameweek_id: number | null;
+  series_id: number | null;
+  match_number: number | null;
+  team_a_id: number | null;
+  team_b_id: number | null;
+  winner_team_id: number | null;
+}
+
+interface TeamRecord {
+  id: number;
+  name: string;
+  logo_url: string | null;
+  region: string | null;
+}
+
+interface SeriesRecord {
+  id: number;
+  tournament_id: number | null;
+  best_of: number | null;
+  series_number: number | null;
+}
+
+interface TournamentRecord {
+  id: number;
+  name: string;
+  slug: string;
+  tier: string | null;
+}
+
 /**
  * GET /api/matches
  * Returns matches, optionally filtered by gameweekId, tournamentId, teamId, or status.
@@ -23,7 +58,7 @@ export async function GET(request: NextRequest) {
     let tournamentSeriesIds: number[] | null = null;
 
     if (tournamentId) {
-      const { data: series, error: seriesError } = await (supabase.from('tournament_series') as any)
+      const { data: seriesData, error: seriesError } = await supabase.from('tournament_series')
         .select('id')
         .eq('tournament_id', tournamentId);
 
@@ -34,15 +69,14 @@ export async function GET(request: NextRequest) {
         );
       }
 
-      const resolvedSeriesIds = (series ?? []).map((item: { id: number }) => item.id);
+      const resolvedSeriesIds = ((seriesData ?? []) as { id: number }[]).map((item) => item.id);
       tournamentSeriesIds = resolvedSeriesIds;
       if (resolvedSeriesIds.length === 0) {
         return NextResponse.json({ matches: [] });
       }
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    let query = (supabase.from('matches') as any)
+    let query = supabase.from('matches')
       .select(`
         id,
         status,
@@ -76,18 +110,19 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    if (!data || data.length === 0) {
+    const matchRows = (data ?? []) as MatchRecord[];
+    if (matchRows.length === 0) {
       const response = { matches: [] };
       setCached(cacheKey, response, 60_000);
       return NextResponse.json(response);
     }
 
-    const teamIds = [...new Set((data ?? []).flatMap((match: any) => [match.team_a_id, match.team_b_id]))];
-    const seriesIds = [...new Set((data ?? []).map((match: any) => match.series_id))];
+    const teamIds = [...new Set(matchRows.flatMap((match) => [match.team_a_id, match.team_b_id]).filter((id): id is number => id !== null))];
+    const seriesIds = [...new Set(matchRows.map((match) => match.series_id).filter((id): id is number => id !== null))];
 
-    const [{ data: teams, error: teamsError }, { data: series, error: seriesError }] = await Promise.all([
-      (supabase.from('professional_teams') as any).select('id, name, logo_url, region').in('id', teamIds),
-      (supabase.from('tournament_series') as any).select('id, tournament_id, best_of, series_number').in('id', seriesIds),
+    const [{ data: teamData, error: teamsError }, { data: seriesData, error: seriesError }] = await Promise.all([
+      supabase.from('professional_teams').select('id, name, logo_url, region').in('id', teamIds),
+      supabase.from('tournament_series').select('id, tournament_id, best_of, series_number').in('id', seriesIds),
     ]);
 
     if (teamsError || seriesError) {
@@ -97,8 +132,10 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const tournamentIds = [...new Set((series ?? []).map((item: { tournament_id: number }) => item.tournament_id))];
-    const { data: tournaments, error: tournamentsError } = await (supabase.from('tournaments') as any)
+    const teams = (teamData ?? []) as TeamRecord[];
+    const series = (seriesData ?? []) as SeriesRecord[];
+    const tournamentIds = [...new Set(series.map((item) => item.tournament_id).filter((id): id is number => id !== null))];
+    const { data: tournamentData, error: tournamentsError } = await supabase.from('tournaments')
       .select('id, name, slug, tier')
       .in('id', tournamentIds);
 
@@ -109,16 +146,17 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const teamById = new Map<number, { id: number; name: string; logo_url: string | null; region?: string }>(
-      (teams ?? []).map((team: any) => [team.id, team])
-    );
-    const tournamentById = new Map<number, any>((tournaments ?? []).map((tournament: any) => [tournament.id, tournament]));
-    const seriesMap = new Map<number, any>((series ?? []).map((item: any) => [item.id, item]));
+    const tournaments = (tournamentData ?? []) as TournamentRecord[];
+    const teamById = new Map(teams.map((team) => [team.id, team] as const));
+    const tournamentById = new Map(tournaments.map((tournament) => [tournament.id, tournament] as const));
+    const seriesMap = new Map(series.map((item) => [item.id, item] as const));
 
     // Normalize the current schema into the field names used by the matches page.
     const response = {
-      matches: (data ?? []).map((match: any) => {
-        const seriesInfo = seriesMap.get(match.series_id);
+      matches: matchRows.map((match) => {
+        const seriesInfo = match.series_id === null ? undefined : seriesMap.get(match.series_id);
+        const radiantTeam = match.team_a_id === null ? undefined : teamById.get(match.team_a_id);
+        const direTeam = match.team_b_id === null ? undefined : teamById.get(match.team_b_id);
         return {
           ...match,
           match_number: match.match_number || 1,
@@ -128,13 +166,13 @@ export async function GET(request: NextRequest) {
           duration_seconds: match.duration_minutes ? match.duration_minutes * 60 : null,
           radiant_team_id: match.team_a_id,
           dire_team_id: match.team_b_id,
-          radiant_team: teamById.has(match.team_a_id)
-            ? { ...teamById.get(match.team_a_id), tag: teamById.get(match.team_a_id)?.name.slice(0, 4).toUpperCase() }
+          radiant_team: radiantTeam
+            ? { ...radiantTeam, tag: radiantTeam.name.slice(0, 4).toUpperCase() }
             : null,
-          dire_team: teamById.has(match.team_b_id)
-            ? { ...teamById.get(match.team_b_id), tag: teamById.get(match.team_b_id)?.name.slice(0, 4).toUpperCase() }
+          dire_team: direTeam
+            ? { ...direTeam, tag: direTeam.name.slice(0, 4).toUpperCase() }
             : null,
-          tournaments: seriesInfo ? tournamentById.get(seriesInfo.tournament_id) ?? null : null,
+          tournaments: seriesInfo?.tournament_id != null ? tournamentById.get(seriesInfo.tournament_id) ?? null : null,
         };
       }),
     };

@@ -23,8 +23,8 @@ export default function TournamentsHubPage() {
         const res = await fetch('/api/tournaments');
         const data = await res.json();
         setTournaments(data.tournaments || []);
-      } catch (err: any) {
-        setError(err.message || 'Failed to load tournaments');
+      } catch (error: unknown) {
+        setError(error instanceof Error ? error.message : 'Failed to load tournaments');
       } finally {
         setLoading(false);
       }

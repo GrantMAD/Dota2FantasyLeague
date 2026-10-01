@@ -20,6 +20,10 @@ interface FetchDetailsResult {
   completedAt: Date;
 }
 
+type MatchPlayerStatsInsert = Omit<MatchPlayerStats, 'id' | 'created_at' | 'updated_at' | 'hero_id'> & {
+  hero_id: number;
+};
+
 export async function fetchMatchDetails(): Promise<FetchDetailsResult> {
   const startedAt = new Date();
   const result: FetchDetailsResult = {
@@ -60,7 +64,7 @@ export async function fetchMatchDetails(): Promise<FetchDetailsResult> {
             console.log(`[fetchMatchDetails] Fetched details for match ${match.id} (external: ${externalId})`);
 
             // Extract player stats from nested teams structure and store in match_player_stats table
-            const statsToInsert: Omit<MatchPlayerStats, 'id' | 'created_at' | 'updated_at'>[] = [];
+            const statsToInsert: MatchPlayerStatsInsert[] = [];
             const supabase = getSupabaseServerClient();
             
             for (const team of details.teams || []) {
@@ -83,7 +87,7 @@ export async function fetchMatchDetails(): Promise<FetchDetailsResult> {
                     // Fall back to Team <id> if provider lookup fails
                   }
 
-                  const { data: existingByName } = await (supabase.from('professional_teams') as any)
+                  const { data: existingByName } = await supabase.from('professional_teams')
                     .select('id')
                     .ilike('name', teamName)
                     .maybeSingle();
@@ -92,7 +96,7 @@ export async function fetchMatchDetails(): Promise<FetchDetailsResult> {
                     dbTeamId = existingByName.id;
                     teamMap.set(teamProviderId, existingByName.id);
                   } else {
-                    const { data: newTeam } = await (supabase.from('professional_teams') as any)
+                    const { data: newTeam } = await supabase.from('professional_teams')
                       .insert({
                         name: teamName,
                         slug: `team-${teamProviderId}`,
@@ -118,7 +122,7 @@ export async function fetchMatchDetails(): Promise<FetchDetailsResult> {
 
                 if (!dbPlayerId && playerProviderId && playerProviderId !== '0' && playerProviderId !== 'unknown') {
                   // Check database in case player wasn't in initial in-memory chunk
-                  const { data: existingPlayer } = await (supabase.from('professional_players') as any)
+                  const { data: existingPlayer } = await supabase.from('professional_players')
                     .select('id')
                     .or(`data_provider_id.eq.${playerProviderId},slug.eq.${playerProviderId}`)
                     .limit(1)
@@ -133,7 +137,7 @@ export async function fetchMatchDetails(): Promise<FetchDetailsResult> {
                       ? `Player (${player.heroName})`
                       : `Player #${playerProviderId}`;
                     const initialRole = getRoleByHeroName(player.heroName) || 'Carry';
-                    const { data: newPlayer } = await (supabase.from('professional_players') as any)
+                    const { data: newPlayer } = await supabase.from('professional_players')
                       .insert({
                         name: playerName,
                         in_game_name: playerName,
@@ -158,15 +162,15 @@ export async function fetchMatchDetails(): Promise<FetchDetailsResult> {
                   continue;
                 }
 
-                const parseNum = (v: any): number => {
-                  if (typeof v === 'number') return isNaN(v) ? 0 : Math.round(v);
-                  if (typeof v === 'string') {
-                    const parsed = Number(v);
+                const parseNum = (value: unknown): number => {
+                  if (typeof value === 'number') return isNaN(value) ? 0 : Math.round(value);
+                  if (typeof value === 'string') {
+                    const parsed = Number(value);
                     return isNaN(parsed) ? 0 : Math.round(parsed);
                   }
-                  if (typeof v === 'object' && v !== null) {
+                  if (typeof value === 'object' && value !== null) {
                     return Math.round(
-                      Object.values(v).reduce((acc: number, item: any) => {
+                      Object.values(value).reduce((acc: number, item) => {
                         const n = Number(item);
                         return acc + (isNaN(n) ? 0 : n);
                       }, 0)
@@ -197,16 +201,20 @@ export async function fetchMatchDetails(): Promise<FetchDetailsResult> {
                   wards_destroyed: parseNum(player.wardsDestroyed),
                   first_blood_achieved: Boolean(player.firstBloodAchieved),
                   roshan_kills: parseNum(player.roshansKilled),
-                } as any);
+                });
               }
             }
 
             if (statsToInsert.length > 0) {
               // Delete existing stats for this match if re-fetching to prevent duplicate key conflicts
+              // The generated local schema does not include this table.
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
               await (supabase.from('match_player_stats') as any)
                 .delete()
                 .eq('match_id', match.id);
 
+              // The generated local schema does not include this table.
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
               const { error: statsError } = await (supabase.from('match_player_stats') as any)
                 .insert(statsToInsert);
 
@@ -296,8 +304,8 @@ async function getEntityLookupMaps(): Promise<{
   const supabase = getSupabaseServerClient();
 
   const [playersRes, teamsRes] = await Promise.all([
-    (supabase.from('professional_players') as any).select('id, data_provider_id'),
-    (supabase.from('professional_teams') as any).select('id, data_provider_id'),
+    supabase.from('professional_players').select('id, data_provider_id'),
+    supabase.from('professional_teams').select('id, data_provider_id'),
   ]);
 
   const playerMap = new Map<string, number>();

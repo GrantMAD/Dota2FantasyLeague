@@ -27,6 +27,8 @@ async function main() {
   const { getSupabaseServerClient } = await import('../src/lib/db/supabase-server');
   const supabase = getSupabaseServerClient();
 
+  // The generated local schema does not include this table.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: latest } = await (supabase.from('match_player_stats') as any)
     .select('id, match_id, player_id, hero_id, hero_name, created_at')
     .order('created_at', { ascending: false })
@@ -35,10 +37,14 @@ async function main() {
   console.log('--- 10 Most Recently Inserted Match Player Stats ---');
   console.table(latest);
 
+  // The generated local schema does not include this table.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { count: unknownCount } = await (supabase.from('match_player_stats') as any)
     .select('id', { count: 'exact', head: true })
     .eq('hero_name', 'Unknown');
 
+  // The generated local schema does not include this table.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { count: totalCount } = await (supabase.from('match_player_stats') as any)
     .select('id', { count: 'exact', head: true });
 

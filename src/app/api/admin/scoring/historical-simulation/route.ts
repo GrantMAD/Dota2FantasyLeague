@@ -3,6 +3,7 @@ import { verifyAdminAuth } from '@/lib/auth-utils';
 import { FantasyScoreCalculator } from '@/lib/jobs/calculate-fantasy-scores';
 import { buildSimulationReport, type ScoringSample } from '@/lib/scoring-analytics';
 import { supabaseServer } from '@/lib/supabase';
+import type { PlayerPerformance } from '@/types/database';
 
 const MAX_PERFORMANCES = 500;
 
@@ -33,7 +34,7 @@ export async function POST(request: NextRequest) {
     const gameweekTo = body.gameweekTo ? Number(body.gameweekTo) : null;
     const supabase = supabaseServer();
 
-    let performanceQuery = (supabase.from('player_performances') as any)
+    let performanceQuery = supabase.from('player_performances')
       .select('*')
       .order('gameweek_id', { ascending: true })
       .limit(MAX_PERFORMANCES);
@@ -43,33 +44,40 @@ export async function POST(request: NextRequest) {
     const { data: performances, error: performanceError } = await performanceQuery;
     if (performanceError) return NextResponse.json({ error: 'Failed to load historical performances.' }, { status: 500 });
     if (!performances || performances.length === 0) return NextResponse.json({ error: 'No historical performances matched the selected range.' }, { status: 404 });
+    const performanceRows = performances as unknown as PlayerPerformance[];
 
-    const matchIds = [...new Set(performances.map((performance: { match_id: number }) => performance.match_id))];
-    const playerIds = [...new Set(performances.map((performance: { player_id: number }) => performance.player_id))];
-    const [{ data: matches }, { data: players }, { data: matchStats }] = await Promise.all([
-      (supabase.from('matches') as any).select('id, gameweek_id, duration_minutes, winner_team_id').in('id', matchIds),
-      (supabase.from('professional_players') as any).select('id, primary_role').in('id', playerIds),
+    const matchIds = [...new Set(performanceRows.map((performance) => performance.match_id))];
+    const playerIds = [...new Set(performanceRows.map((performance) => performance.player_id))];
+    const [{ data: matchData }, { data: playerData }, { data: matchStatData }] = await Promise.all([
+      supabase.from('matches').select('id, gameweek_id, duration_minutes, winner_team_id').in('id', matchIds),
+      supabase.from('professional_players').select('id, primary_role').in('id', playerIds),
+      // The generated local schema does not include this table.
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (supabase.from('match_player_stats') as any).select('match_id, player_id, team_id').in('match_id', matchIds),
     ]);
 
-    const matchMap = new Map<number, HistoricalMatch>((matches ?? []).map((match: HistoricalMatch) => [match.id, match]));
-    const playerMap = new Map<number, HistoricalPlayer>((players ?? []).map((player: HistoricalPlayer) => [player.id, player]));
-    const statMap = new Map<string, HistoricalMatchStat>((matchStats ?? []).map((stat: HistoricalMatchStat) => [`${stat.match_id}:${stat.player_id}`, stat]));
+    const matches = (matchData ?? []) as unknown as HistoricalMatch[];
+    const players = (playerData ?? []) as unknown as HistoricalPlayer[];
+    const matchStats = (matchStatData ?? []) as HistoricalMatchStat[];
+    const matchMap = new Map<number, HistoricalMatch>(matches.map((match) => [match.id, match]));
+    const playerMap = new Map<number, HistoricalPlayer>(players.map((player) => [player.id, player]));
+    const statMap = new Map<string, HistoricalMatchStat>(matchStats.map((stat) => [`${stat.match_id}:${stat.player_id}`, stat]));
     const calculator = new FantasyScoreCalculator();
     await calculator.loadScoringRules(seasonId);
     const samples: ScoringSample[] = [];
 
-    for (const performance of performances) {
+    for (const performance of performanceRows) {
       const match = matchMap.get(performance.match_id);
       if (!match) continue;
       const stat = statMap.get(`${performance.match_id}:${performance.player_id}`);
+      const scoringStats = {
+        ...performance,
+        tower_damage: performance.building_damage ?? 0,
+        roshan_kills: performance.roshan_participation ?? 0,
+      } as unknown as Parameters<FantasyScoreCalculator['calculatePlayerMatchScore']>[0];
       const breakdown = await calculator.calculatePlayerMatchScore(
-        {
-          ...performance,
-          tower_damage: performance.building_damage ?? 0,
-          roshan_kills: performance.roshan_participation ?? 0,
-        },
-        match,
+        scoringStats,
+        match as unknown as Parameters<FantasyScoreCalculator['calculatePlayerMatchScore']>[1],
         stat?.team_id ?? 0,
       );
       const totalPoints = breakdown.combat + breakdown.economy + breakdown.objective + breakdown.teamfight + breakdown.win + breakdown.series + breakdown.performance + breakdown.consistency - breakdown.penalty;

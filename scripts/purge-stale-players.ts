@@ -23,17 +23,35 @@ function loadEnv(file: string) {
 loadEnv('.env.local');
 loadEnv('.env');
 
-const oldFilter = (p: any): boolean => Boolean(p.name && (p.is_pro || p.team_name));
-const newFilter = (p: any): boolean => Boolean(p.name && p.is_pro && p.team_id && p.team_id !== 0);
+interface OpenDotaPlayer {
+  name?: string | null;
+  is_pro?: boolean | null;
+  team_name?: string | null;
+  team_id?: number | null;
+  steamid?: string | number | null;
+  account_id?: string | number | null;
+}
+
+interface DbPlayer {
+  id: number;
+  name: string;
+  data_provider_id: string | null;
+  team_id: number | null;
+  primary_role: string | null;
+  last_synced_at: string | null;
+}
+
+const oldFilter = (player: OpenDotaPlayer): boolean => Boolean(player.name && (player.is_pro || player.team_name));
+const newFilter = (player: OpenDotaPlayer): boolean => Boolean(player.name && player.is_pro && player.team_id && player.team_id !== 0);
 
 // Build a set of all IDs (both steamid AND account_id) for active players under a given filter.
 // The DB stores data_provider_id = steamid (e.g. '76561198...'), but OpenDota also exposes
 // account_id (the 32-bit version). We index both so we match regardless of which was stored.
-function buildIdSet(players: any[], filter: (p: any) => boolean): Set<string> {
+function buildIdSet(players: OpenDotaPlayer[], filter: (player: OpenDotaPlayer) => boolean): Set<string> {
   const ids = new Set<string>();
-  for (const p of players.filter(filter)) {
-    if (p.steamid) ids.add(String(p.steamid));
-    if (p.account_id) ids.add(String(p.account_id));
+  for (const player of players.filter(filter)) {
+    if (player.steamid) ids.add(String(player.steamid));
+    if (player.account_id) ids.add(String(player.account_id));
   }
   return ids;
 }
@@ -50,15 +68,15 @@ async function main() {
 
   // Step 1: Fetch live OpenDota data
   console.log('Fetching https://api.opendota.com/api/proPlayers ...');
-  let rawPlayers: any[] = [];
+  let rawPlayers: OpenDotaPlayer[] = [];
   try {
     const res = await fetch('https://api.opendota.com/api/proPlayers', {
       headers: { 'User-Agent': 'FantasyDota/1.0' },
       signal: AbortSignal.timeout(15000),
     });
     if (!res.ok) throw new Error('HTTP ' + res.status);
-    const json = await res.json();
-    rawPlayers = Array.isArray(json) ? json : [];
+    const json: unknown = await res.json();
+    rawPlayers = Array.isArray(json) ? json as OpenDotaPlayer[] : [];
   } catch (err) {
     console.error('Failed to fetch OpenDota proPlayers:', (err as Error).message);
     process.exit(1);
@@ -68,10 +86,11 @@ async function main() {
   // Build lookup maps
   // Use both steamid+account_id for matching — DB stores steamid as data_provider_id
   const newValidIds = buildIdSet(rawPlayers, newFilter);
-  const oldValidIds = buildIdSet(rawPlayers, oldFilter);
   const oldOnlyCount = rawPlayers.filter(oldFilter).length;
   const newOnlyCount = rawPlayers.filter(newFilter).length;
-  const rawByAccountId = new Map<string, any>(rawPlayers.map((p) => [String(p.account_id), p]));
+  const rawByAccountId = new Map<string, OpenDotaPlayer>(
+    rawPlayers.map((player) => [String(player.account_id), player] as const)
+  );
 
   console.log('  Old filter (is_pro OR team_name)   -> ' + oldOnlyCount + ' players');
   console.log('  New filter (is_pro AND team_id!=0) -> ' + newOnlyCount + ' players');
@@ -83,8 +102,8 @@ async function main() {
 
   // Step 2: Fetch ALL players from DB (much simpler than a giant .in() query)
   console.log('Fetching all professional_players from DB...');
-  const { data: allDbPlayers, error: fetchError } = await (supabase
-    .from('professional_players') as any)
+  const { data: allDbPlayers, error: fetchError } = await supabase
+    .from('professional_players')
     .select('id, name, data_provider_id, team_id, primary_role, last_synced_at');
 
   if (fetchError) {
@@ -96,9 +115,10 @@ async function main() {
   // Step 3: Identify stale candidates — players in DB whose data_provider_id
   //         does NOT appear in the new valid OpenDota set (checked against both steamid+account_id).
   //         Players with no data_provider_id are manually added — never touch those.
-  const staleCandidates = (allDbPlayers || []).filter((p: any) => {
-    if (!p.data_provider_id) return false;
-    return !newValidIds.has(String(p.data_provider_id));
+  const dbPlayers = (allDbPlayers ?? []) as DbPlayer[];
+  const staleCandidates = dbPlayers.filter((player) => {
+    if (!player.data_provider_id) return false;
+    return !newValidIds.has(String(player.data_provider_id));
   });
   console.log('  Stale candidates in DB:  ' + staleCandidates.length);
   console.log('');
@@ -109,7 +129,7 @@ async function main() {
   }
 
   // Step 4: Safety checks — only check candidates
-  const candidateDbIds = staleCandidates.map((p: any) => p.id);
+  const candidateDbIds = staleCandidates.map((player) => player.id);
   console.log('Running safety checks...');
 
   // Chunk the safety check .in() calls (candidates could still be large)
@@ -118,8 +138,12 @@ async function main() {
     const protected_ = new Set<number>();
     for (let i = 0; i < ids.length; i += chunkSize) {
       const chunk = ids.slice(i, i + chunkSize);
-      const { data } = await (supabase.from(table) as any).select(column).in(column, chunk);
-      for (const row of data || []) protected_.add(row[column]);
+      const { data } = await supabase.from(table).select(column).in(column, chunk);
+      const rows = (data ?? []) as Record<string, unknown>[];
+      for (const row of rows) {
+        const playerId = row[column];
+        if (typeof playerId === 'number') protected_.add(playerId);
+      }
     }
     return protected_;
   }
@@ -134,8 +158,8 @@ async function main() {
   console.log('  Players with match_player_stats:  ' + protectedByStats.size);
   console.log('  Players in fantasy_squad_members: ' + protectedBySquad.size);
 
-  const toDelete: any[] = [];
-  const protectedPlayers: any[] = [];
+  const toDelete: DbPlayer[] = [];
+  const protectedPlayers: Array<DbPlayer & { reasons: string[] }> = [];
 
   for (const player of staleCandidates) {
     const reasons: string[] = [];
@@ -173,7 +197,7 @@ async function main() {
   // Show first 20 to avoid overwhelming output
   const preview = toDelete.slice(0, 20);
   for (const p of preview) {
-    const rawEntry = rawByAccountId.get(p.data_provider_id);
+    const rawEntry = p.data_provider_id ? rawByAccountId.get(p.data_provider_id) : undefined;
     const reason = rawEntry
       ? 'is_pro=' + rawEntry.is_pro + ', team_id=' + (rawEntry.team_id ?? 'null') + ', team_name="' + (rawEntry.team_name ?? '') + '"'
       : 'not present in current OpenDota response at all';
@@ -202,14 +226,14 @@ async function main() {
   // Live delete
   console.log('');
   console.log('Executing deletions in chunks...');
-  const idsToDelete = toDelete.map((p: any) => p.id);
+  const idsToDelete = toDelete.map((player) => player.id);
   const chunkSize = 200;
 
   async function deleteInChunks(table: string, column: string, ids: (number | string)[], label: string) {
     let deleted = 0;
     for (let i = 0; i < ids.length; i += chunkSize) {
       const chunk = ids.slice(i, i + chunkSize);
-      const { error } = await (supabase.from(table) as any).delete().in(column, chunk);
+      const { error } = await supabase.from(table).delete().in(column, chunk);
       if (error) { console.warn('  Warning deleting from ' + table + ':', error.message); }
       else deleted += chunk.length;
     }

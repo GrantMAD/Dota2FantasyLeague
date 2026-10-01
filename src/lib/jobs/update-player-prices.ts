@@ -74,8 +74,8 @@ class UpdatePlayerPrices {
 
       while (hasMore) {
         // Fetch one page of players ordered by id so pagination is stable (active only)
-        const { data: playerData, error: playersError } = await (this.supabase // eslint-disable-line @typescript-eslint/no-explicit-any
-          .from('professional_players') as any)
+        const { data: playerData, error: playersError } = await this.supabase
+          .from('professional_players')
           .select('id')
           .eq('availability_status', 'available')
           .order('id', { ascending: true })

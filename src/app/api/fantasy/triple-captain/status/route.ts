@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase';
 import { verifyAuth, AuthError } from '@/lib/auth-utils';
 
+interface TripleCaptainStatusRow {
+  triple_captain_gameweek_id: number | null;
+}
+
 export async function GET(request: NextRequest) {
   try {
     // 1. Authenticate user
@@ -20,12 +24,13 @@ export async function GET(request: NextRequest) {
 
     // 3. Fetch the triple captain status from fantasy_seasons
     const supabase = supabaseServer();
-    const { data, error } = await (supabase
-      .from('fantasy_seasons') as any)
+    const { data: rawData, error } = await supabase
+      .from('fantasy_seasons')
       .select('id, triple_captain_gameweek_id')
       .eq('id', parseInt(fantasySeasonId, 10))
       .eq('user_id', userId)
       .maybeSingle();
+    const data = rawData as TripleCaptainStatusRow | null;
 
     if (error) {
       console.error('Supabase Error (triple captain status):', error);

@@ -1,12 +1,20 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
+import Image from 'next/image';
+import { Users } from 'lucide-react';
 import Link from 'next/link';
-import { ArrowRight, Sparkles, ShieldAlert, ArrowLeftRight, UserCheck, AlertTriangle, DollarSign, X } from 'lucide-react';
-import { SquadHero } from './components/SquadHero';
-import { SquadFilters, type SquadTab, type SquadViewMode } from './components/SquadFilters';
-import { SquadPlayerCard, type SquadPlayer } from './components/SquadPlayerCard';
-import { PlayerDetailModal, type PlayerDetails } from './components/PlayerDetailModal';
+
+type SquadPlayer = {
+  id: number;
+  name: string;
+  in_game_name: string | null;
+  primary_role: string | null;
+  profile_image_url: string | null;
+  availability_status: string | null;
+  current_price: number;
+  professional_teams?: { name?: string; slug?: string } | null;
+};
 
 type LineupEntry = {
   slot: string;
@@ -16,74 +24,55 @@ type LineupEntry = {
   professional_players?: SquadPlayer | null;
 };
 
-type Gameweek = {
+type Gameweek = { id: number; gameweek_number: number };
+
+type PlayerPerformance = {
   id: number;
-  gameweekNumber: number;
-  deadline?: string | null;
-  isLocked?: boolean;
+  gameweek_id: number;
+  kills: number;
+  deaths: number;
+  assists: number;
+  fantasy_points_breakdown?: { total_points?: number } | null;
 };
 
-const STARTER_SLOTS = [
-  { slot: 'carry', label: 'Carry', role: 'Carry' },
-  { slot: 'mid', label: 'Mid', role: 'Mid' },
-  { slot: 'offlane', label: 'Offlane', role: 'Offlane' },
-  { slot: 'support', label: 'Support', role: 'Support' },
-  { slot: 'hard_support', label: 'Hard Support', role: 'Hard Support' },
-];
-
-const BENCH_SLOTS = [
-  { slot: 'bench_1', label: 'Bench 1', role: 'Bench 1' },
-  { slot: 'bench_2', label: 'Bench 2', role: 'Bench 2' },
-  { slot: 'bench_3', label: 'Bench 3', role: 'Bench 3' },
-];
+type PlayerDetails = SquadPlayer & {
+  total_season_points?: number;
+  last_gw_points?: number;
+  performances?: PlayerPerformance[];
+};
 
 export default function SquadsPage() {
   const [lineup, setLineup] = useState<LineupEntry[]>([]);
-  const [ownedPlayers, setOwnedPlayers] = useState<SquadPlayer[]>([]);
   const [gameweek, setGameweek] = useState<Gameweek | null>(null);
-  const [budget, setBudget] = useState<number>(100);
-  const [totalPoints, setTotalPoints] = useState<number>(0);
-  const [globalRank, setGlobalRank] = useState<number | null>(null);
-
-  const [activeTab, setActiveTab] = useState<SquadTab>('all');
-  const [viewMode, setViewMode] = useState<SquadViewMode>('pitch');
-  const [selectedRole, setSelectedRole] = useState<string>('ALL');
-
   const [selectedPlayer, setSelectedPlayer] = useState<PlayerDetails | null>(null);
-  const [removedPlayers, setRemovedPlayers] = useState<Array<{ id: number; playerName: string; refundAmount: number; message: string }>>([]);
   const [playerLoading, setPlayerLoading] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    async function fetchSquadContext() {
+    async function fetchLineup() {
       try {
-        setLoading(true);
-        const res = await fetch('/api/fantasy/context');
-        if (!res.ok) throw new Error('Failed to load fantasy context');
+        // Fetch active gameweek
+        const gwRes = await fetch('/api/gameweeks?status=active');
+        const gwData = await gwRes.json();
+        const activeGw = gwData.gameweeks?.[0];
 
-        const data = await res.json();
-        if (data.gameweek) {
-          setGameweek({
-            id: data.gameweek.id,
-            gameweekNumber: data.gameweek.gameweekNumber,
-            deadline: data.gameweek.deadline,
-            isLocked: data.gameweek.isLocked,
-          });
+        if (activeGw) {
+          setGameweek(activeGw);
+          // Fetch lineup
+          const lineupRes = await fetch(`/api/fantasy/lineup?gameweekId=${activeGw.id}`);
+          if (lineupRes.ok) {
+            const lineupData = await lineupRes.json();
+            setLineup(lineupData.lineup || []);
+          }
         }
-        setBudget(Number(data.budget ?? 0));
-        setTotalPoints(Number(data.totalPoints ?? 0));
-        setGlobalRank(data.globalRank ?? null);
-        setLineup(data.lineup || []);
-        setOwnedPlayers(data.ownedPlayers || []);
-        setRemovedPlayers(data.removedPlayersNotice || []);
       } catch (err: unknown) {
-        setError(err instanceof Error ? err.message : 'Failed to load squad lineup');
+        setError(err instanceof Error ? err.message : 'Failed to load lineup');
       } finally {
         setLoading(false);
       }
     }
-    fetchSquadContext();
+    fetchLineup();
   }, []);
 
   useEffect(() => {
@@ -108,423 +97,234 @@ export default function SquadsPage() {
     }
   };
 
-  // Derived squad statistics
-  const totalSquadValue = useMemo(() => {
-    return ownedPlayers.reduce((sum, p) => sum + (Number(p.current_price) || 0), 0);
-  }, [ownedPlayers]);
-
-  const captainEntry = useMemo(() => lineup.find((e) => e.is_captain), [lineup]);
-  const viceCaptainEntry = useMemo(() => lineup.find((e) => e.is_vice_captain), [lineup]);
-
-  const captainName =
-    captainEntry?.professional_players?.in_game_name ||
-    captainEntry?.professional_players?.name ||
-    null;
-
-  const viceCaptainName =
-    viceCaptainEntry?.professional_players?.in_game_name ||
-    viceCaptainEntry?.professional_players?.name ||
-    null;
-
-  const startersLineup = useMemo(
-    () => lineup.filter((e) => !e.slot.startsWith('bench')),
-    [lineup]
-  );
-  const benchLineup = useMemo(
-    () => lineup.filter((e) => e.slot.startsWith('bench')),
-    [lineup]
-  );
-
-  // Role filtering predicate
-  const roleFilterMatch = (slotRole: string, player?: SquadPlayer | null) => {
-    if (selectedRole === 'ALL') return true;
-    if (player?.primary_role) {
-      return player.primary_role.toLowerCase() === selectedRole.toLowerCase();
-    }
-    return slotRole.toLowerCase() === selectedRole.toLowerCase();
-  };
-
   if (loading) {
     return (
       <div className="mx-auto max-w-7xl px-4 py-8">
-        <div className="mb-8 animate-pulse rounded-3xl border border-slate-800 bg-slate-900/70 p-6">
-          <div className="mb-4 h-6 w-48 rounded bg-slate-800" />
-          <div className="mb-3 h-10 w-72 rounded bg-slate-800" />
-          <div className="grid gap-3 sm:grid-cols-4 mt-6">
-            {[1, 2, 3, 4].map((i) => (
-              <div key={i} className="h-20 rounded-2xl bg-slate-800" />
+        <div className="mb-8 flex animate-pulse items-end justify-between gap-4">
+          <div>
+            <div className="mb-3 h-9 w-40 rounded-lg bg-slate-800" />
+            <div className="h-4 w-28 rounded bg-slate-800" />
+          </div>
+          <div className="flex gap-3">
+            <div className="h-10 w-32 rounded-lg bg-slate-800" />
+            <div className="h-10 w-28 rounded-lg bg-slate-800" />
+          </div>
+        </div>
+
+        <div className="mb-8 animate-pulse rounded-2xl border border-slate-700 bg-slate-900/50 p-4 sm:p-6">
+          <div className="mb-5 flex items-end justify-between">
+            <div>
+              <div className="mb-2 h-3 w-28 rounded bg-slate-800" />
+              <div className="h-6 w-44 rounded bg-slate-800" />
+            </div>
+            <div className="h-3 w-24 rounded bg-slate-800" />
+          </div>
+          <div className="space-y-3">
+            {[1, 2, 3, 4, 5].map((row) => (
+              <div key={row} className="flex min-h-24 items-center gap-4 rounded-xl border border-slate-800 bg-slate-800/50 px-4 py-3">
+                <div className="h-14 w-14 shrink-0 rounded-full bg-slate-700" />
+                <div className="flex-1 space-y-2">
+                  <div className="h-3 w-16 rounded bg-slate-700" />
+                  <div className="h-4 w-40 rounded bg-slate-700" />
+                  <div className="h-3 w-24 rounded bg-slate-700" />
+                </div>
+                <div className="space-y-2 text-right">
+                  <div className="ml-auto h-4 w-14 rounded bg-slate-700" />
+                  <div className="ml-auto h-3 w-12 rounded bg-slate-700" />
+                </div>
+              </div>
             ))}
           </div>
         </div>
 
-        <div className="space-y-4">
-          {[1, 2, 3].map((item) => (
-            <div key={item} className="animate-pulse rounded-2xl border border-slate-800 bg-slate-900/60 p-5">
-              <div className="mb-4 h-4 w-40 rounded bg-slate-800" />
-              <div className="h-24 rounded bg-slate-800" />
+        <div className="animate-pulse rounded-2xl border border-slate-700/70 bg-slate-800/40 p-4 sm:p-6">
+          <div className="mb-5 flex items-end justify-between">
+            <div>
+              <div className="mb-2 h-3 w-24 rounded bg-slate-700" />
+              <div className="h-6 w-36 rounded bg-slate-700" />
             </div>
-          ))}
+            <div className="h-3 w-20 rounded bg-slate-700" />
+          </div>
+          <div className="grid gap-3 md:grid-cols-3">
+            {[1, 2, 3].map((slot) => (
+              <div key={slot} className="flex min-h-24 items-center gap-4 rounded-xl border border-slate-700 bg-slate-900/40 px-4 py-3">
+                <div className="h-12 w-12 rounded-full bg-slate-700" />
+                <div className="flex-1 space-y-2">
+                  <div className="h-3 w-16 rounded bg-slate-700" />
+                  <div className="h-4 w-24 rounded bg-slate-700" />
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     );
   }
 
+  const renderSlot = (slotName: string, roleLabel: string, isStarter: boolean = true) => {
+    const playerEntry = lineup.find((p) => p.slot === slotName);
+
+    if (!playerEntry) {
+      return (
+        <Link href="/transfers" className="flex min-h-24 flex-1 items-center justify-between rounded-xl border border-dashed border-slate-700 bg-slate-900/40 px-5 py-4 transition-colors hover:border-cyan-500/50 hover:bg-slate-800">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-widest text-cyan-400">{roleLabel}</p>
+            <p className="mt-1 text-sm text-slate-500">No player selected</p>
+          </div>
+          <span className="squad-empty-slot-icon flex h-9 w-9 items-center justify-center rounded-full border border-slate-600 text-xl text-slate-400">+</span>
+        </Link>
+      );
+    }
+
+    const player = playerEntry.professional_players;
+    if (!player) {
+      return (
+        <Link href="/transfers" className="flex min-h-24 flex-1 items-center justify-between rounded-xl border border-dashed border-slate-700 bg-slate-900/40 px-5 py-4 transition-colors hover:border-cyan-500/50 hover:bg-slate-800">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-widest text-cyan-400">{roleLabel}</p>
+            <p className="mt-1 text-sm text-slate-500">Player data unavailable</p>
+          </div>
+          <span className="squad-empty-slot-icon flex h-9 w-9 items-center justify-center rounded-full border border-slate-600 text-xl text-slate-400">+</span>
+        </Link>
+      );
+    }
+
+    return (
+      <div data-guide={slotName === 'carry' ? 'squad-first-player' : undefined} role="button" tabIndex={0} onClick={() => openPlayerDetails(player.id)} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') openPlayerDetails(player.id); }} className="relative flex min-h-24 flex-1 cursor-pointer items-center gap-4 rounded-xl border border-cyan-500/30 bg-slate-800/80 px-4 py-3 shadow-lg transition-colors hover:border-cyan-400/70 hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-cyan-400">
+        <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-full border border-slate-600 bg-slate-700">
+          {player.profile_image_url ? (
+            <Image src={player.profile_image_url} alt={player.in_game_name || player.name} width={56} height={56} unoptimized className="h-full w-full object-cover" />
+          ) : (
+            <span className="player-avatar-initials squad-card-muted text-xs">{(player.in_game_name || player.name || 'P').substring(0, 2).toUpperCase()}</span>
+          )}
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="text-xs font-bold uppercase tracking-widest text-cyan-400">{roleLabel}</p>
+          <p className="truncate text-base font-bold text-white" title={player.in_game_name || player.name}>{player.in_game_name || player.name}</p>
+          <p className="squad-card-muted truncate text-sm text-slate-400">{player.professional_teams?.slug?.toUpperCase() || player.professional_teams?.name || 'FA'}</p>
+        </div>
+        <div className="flex shrink-0 flex-col items-end gap-1 text-right">
+          <span className="font-mono text-sm text-amber-400">${player.current_price || '0.0'}M</span>
+          <span className="text-xs text-slate-500">{isStarter ? 'Starter' : 'Bench'}</span>
+        </div>
+        {(playerEntry.is_captain || playerEntry.is_vice_captain) && (
+          <span className={`absolute -right-2 -top-2 rounded-full px-2 py-0.5 text-xs font-bold ${playerEntry.is_captain ? 'bg-amber-500 text-slate-950' : 'bg-slate-200 text-slate-900'}`}>
+            {playerEntry.is_captain ? 'C' : 'VC'}
+          </span>
+        )}
+      </div>
+    );
+  };
+
+
   return (
     <div className="max-w-7xl mx-auto px-4 py-8">
-      {/* Top Header & Actions Bar */}
-      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-3">
-          <span className="inline-flex h-2.5 w-2.5 rounded-full bg-teal-400" />
-          <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">
-            Fantasy Roster Management
-          </span>
+      <div className="flex justify-between items-end mb-8">
+        <div>
+          <h1 className="mb-2 flex items-center gap-3 text-3xl font-bold text-white">
+            <Users className="h-7 w-7 text-cyan-400" aria-hidden="true" />
+            My Squad
+          </h1>
+          {gameweek && (
+            <div>
+              <p className="text-amber-500 font-semibold">Gameweek {gameweek.gameweek_number}</p>
+              <p className="mt-1 text-sm text-slate-400">Review your active starters, bench players, captain, and current player values.</p>
+            </div>
+          )}
         </div>
-
-        <div data-guide="squad-actions" className="flex items-center gap-3">
-          <Link
-            href="/transfers"
-            className="inline-flex items-center gap-2 rounded-xl border border-slate-700/80 bg-slate-900/80 px-4 py-2 text-sm font-semibold text-slate-200 transition hover:border-slate-500 hover:text-white dark:border-slate-700 dark:bg-slate-900/80"
-          >
-            <ArrowLeftRight className="h-4 w-4 text-teal-400" />
-            Transfer Market
-          </Link>
-          <Link
-            href="/lineups"
-            className="inline-flex items-center gap-2 rounded-xl border border-teal-500/40 bg-teal-500/15 px-4 py-2 text-sm font-semibold text-teal-300 transition hover:border-teal-400 hover:bg-teal-500/25 shadow-sm"
-          >
-            <UserCheck className="h-4 w-4" />
-            Edit Lineup
-          </Link>
+        <div data-guide="squad-actions" className="flex gap-4">
+           <Link href="/transfers" className="bg-slate-800 hover:bg-slate-700 border border-slate-600 text-white px-4 py-2 rounded-lg font-medium transition-colors text-sm">
+             Make Transfers
+           </Link>
+           <Link href="/lineups" className="bg-linear-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 text-white px-4 py-2 rounded-lg font-semibold transition-colors shadow-lg shadow-orange-500/20 text-sm">
+             Edit Lineup
+           </Link>
         </div>
       </div>
 
       {error && (
-        <div className="mb-8 rounded-2xl border border-rose-500/40 bg-rose-950/30 px-4 py-3 text-sm text-rose-200">
+        <div className="bg-red-900/50 border border-red-500/50 text-red-200 px-4 py-3 rounded-lg mb-8 text-sm">
           {error}
         </div>
       )}
 
-      {/* Gameweek-inspired Hero Banner */}
-      <SquadHero
-        gameweek={gameweek}
-        budget={budget}
-        totalSquadValue={totalSquadValue}
-        totalPoints={totalPoints}
-        globalRank={globalRank}
-        captainName={captainName}
-        viceCaptainName={viceCaptainName}
-        startersCount={startersLineup.length}
-        totalPlayersCount={ownedPlayers.length}
-      />
-
-      {/* Empty Squad Onboarding Banner */}
-      {ownedPlayers.length === 0 && (
-        <div className="mb-8 relative overflow-hidden rounded-3xl border border-teal-500/40 bg-[linear-gradient(135deg,rgba(20,184,166,0.12),rgba(15,23,42,0.95))] p-6 sm:p-8 shadow-xl shadow-teal-500/5">
-          <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-teal-400 rounded-l-3xl" />
-          <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
-            <div className="max-w-2xl">
-              <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-teal-500/20 border border-teal-500/30 text-teal-300 text-xs font-bold mb-3">
-                <Sparkles className="w-3.5 h-3.5" />
-                GET STARTED
-              </div>
-              <h2 className="text-2xl font-black text-white mb-2">Build Your Fantasy Squad</h2>
-              <p className="text-slate-300 text-sm leading-relaxed mb-4">
-                Your squad is currently empty. Head over to the Transfer Market to acquire your 5 core starters and 3 substitutes within your $100.0M budget.
-              </p>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs text-slate-400">
-                <div className="flex items-center gap-2">
-                  <span className="w-5 h-5 rounded-full bg-slate-800 text-teal-400 font-bold flex items-center justify-center text-[10px] border border-slate-700">1</span>
-                  Pick 5 starting roles
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="w-5 h-5 rounded-full bg-slate-800 text-teal-400 font-bold flex items-center justify-center text-[10px] border border-slate-700">2</span>
-                  Add 3 bench players
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="w-5 h-5 rounded-full bg-slate-800 text-teal-400 font-bold flex items-center justify-center text-[10px] border border-slate-700">3</span>
-                  Earn points every GW
-                </div>
-              </div>
-            </div>
-            <Link
-              href="/transfers"
-              className="inline-flex items-center gap-2 px-6 py-3 rounded-xl font-bold text-sm bg-teal-500 text-slate-950 hover:bg-teal-400 hover:shadow-lg hover:shadow-teal-500/25 transition-all shrink-0 cursor-pointer"
-            >
-              Build Your Squad
-              <ArrowRight className="w-4 h-4" />
-            </Link>
-          </div>
-        </div>
-      )}
-
-      {/* Prominent Banner: Players removed from pool as they are no longer active */}
-      {removedPlayers.length > 0 && (
-        <div className="mb-8 relative overflow-hidden rounded-3xl border border-amber-500/40 bg-[linear-gradient(135deg,rgba(245,158,11,0.15),rgba(15,23,42,0.95))] p-6 sm:p-7 shadow-xl shadow-amber-500/10">
-          <div className="absolute left-0 top-0 bottom-0 w-2 bg-amber-400 rounded-l-3xl" />
-          <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
-            <div className="max-w-3xl">
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/20 border border-amber-500/30 text-amber-300 text-xs font-bold mb-3 tracking-wide">
-                <AlertTriangle className="w-4 h-4 text-amber-400" />
-                ACTION REQUIRED · ROSTER POOL UPDATE
-              </div>
-              <h2 className="text-xl sm:text-2xl font-black text-white mb-2 tracking-tight">
-                Players Removed From Pool (No Longer Active)
-              </h2>
-              <p className="text-slate-300 text-sm leading-relaxed mb-4">
-                The following player{removedPlayers.length !== 1 ? 's' : ''} in your squad were removed from the competitive fantasy pool because they are no longer active on professional teams. Their full market value has been refunded to your bank budget:
-              </p>
-              
-              <div className="flex flex-wrap items-center gap-2.5 mb-2">
-                {removedPlayers.map((p) => (
-                  <div
-                    key={p.id}
-                    className="inline-flex items-center gap-2 rounded-xl border border-amber-500/30 bg-slate-900/80 px-3.5 py-1.5 text-xs font-semibold shadow-inner"
-                  >
-                    <span className="font-bold text-amber-200">{p.playerName}</span>
-                    <span className="inline-flex items-center font-mono text-emerald-400 font-bold bg-emerald-950/60 border border-emerald-500/30 px-2 py-0.5 rounded-lg">
-                      +${p.refundAmount.toFixed(1)}M Refunded
-                    </span>
-                  </div>
-                ))}
-              </div>
-              <p className="text-xs text-slate-400 mt-2">
-                Their starting positions are now vacant. Visit the Transfer Market to sign active replacement players before the gameweek deadline.
-              </p>
-            </div>
-
-            <div className="flex flex-col sm:flex-row md:flex-col gap-2.5 shrink-0 w-full sm:w-auto">
-              <Link
-                href="/transfers"
-                className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-bold text-sm bg-gradient-to-r from-amber-400 to-amber-500 text-slate-950 hover:brightness-110 shadow-lg shadow-amber-500/20 transition-all cursor-pointer"
-              >
-                Sign Replacements
-                <ArrowRight className="w-4 h-4" />
-              </Link>
-              <Link
-                href="/lineups"
-                className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl font-semibold text-xs border border-slate-700 bg-slate-900/80 text-slate-300 hover:text-white hover:border-slate-500 transition-all"
-              >
-                Adjust Lineup
-              </Link>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Unassigned squad members warning */}
-      {lineup.length === 0 && ownedPlayers.length > 0 && (
-        <div className="mb-6 rounded-2xl border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-200 flex items-center gap-3">
-          <ShieldAlert className="w-5 h-5 text-amber-400 shrink-0" />
+      {/* Role-based squad board */}
+      <div data-guide="squad-pitch" className="mb-8 rounded-2xl border border-slate-700 bg-slate-900/50 p-4 shadow-xl sm:p-6">
+        <div className="mb-5 flex items-end justify-between gap-4">
           <div>
-            <span className="font-semibold">You have {ownedPlayers.length} player{ownedPlayers.length !== 1 ? 's' : ''} in your squad</span> but haven&apos;t set a lineup for this gameweek yet.
-            &nbsp;<Link href="/lineups" className="underline hover:text-amber-100 font-medium">Set your lineup now →</Link>
+            <span data-guide="squad-starters-badge" className="squad-section-label text-xs font-bold uppercase tracking-widest text-cyan-400">Starting Squad</span>
+            <h2 className="mt-1 text-xl font-bold text-white">Five active roles</h2>
           </div>
+          <span className="text-xs text-slate-500">1 player per role</span>
         </div>
-      )}
-
-      {/* Unavailable active starters notice (only if not already displayed in removedPlayers notice) */}
-      {removedPlayers.length === 0 &&
-        startersLineup.some(
-          (e) =>
-            e.professional_players?.availability_status &&
-            e.professional_players.availability_status !== 'available'
-        ) && (
-        <div className="mb-6 rounded-2xl border border-rose-500/40 bg-rose-500/10 px-4 py-3.5 text-sm text-rose-200 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-          <div className="flex items-start sm:items-center gap-3">
-            <ShieldAlert className="w-5 h-5 text-rose-400 shrink-0 mt-0.5 sm:mt-0" />
-            <div>
-              <span className="font-bold text-rose-300">Unavailable players in starting lineup:</span>{' '}
-              One or more of your active starters are currently free agents or not on an active team roster, meaning they won&apos;t earn points this gameweek.
-            </div>
-          </div>
-          <div className="flex items-center gap-3 shrink-0 text-xs font-semibold">
-            <Link
-              href="/lineups"
-              className="rounded-xl border border-rose-400/40 bg-rose-500/20 px-3 py-1.5 text-rose-200 hover:bg-rose-500/30 transition"
-            >
-              Rotate to Bench
-            </Link>
-            <Link
-              href="/transfers"
-              className="rounded-xl border border-slate-700 bg-slate-900/80 px-3 py-1.5 text-slate-200 hover:text-white transition"
-            >
-              Transfer Replacement
-            </Link>
-          </div>
+        <div className="space-y-3">
+          {renderSlot('carry', 'Carry')}
+          {renderSlot('mid', 'Mid')}
+          {renderSlot('offlane', 'Offlane')}
+          {renderSlot('support', 'Support')}
+          {renderSlot('hard_support', 'Hard Support')}
         </div>
-      )}
-
-      {/* Filter and View Mode Toolbar */}
-      <SquadFilters
-        activeTab={activeTab}
-        onTabChange={setActiveTab}
-        viewMode={viewMode}
-        onViewModeChange={setViewMode}
-        selectedRole={selectedRole}
-        onRoleChange={setSelectedRole}
-        counts={{
-          all: ownedPlayers.length,
-          starters: startersLineup.length,
-          bench: benchLineup.length,
-        }}
-      />
-
-      {/* Squad Pitch / Slots Sections */}
-      <div className="space-y-8">
-        {/* Starters Section */}
-        {(activeTab === 'all' || activeTab === 'starters') && (
-          <div data-guide="squad-pitch" className="rounded-3xl border border-slate-700/80 bg-slate-900/50 p-5 shadow-xl sm:p-6 dark:border-slate-800 dark:bg-slate-900/50">
-            <div className="mb-5 flex items-end justify-between gap-4">
-              <div>
-                <span data-guide="squad-starters-badge" className="squad-section-label text-xs font-bold uppercase tracking-widest text-teal-400">
-                  Starting Squad
-                </span>
-                <h2 className="mt-1 text-xl font-black text-white">Five Core Roles</h2>
-              </div>
-              <span className="text-xs text-slate-400">
-                {startersLineup.length}/5 assigned • 1 per role
-              </span>
-            </div>
-
-            <div className={viewMode === 'compact' ? 'space-y-2' : 'space-y-3'}>
-              {STARTER_SLOTS.filter((s) => {
-                const entry = lineup.find((p) => p.slot === s.slot);
-                return roleFilterMatch(s.role, entry?.professional_players);
-              }).map((s, index) => {
-                const entry = lineup.find((p) => p.slot === s.slot);
-                const player = entry?.professional_players;
-
-                return (
-                  <SquadPlayerCard
-                    key={s.slot}
-                    slotName={s.slot}
-                    roleLabel={s.label}
-                    player={player}
-                    isStarter={true}
-                    isCaptain={entry?.is_captain}
-                    isViceCaptain={entry?.is_vice_captain}
-                    compact={viewMode === 'compact'}
-                    onOpenDetails={openPlayerDetails}
-                    dataGuide={index === 0 ? 'squad-first-player' : undefined}
-                  />
-                );
-              })}
-            </div>
-          </div>
-        )}
-
-        {/* Bench Substitutes Section */}
-        {(activeTab === 'all' || activeTab === 'bench') && (
-          <div data-guide="squad-bench" className="rounded-3xl border border-slate-700/70 bg-slate-900/40 p-5 shadow-xl sm:p-6 dark:border-slate-800 dark:bg-slate-900/40">
-            <div className="mb-5 flex items-end justify-between gap-4">
-              <div>
-                <span className="squad-section-label text-xs font-bold uppercase tracking-widest text-slate-400">
-                  Substitutes
-                </span>
-                <h2 className="mt-1 text-xl font-black text-white">Bench Players</h2>
-              </div>
-              <span className="text-xs text-slate-400">
-                {benchLineup.length}/3 assigned • Priority order
-              </span>
-            </div>
-
-            <div className={viewMode === 'compact' ? 'space-y-2' : 'grid gap-3 md:grid-cols-3'}>
-              {BENCH_SLOTS.filter((s) => {
-                const entry = lineup.find((p) => p.slot === s.slot);
-                return roleFilterMatch(s.role, entry?.professional_players);
-              }).map((s) => {
-                const entry = lineup.find((p) => p.slot === s.slot);
-                const player = entry?.professional_players;
-
-                return (
-                  <SquadPlayerCard
-                    key={s.slot}
-                    slotName={s.slot}
-                    roleLabel={s.label}
-                    player={player}
-                    isStarter={false}
-                    compact={viewMode === 'compact'}
-                    onOpenDetails={openPlayerDetails}
-                  />
-                );
-              })}
-            </div>
-          </div>
-        )}
-
-        {/* All Squad Members Directory */}
-        {ownedPlayers.length > 0 && activeTab === 'all' && (
-          <div className="rounded-3xl border border-slate-700/60 bg-slate-900/30 p-5 sm:p-6 dark:border-slate-800 dark:bg-slate-900/30">
-            <div className="mb-5 flex items-end justify-between gap-4">
-              <div>
-                <span className="text-xs font-bold uppercase tracking-widest text-slate-400">
-                  Full Roster
-                </span>
-                <h2 className="mt-1 text-xl font-black text-white">
-                  All Squad Members{' '}
-                  <span className="text-base font-normal text-slate-400">
-                    ({ownedPlayers.length})
-                  </span>
-                </h2>
-              </div>
-              <Link href="/transfers" className="text-xs font-medium text-teal-400 hover:text-teal-300 underline">
-                Manage Transfers
-              </Link>
-            </div>
-
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {ownedPlayers
-                .filter((p) => roleFilterMatch(p.primary_role || '', p))
-                .map((player) => (
-                  <div
-                    key={player.id}
-                    role="button"
-                    tabIndex={0}
-                    onClick={() => openPlayerDetails(player.id)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' || e.key === ' ') openPlayerDetails(player.id);
-                    }}
-                    className="flex cursor-pointer items-center justify-between gap-3 rounded-2xl border border-slate-700/80 bg-slate-800/60 px-4 py-3 transition hover:border-teal-500/50 hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-teal-400"
-                  >
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full border border-slate-600 bg-slate-700">
-                        {player.profile_image_url ? (
-                          <img
-                            src={player.profile_image_url}
-                            alt={player.in_game_name || player.name}
-                            className="h-full w-full object-cover"
-                          />
-                        ) : (
-                          <span className="text-xs font-bold text-slate-400">
-                            {(player.in_game_name || player.name || 'P').substring(0, 2).toUpperCase()}
-                          </span>
-                        )}
-                      </div>
-                      <div className="min-w-0">
-                        <p className="truncate text-sm font-bold text-white">
-                          {player.in_game_name || player.name}
-                        </p>
-                        <p className="truncate text-xs text-slate-400">
-                          {player.primary_role || 'Pro'} • {player.professional_teams?.name || 'FA'}
-                        </p>
-                      </div>
-                    </div>
-                    <span className="shrink-0 font-mono text-sm font-black text-amber-400">
-                      ${Number(player.current_price || 0).toFixed(1)}M
-                    </span>
-                  </div>
-                ))}
-            </div>
-          </div>
-        )}
       </div>
 
-      {/* Modal for Player Details */}
-      <PlayerDetailModal
-        player={selectedPlayer}
-        loading={playerLoading}
-        onClose={() => setSelectedPlayer(null)}
-      />
+      {/* Bench */}
+      <div data-guide="squad-bench" className="rounded-2xl border border-slate-700/70 bg-slate-800/40 p-4 sm:p-6">
+        <div className="mb-5 flex items-end justify-between gap-4">
+          <div>
+            <span className="squad-section-label text-xs font-bold uppercase tracking-widest text-slate-400">Substitutes</span>
+            <h2 className="mt-1 text-xl font-bold text-white">Bench players</h2>
+          </div>
+          <span className="text-xs text-slate-500">Priority order</span>
+        </div>
+        <div className="grid gap-3 md:grid-cols-3">
+          {renderSlot('bench_1', 'Bench 1', false)}
+          {renderSlot('bench_2', 'Bench 2', false)}
+          {renderSlot('bench_3', 'Bench 3', false)}
+        </div>
+      </div>
+
+      {playerLoading && (
+        <div className="fixed inset-0 z-100 flex items-center justify-center bg-slate-950/70 p-4" role="status">
+          <div className="rounded-xl border border-slate-700 bg-slate-900 px-6 py-4 text-sm text-slate-300">Loading player details...</div>
+        </div>
+      )}
+
+      {selectedPlayer && (
+        <div className="fixed inset-0 z-100 flex items-center justify-center bg-slate-950/75 p-4" role="dialog" aria-modal="true" aria-labelledby="squad-player-title" onClick={() => setSelectedPlayer(null)}>
+          <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-cyan-500/30 bg-slate-900 p-6 shadow-2xl" onClick={(event) => event.stopPropagation()}>
+            <div className="mb-6 flex items-start justify-between gap-4">
+              <div>
+                <p className="mb-1 text-xs font-semibold uppercase tracking-widest text-cyan-400">Player Details</p>
+                <h2 id="squad-player-title" className="text-2xl font-bold text-white">{selectedPlayer.in_game_name || selectedPlayer.name}</h2>
+                <p className="text-sm text-slate-400">{selectedPlayer.professional_teams?.name || 'Free Agent'} · {selectedPlayer.primary_role || 'Role unavailable'}</p>
+              </div>
+              <button type="button" onClick={() => setSelectedPlayer(null)} aria-label="Close player details" className="rounded-lg px-3 py-2 text-slate-400 hover:bg-slate-800 hover:text-white">X</button>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+              <div className="rounded-lg border border-slate-700 bg-slate-800/60 p-3"><p className="text-xs text-slate-500">Price</p><p className="mt-1 font-mono font-bold text-amber-400">${Number(selectedPlayer.current_price || 0).toFixed(1)}M</p></div>
+              <div className="rounded-lg border border-slate-700 bg-slate-800/60 p-3"><p className="text-xs text-slate-500">Season Points</p><p className="mt-1 font-bold text-white">{selectedPlayer.total_season_points ?? 0}</p></div>
+              <div className="rounded-lg border border-slate-700 bg-slate-800/60 p-3"><p className="text-xs text-slate-500">Last GW</p><p className="mt-1 font-bold text-white">{selectedPlayer.last_gw_points ?? 0}</p></div>
+              <div className="rounded-lg border border-slate-700 bg-slate-800/60 p-3"><p className="text-xs text-slate-500">Availability</p><p className="mt-1 text-sm font-semibold capitalize text-emerald-400">{selectedPlayer.availability_status || 'Unknown'}</p></div>
+            </div>
+
+            <div className="mt-6">
+              <h3 className="mb-3 text-sm font-bold uppercase tracking-widest text-slate-400">Recent Performances</h3>
+              {selectedPlayer.performances?.length ? (
+                <div className="space-y-2">
+                  {selectedPlayer.performances.slice(0, 5).map((performance) => (
+                    <div key={performance.id} className="flex items-center justify-between rounded-lg border border-slate-700 bg-slate-800/50 px-4 py-3 text-sm">
+                      <span className="text-slate-300">GW {performance.gameweek_id}</span>
+                      <span className="text-slate-400">{performance.kills}/{performance.deaths}/{performance.assists}</span>
+                      <span className="font-semibold text-cyan-400">{performance.fantasy_points_breakdown?.total_points ?? 0} pts</span>
+                    </div>
+                  ))}
+                </div>
+              ) : <p className="text-sm text-slate-500">No performance data available yet.</p>}
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }

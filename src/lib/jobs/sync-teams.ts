@@ -24,6 +24,11 @@ interface SyncResult {
   completedAt: Date;
 }
 
+interface ActiveDbTeamRow {
+  id: number;
+  data_provider_id: string | null;
+}
+
 /**
  * Sync teams from data provider to database
  */
@@ -77,9 +82,9 @@ export async function syncTeams(): Promise<SyncResult> {
           .in('id', Array.from(activeDbTeamIds));
 
         const activeProviderIds = new Set(
-          (dbActiveTeams || [])
-            .map((t: any) => t.data_provider_id)
-            .filter(Boolean) as string[]
+          ((dbActiveTeams ?? []) as ActiveDbTeamRow[])
+            .map((team) => team.data_provider_id)
+            .filter((id): id is string => typeof id === 'string' && id.length > 0)
         );
 
         if (activeProviderIds.size > 0) {
@@ -152,6 +157,9 @@ async function processSyncBatch(
 ): Promise<{ created: number; updated: number; skipped: number; errors: string[] }> {
   const results = { created: 0, updated: 0, skipped: 0, errors: [] as string[] };
   const supabase = getSupabaseServerClient();
+  const versionProvider = providerName === 'stratz' || providerName === 'opendota'
+    ? providerName
+    : 'system';
 
   for (const team of teams) {
     try {
@@ -220,7 +228,7 @@ async function processSyncBatch(
               updateData,
               'sync',
               `Team data updated from ${providerName.toUpperCase()} provider`,
-              providerName as any,
+              versionProvider,
               undefined,
               0.9
             );
@@ -291,8 +299,8 @@ async function processSyncBatch(
                 .eq('id', existingByName.id);
 
               results.updated++;
-              existingTeams.set(team.id.toString(), existingByName as any);
-              existingTeams.set(trimmedName.toLowerCase(), existingByName as any);
+              existingTeams.set(team.id.toString(), existingByName);
+              existingTeams.set(trimmedName.toLowerCase(), existingByName);
               continue;
             }
           }
@@ -300,9 +308,9 @@ async function processSyncBatch(
         }
 
         if (insertedTeam) {
-          existingTeams.set(team.id.toString(), insertedTeam as any);
+          existingTeams.set(team.id.toString(), insertedTeam);
           if (team.name) {
-            existingTeams.set(team.name.toLowerCase().trim(), insertedTeam as any);
+            existingTeams.set(team.name.toLowerCase().trim(), insertedTeam);
           }
         }
 
@@ -317,7 +325,7 @@ async function processSyncBatch(
               newTeamData,
               'sync',
               `New team created from ${providerName.toUpperCase()} provider`,
-              providerName as any,
+              versionProvider,
               undefined,
               0.9
             );

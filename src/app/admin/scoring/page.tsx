@@ -1,18 +1,73 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useEffect, useEffectEvent, useState } from 'react';
 import { CheckCircle, X } from 'lucide-react';
 
+interface ScoringRule {
+  id: number;
+  season_id: number;
+  rule_name: string;
+  rule_key: string;
+  value: number;
+  is_enabled: boolean;
+}
+
+interface RuleVersion {
+  version: number;
+  is_published: boolean;
+  effective_from_gameweek_id?: number | null;
+  rules: ScoringRule[];
+}
+
+interface BalanceRoleRow {
+  role: string;
+  sampleSize: number;
+  averagePoints: number;
+  medianPoints: number;
+  bottomTenPercentPoints: number;
+  topTenPercentPoints: number;
+  averagePrice: number;
+  averageOwnershipPercentage: number;
+  averagePriceToPointRatio: number;
+  captainImpact: number;
+}
+
+interface BalanceReport {
+  report: BalanceRoleRow[];
+}
+
+interface HistoricalReport {
+  playerPerformances: number;
+  totals: { averagePoints: number; highestPoints: number };
+  roleBreakdown: Array<Pick<BalanceRoleRow, 'role' | 'sampleSize' | 'averagePoints' | 'medianPoints' | 'topTenPercentPoints'>>;
+}
+
+interface SimulationResult {
+  combat: number;
+  economy: number;
+  objective: number;
+  teamfight: number;
+  win: number;
+  series: number;
+  performance: number;
+  consistency: number;
+  penalty: number;
+  total: number;
+}
+
+function getErrorMessage(error: unknown, fallback: string): string {
+  return error instanceof Error ? error.message : fallback;
+}
 
 export default function AdminScoringPage() {
   const [activeTab, setActiveTab] = useState<'rules' | 'balance' | 'historical' | 'simulator'>('rules');
-  const [ruleVersions, setRuleVersions] = useState<any[]>([]);
+  const [ruleVersions, setRuleVersions] = useState<RuleVersion[]>([]);
   const [selectedVersion, setSelectedVersion] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [balanceReport, setBalanceReport] = useState<any>(null);
+  const [balanceReport, setBalanceReport] = useState<BalanceReport | null>(null);
   const [balanceLoading, setBalanceLoading] = useState(false);
-  const [historicalReport, setHistoricalReport] = useState<any>(null);
+  const [historicalReport, setHistoricalReport] = useState<HistoricalReport | null>(null);
   const [historicalLoading, setHistoricalLoading] = useState(false);
   const [historicalRange, setHistoricalRange] = useState({ seasonId: '1', gameweekFrom: '', gameweekTo: '' });
   // Publish modal state
@@ -21,7 +76,7 @@ export default function AdminScoringPage() {
 
   // Simulator state
   const [simLoading, setSimLoading] = useState(false);
-  const [simResult, setSimResult] = useState<any>(null);
+  const [simResult, setSimResult] = useState<SimulationResult | null>(null);
   const [simForm, setSimForm] = useState<Record<string, string>>({
     matchId: '1',
     playerId: '1',
@@ -51,21 +106,27 @@ export default function AdminScoringPage() {
       if (!res.ok) throw new Error(data.error || 'Failed to fetch rules');
       
       // API returns an array of version groups
-      const versions = (Array.isArray(data) ? data : []).sort((a: any, b: any) => b.version - a.version);
+      const versions = (Array.isArray(data) ? data as RuleVersion[] : []).sort((a, b) => b.version - a.version);
       setRuleVersions(versions);
       
       if (!selectedVersion && versions.length > 0) {
-        setSelectedVersion((versions[0] as any).version);
+        setSelectedVersion(versions[0].version);
       }
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, 'Failed to fetch rules'));
     } finally {
       setLoading(false);
     }
   };
 
+  const loadRulesOnMount = useEffectEvent(() => {
+    void fetchRules();
+  });
+
   useEffect(() => {
-    fetchRules();
+    // This mount effect fetches remote scoring rules and updates loading state.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    loadRulesOnMount();
   }, []);
 
   const handleCreateDraft = async () => {
@@ -81,13 +142,13 @@ export default function AdminScoringPage() {
         throw new Error(d.error || 'Failed to create draft version');
       }
       await fetchRules();
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, 'Failed to create draft version'));
       setLoading(false);
     }
   };
 
-  const handleUpdateRule = async (ruleId: number, field: string, value: any) => {
+  const handleUpdateRule = async (ruleId: number, field: 'value' | 'is_enabled', value: number | boolean) => {
     try {
       const res = await fetch(`/api/admin/scoring/rules/${ruleId}`, {
         method: 'PATCH',
@@ -101,11 +162,11 @@ export default function AdminScoringPage() {
         if (v.version !== selectedVersion) return v;
         return {
           ...v,
-          rules: v.rules.map((r: any) => r.id === ruleId ? { ...r, [field]: value } : r)
+          rules: v.rules.map((rule) => rule.id === ruleId ? { ...rule, [field]: value } : rule)
         };
       }));
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, 'Failed to update rule'));
     }
   };
 
@@ -128,8 +189,8 @@ export default function AdminScoringPage() {
       }
       setPublishGameweekId('');
       await fetchRules();
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, 'Failed to publish scoring rules'));
       setLoading(false);
     }
   };
@@ -175,8 +236,8 @@ export default function AdminScoringPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
       setSimResult(data);
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, 'Failed to simulate scoring'));
     } finally {
       setSimLoading(false);
     }
@@ -192,8 +253,8 @@ export default function AdminScoringPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to load balance report');
       setBalanceReport(data);
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, 'Failed to load balance report'));
     } finally {
       setBalanceLoading(false);
     }
@@ -216,8 +277,8 @@ export default function AdminScoringPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Historical simulation failed');
       setHistoricalReport(data);
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, 'Historical simulation failed'));
     } finally {
       setHistoricalLoading(false);
     }
@@ -296,7 +357,7 @@ export default function AdminScoringPage() {
               <table className="min-w-full divide-y divide-slate-800">
                 <thead className="bg-slate-800/50"><tr>{['Role', 'Samples', 'Average', 'Median', 'Bottom 10%', 'Top 10%', 'Avg Price', 'Ownership', 'Price / Point', 'Captain Impact'].map((heading) => <th key={heading} className="px-4 py-3 text-left text-xs font-medium text-slate-400 uppercase">{heading}</th>)}</tr></thead>
                 <tbody className="divide-y divide-slate-800">
-                  {balanceReport.report.map((row: any) => <tr key={row.role}>
+                  {balanceReport.report.map((row) => <tr key={row.role}>
                     <td className="px-4 py-3 text-sm font-medium text-white">{row.role}</td>
                     <td className="px-4 py-3 text-sm text-slate-300">{row.sampleSize}</td>
                     <td className="px-4 py-3 text-sm text-slate-300">{row.averagePoints.toFixed(2)}</td>
@@ -335,7 +396,7 @@ export default function AdminScoringPage() {
             </div>
             <div className="bg-slate-900 rounded-lg border border-slate-700 overflow-x-auto">
               <table className="min-w-full divide-y divide-slate-800"><thead className="bg-slate-800/50"><tr><th className="px-4 py-3 text-left text-xs text-slate-400 uppercase">Role</th><th className="px-4 py-3 text-left text-xs text-slate-400 uppercase">Samples</th><th className="px-4 py-3 text-left text-xs text-slate-400 uppercase">Average</th><th className="px-4 py-3 text-left text-xs text-slate-400 uppercase">Median</th><th className="px-4 py-3 text-left text-xs text-slate-400 uppercase">Top 10%</th></tr></thead>
-                <tbody className="divide-y divide-slate-800">{historicalReport.roleBreakdown.map((row: any) => <tr key={row.role}><td className="px-4 py-3 text-sm text-white">{row.role}</td><td className="px-4 py-3 text-sm text-slate-300">{row.sampleSize}</td><td className="px-4 py-3 text-sm text-slate-300">{row.averagePoints.toFixed(2)}</td><td className="px-4 py-3 text-sm text-slate-300">{row.medianPoints.toFixed(2)}</td><td className="px-4 py-3 text-sm text-emerald-400">{row.topTenPercentPoints.toFixed(2)}</td></tr>)}</tbody>
+                <tbody className="divide-y divide-slate-800">{historicalReport.roleBreakdown.map((row) => <tr key={row.role}><td className="px-4 py-3 text-sm text-white">{row.role}</td><td className="px-4 py-3 text-sm text-slate-300">{row.sampleSize}</td><td className="px-4 py-3 text-sm text-slate-300">{row.averagePoints.toFixed(2)}</td><td className="px-4 py-3 text-sm text-slate-300">{row.medianPoints.toFixed(2)}</td><td className="px-4 py-3 text-sm text-emerald-400">{row.topTenPercentPoints.toFixed(2)}</td></tr>)}</tbody>
               </table>
             </div>
           </div>}
@@ -404,7 +465,7 @@ export default function AdminScoringPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-800 bg-slate-900/50">
-                  {currentVersionData.rules.map((rule: any) => (
+                  {currentVersionData.rules.map((rule) => (
                     <tr key={rule.id}>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-sm font-medium text-white">{rule.rule_name}</div>

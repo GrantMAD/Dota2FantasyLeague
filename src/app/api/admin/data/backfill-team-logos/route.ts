@@ -40,15 +40,20 @@ async function fetchOpenDotaTeamLogo(teamId: string): Promise<string | null> {
 export async function POST(request: NextRequest) {
   try {
     await verifyAdminAuth(request);
-  } catch (err: any) {
-    return NextResponse.json({ error: err.message || 'Unauthorized' }, { status: err.status || 401 });
+  } catch (error: unknown) {
+    const status = typeof error === 'object' && error !== null && 'status' in error
+      ? Number(error.status)
+      : 401;
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : 'Unauthorized' },
+      { status }
+    );
   }
 
   const supabase = supabaseServer();
 
   // Fetch all teams in the DB that have no logo
-  const { data: teamsWithNoLogo, error: fetchErr } = await (supabase as any)
-    .from('professional_teams')
+  const { data: teamData, error: fetchErr } = await supabase.from('professional_teams')
     .select('id, name, data_provider_id')
     .is('logo_url', null)
     .not('data_provider_id', 'is', null);
@@ -57,7 +62,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Failed to fetch teams', details: fetchErr.message }, { status: 500 });
   }
 
-  const teams: { id: number; name: string; data_provider_id: string }[] = teamsWithNoLogo ?? [];
+  const teams = (teamData ?? []) as { id: number; name: string; data_provider_id: string }[];
 
   let updated = 0;
   let skipped = 0;
@@ -73,7 +78,7 @@ export async function POST(request: NextRequest) {
       const logoUrl = await fetchOpenDotaTeamLogo(team.data_provider_id);
 
       if (logoUrl) {
-        const { error: updateErr } = await (supabase as any)
+        const { error: updateErr } = await supabase
           .from('professional_teams')
           .update({ logo_url: logoUrl, last_synced_at: new Date().toISOString() })
           .eq('id', team.id);

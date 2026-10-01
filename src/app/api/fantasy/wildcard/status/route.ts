@@ -2,6 +2,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase';
 import { verifyAuth, AuthError } from '@/lib/auth-utils';
 
+interface WildcardStatusRow {
+  wildcard_used_gameweek_id: number | null;
+  free_transfers: number | null;
+}
+
 export async function GET(request: NextRequest) {
   try {
     // 1. Authenticate user
@@ -20,12 +25,13 @@ export async function GET(request: NextRequest) {
 
     // 3. Fetch the wildcard status from fantasy_seasons
     const supabase = supabaseServer();
-    const { data, error } = await (supabase
-      .from('fantasy_seasons') as any)
+    const { data: rawData, error } = await supabase
+      .from('fantasy_seasons')
       .select('id, wildcard_used_gameweek_id, free_transfers')
       .eq('id', parseInt(fantasySeasonId, 10))
       .eq('user_id', userId)
       .maybeSingle();
+    const data = rawData as WildcardStatusRow | null;
 
     if (error) {
       console.error('Supabase Error (wildcard status):', error);

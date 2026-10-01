@@ -26,21 +26,21 @@ export async function GET(request: NextRequest) {
       supabase.from('fantasy_teams').select('*', { count: 'exact', head: true }),
       supabase.from('leagues').select('*', { count: 'exact', head: true }),
       supabase.from('seasons').select('id, name, status').eq('status', 'active').maybeSingle(),
-      (supabase.from('gameweeks') as any)
+      supabase.from('gameweeks')
         .select('id, gameweek_number, status')
         .eq('status', 'active')
         .order('gameweek_number', { ascending: true })
         .limit(1)
         .maybeSingle(),
-      (supabase.from('job_execution_log') as any)
+      supabase.from('job_execution_log')
         .select('started_at')
         .order('started_at', { ascending: false })
         .limit(1)
         .maybeSingle(),
-      (supabase.from('data_conflicts') as any)
+      supabase.from('data_conflicts')
         .select('*', { count: 'exact', head: true })
         .eq('status', 'unresolved'),
-      (supabase.from('job_execution_log') as any)
+      supabase.from('job_execution_log')
         .select('*', { count: 'exact', head: true })
         .eq('status', 'failed'),
     ]);

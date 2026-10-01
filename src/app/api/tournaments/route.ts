@@ -2,6 +2,33 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase';
 import { getCached, setCached } from '@/lib/response-cache';
 
+interface TournamentRecord {
+  [column: string]: unknown;
+  id: number;
+  season_id: number;
+  name: string;
+  slug: string;
+  status: string;
+  tier: string | null;
+  start_date: string;
+  end_date: string;
+  eligible: boolean;
+  last_synced_at: string | null;
+}
+
+interface SeriesTeamRecord {
+  id: number;
+  tournament_id: number;
+  team_a_id: number | null;
+  team_b_id: number | null;
+}
+
+interface TeamSummary {
+  id: number;
+  name: string;
+  logo_url: string | null;
+}
+
 /**
  * GET /api/tournaments
  * Returns tournaments, optionally filtered by seasonId and/or status.
@@ -17,8 +44,7 @@ export async function GET(request: NextRequest) {
     if (cached) return NextResponse.json(cached);
 
     const supabase = supabaseServer();
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    let query = (supabase.from('tournaments') as any)
+    let query = supabase.from('tournaments')
       .select(`
         id,
         season_id,
@@ -45,38 +71,39 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const tournamentIds = (data ?? []).map((t: any) => t.id);
-    let seriesByTournament = new Map<number, any[]>();
-    let teamsMap = new Map<number, any>();
+    const tournaments = (data ?? []) as TournamentRecord[];
+    const tournamentIds = tournaments.map((tournament) => tournament.id);
+    const seriesByTournament = new Map<number, SeriesTeamRecord[]>();
+    const teamsMap = new Map<number, TeamSummary>();
 
     if (tournamentIds.length > 0) {
-      const { data: allSeries } = await (supabase.from('tournament_series') as any)
+      const { data: allSeriesData } = await supabase.from('tournament_series')
         .select('id, tournament_id, team_a_id, team_b_id')
         .in('tournament_id', tournamentIds);
 
-      const seriesList = allSeries ?? [];
-      seriesList.forEach((s: any) => {
-        const list = seriesByTournament.get(s.tournament_id) || [];
-        list.push(s);
-        seriesByTournament.set(s.tournament_id, list);
+      const seriesList = (allSeriesData ?? []) as SeriesTeamRecord[];
+      seriesList.forEach((series) => {
+        const list = seriesByTournament.get(series.tournament_id) || [];
+        list.push(series);
+        seriesByTournament.set(series.tournament_id, list);
       });
 
-      const allTeamIds = [...new Set(seriesList.flatMap((s: any) => [s.team_a_id, s.team_b_id]))].filter(Boolean);
+      const allTeamIds = [...new Set(seriesList.flatMap((series) => [series.team_a_id, series.team_b_id]).filter((id): id is number => id !== null))];
       if (allTeamIds.length > 0) {
-        const { data: teamsData } = await (supabase.from('professional_teams') as any)
+        const { data: teamsData } = await supabase.from('professional_teams')
           .select('id, name, logo_url')
           .in('id', allTeamIds);
-        (teamsData ?? []).forEach((t: any) => teamsMap.set(t.id, t));
+        ((teamsData ?? []) as TeamSummary[]).forEach((team) => teamsMap.set(team.id, team));
       }
     }
 
-    const enrichedTournaments = (data ?? []).map((t: any) => {
-      const seriesList = seriesByTournament.get(t.id) || [];
-      const teamIds = [...new Set(seriesList.flatMap((s: any) => [s.team_a_id, s.team_b_id]))].filter(Boolean);
-      const participatingTeams = teamIds.map((id) => teamsMap.get(id)).filter(Boolean);
+    const enrichedTournaments = tournaments.map((tournament) => {
+      const seriesList = seriesByTournament.get(tournament.id) || [];
+      const teamIds = [...new Set(seriesList.flatMap((series) => [series.team_a_id, series.team_b_id]).filter((id): id is number => id !== null))];
+      const participatingTeams = teamIds.map((id) => teamsMap.get(id)).filter((team): team is TeamSummary => team !== undefined);
 
       return {
-        ...t,
+        ...tournament,
         series_count: seriesList.length,
         participating_teams: participatingTeams,
       };

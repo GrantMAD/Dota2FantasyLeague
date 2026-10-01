@@ -1,7 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
-import Link from 'next/link';
+import React, { useState, useEffect } from 'react';
 import { Database } from 'lucide-react';
 import { fetchWithAuth } from '@/lib/fetch-with-auth';
 
@@ -13,8 +12,8 @@ interface AuditLog {
   action: string;
   changed_by: string | null;
   changed_by_user?: { username: string } | null;
-  old_values: any;
-  new_values: any;
+  old_values: unknown;
+  new_values: unknown;
   reason: string | null;
   created_at: string;
 }
@@ -22,41 +21,43 @@ interface AuditLog {
 export default function AdminAuditPage() {
   const [logs, setLogs] = useState<AuditLog[]>([]);
   const [total, setTotal] = useState(0);
-  const [loading, setLoading] = useState(true);
+  const [loadedRequestKey, setLoadedRequestKey] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const [actionFilter, setActionFilter] = useState('');
   const [tableFilter, setTableFilter] = useState('');
   const [expandedLogId, setExpandedLogId] = useState<number | null>(null);
+  const [refreshVersion, setRefreshVersion] = useState(0);
 
   const limit = 20;
-
-  const fetchLogs = useCallback(async () => {
-    setLoading(true);
-    try {
-      const offset = (page - 1) * limit;
-      const params = new URLSearchParams({
-        limit: limit.toString(),
-        offset: offset.toString()
-      });
-      if (actionFilter) params.append('action', actionFilter);
-      if (tableFilter) params.append('table_name', tableFilter);
-
-      const res = await fetchWithAuth(`/api/admin/audit?${params.toString()}`);
-      if (res.ok) {
-        const data = await res.json();
-        setLogs(data.data || []);
-        setTotal(data.total || 0);
-      }
-    } catch (error) {
-      console.error('Failed to fetch audit logs', error);
-    } finally {
-      setLoading(false);
-    }
-  }, [page, actionFilter, tableFilter]);
+  const requestKey = JSON.stringify([page, actionFilter, tableFilter, refreshVersion]);
+  const loading = loadedRequestKey !== requestKey;
 
   useEffect(() => {
-    fetchLogs();
-  }, [fetchLogs]);
+    async function fetchLogs() {
+      try {
+        const offset = (page - 1) * limit;
+        const params = new URLSearchParams({
+          limit: limit.toString(),
+          offset: offset.toString()
+        });
+        if (actionFilter) params.append('action', actionFilter);
+        if (tableFilter) params.append('table_name', tableFilter);
+
+        const res = await fetchWithAuth(`/api/admin/audit?${params.toString()}`);
+        if (res.ok) {
+          const data = await res.json();
+          setLogs(data.data || []);
+          setTotal(data.total || 0);
+        }
+      } catch (error) {
+        console.error('Failed to fetch audit logs', error);
+      } finally {
+        setLoadedRequestKey(JSON.stringify([page, actionFilter, tableFilter, refreshVersion]));
+      }
+    }
+
+    void fetchLogs();
+  }, [page, actionFilter, tableFilter, refreshVersion]);
 
   const totalPages = Math.ceil(total / limit);
 
@@ -104,7 +105,7 @@ export default function AdminAuditPage() {
           />
 
           <button 
-            onClick={fetchLogs} 
+            onClick={() => setRefreshVersion((version) => version + 1)} 
             className="px-4 py-2 rounded-lg text-sm font-semibold transition-colors bg-amber-100 hover:bg-amber-200 text-amber-900 border border-amber-300 dark:bg-amber-500/20 dark:hover:bg-amber-500/30 dark:text-amber-400 dark:border-transparent"
           >
             Refresh

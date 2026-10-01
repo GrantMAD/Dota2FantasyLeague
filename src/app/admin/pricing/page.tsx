@@ -13,6 +13,15 @@ interface PlayerPriceRecord {
   lastDelta: number;
 }
 
+interface PricingPlayerRow {
+  id: number;
+  name: string;
+  in_game_name?: string | null;
+  professional_teams?: { name?: string | null } | null;
+  primary_role?: string | null;
+  current_price?: number | null;
+}
+
 const ROLES = ['All', 'Carry', 'Mid', 'Offlane', 'Support', 'Hard Support'];
 const ROLE_COLOURS: Record<string, string> = {
   Carry:        'bg-red-500/15 text-red-400 border-red-500/30',
@@ -41,9 +50,9 @@ export default function AdminPricingPage() {
       try {
         const res = await fetch('/api/players?limit=100');
         if (res.ok) {
-          const json = await res.json();
+          const json = (await res.json()) as { data?: PricingPlayerRow[] };
           const items = Array.isArray(json.data) ? json.data : [];
-          const mapped = items.map((p: any) => ({
+          const mapped = items.map((p) => ({
             id: p.id,
             name: p.in_game_name || p.name,
             team: p.professional_teams?.name || 'Free Agent',
@@ -105,8 +114,8 @@ export default function AdminPricingPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Job failed to start');
       setJobMessage({ type: 'success', text: 'Price update job started successfully.' });
-    } catch (err: any) {
-      setJobMessage({ type: 'error', text: err.message || 'Failed to trigger job.' });
+    } catch (error: unknown) {
+      setJobMessage({ type: 'error', text: error instanceof Error ? error.message : 'Failed to trigger job.' });
     } finally {
       setJobRunning(false);
     }

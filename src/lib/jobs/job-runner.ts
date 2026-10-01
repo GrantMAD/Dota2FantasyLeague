@@ -29,6 +29,8 @@ export async function runJobWithRetry(
 
   // Check if there is a failed job ready to retry
   const { data: existingJob } = await (supabase
+    // The generated local schema does not include this table.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     .from('job_execution_log') as any)
     .select('id, retry_count')
     .eq('job_name', jobName)
@@ -43,6 +45,8 @@ export async function runJobWithRetry(
 
   // Create a new log entry for this execution
   const { data: logEntry } = await (supabase
+    // The generated local schema does not include this table.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     .from('job_execution_log') as any)
     .insert({
       job_name: jobName,
@@ -61,6 +65,8 @@ export async function runJobWithRetry(
 
     // Mark the job as completed
     if (logId) {
+      // The generated local schema does not include this table.
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       await (supabase.from('job_execution_log') as any).update({
         status: result.success ? 'completed' : 'failed',
         completed_at: completedAt.toISOString(),
@@ -70,7 +76,7 @@ export async function runJobWithRetry(
     }
 
     return result;
-  } catch (err: any) {
+  } catch (error: unknown) {
     const completedAt = new Date();
     const newRetryCount = retryCount + 1;
     const isDeadLetter = newRetryCount >= MAX_RETRIES;
@@ -81,14 +87,19 @@ export async function runJobWithRetry(
       ? null
       : new Date(completedAt.getTime() + backoffMs).toISOString();
 
-    const errorMessage = err?.message || 'Unknown error';
+    const errorDetails = error && typeof error === 'object'
+      ? error as { message?: unknown; stack?: string; name?: string }
+      : undefined;
+    const errorMessage = typeof errorDetails?.message === 'string' ? errorDetails.message : 'Unknown error';
 
     if (logId) {
+      // The generated local schema does not include this table.
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       await (supabase.from('job_execution_log') as any).update({
         status: 'failed',
         completed_at: completedAt.toISOString(),
         error_message: errorMessage,
-        error_details: { stack: err?.stack, name: err?.name },
+        error_details: { stack: errorDetails?.stack, name: errorDetails?.name },
         retry_count: newRetryCount,
         next_retry_at: nextRetryAt,
         is_dead_letter: isDeadLetter,

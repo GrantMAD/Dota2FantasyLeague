@@ -5,6 +5,27 @@ interface RouteContext {
   params: Promise<{ id: string }>;
 }
 
+interface TeamSummary {
+  id: number;
+  name: string;
+  tag: string | null;
+}
+
+interface TransferHistoryRecord {
+  id: number;
+  change_type: string;
+  changed_at: string;
+  role: string | null;
+  team_id: number | null;
+  previous_team_id: number | null;
+  professional_teams: TeamSummary | TeamSummary[] | null;
+}
+
+interface PlayerTeamContext {
+  availability_status: string | null;
+  professional_teams: TeamSummary | TeamSummary[] | null;
+}
+
 /**
  * GET /api/players/[id]/transfers
  * Returns a player's full professional team transfer history.
@@ -21,8 +42,8 @@ export async function GET(request: NextRequest, context: RouteContext) {
     const supabase = supabaseServer();
 
     // Fetch transfer history, joined with team names for display
-    const { data, error } = await (supabase
-      .from('team_roster_history') as any)
+    const { data, error } = await supabase
+      .from('team_roster_history')
       .select(`
         id,
         change_type,
@@ -48,17 +69,19 @@ export async function GET(request: NextRequest, context: RouteContext) {
     }
 
     // Also fetch the player's current team for context
-    const { data: player } = await (supabase
-      .from('professional_players') as any)
+    const { data: playerData } = await supabase
+      .from('professional_players')
       .select('id, name, team_id, availability_status, professional_teams(id, name, tag)')
       .eq('id', playerId)
       .maybeSingle();
+    const player = playerData as PlayerTeamContext | null;
+    const transferHistory = (data ?? []) as TransferHistoryRecord[];
 
     return NextResponse.json({
       playerId,
       currentTeam: player?.professional_teams ?? null,
       availabilityStatus: player?.availability_status ?? null,
-      transferHistory: data ?? [],
+      transferHistory,
     });
   } catch (error: unknown) {
     console.error('Player Transfers API Error:', error);

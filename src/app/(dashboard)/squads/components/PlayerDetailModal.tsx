@@ -1,7 +1,7 @@
 'use client';
 
 import Image from 'next/image';
-import { X, Trophy, TrendingUp, DollarSign, Calendar, Activity } from 'lucide-react';
+import { X } from 'lucide-react';
 import type { SquadPlayer } from './SquadPlayerCard';
 
 type PlayerPerformance = {

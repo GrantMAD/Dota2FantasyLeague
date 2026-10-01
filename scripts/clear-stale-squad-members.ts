@@ -25,17 +25,38 @@ loadEnv('.env');
 
 const stalePlayerIds = new Set([11, 9, 6, 7, 13, 12, 14, 2257]);
 
+interface LineupRow {
+  id: number;
+  carry_id: number | null;
+  mid_id: number | null;
+  offlane_id: number | null;
+  support_id: number | null;
+  hard_support_id: number | null;
+  bench_1_id: number | null;
+  bench_2_id: number | null;
+  bench_3_id: number | null;
+  captain_player_id: number | null;
+  vice_captain_player_id: number | null;
+}
+
+interface RemovedSquadMemberRow {
+  id: number;
+  squad_id: number;
+  player_id: number;
+}
+
 async function main() {
   const { getSupabaseServerClient } = await import('../src/lib/db/supabase-server');
   const supabase = getSupabaseServerClient();
 
   // Step 1: Null out stale player references in fantasy_lineups
   console.log('Step 1: Patching fantasy_lineups to remove stale player slots...');
-  const { data: lineups } = await (supabase
-    .from('fantasy_lineups') as any)
+  const { data: lineupData } = await supabase
+    .from('fantasy_lineups')
     .select('id, carry_id, mid_id, offlane_id, support_id, hard_support_id, bench_1_id, bench_2_id, bench_3_id, captain_player_id, vice_captain_player_id');
+  const lineups = (lineupData ?? []) as LineupRow[];
 
-  for (const lineup of lineups || []) {
+  for (const lineup of lineups) {
     const patch: Record<string, null> = {};
     const slots: [string, number | null][] = [
       ['carry_id', lineup.carry_id],
@@ -53,7 +74,7 @@ async function main() {
       if (val && stalePlayerIds.has(val)) patch[col] = null;
     }
     if (Object.keys(patch).length > 0) {
-      const { error } = await (supabase.from('fantasy_lineups') as any)
+      const { error } = await supabase.from('fantasy_lineups')
         .update(patch).eq('id', lineup.id);
       if (error) {
         console.warn('  Could not patch lineup ' + lineup.id + ':', error.message);
@@ -65,17 +86,18 @@ async function main() {
 
   // Step 2: Delete fantasy_squad_members rows for stale players
   console.log('Step 2: Removing stale players from fantasy_squad_members...');
-  const { data: removed, error: squadError } = await (supabase
-    .from('fantasy_squad_members') as any)
+  const { data: removedData, error: squadError } = await supabase
+    .from('fantasy_squad_members')
     .delete()
     .in('player_id', [...stalePlayerIds])
     .select('id, squad_id, player_id');
+  const removed = (removedData ?? []) as RemovedSquadMemberRow[];
 
   if (squadError) {
     console.error('  Failed:', squadError.message);
   } else {
     console.log('  Removed ' + (removed?.length ?? 0) + ' rows from fantasy_squad_members');
-    for (const r of removed || []) {
+    for (const r of removed) {
       console.log('    member_id=' + r.id + ' | squad_id=' + r.squad_id + ' | player_id=' + r.player_id);
     }
   }

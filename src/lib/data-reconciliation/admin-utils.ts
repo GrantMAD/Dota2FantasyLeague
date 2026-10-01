@@ -95,7 +95,7 @@ export async function getDataConflicts(
     }
   }
 
-  return conflicts.map((c: Record<string, any>) => ({
+  return conflicts.map((c: Record<string, unknown>) => ({
     ...c,
     entity_name:
       c.entity_type === 'team'

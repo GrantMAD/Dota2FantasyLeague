@@ -9,6 +9,29 @@ interface JobResult {
   duration: number;
 }
 
+interface DeadlineGameweekRow {
+  id: number;
+  gameweek_number: number;
+  season_id: number;
+  deadline: string;
+}
+
+interface FantasySeasonOwnerRow {
+  user_id: string;
+}
+
+interface PushSubscriptionRecord {
+  endpoint: string;
+}
+
+interface DeadlineNotificationInsert {
+  user_id: string;
+  type: 'deadline_reminder';
+  title: string;
+  message: string;
+  metadata: { gameweek_id: number; gameweek_number: number };
+}
+
 class SendDeadlineNotifications {
   private supabase: ReturnType<typeof createClient>;
 
@@ -19,7 +42,7 @@ class SendDeadlineNotifications {
     );
   }
 
-  private async dispatchWebPush(subscription: any, payload: any) {
+  private async dispatchWebPush(subscription: PushSubscriptionRecord, payload: { title: string; body: string }) {
     // In a real implementation, you would use the 'web-push' npm package:
     // webpush.setVapidDetails('mailto:admin@example.com', PUBLIC_VAPID_KEY, PRIVATE_VAPID_KEY);
     // await webpush.sendNotification(subscription, JSON.stringify(payload));
@@ -54,12 +77,13 @@ class SendDeadlineNotifications {
 
       if (gwError) throw gwError;
 
-      if (!gameweeks || gameweeks.length === 0) {
+      const deadlineGameweeks = (gameweeks ?? []) as DeadlineGameweekRow[];
+      if (deadlineGameweeks.length === 0) {
         result.duration = Date.now() - startTime;
         return result;
       }
 
-      for (const gw of gameweeks as any[]) {
+      for (const gw of deadlineGameweeks) {
         result.gameweeksProcessed++;
 
         // 2. Find users who are playing this season
@@ -73,7 +97,7 @@ class SendDeadlineNotifications {
           continue;
         }
 
-        for (const season of fantasySeasons as any[]) {
+        for (const season of fantasySeasons as FantasySeasonOwnerRow[]) {
           const userId = season.user_id;
 
           // 3. Check if user already got a deadline notification for this gameweek
@@ -100,7 +124,10 @@ class SendDeadlineNotifications {
           const title = `Gameweek ${gw.gameweek_number} Deadline Approaching!`;
           const message = `The deadline for Gameweek ${gw.gameweek_number} is less than 24 hours away. Finalize your transfers and set your captain!`;
           
-          const { error: insertError } = await (this.supabase.from('user_notifications') as any).insert({
+          const notificationTable = this.supabase.from('user_notifications') as unknown as {
+            insert(values: DeadlineNotificationInsert): PromiseLike<{ error: { message: string } | null }>;
+          };
+          const { error: insertError } = await notificationTable.insert({
             user_id: userId,
             type: 'deadline_reminder',
             title,
@@ -133,9 +160,9 @@ class SendDeadlineNotifications {
           }
         }
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       result.success = false;
-      result.errors.push(error.message || String(error));
+      result.errors.push(error instanceof Error ? error.message : String(error));
     }
 
     result.duration = Date.now() - startTime;

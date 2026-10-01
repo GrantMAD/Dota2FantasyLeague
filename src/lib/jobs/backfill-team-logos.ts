@@ -66,7 +66,7 @@ export async function backfillTeamLogos(): Promise<{
   let skipped = 0;
 
   // Fetch all teams in our DB that still have no logo
-  const { data: teams, error: fetchErr } = await (supabase as any)
+  const { data: teams, error: fetchErr } = await supabase
     .from('professional_teams')
     .select('id, name, data_provider_id')
     .is('logo_url', null)
@@ -93,7 +93,7 @@ export async function backfillTeamLogos(): Promise<{
     const logoUrl = await fetchLogoFromOpenDota(team.data_provider_id);
 
     if (logoUrl) {
-      const { error: updateErr } = await (supabase as any)
+      const { error: updateErr } = await supabase
         .from('professional_teams')
         .update({ logo_url: logoUrl, last_synced_at: new Date().toISOString() })
         .eq('id', team.id);

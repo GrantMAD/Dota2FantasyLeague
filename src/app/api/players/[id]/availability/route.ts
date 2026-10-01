@@ -13,7 +13,7 @@ interface RouteContext {
  */
 export async function PUT(request: NextRequest, context: RouteContext) {
   try {
-    const user = await verifyAuth(request);
+    await verifyAuth(request);
     
     // In a real implementation, verify user is an admin here
     // if (user.role !== 'admin') return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });

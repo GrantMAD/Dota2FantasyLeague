@@ -37,7 +37,7 @@ export async function GET() {
         let name = code;
         try {
           name = displayNames.of(code.toUpperCase()) || code;
-        } catch (e) {
+        } catch {
           // ignore invalid codes
         }
         return {

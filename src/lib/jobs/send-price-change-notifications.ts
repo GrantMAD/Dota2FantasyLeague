@@ -9,6 +9,36 @@ interface JobResult {
   duration: number;
 }
 
+interface PriceChangeRecord {
+  player_id: number;
+  price: number;
+  price_change: number;
+  professional_players: { name: string | null } | { name: string | null }[] | null;
+}
+
+interface ActiveGameweekRecord {
+  id: number;
+  season_id: number;
+}
+
+interface UserNotificationInsert {
+  user_id: string;
+  type: 'price_change';
+  title: string;
+  message: string;
+  metadata: { player_id: number; gameweek_id: number; price_change: number };
+}
+
+interface OwnerRow {
+  fantasy_squads: {
+    fantasy_seasons: { user_id: string | null } | { user_id: string | null }[] | null;
+  } | { fantasy_seasons: { user_id: string | null } | { user_id: string | null }[] | null }[] | null;
+}
+
+interface PushSubscriptionRecord {
+  endpoint: string;
+}
+
 class SendPriceChangeNotifications {
   private supabase: ReturnType<typeof createClient>;
 
@@ -19,7 +49,7 @@ class SendPriceChangeNotifications {
     );
   }
 
-  private async dispatchWebPush(subscription: any, payload: any) {
+  private async dispatchWebPush(subscription: PushSubscriptionRecord, payload: { title: string; body: string }) {
     console.log(`[PUSH NOTIFICATION] Sending to ${subscription.endpoint}: ${payload.title}`);
     return true;
   }
@@ -37,13 +67,14 @@ class SendPriceChangeNotifications {
 
     try {
       // 1. Get the current active/upcoming gameweek ID (assuming prices update for upcoming)
-      const { data: gameweek, error: gwError } = await this.supabase
+      const { data: gameweekData, error: gwError } = await this.supabase
         .from('gameweeks')
         .select('id, season_id')
         .in('status', ['upcoming', 'active'])
         .order('start_date', { ascending: true })
         .limit(1)
         .maybeSingle();
+      const gameweek = gameweekData as ActiveGameweekRecord | null;
 
       if (gwError || !gameweek) {
         throw new Error(`Failed to fetch active gameweek: ${gwError?.message || 'None found'}`);
@@ -53,7 +84,7 @@ class SendPriceChangeNotifications {
       const { data: priceChanges, error: priceError } = await this.supabase
         .from('player_prices')
         .select('player_id, price, price_change, professional_players(name)')
-        .eq('gameweek_id', (gameweek as any).id)
+        .eq('gameweek_id', gameweek.id)
         .neq('price_change', 0);
 
       if (priceError) throw priceError;
@@ -64,10 +95,13 @@ class SendPriceChangeNotifications {
       }
 
       // 3. For each price change, notify users who own the player
-      for (const pc of priceChanges as any[]) {
+      for (const pc of priceChanges as unknown as PriceChangeRecord[]) {
         result.priceChangesProcessed++;
         
-        const playerName = (pc.professional_players as any)?.name || `Player ${pc.player_id}`;
+        const joinedPlayer = Array.isArray(pc.professional_players)
+          ? pc.professional_players[0]
+          : pc.professional_players;
+        const playerName = joinedPlayer?.name || `Player ${pc.player_id}`;
         const isRise = pc.price_change > 0;
         const changeStr = (isRise ? '+' : '') + pc.price_change.toFixed(2);
         
@@ -83,9 +117,14 @@ class SendPriceChangeNotifications {
           continue;
         }
 
-        for (const ownerRow of owners as any[]) {
-          // Navigating the nested joins from Supabase
-          const userId = (ownerRow as any).fantasy_squads?.fantasy_seasons?.user_id;
+        for (const ownerRow of owners as unknown as OwnerRow[]) {
+          const joinedSquad = Array.isArray(ownerRow.fantasy_squads)
+            ? ownerRow.fantasy_squads[0]
+            : ownerRow.fantasy_squads;
+          const joinedSeason = Array.isArray(joinedSquad?.fantasy_seasons)
+            ? joinedSquad.fantasy_seasons[0]
+            : joinedSquad?.fantasy_seasons;
+          const userId = joinedSeason?.user_id;
           if (!userId) continue;
 
           // Check if already notified for this player's price change in this gameweek
@@ -94,7 +133,7 @@ class SendPriceChangeNotifications {
             .select('id')
             .eq('user_id', userId)
             .eq('type', 'price_change')
-            .contains('metadata', { player_id: pc.player_id, gameweek_id: (gameweek as any).id })
+            .contains('metadata', { player_id: pc.player_id, gameweek_id: gameweek.id })
             .limit(1)
             .maybeSingle();
 
@@ -104,12 +143,15 @@ class SendPriceChangeNotifications {
           const title = `${playerName} Price ${isRise ? 'Rise' : 'Fall'}!`;
           const message = `${playerName}'s price has ${isRise ? 'risen' : 'fallen'} by ${changeStr}m to $${pc.price}m.`;
           
-          const { error: insertError } = await (this.supabase.from('user_notifications') as any).insert({
+          const notificationTable = this.supabase.from('user_notifications') as unknown as {
+            insert(values: UserNotificationInsert): PromiseLike<{ error: { message: string } | null }>;
+          };
+          const { error: insertError } = await notificationTable.insert({
             user_id: userId,
             type: 'price_change',
             title,
             message,
-            metadata: { player_id: pc.player_id, gameweek_id: (gameweek as any).id, price_change: pc.price_change },
+            metadata: { player_id: pc.player_id, gameweek_id: gameweek.id, price_change: pc.price_change },
           });
 
           if (insertError) {
@@ -130,16 +172,16 @@ class SendPriceChangeNotifications {
               try {
                 await this.dispatchWebPush(sub, { title, body: message });
                 result.pushNotificationsSent++;
-              } catch (e) {
+              } catch {
                 // Ignore push failure internally
               }
             }
           }
         }
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       result.success = false;
-      result.errors.push(error.message || String(error));
+      result.errors.push(error instanceof Error ? error.message : String(error));
     }
 
     result.duration = Date.now() - startTime;

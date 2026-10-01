@@ -26,6 +26,69 @@ export interface PurgeResult {
   completedAt: Date;
 }
 
+interface InactivePlayerRow {
+  id: number;
+  name: string;
+  current_price: number | null;
+  availability_status: string;
+  last_synced_at: string | null;
+  team_id: number | null;
+}
+
+interface SquadMemberRow {
+  id: number;
+  squad_id: number;
+  player_id: number;
+  fantasy_squads: {
+    fantasy_season_id: number;
+    fantasy_seasons: { user_id: string | null; budget: number | null } | { user_id: string | null; budget: number | null }[] | null;
+  } | {
+    fantasy_season_id: number;
+    fantasy_seasons: { user_id: string | null; budget: number | null } | { user_id: string | null; budget: number | null }[] | null;
+  }[] | null;
+}
+
+interface LineupRow {
+  id: number;
+  locked: boolean;
+  [column: string]: unknown;
+}
+
+interface PlayerPerformanceRow {
+  player_id: number;
+}
+
+interface TeamRow {
+  id: number;
+  name: string;
+}
+
+interface PlayerTeamRow {
+  team_id: number | null;
+}
+
+interface MatchTeamIdsRow {
+  team_a_id: number | null;
+  team_b_id: number | null;
+}
+
+interface PlayerRemovedNotification {
+  user_id: string;
+  type: 'player_removed';
+  title: string;
+  message: string;
+  metadata: {
+    player_id: number;
+    player_name: string;
+    refund_amount: number;
+    squad_id: number;
+  };
+}
+
+function firstRelation<T>(value: T | T[] | null | undefined): T | undefined {
+  return Array.isArray(value) ? value[0] : value ?? undefined;
+}
+
 export async function purgeInactiveData(): Promise<PurgeResult> {
   const startedAt = new Date();
   const result: PurgeResult = {
@@ -85,17 +148,17 @@ export async function purgeInactiveData(): Promise<PurgeResult> {
       throw new Error(`Failed to query inactive players: ${fetchErr.message}`);
     }
 
-    const candidates = purgeablePlayers || [];
+    const candidates = (purgeablePlayers ?? []) as InactivePlayerRow[];
     console.log(`[purgeInactiveData] Found ${candidates.length} players eligible for purge review`);
 
     if (candidates.length > 0) {
-      const candidateIds = candidates.map((p: any) => p.id);
+      const candidateIds = candidates.map((player) => player.id);
       const playerMap = new Map<number, { id: number; name: string; price: number }>();
-      for (const p of candidates as any[]) {
-        playerMap.set(p.id, {
-          id: p.id,
-          name: p.name,
-          price: Number(p.current_price ?? 5.0),
+      for (const player of candidates) {
+        playerMap.set(player.id, {
+          id: player.id,
+          name: player.name,
+          price: Number(player.current_price ?? 5.0),
         });
       }
 
@@ -112,18 +175,20 @@ export async function purgeInactiveData(): Promise<PurgeResult> {
       if (!smError && squadMembers && squadMembers.length > 0) {
         console.log(`[purgeInactiveData] Found ${squadMembers.length} squad slots occupied by purgeable players`);
 
-        const seasonBudgetMap = new Map<number, number>();
+        const seasonBudgetMap = new Map<number | undefined, number>();
 
-        for (const row of squadMembers as any[]) {
+        for (const row of squadMembers as unknown as SquadMemberRow[]) {
           const pInfo = playerMap.get(row.player_id);
           const refundAmount = pInfo ? pInfo.price : 5.0;
           const playerName = pInfo ? pInfo.name : 'Unknown Player';
           const squadId = row.squad_id;
-          const userId = row.fantasy_squads?.fantasy_seasons?.user_id;
-          const fantasySeasonId = row.fantasy_squads?.fantasy_season_id;
+          const squad = firstRelation(row.fantasy_squads);
+          const fantasySeason = firstRelation(squad?.fantasy_seasons);
+          const userId = fantasySeason?.user_id;
+          const fantasySeasonId = squad?.fantasy_season_id;
           
           if (!seasonBudgetMap.has(fantasySeasonId)) {
-            seasonBudgetMap.set(fantasySeasonId, Number(row.fantasy_squads?.fantasy_seasons?.budget ?? 100));
+            seasonBudgetMap.set(fantasySeasonId, Number(fantasySeason?.budget ?? 100));
           }
           const currentBudget = seasonBudgetMap.get(fantasySeasonId)!;
 
@@ -149,7 +214,10 @@ export async function purgeInactiveData(): Promise<PurgeResult> {
 
             // Notify user
             if (userId) {
-              await (supabase.from('user_notifications') as any).insert({
+              const notificationTable = supabase.from('user_notifications') as unknown as {
+                insert(values: PlayerRemovedNotification): PromiseLike<unknown>;
+              };
+              await notificationTable.insert({
                 user_id: userId,
                 type: 'player_removed',
                 title: `Player Removed: ${playerName}`,
@@ -185,13 +253,14 @@ export async function purgeInactiveData(): Promise<PurgeResult> {
           .select(`id, locked, ${allSlotCols.join(', ')}`)
           .or(orConditions);
 
-        for (const lineup of affectedLineups || []) {
+        for (const lineup of (affectedLineups ?? []) as LineupRow[]) {
           if (lineup.locked) continue; // Never touch locked/historical lineups
 
           // Build a patch that only nulls the specific slots referencing a purged player
           const patch: Record<string, null> = {};
           for (const col of allSlotCols) {
-            if (lineup[col] != null && candidateIds.includes(lineup[col])) {
+            const slotPlayerId = lineup[col];
+            if (typeof slotPlayerId === 'number' && candidateIds.includes(slotPlayerId)) {
               patch[col] = null;
             }
           }
@@ -219,10 +288,10 @@ export async function purgeInactiveData(): Promise<PurgeResult> {
         .in('player_id', candidateIds);
 
       const protectedIds = new Set(
-        (playersWithPerformances || []).map((p: any) => p.player_id)
+        ((playersWithPerformances ?? []) as PlayerPerformanceRow[]).map((player) => player.player_id)
       );
 
-      const safeToDeleteIds = candidateIds.filter((id: number) => !protectedIds.has(id));
+      const safeToDeleteIds = candidateIds.filter((id) => !protectedIds.has(id));
 
       if (safeToDeleteIds.length > 0) {
         const chunkSize = 100;
@@ -276,16 +345,17 @@ export async function purgeInactiveData(): Promise<PurgeResult> {
       .not('team_id', 'is', null);
 
     const activeTeamIds = new Set(
-      (remainingPlayersWithTeams || [])
-        .map((p: any) => p.team_id)
-        .filter(Boolean) as number[]
+      ((remainingPlayersWithTeams ?? []) as PlayerTeamRow[])
+        .map((player) => player.team_id)
+        .filter((teamId): teamId is number => teamId !== null)
     );
 
     // Filter teams that have 0 players left
-    const emptyTeams = (allTeams || []).filter((t: any) => !activeTeamIds.has(t.id));
+    const teamRows = (allTeams ?? []) as TeamRow[];
+    const emptyTeams = teamRows.filter((team) => !activeTeamIds.has(team.id));
 
     if (emptyTeams.length > 0) {
-      const emptyTeamIds = emptyTeams.map((t: any) => t.id);
+      const emptyTeamIds = emptyTeams.map((team) => team.id);
 
       // Verify they don't have recent match participation in last 90 days
       const ninetyDaysAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString();
@@ -295,12 +365,12 @@ export async function purgeInactiveData(): Promise<PurgeResult> {
         .gte('scheduled_time', ninetyDaysAgo);
 
       const matchTeamIds = new Set<number>();
-      for (const m of (recentMatches || []) as any[]) {
-        if (m.team_a_id) matchTeamIds.add(m.team_a_id);
-        if (m.team_b_id) matchTeamIds.add(m.team_b_id);
+      for (const match of (recentMatches ?? []) as MatchTeamIdsRow[]) {
+        if (match.team_a_id) matchTeamIds.add(match.team_a_id);
+        if (match.team_b_id) matchTeamIds.add(match.team_b_id);
       }
 
-      const safeToDeleteTeams = emptyTeamIds.filter((id: number) => !matchTeamIds.has(id));
+      const safeToDeleteTeams = emptyTeamIds.filter((id) => !matchTeamIds.has(id));
 
       if (safeToDeleteTeams.length > 0) {
         const { error: teamDelErr } = await supabase

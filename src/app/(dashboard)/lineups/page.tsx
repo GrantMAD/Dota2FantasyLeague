@@ -44,6 +44,7 @@ const SpinnerIcon = () => (
 
 export default function LineupsPage() {
   const toast = useToast();
+  const toastError = toast.error;
   const [tcStatus, setTcStatus] = useState<ChipStatus | null>(null);
   const [bbStatus, setBbStatus] = useState<ChipStatus | null>(null);
   const [loading, setLoading] = useState(true);
@@ -86,13 +87,13 @@ export default function LineupsPage() {
         } : null);
       } catch (err) {
         console.error('Failed to fetch fantasy context', err);
-        toast.error('Load Error', err instanceof Error ? err.message : 'Unable to load fantasy lineup');
+        toastError('Load Error', err instanceof Error ? err.message : 'Unable to load fantasy lineup');
       } finally {
         setLoading(false);
       }
     }
     fetchFantasyContext();
-  }, []);
+  }, [toastError]);
 
   const updateSlot = (slot: string, playerId: number) => {
     const existingSlot = lineup.find((entry) => entry.player_id === playerId && entry.slot !== slot)?.slot;

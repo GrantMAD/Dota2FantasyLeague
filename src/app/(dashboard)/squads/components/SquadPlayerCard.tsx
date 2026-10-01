@@ -32,7 +32,6 @@ interface SquadPlayerCardProps {
 }
 
 export function SquadPlayerCard({
-  slotName,
   roleLabel,
   player,
   isStarter = true,

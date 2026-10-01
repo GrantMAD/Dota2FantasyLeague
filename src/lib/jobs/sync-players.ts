@@ -24,6 +24,24 @@ interface SyncResult {
   completedAt: Date;
 }
 
+interface OpenDotaPlayerRow {
+  account_id: number;
+  steamid?: string | null;
+  name?: string | null;
+  personaname?: string | null;
+  is_pro?: boolean;
+  team_id?: number | null;
+  team_name?: string | null;
+  team_tag?: string | null;
+  fantasy_role?: number | null;
+  country_code?: string | null;
+  loccountrycode?: string | null;
+  profileurl?: string | null;
+  avatar?: string | null;
+  avatarmedium?: string | null;
+  avatarfull?: string | null;
+}
+
 /**
  * Sync players from data provider to database
  * Idempotent: Can be safely retried without duplication
@@ -194,6 +212,9 @@ async function processSyncBatch(
 ): Promise<{ created: number; updated: number; skipped: number; errors: string[] }> {
   const results = { created: 0, updated: 0, skipped: 0, errors: [] as string[] };
   const supabase = getSupabaseServerClient();
+  const versionProvider = providerName === 'stratz' || providerName === 'opendota'
+    ? providerName
+    : 'system';
 
   // Process in sub-chunks of 5 concurrently to drastically speed up network round-trips
   const concurrency = 5;
@@ -366,7 +387,7 @@ async function processSyncBatch(
                   updateData,
                   'sync',
                   `Player data updated from ${providerName.toUpperCase()} provider`,
-                  providerName as any,
+                  versionProvider,
                   undefined,
                   0.9
                 );
@@ -427,7 +448,7 @@ async function processSyncBatch(
                   newPlayerData,
                   'sync',
                   `New player created from ${providerName.toUpperCase()} provider`,
-                  providerName as any,
+                  versionProvider,
                   undefined,
                   0.9
                 );
@@ -610,7 +631,7 @@ async function logJobExecution(
  * Keys by steamid AND account_id only — name-based keys cause collisions
  * when multiple players share a display name (e.g. "Satanic", "Support").
  */
-function buildRoleLookupFromRaw(rawPlayers: any[]): Map<string, string> {
+function buildRoleLookupFromRaw(rawPlayers: OpenDotaPlayerRow[]): Map<string, string> {
   const roleMap: Record<number, string> = {
     1: 'Carry',
     2: 'Support',
@@ -634,7 +655,7 @@ function buildRoleLookupFromRaw(rawPlayers: any[]): Map<string, string> {
  * data that was already pre-fetched for role-lookup — no second HTTP call.
  * Applies the same active-player filter as OpenDotaProvider.fetchPlayers().
  */
-function mapRawOpenDotaPlayersToPlayerData(rawPlayers: any[]): import('@/lib/data-providers/provider-interface').PlayerData[] {
+function mapRawOpenDotaPlayersToPlayerData(rawPlayers: OpenDotaPlayerRow[]): PlayerData[] {
   const roleMap: Record<number, string> = {
     1: 'Carry',
     2: 'Support',
@@ -643,7 +664,8 @@ function mapRawOpenDotaPlayersToPlayerData(rawPlayers: any[]): import('@/lib/dat
   };
 
   const activePlayers = rawPlayers.filter(
-    (p: any) => p.name && p.is_pro && p.team_id && p.team_id !== 0
+    (player): player is OpenDotaPlayerRow & { name: string; team_id: number } =>
+      Boolean(player.name && player.is_pro && player.team_id && player.team_id !== 0)
   );
 
   console.log(
@@ -651,19 +673,19 @@ function mapRawOpenDotaPlayersToPlayerData(rawPlayers: any[]): import('@/lib/dat
     `(filtered out ${rawPlayers.length - activePlayers.length} inactive)`
   );
 
-  return activePlayers.map((p: any) => ({
-    id: String(p.account_id),
-    steamId: p.steamid ? String(p.steamid) : String(p.account_id),
-    name: p.name || p.personaname,
-    tag: p.team_tag || undefined,
-    country: p.country_code || p.loccountrycode || undefined,
-    roles: [roleMap[p.fantasy_role] || 'Carry'],
-    team: p.team_id
-      ? { id: String(p.team_id), name: p.team_name || 'Independent' }
+  return activePlayers.map((player) => ({
+    id: String(player.account_id),
+    steamId: player.steamid ? String(player.steamid) : String(player.account_id),
+    name: player.name,
+    tag: player.team_tag || undefined,
+    country: player.country_code || player.loccountrycode || undefined,
+    roles: [roleMap[player.fantasy_role ?? 0] || 'Carry'],
+    team: player.team_id
+      ? { id: String(player.team_id), name: player.team_name || 'Independent' }
       : undefined,
     isActive: true,
-    profileUrl: p.profileurl || `https://opendota.com/players/${p.account_id}`,
-    imageUrl: p.avatarfull || p.avatarmedium || p.avatar,
+    profileUrl: player.profileurl || `https://opendota.com/players/${player.account_id}`,
+    imageUrl: player.avatarfull || player.avatarmedium || player.avatar || undefined,
     lastUpdated: new Date(),
   }));
 }

@@ -9,7 +9,7 @@ jest.mock('@supabase/supabase-js', () => ({
 }));
 
 describe('Calculate Global Rankings Job', () => {
-  let mockSupabase: any;
+  let mockSupabase: Record<string, jest.Mock>;
 
   beforeEach(() => {
     mockSupabase = {

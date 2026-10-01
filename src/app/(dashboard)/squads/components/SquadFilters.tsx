@@ -1,6 +1,6 @@
 'use client';
 
-import { Users, Filter, LayoutGrid, List } from 'lucide-react';
+import { Filter, LayoutGrid, List } from 'lucide-react';
 
 export type SquadTab = 'all' | 'starters' | 'bench';
 export type SquadViewMode = 'pitch' | 'compact';

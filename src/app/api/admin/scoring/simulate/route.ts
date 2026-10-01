@@ -6,7 +6,13 @@ export async function POST(request: NextRequest) {
   try {
     await verifyAuth(request);
 
-    const body = await request.json();
+    const body = (await request.json()) as {
+      seasonId?: string | number;
+      matchId?: string | number;
+      playerId?: string | number;
+      teamId?: string | number;
+      metrics?: Record<string, unknown>;
+    };
     const { seasonId = 1, matchId, playerId, teamId, metrics } = body;
 
     if (!matchId || !playerId || !teamId || !metrics) {
@@ -14,31 +20,37 @@ export async function POST(request: NextRequest) {
     }
 
     const calculator = new FantasyScoreCalculator();
-    await calculator.loadScoringRules(parseInt(seasonId, 10));
+    await calculator.loadScoringRules(parseInt(String(seasonId), 10));
 
     // Prepare mock data matching the required interfaces
-    const mockStats: any = {
-      player_id: parseInt(playerId, 10),
-      match_id: parseInt(matchId, 10),
-      team_id: parseInt(teamId, 10),
+    const mockStats = {
+      player_id: parseInt(String(playerId), 10),
+      match_id: parseInt(String(matchId), 10),
+      team_id: parseInt(String(teamId), 10),
       ...metrics
-    };
+    } as unknown as Parameters<FantasyScoreCalculator['calculatePlayerMatchScore']>[0];
 
-    const mockMatch: any = {
-      id: parseInt(matchId, 10),
+    const mockMatch = {
+      id: parseInt(String(matchId), 10),
       duration_minutes: metrics.duration_minutes || 40,
-      winner_team_id: metrics.winner_team_id || parseInt(teamId, 10)
-    };
+      winner_team_id: metrics.winner_team_id || parseInt(String(teamId), 10)
+    } as unknown as Parameters<FantasyScoreCalculator['calculatePlayerMatchScore']>[1];
 
     const breakdown = await calculator.calculatePlayerMatchScore(
       mockStats,
       mockMatch,
-      parseInt(teamId, 10)
+      parseInt(String(teamId), 10)
     );
 
     return NextResponse.json(breakdown);
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error simulating scores:', error);
-    return NextResponse.json({ error: error.message }, { status: error.status || 500 });
+    const status = typeof error === 'object' && error !== null && 'status' in error
+      ? Number(error.status)
+      : 500;
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : 'Unable to simulate scores.' },
+      { status }
+    );
   }
 }

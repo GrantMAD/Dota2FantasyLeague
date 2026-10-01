@@ -15,6 +15,15 @@ import { verifyAdminAuth, createErrorResponse } from '@/lib/auth-utils';
 import { getSupabaseServerClient } from '@/lib/db/supabase-server';
 import { getNextCronDate } from '@/lib/jobs/cron-utils';
 
+interface JobExecutionLog {
+  job_name: string;
+  status: string;
+  started_at: string | null;
+  completed_at: string | null;
+  metadata: unknown;
+  error_message: string | null;
+}
+
 export async function GET(request: Request) {
   try {
     // Check authentication and admin role
@@ -25,7 +34,7 @@ export async function GET(request: Request) {
     const health = await healthCheck();
 
     // Query latest database executions for historical runs
-    let dbLogs: any[] = [];
+    let dbLogs: JobExecutionLog[] = [];
     try {
       const supabase = getSupabaseServerClient();
       const { data } = await supabase

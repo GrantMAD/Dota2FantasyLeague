@@ -20,6 +20,8 @@ export async function GET(request: NextRequest, context: RouteContext) {
 
     const supabase = supabaseServer();
     const { data, error } = await (supabase
+      // The generated local schema does not include this table.
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       .from('match_player_substitutions') as any)
       .select(`
         id,
@@ -38,7 +40,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
     }
 
     return NextResponse.json({ matchId, substitutions: data ?? [] });
-  } catch (error: unknown) {
+  } catch {
     return NextResponse.json({ error: 'An unexpected error occurred.' }, { status: 500 });
   }
 }
@@ -71,6 +73,8 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
     const supabase = supabaseServer();
     const { data, error } = await (supabase
+      // The generated local schema does not include this table.
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       .from('match_player_substitutions') as any)
       .insert({
         match_id: matchId,
@@ -121,6 +125,8 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
 
     const supabase = supabaseServer();
     const { error } = await (supabase
+      // The generated local schema does not include this table.
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       .from('match_player_substitutions') as any)
       .delete()
       .eq('id', id)

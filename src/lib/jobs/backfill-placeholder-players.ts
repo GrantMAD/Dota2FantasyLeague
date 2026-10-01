@@ -18,6 +18,22 @@ export interface BackfillPlayersResult {
   completedAt: Date;
 }
 
+interface OpenDotaPlayerEntry {
+  account_id: number;
+  steamid?: string | null;
+  name?: string | null;
+  personaname?: string | null;
+  country_code?: string | null;
+  loccountrycode?: string | null;
+  avatarfull?: string | null;
+  avatarmedium?: string | null;
+  fantasy_role?: number | null;
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
 // Hero display name to likely primary role mapping (used as fallback when OpenDota profile has no fantasy role)
 const HERO_ROLE_FALLBACK: Record<string, string> = {
   // Supports
@@ -126,12 +142,12 @@ export async function backfillPlaceholderPlayers(): Promise<BackfillPlayersResul
   try {
     // 1. Fetch raw OpenDota pro players list to construct quick lookup map
     const { fetchRawOpenDotaProPlayers } = await import('../data-providers/opendota-provider');
-    const rawProPlayers = await fetchRawOpenDotaProPlayers().catch((err: any) => {
-      console.warn('[backfillPlaceholderPlayers] Failed to fetch proPlayers authority list:', err.message);
+    const rawProPlayers = await fetchRawOpenDotaProPlayers().catch((error: unknown) => {
+      console.warn('[backfillPlaceholderPlayers] Failed to fetch proPlayers authority list:', errorMessage(error));
       return [];
     });
 
-    const proMap = new Map<string, any>();
+    const proMap = new Map<string, OpenDotaPlayerEntry>();
     for (const p of rawProPlayers) {
       if (p.account_id) proMap.set(String(p.account_id), p);
       if (p.steamid) proMap.set(String(p.steamid), p);
@@ -237,15 +253,15 @@ export async function backfillPlaceholderPlayers(): Promise<BackfillPlayersResul
         }
 
         result.updated++;
-      } catch (err: any) {
-        result.errors.push(`Player ${player.id} (${accountId}): ${err.message}`);
+      } catch (error: unknown) {
+        result.errors.push(`Player ${player.id} (${accountId}): ${errorMessage(error)}`);
       }
     }
 
     console.log(`[backfillPlaceholderPlayers] Finished: ${result.updated} updated, ${result.skipped} skipped, ${result.errors.length} errors`);
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('[backfillPlaceholderPlayers] Job failed:', error);
-    result.errors.push(error.message);
+    result.errors.push(errorMessage(error));
   }
 
   result.completedAt = new Date();

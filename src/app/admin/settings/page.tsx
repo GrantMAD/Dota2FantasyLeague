@@ -1,14 +1,12 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import {
   Settings,
   Calendar,
   Clock,
   Coins,
-  Users,
-  Shield,
   Zap,
   Activity,
   Database,
@@ -61,71 +59,70 @@ export default function AdminSettingsPage() {
   const [deadlineOverrides, setDeadlineOverrides] = useState<Record<number, string>>({});
   const [breakOverrides, setBreakOverrides] = useState<Record<number, boolean>>({});
 
-  const fetchSettings = useCallback(async () => {
-    setLoading(true);
-    try {
-      const res = await fetch('/api/admin/settings');
-      if (res.ok) {
-        const data = await res.json();
-        const loadedSeasons: Season[] = data.seasons || [];
-        const loadedGameweeks: Gameweek[] = data.gameweeks || [];
+  useEffect(() => {
+    async function fetchSettings() {
+      try {
+        const res = await fetch('/api/admin/settings');
+        if (res.ok) {
+          const data = await res.json();
+          const loadedSeasons: Season[] = data.seasons || [];
+          const loadedGameweeks: Gameweek[] = data.gameweeks || [];
 
-        setSeasons(loadedSeasons);
-        setGameweeks(loadedGameweeks);
+          setSeasons(loadedSeasons);
+          setGameweeks(loadedGameweeks);
 
-        // Initialise season edit state with current database values
-        const sEdits: Record<number, Partial<Season>> = {};
-        loadedSeasons.forEach(s => {
-          sEdits[s.id] = {
-            status: s.status,
-            starting_budget: s.starting_budget ?? 100000000,
-            max_players_per_team: s.max_players_per_team ?? 3,
-            squad_size: s.squad_size ?? 8,
-            starters_required: s.starters_required ?? 5,
-            bench_size: s.bench_size ?? 3,
-          };
-        });
-        setSeasonEdits(sEdits);
+          const sEdits: Record<number, Partial<Season>> = {};
+          loadedSeasons.forEach(s => {
+            sEdits[s.id] = {
+              status: s.status,
+              starting_budget: s.starting_budget ?? 100000000,
+              max_players_per_team: s.max_players_per_team ?? 3,
+              squad_size: s.squad_size ?? 8,
+              starters_required: s.starters_required ?? 5,
+              bench_size: s.bench_size ?? 3,
+            };
+          });
+          setSeasonEdits(sEdits);
 
-        // Initialise gameweek overrides
-        const dOverrides: Record<number, string> = {};
-        const bOverrides: Record<number, boolean> = {};
-        loadedGameweeks.forEach((gw: Gameweek) => {
-          // Format ISO datetime string for datetime-local input safely
-          try {
-            const dt = new Date(gw.deadline_date);
-            if (!isNaN(dt.getTime())) {
-              // Convert to local YYYY-MM-DDTHH:mm
-              const localIso = new Date(dt.getTime() - dt.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
-              dOverrides[gw.id] = localIso;
-            } else {
+          const dOverrides: Record<number, string> = {};
+          const bOverrides: Record<number, boolean> = {};
+          loadedGameweeks.forEach((gw: Gameweek) => {
+            try {
+              const dt = new Date(gw.deadline_date);
+              if (!isNaN(dt.getTime())) {
+                const localIso = new Date(dt.getTime() - dt.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+                dOverrides[gw.id] = localIso;
+              } else {
+                dOverrides[gw.id] = gw.deadline_date?.slice(0, 16) || '';
+              }
+            } catch {
               dOverrides[gw.id] = gw.deadline_date?.slice(0, 16) || '';
             }
-          } catch {
-            dOverrides[gw.id] = gw.deadline_date?.slice(0, 16) || '';
-          }
-          bOverrides[gw.id] = Boolean(gw.is_international_break);
-        });
-        setDeadlineOverrides(dOverrides);
-        setBreakOverrides(bOverrides);
+            bOverrides[gw.id] = Boolean(gw.is_international_break);
+          });
+          setDeadlineOverrides(dOverrides);
+          setBreakOverrides(bOverrides);
+        }
+      } catch (error) {
+        console.error('Failed to load settings', error);
+      } finally {
+        setLoading(false);
       }
-    } catch (err) {
-      console.error('Failed to load settings', err);
-    } finally {
-      setLoading(false);
     }
-  }, []);
 
-  useEffect(() => {
-    fetchSettings();
-  }, [fetchSettings]);
+    void fetchSettings();
+  }, []);
 
   const showMessage = (text: string, type: 'success' | 'error') => {
     setMessage({ text, type });
     setTimeout(() => setMessage(null), 4500);
   };
 
-  const handleSeasonFieldChange = (seasonId: number, field: keyof Season, val: any) => {
+  const handleSeasonFieldChange = <Field extends keyof Season>(
+    seasonId: number,
+    field: Field,
+    val: Season[Field]
+  ) => {
     setSeasonEdits(prev => ({
       ...prev,
       [seasonId]: {
@@ -162,7 +159,7 @@ export default function AdminSettingsPage() {
       } else {
         showMessage(data.error || 'Failed to update season rules.', 'error');
       }
-    } catch (err) {
+    } catch {
       showMessage('Network error while saving season rules.', 'error');
     } finally {
       setSavingSeasonId(null);
@@ -203,7 +200,7 @@ export default function AdminSettingsPage() {
       } else {
         showMessage(data.error || 'Failed to update gameweek settings.', 'error');
       }
-    } catch (err) {
+    } catch {
       showMessage('Network error while saving gameweek settings.', 'error');
     } finally {
       setSavingGwId(null);
@@ -391,7 +388,7 @@ export default function AdminSettingsPage() {
                         <label className="text-xs font-medium text-slate-300">Status:</label>
                         <select
                           value={edit.status || season.status}
-                          onChange={(e) => handleSeasonFieldChange(season.id, 'status', e.target.value)}
+                          onChange={(e) => handleSeasonFieldChange(season.id, 'status', e.target.value as Season['status'])}
                           disabled={isSaving}
                           className="px-3 py-1.5 bg-slate-800 border border-slate-600 rounded-lg text-white focus:outline-none focus:border-amber-500 text-xs font-medium disabled:opacity-60"
                         >

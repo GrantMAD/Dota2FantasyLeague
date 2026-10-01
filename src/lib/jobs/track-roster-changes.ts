@@ -88,7 +88,7 @@ export async function trackRosterChanges(): Promise<TrackingResult> {
             const changeType = newTeamId ? (previousTeam ? 'transferred' : 'joined') : 'left';
 
             // Insert into history
-            await (supabase.from('team_roster_history') as any).insert({
+            await supabase.from('team_roster_history').insert({
               team_id: newTeamId || previousTeam || 0,
               player_id: dbPlayer.id,
               change_type: changeType,
@@ -148,7 +148,7 @@ export async function trackRosterChanges(): Promise<TrackingResult> {
 
                 if (!existingChange) {
                   const supabase = getSupabaseServerClient();
-                  await (supabase.from('team_roster_history') as any).insert({
+                  await supabase.from('team_roster_history').insert({
                     team_id: parseInt(change.teamId),
                     player_id: player.id,
                     change_type: change.changeType,

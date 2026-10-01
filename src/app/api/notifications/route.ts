@@ -12,8 +12,7 @@ interface NotificationRecord {
   metadata: Record<string, unknown> | null;
 }
 
-const categoryOrder = ['all', 'unread', 'deadline', 'market', 'scoring', 'league'] as const;
-type NotificationCategory = (typeof categoryOrder)[number];
+type NotificationCategory = 'all' | 'unread' | 'deadline' | 'market' | 'scoring' | 'league';
 
 const matchesCategory = (notification: NotificationRecord, category: NotificationCategory) => {
   if (category === 'all') return true;

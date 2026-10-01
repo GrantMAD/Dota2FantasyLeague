@@ -5,7 +5,6 @@ import Image from 'next/image';
 import Link from 'next/link';
 import {
   Trophy,
-  Loader2,
   Plus,
   Hash,
   X,
@@ -217,7 +216,7 @@ export default function LeaguesPage() {
 
           {/* ── No Leagues Empty State ───────────────────────────────── */}
           {leagues.length === 0 && (
-            <div className="mb-8 rounded-3xl border border-dashed border-amber-500/30 bg-amber-500/[0.04] px-8 py-14 text-center">
+            <div className="mb-8 rounded-3xl border border-dashed border-amber-500/30 bg-amber-500/4 px-8 py-14 text-center">
               <Trophy className="mx-auto mb-4 h-12 w-12 text-amber-400/50" />
               <h2 className="mb-2 text-xl font-bold text-white">No Leagues Yet</h2>
               <p className="mb-6 text-sm text-slate-400">Create your first league or join an existing one with an invite code.</p>
@@ -225,7 +224,7 @@ export default function LeaguesPage() {
                 <button
                   type="button"
                   onClick={() => setActionMode('create')}
-                  className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-amber-500 to-orange-600 px-5 py-2.5 text-sm font-bold text-white shadow-md shadow-amber-500/20 transition hover:opacity-90"
+                  className="inline-flex items-center gap-2 rounded-xl bg-linear-to-r from-amber-500 to-orange-600 px-5 py-2.5 text-sm font-bold text-white shadow-md shadow-amber-500/20 transition hover:opacity-90"
                 >
                   <Plus className="h-4 w-4" />
                   Create a League

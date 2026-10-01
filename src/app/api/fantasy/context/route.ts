@@ -6,6 +6,53 @@ import { getOrCreateFantasySeason } from '@/lib/fantasy-season';
 const slots = ['carry', 'mid', 'offlane', 'support', 'hard_support', 'bench_1', 'bench_2', 'bench_3'] as const;
 type Slot = (typeof slots)[number];
 
+interface LineupEntry {
+  slot: Slot;
+  player_id: number;
+  is_starter: boolean;
+  is_captain: boolean;
+  is_vice_captain: boolean;
+}
+
+interface RemovedPlayerNotificationRow {
+  id: number;
+  title: string;
+  message: string;
+  metadata: { player_name?: string; refund_amount?: number } | null;
+  created_at: string;
+}
+
+interface FantasyPlayerRow {
+  id: number;
+  name: string;
+  in_game_name: string | null;
+  primary_role: string | null;
+  profile_image_url: string | null;
+  availability_status: string | null;
+  availability_reason: string | null;
+  current_price: number | null;
+  professional_teams: { id: number; name: string; slug: string } | { id: number; name: string; slug: string }[] | null;
+}
+
+interface PlayerPriceRow {
+  player_id: number;
+  price: number | null;
+  gameweek_id: number;
+}
+
+interface GameweekScoreRow {
+  player_id: number;
+  total_points: number | null;
+  gameweek_id: number;
+}
+
+type EnrichedFantasyPlayer = FantasyPlayerRow & {
+  current_price: number;
+  last_gw_points: number;
+  recent_points: number;
+  form_trend: 'up' | 'down' | 'flat';
+};
+
 function getSlotId(row: Record<string, unknown>, slot: Slot): number | null {
   const value = row[`${slot}_id`];
   return typeof value === 'number' ? value : value ? Number(value) : null;
@@ -93,7 +140,7 @@ export async function GET(request: NextRequest) {
       .map((member: any) => Number(member.player_id));
 
     // 4. Fetch Target Gameweek Lineup
-    let lineupEntries: any[] = [];
+    let lineupEntries: LineupEntry[] = [];
     let lineupPlayerIds: number[] = [];
     const ownedPlayerSet = new Set(ownedPlayerIds);
 
@@ -120,7 +167,7 @@ export async function GET(request: NextRequest) {
               is_vice_captain: lineupRow.vice_captain_player_id === playerId,
             };
           })
-          .filter(Boolean);
+          .filter((entry): entry is LineupEntry => entry !== null);
 
         lineupPlayerIds = lineupEntries.map((e) => e.player_id);
       }
@@ -135,52 +182,58 @@ export async function GET(request: NextRequest) {
       .order('created_at', { ascending: false })
       .limit(5);
 
-    const removedPlayersNotice = (removedNotifications || []).map((n: any) => ({
-      id: n.id,
-      playerName: n.metadata?.player_name || n.title.replace('Player Removed: ', ''),
-      refundAmount: Number(n.metadata?.refund_amount ?? 5.0),
-      message: n.message,
-      createdAt: n.created_at,
+    const removedPlayersNotice = ((removedNotifications ?? []) as RemovedPlayerNotificationRow[]).map((notification) => ({
+      id: notification.id,
+      playerName: notification.metadata?.player_name || notification.title.replace('Player Removed: ', ''),
+      refundAmount: Number(notification.metadata?.refund_amount ?? 5.0),
+      message: notification.message,
+      createdAt: notification.created_at,
     }));
 
     // 5. Gather all unique player IDs (owned + valid lineup) to fetch in single roundtrip
     const allRelevantPlayerIds = Array.from(new Set([...ownedPlayerIds, ...lineupPlayerIds]));
 
-    let playerMap = new Map<number, any>();
+    const playerMap = new Map<number, EnrichedFantasyPlayer>();
     if (allRelevantPlayerIds.length > 0) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { data: players } = await (supabase.from('professional_players') as any)
         .select('id, name, in_game_name, primary_role, profile_image_url, availability_status, availability_reason, professional_teams(id, name, slug)')
         .in('id', allRelevantPlayerIds);
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const [{ data: prices }, { data: scores }] = await Promise.all([
+       
+      const [{ data: priceData }, { data: scoreData }] = await Promise.all([
+        // The generated local schema does not include this table.
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (supabase.from('player_prices') as any)
           .select('player_id, price, gameweek_id')
           .eq('season_id', fantasySeason.season_id)
           .in('player_id', allRelevantPlayerIds)
           .order('gameweek_id', { ascending: false }),
+        // The generated local schema does not include this table.
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (supabase.from('gameweek_scores') as any)
           .select('player_id, total_points, gameweek_id')
           .in('player_id', allRelevantPlayerIds)
           .order('gameweek_id', { ascending: false }),
       ]);
+          const prices = (priceData ?? []) as PlayerPriceRow[];
+          const scores = (scoreData ?? []) as GameweekScoreRow[];
 
       const latestPrices = new Map<number, number>();
-      for (const price of prices ?? []) {
+      for (const price of prices) {
         if (!latestPrices.has(price.player_id)) {
           latestPrices.set(price.player_id, Number(price.price ?? 0));
         }
       }
 
       const playerScoresMap = new Map<number, number[]>();
-      for (const score of scores ?? []) {
+      for (const score of scores) {
         const list = playerScoresMap.get(score.player_id) ?? [];
         if (list.length < 5) list.push(Number(score.total_points ?? 0));
         playerScoresMap.set(score.player_id, list);
       }
 
-      for (const p of players ?? []) {
+      for (const p of (players ?? []) as FantasyPlayerRow[]) {
         const pScores = playerScoresMap.get(p.id) ?? [];
         const lastGwPts = pScores[0] ?? 0;
         const avgPts = pScores.length

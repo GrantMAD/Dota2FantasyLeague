@@ -23,8 +23,29 @@ function loadEnv(file: string) {
 loadEnv('.env.local');
 loadEnv('.env');
 
-const newFilter = (p: any): boolean =>
-  Boolean(p.name && p.is_pro && p.team_id && p.team_id !== 0);
+interface OpenDotaPlayer {
+  name?: string | null;
+  is_pro?: boolean | null;
+  team_id?: number | null;
+  account_id?: string | number | null;
+}
+
+interface DbPlayer {
+  id: number;
+  name: string;
+  primary_role: string;
+  data_provider_id: string | null;
+  team_id: number | null;
+}
+
+interface SquadMemberRow {
+  id: number;
+  squad_id: number;
+  player_id: number;
+}
+
+const newFilter = (player: OpenDotaPlayer): boolean =>
+  Boolean(player.name && player.is_pro && player.team_id && player.team_id !== 0);
 
 async function main() {
   const { getSupabaseServerClient } = await import('../src/lib/db/supabase-server');
@@ -33,20 +54,22 @@ async function main() {
   // The 8 stale players currently in fantasy squads (from dry-run output)
   const staleSquadPlayerIds = [11, 9, 6, 7, 13, 12, 14, 2257];
 
-  const { data: stalePlayers } = await (supabase
-    .from('professional_players') as any)
+  const { data: stalePlayerData } = await supabase
+    .from('professional_players')
     .select('id, name, primary_role, data_provider_id')
     .in('id', staleSquadPlayerIds);
+  const stalePlayers = (stalePlayerData ?? []) as DbPlayer[];
 
   console.log('Stale players currently in fantasy squads:');
   for (const p of stalePlayers || []) {
     console.log('  [id=' + p.id + '] ' + p.name + ' | role=' + p.primary_role + ' | provider_id=' + p.data_provider_id);
   }
 
-  const { data: squadRows } = await (supabase
-    .from('fantasy_squad_members') as any)
+  const { data: squadMemberData } = await supabase
+    .from('fantasy_squad_members')
     .select('id, squad_id, player_id')
     .in('player_id', staleSquadPlayerIds);
+  const squadRows = (squadMemberData ?? []) as SquadMemberRow[];
 
   console.log('');
   console.log('fantasy_squad_members rows referencing these players:');
@@ -61,18 +84,19 @@ async function main() {
     headers: { 'User-Agent': 'FantasyDota/1.0' },
     signal: AbortSignal.timeout(15000),
   });
-  const raw = await res.json();
+  const raw: unknown = await res.json();
   const activeOpenDotaIds = new Set<string>(
-    (Array.isArray(raw) ? raw : []).filter(newFilter).map((p: any) => String(p.account_id))
+    (Array.isArray(raw) ? raw as OpenDotaPlayer[] : []).filter(newFilter).map((player) => String(player.account_id))
   );
 
   // Get all DB players and find those that will survive the purge
-  const { data: allDbPlayers } = await (supabase
-    .from('professional_players') as any)
+  const { data: allDbPlayerData } = await supabase
+    .from('professional_players')
     .select('id, name, primary_role, data_provider_id, team_id');
+  const allDbPlayers = (allDbPlayerData ?? []) as DbPlayer[];
 
   const activeDbPlayers = (allDbPlayers || []).filter(
-    (p: any) => p.data_provider_id && activeOpenDotaIds.has(p.data_provider_id)
+    (player) => player.data_provider_id && activeOpenDotaIds.has(player.data_provider_id)
   );
 
   console.log('');
@@ -89,9 +113,9 @@ async function main() {
   // Show one example replacement per role needed
   console.log('');
   console.log('Example replacements by role:');
-  const neededRoles = [...new Set((stalePlayers || []).map((p: any) => p.primary_role))];
+  const neededRoles = [...new Set(stalePlayers.map((player) => player.primary_role))];
   for (const role of neededRoles) {
-    const candidates = activeDbPlayers.filter((p: any) => p.primary_role === role).slice(0, 3);
+    const candidates = activeDbPlayers.filter((player) => player.primary_role === role).slice(0, 3);
     console.log('  ' + role + ':');
     for (const c of candidates) {
       console.log('    -> [id=' + c.id + '] ' + c.name);

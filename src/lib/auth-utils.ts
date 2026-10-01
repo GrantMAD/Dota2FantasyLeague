@@ -84,7 +84,7 @@ export async function verifyAuth(request: Request): Promise<AuthResult> {
 
   // Query role from public.users table (fallback to metadata if user row not yet found)
   let role: string | undefined = data.user.user_metadata?.role;
-  const { data: userProfile } = await (supabase.from('users') as any)
+  const { data: userProfile } = await supabase.from('users')
     .select('role')
     .eq('id', data.user.id)
     .maybeSingle();

@@ -22,6 +22,14 @@ interface SeasonRecord {
   gameweeks: GameweekRecord[];
 }
 
+interface SeasonApiRecord {
+  id: number;
+  name: string;
+  status: string;
+  start_date: string | null;
+  end_date: string | null;
+}
+
 type UiStatus = 'planning' | 'active' | 'ended' | 'archived';
 
 const STATUS_LABELS: Record<UiStatus, string> = {
@@ -254,12 +262,12 @@ export default function AdminSeasonsPage() {
       try {
         const res = await fetch('/api/admin/settings');
         if (!res.ok) { setError('Failed to load seasons.'); return; }
-        const json = await res.json();
-        const rawSeasons: any[] = Array.isArray(json.seasons) ? json.seasons : [];
-        const rawGameweeks: GameweekRecord[] = Array.isArray(json.gameweeks) ? json.gameweeks : [];
+        const json = (await res.json()) as { seasons?: SeasonApiRecord[]; gameweeks?: GameweekRecord[] };
+        const rawSeasons = Array.isArray(json.seasons) ? json.seasons : [];
+        const rawGameweeks = Array.isArray(json.gameweeks) ? json.gameweeks : [];
 
         setSeasons(
-          rawSeasons.map((s: any) => ({
+          rawSeasons.map((s) => ({
             id: s.id,
             name: s.name,
             status: (['planning', 'active', 'ended', 'archived'].includes(s.status) ? s.status : 'planning') as UiStatus,

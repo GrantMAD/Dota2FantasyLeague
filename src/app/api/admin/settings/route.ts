@@ -2,6 +2,17 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase';
 import { verifyAdminAuth, createErrorResponse } from '@/lib/auth-utils';
 
+interface AdminGameweekRow {
+  id: number;
+  season_id: number;
+  gameweek_number: number;
+  start_date: string;
+  end_date: string;
+  deadline: string;
+  status: string;
+  is_international_break: boolean;
+}
+
 /**
  * GET /api/admin/settings
  * Returns active season + upcoming gameweeks for admin management.
@@ -32,7 +43,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Failed to fetch gameweeks', details: gameweeksError.message }, { status: 500 });
     }
 
-    const normalizedGameweeks = (gameweeks || []).map((gw: any) => ({
+    const normalizedGameweeks = ((gameweeks ?? []) as AdminGameweekRow[]).map((gw) => ({
       ...gw,
       deadline_date: gw.deadline,
       is_international_break: !!gw.is_international_break,
@@ -63,7 +74,7 @@ export async function PUT(request: NextRequest) {
     }
 
     if (type === 'season') {
-      const updates: Record<string, any> = {};
+      const updates: Record<string, unknown> = {};
 
       if (status !== undefined) {
         const validStatuses = ['planning', 'active', 'ended', 'archived'];
@@ -110,7 +121,7 @@ export async function PUT(request: NextRequest) {
     }
 
     if (type === 'gameweek') {
-      const updates: Record<string, any> = {};
+      const updates: Record<string, unknown> = {};
 
       if (deadline_date !== undefined) {
         updates.deadline = deadline_date;

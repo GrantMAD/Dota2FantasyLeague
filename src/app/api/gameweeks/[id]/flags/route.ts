@@ -20,8 +20,8 @@ export async function GET(request: NextRequest, context: RouteContext) {
     }
 
     const supabase = supabaseServer();
-    const { data, error } = await (supabase
-      .from('gameweek_team_flags') as any)
+      const { data, error } = await supabase
+        .from('gameweek_team_flags')
       .select(`
         id,
         flag,
@@ -42,7 +42,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
     }
 
     return NextResponse.json({ gameweekId, flags: data ?? [] });
-  } catch (error: unknown) {
+  } catch {
     return NextResponse.json({ error: 'An unexpected error occurred.' }, { status: 500 });
   }
 }
@@ -78,8 +78,8 @@ export async function POST(request: NextRequest, context: RouteContext) {
     }
 
     const supabase = supabaseServer();
-    const { data, error } = await (supabase
-      .from('gameweek_team_flags') as any)
+      const { data, error } = await supabase
+        .from('gameweek_team_flags')
       .upsert(
         { gameweek_id: gameweekId, team_id: teamId, flag },
         { onConflict: 'gameweek_id,team_id' }
@@ -127,8 +127,8 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
     }
 
     const supabase = supabaseServer();
-    const { error } = await (supabase
-      .from('gameweek_team_flags') as any)
+      const { error } = await supabase
+        .from('gameweek_team_flags')
       .delete()
       .eq('gameweek_id', gameweekId)
       .eq('team_id', teamId);

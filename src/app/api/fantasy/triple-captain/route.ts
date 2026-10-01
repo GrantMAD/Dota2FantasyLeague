@@ -3,6 +3,12 @@ import { supabaseServer } from '@/lib/supabase';
 import { verifyAuth, AuthError } from '@/lib/auth-utils';
 import { logAuditAction } from '@/lib/audit-logger';
 
+interface ChipActivationResult {
+  success?: boolean;
+  message?: string;
+  gameweek_id?: number | null;
+}
+
 export async function POST(request: NextRequest) {
   try {
     // 1. Authenticate user
@@ -34,10 +40,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const result = data as ChipActivationResult | null;
+
     // 4. Handle RPC custom response
-    if (data && (data as any).success === false) {
+    if (result?.success === false) {
       return NextResponse.json(
-        { error: (data as any).message || 'Triple Captain activation failed.' },
+        { error: result.message || 'Triple Captain activation failed.' },
         { status: 400 }
       );
     }
@@ -47,13 +55,13 @@ export async function POST(request: NextRequest) {
       recordId: fantasySeasonId,
       action: 'CHIP_ACTIVATED',
       changedBy: userId,
-      newValues: { chip: 'triple_captain', gameweek_id: (data as any).gameweek_id },
+      newValues: { chip: 'triple_captain', gameweek_id: result?.gameweek_id },
       reason: 'User activated Triple Captain chip',
     });
 
     return NextResponse.json({
-      message: (data as any).message || 'Triple Captain activated successfully.',
-      gameweekId: (data as any).gameweek_id,
+      message: result?.message || 'Triple Captain activated successfully.',
+      gameweekId: result?.gameweek_id,
     });
   } catch (error: unknown) {
     console.error('Triple Captain API Error:', error);

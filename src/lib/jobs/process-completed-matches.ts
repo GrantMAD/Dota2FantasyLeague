@@ -28,11 +28,37 @@ interface MatchPlayerStats {
   wards_destroyed: number;
 }
 
-interface Match {
+interface CompletedMatchRow {
   id: number;
   gameweek_id: number;
   status: string;
   detailed_stats_fetched_at: string;
+}
+
+interface LockedLineupRow {
+  id: number;
+  carry_id: number | null;
+  mid_id: number | null;
+  offlane_id: number | null;
+  support_id: number | null;
+  hard_support_id: number | null;
+  bench_1_id: number | null;
+  bench_2_id: number | null;
+  bench_3_id: number | null;
+}
+
+interface PlayerRoleRow {
+  primary_role: string | null;
+}
+
+interface PerformanceParticipantRow {
+  player_id: number;
+}
+
+type StarterRole = 'carry' | 'mid' | 'offlane' | 'support' | 'hard_support';
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
 }
 
 interface PlayerPerformance {
@@ -85,9 +111,9 @@ class ProcessCompletedMatches {
       healing: stats.healing,
     };
 
-    const { error } = await (this.supabase
-      .from('player_performances') as any)
-      .upsert(performance as any, {
+    const { error } = await this.supabase
+      .from('player_performances')
+      .upsert(performance, {
         onConflict: 'player_id,match_id',
       });
 
@@ -108,12 +134,12 @@ class ProcessCompletedMatches {
 
     try {
       // Get all fantasy lineups for this gameweek
-      const { data: lineupData, error: lineupsError } = (await this.supabase
+      const { data: rawLineupData, error: lineupsError } = await this.supabase
         .from('fantasy_lineups')
         .select('id, fantasy_season_id, carry_id, mid_id, offlane_id, support_id, hard_support_id, bench_1_id, bench_2_id, bench_3_id')
         .eq('gameweek_id', gameweekId)
-        .eq('locked', true)) as any;
-      const lineups: any[] = Array.isArray(lineupData) ? lineupData : [];
+        .eq('locked', true);
+      const lineups = (rawLineupData ?? []) as LockedLineupRow[];
 
       if (lineupsError) {
         console.warn('Failed to fetch lineups for substitution:', lineupsError);
@@ -126,8 +152,8 @@ class ProcessCompletedMatches {
 
       // For each lineup, check if starters have performances
       for (const lineup of lineups) {
-        const starterIds = [(lineup as any).carry_id, (lineup as any).mid_id, (lineup as any).offlane_id, (lineup as any).support_id, (lineup as any).hard_support_id];
-        const benchIds = [(lineup as any).bench_1_id, (lineup as any).bench_2_id, (lineup as any).bench_3_id].filter((id) => id !== null);
+        const starterIds = [lineup.carry_id, lineup.mid_id, lineup.offlane_id, lineup.support_id, lineup.hard_support_id];
+        const benchIds = [lineup.bench_1_id, lineup.bench_2_id, lineup.bench_3_id].filter((id): id is number => id !== null);
 
         // Get performances for all players in this lineup
         const { data: performances } = await this.supabase
@@ -136,11 +162,11 @@ class ProcessCompletedMatches {
           .eq('gameweek_id', gameweekId)
           .in('player_id', [...starterIds, ...benchIds]);
 
-        const performingPlayerIds = new Set(performances?.map((p: any) => p.player_id) || []);
+        const performingPlayerIds = new Set(((performances ?? []) as PerformanceParticipantRow[]).map((player) => player.player_id));
 
         // Check which starters didn't perform
-        const nonPerformingStarters: { [key: string]: number } = {};
-        const starterRoles = ['carry', 'mid', 'offlane', 'support', 'hard_support'];
+        const nonPerformingStarters: Partial<Record<StarterRole, number>> = {};
+        const starterRoles: StarterRole[] = ['carry', 'mid', 'offlane', 'support', 'hard_support'];
 
         starterRoles.forEach((role, index) => {
           const starterId = starterIds[index];
@@ -150,15 +176,16 @@ class ProcessCompletedMatches {
         });
 
         // For each non-performing starter, try to substitute with bench player
-        for (const [role, starterId] of Object.entries(nonPerformingStarters)) {
+        for (const [role, starterId] of Object.entries(nonPerformingStarters) as Array<[StarterRole, number]>) {
           // Get player role to match bench player
           const { data: starterData } = await this.supabase
             .from('professional_players')
             .select('primary_role')
             .eq('id', starterId)
             .single();
+          const starterRole = starterData as PlayerRoleRow | null;
 
-          if (!(starterData as any)) continue;
+          if (!starterRole) continue;
 
           // Find bench player with matching role who did perform
           for (const benchId of benchIds) {
@@ -169,10 +196,11 @@ class ProcessCompletedMatches {
               .select('primary_role')
               .eq('id', benchId)
               .single();
+            const benchRole = benchPlayer as PlayerRoleRow | null;
 
-            if ((benchPlayer as any)?.primary_role === (starterData as any).primary_role) {
+            if (benchRole?.primary_role === starterRole.primary_role) {
               // Perform substitution: update lineup to move bench player to starter position
-              const updateData: any = {};
+              const updateData: Record<string, number | null> = {};
               updateData[`${role}_id`] = benchId;
 
               // Also clear this bench slot
@@ -181,10 +209,10 @@ class ProcessCompletedMatches {
                 updateData[`bench_${benchIndex + 1}_id`] = null;
               }
 
-              const { error: updateError } = await (this.supabase
-                .from('fantasy_lineups') as any)
+              const { error: updateError } = await this.supabase
+                .from('fantasy_lineups')
                 .update(updateData)
-                .eq('id', (lineup as any).id);
+                .eq('id', lineup.id);
 
               if (!updateError) {
                 substitutionsApplied++;
@@ -194,7 +222,7 @@ class ProcessCompletedMatches {
           }
         }
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Error applying bench substitutions:', err);
     }
 
@@ -229,7 +257,7 @@ class ProcessCompletedMatches {
         return result;
       }
 
-      const matchesList: any[] = Array.isArray(matches) ? matches : [];
+      const matchesList = (matches ?? []) as CompletedMatchRow[];
       const matchCount = matchesList.length;
       if (matchCount === 0) {
         console.log('[ProcessMatches] No completed matches with detailed stats to process');
@@ -260,7 +288,7 @@ class ProcessCompletedMatches {
         }
 
         if (chunkStats && chunkStats.length > 0) {
-          const performancesToUpsert: PlayerPerformance[] = chunkStats.map((stats: any) => ({
+          const performancesToUpsert: PlayerPerformance[] = (chunkStats as MatchPlayerStats[]).map((stats) => ({
             player_id: stats.player_id,
             match_id: stats.match_id,
             gameweek_id: matchGwMap.get(stats.match_id) || 0,
@@ -279,9 +307,9 @@ class ProcessCompletedMatches {
           }));
 
           // Bulk upsert all performances for this chunk
-          const { error: upsertError } = await (this.supabase
-            .from('player_performances') as any)
-            .upsert(performancesToUpsert as any, {
+          const { error: upsertError } = await this.supabase
+            .from('player_performances')
+            .upsert(performancesToUpsert, {
               onConflict: 'player_id,match_id',
             });
 
@@ -308,8 +336,8 @@ class ProcessCompletedMatches {
 
       result.success = true;
       console.log(`[ProcessMatches] Finished in ${Date.now() - startTime}ms. Created ${result.performancesCreated} performances.`);
-    } catch (err: any) {
-      result.errors.push(`Fatal error in process completed matches job: ${err.message}`);
+    } catch (err: unknown) {
+      result.errors.push(`Fatal error in process completed matches job: ${errorMessage(err)}`);
       console.error('Process completed matches job failed:', err);
     }
 

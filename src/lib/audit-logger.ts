@@ -19,7 +19,7 @@ export interface AuditActionParams {
 export async function logAuditAction(params: AuditActionParams): Promise<void> {
   try {
     const supabase = supabaseServer();
-    const { error } = await (supabase.from('audit_log') as any).insert({
+    const { error } = await supabase.from('audit_log').insert({
       table_name: params.tableName,
       record_id: params.recordId ?? null,
       action: params.action,

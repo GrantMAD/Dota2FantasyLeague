@@ -13,9 +13,18 @@ interface PlayerRecord {
   fantasyPoints: number;
 }
 
+interface PlayerApiRow {
+  id: number;
+  name: string;
+  in_game_name?: string | null;
+  professional_teams?: { name?: string | null } | null;
+  primary_role?: string | null;
+  current_price?: number | null;
+  gameweek_points?: number | null;
+}
+
 export default function AdminPlayersPage() {
   const [players, setPlayers] = useState<PlayerRecord[]>([]);
-  const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState('');
   const [rosteredOnly, setRosteredOnly] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -40,10 +49,10 @@ export default function AdminPlayersPage() {
 
         const res = await fetch(`/api/players?${params.toString()}`);
         if (res.ok) {
-          const json = await res.json();
+          const json = (await res.json()) as { data?: PlayerApiRow[] };
           const items = Array.isArray(json.data) ? json.data : [];
           setPlayers(
-            items.map((p: any) => ({
+            items.map((p) => ({
               id: p.id,
               name: p.in_game_name || p.name,
               team: p.professional_teams?.name || 'Free Agent',
@@ -55,8 +64,6 @@ export default function AdminPlayersPage() {
         }
       } catch (err) {
         console.error('Failed to load players', err);
-      } finally {
-        setLoading(false);
       }
     }
     loadPlayers();

@@ -1,15 +1,7 @@
 import { test, expect } from '@playwright/test';
 
 test.describe('Dota 2 Fantasy League - Core Flow', () => {
-  // Generate a unique email for each test run to avoid conflicts
-  const uniqueId = Date.now();
-  const testUser = {
-    username: `testuser_${uniqueId}`,
-    email: `testuser_${uniqueId}@example.com`,
-    password: 'Password123!',
-  };
-
-  test('Complete user journey from signup to checking points', async ({ page, request }) => {
+  test('Complete user journey from signup to checking points', async ({ page }) => {
     // 1. Mock Authentication
     await test.step('Login with mocked user state', async () => {
       // In a real E2E environment with Supabase, we would seed a test user in the db,

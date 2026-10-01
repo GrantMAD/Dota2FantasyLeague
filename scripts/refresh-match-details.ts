@@ -26,6 +26,13 @@ function loadEnv(file: string) {
 loadEnv('.env.local');
 loadEnv('.env');
 
+interface MatchSummary {
+  id: number;
+  external_match_id: string | null;
+  status: string;
+  detailed_stats_fetched_at: string | null;
+}
+
 async function main() {
   console.log('🔄 Loading Supabase server client and job modules...');
   const { getSupabaseServerClient } = await import('../src/lib/db/supabase-server');
@@ -34,9 +41,10 @@ async function main() {
   const supabase = getSupabaseServerClient();
 
   console.log('🔍 Checking completed matches...');
-  const { data: matches, error: fetchErr } = await (supabase.from('matches') as any)
+  const { data: matchData, error: fetchErr } = await supabase.from('matches')
     .select('id, external_match_id, status, detailed_stats_fetched_at')
     .eq('status', 'completed');
+  const matches = (matchData ?? []) as MatchSummary[];
 
   if (fetchErr) {
     console.error('❌ Failed to inspect matches:', fetchErr);
@@ -51,7 +59,7 @@ async function main() {
   }
 
   console.log('🧹 Resetting detailed_stats_fetched_at flag to NULL so they can be re-fetched...');
-  const { error: updateErr } = await (supabase.from('matches') as any)
+  const { error: updateErr } = await supabase.from('matches')
     .update({ detailed_stats_fetched_at: null })
     .eq('status', 'completed');
 
@@ -74,6 +82,8 @@ async function main() {
 
   // Inspect sample hero_name values after the run
   console.log('\n🔎 Verifying sample hero names in match_player_stats:');
+  // The generated local schema does not include this table.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: sampleStats } = await (supabase.from('match_player_stats') as any)
     .select('id, match_id, player_id, hero_id, hero_name')
     .order('created_at', { ascending: false })

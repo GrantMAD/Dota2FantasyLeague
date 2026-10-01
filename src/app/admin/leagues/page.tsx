@@ -2,8 +2,8 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import {
-  Search, Shield, Users, Lock, Globe, X, Trophy,
-  Hash, Calendar, Info, Swords, ChevronRight,
+  Search, Shield, Lock, Globe, X, Trophy,
+  Hash, Swords, ChevronRight,
 } from 'lucide-react';
 
 interface Standing {
@@ -43,6 +43,43 @@ interface AdminLeague {
   description: string;
   standings: Standing[];
   fixtures: Fixture[];
+}
+
+interface LeagueApiStanding {
+  userId: string;
+  username?: string | null;
+  manager?: string | null;
+  points?: number | null;
+  gwPoints?: number | null;
+  rank?: number | null;
+  wins?: number | null;
+  losses?: number | null;
+  draws?: number | null;
+}
+
+interface LeagueApiFixture {
+  id: number;
+  gameweekId: number;
+  home?: string | null;
+  away?: string | null;
+  homePoints?: number | null;
+  awayPoints?: number | null;
+  isBye?: boolean;
+}
+
+interface LeagueApiRecord {
+  id: string | number;
+  name: string;
+  type?: string | null;
+  privacyLevel?: string | null;
+  standings?: LeagueApiStanding[] | null;
+  currentParticipants?: number | null;
+  maxParticipants?: number | null;
+  status?: string | null;
+  createdAt?: string | null;
+  inviteCode?: string | null;
+  description?: string | null;
+  fixtures?: LeagueApiFixture[] | null;
 }
 
 const statusStyles: Record<string, string> = {
@@ -237,10 +274,10 @@ export default function AdminLeaguesPage() {
       try {
         const res = await fetch('/api/leagues');
         if (res.ok) {
-          const json = await res.json();
-          const items = Array.isArray(json.leagues) ? json.leagues : (Array.isArray(json) ? json : []);
+          const json = (await res.json()) as { leagues?: LeagueApiRecord[] } | LeagueApiRecord[];
+          const items = Array.isArray(json) ? json : Array.isArray(json.leagues) ? json.leagues : [];
           setLeagues(
-            items.map((l: any) => ({
+            items.map((l) => ({
               id: String(l.id),
               name: l.name,
               type: l.type === 'h2h' ? 'head_to_head' : 'classic',
@@ -248,12 +285,12 @@ export default function AdminLeaguesPage() {
               ownerUsername: l.standings?.[0]?.username || 'admin',
               memberCount: l.currentParticipants || l.standings?.length || 0,
               maxMembers: l.maxParticipants || 32,
-              status: (l.status === 'completed' ? 'completed' : (l.currentParticipants >= l.maxParticipants ? 'full' : 'active')) as any,
-              totalPoints: (l.standings || []).reduce((acc: number, s: any) => acc + (s.points || 0), 0),
+              status: l.status === 'completed' ? 'completed' : (l.currentParticipants ?? 0) >= (l.maxParticipants ?? 32) ? 'full' : 'active',
+              totalPoints: (l.standings || []).reduce((acc, s) => acc + (s.points || 0), 0),
               createdAt: l.createdAt || new Date().toISOString(),
               inviteCode: l.inviteCode || '',
               description: l.description || '',
-              standings: (l.standings || []).map((s: any) => ({
+              standings: (l.standings || []).map((s) => ({
                 userId: s.userId,
                 username: s.username || 'unknown',
                 manager: s.manager || s.username || 'Manager',
@@ -264,7 +301,7 @@ export default function AdminLeaguesPage() {
                 losses: s.losses || 0,
                 draws: s.draws || 0,
               })),
-              fixtures: (l.fixtures || []).map((f: any) => ({
+              fixtures: (l.fixtures || []).map((f) => ({
                 id: f.id,
                 gameweekId: f.gameweekId,
                 home: f.home || 'TBD',

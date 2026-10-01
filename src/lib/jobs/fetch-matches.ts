@@ -20,6 +20,20 @@ interface FetchResult {
   completedAt: Date;
 }
 
+interface GameweekReference {
+  id: number;
+  season_id: number;
+}
+
+interface SeriesReference {
+  id: number;
+}
+
+interface TeamReference {
+  id: number;
+  data_provider_id: string | null;
+}
+
 export async function fetchMatches(): Promise<FetchResult> {
   const startedAt = new Date();
   const result: FetchResult = {
@@ -51,20 +65,21 @@ export async function fetchMatches(): Promise<FetchResult> {
       }
 
       // 2. Resolve active gameweek (or default to GW 1 if none is active)
-      let { data: currentGameweek } = await (supabase.from('gameweeks') as any)
+      const { data: activeGameweekData } = await supabase.from('gameweeks')
         .select('id, season_id')
         .eq('status', 'active')
         .order('gameweek_number', { ascending: true })
         .limit(1)
         .maybeSingle();
+      let currentGameweek = activeGameweekData as GameweekReference | null;
 
       if (!currentGameweek) {
-        const { data: latestGw } = await (supabase.from('gameweeks') as any)
+        const { data: latestGameweekData } = await supabase.from('gameweeks')
           .select('id, season_id')
           .order('id', { ascending: true })
           .limit(1)
           .maybeSingle();
-        currentGameweek = latestGw;
+        currentGameweek = latestGameweekData as GameweekReference | null;
       }
 
       // Fallback gameweek creation if table is completely empty
@@ -78,7 +93,7 @@ export async function fetchMatches(): Promise<FetchResult> {
           .maybeSingle();
         if (defaultSeason) seasonId = defaultSeason.id;
 
-        const { data: newGw } = await supabase
+        const { data: newGameweekData } = await supabase
           .from('gameweeks')
           .insert({
             season_id: seasonId,
@@ -90,7 +105,7 @@ export async function fetchMatches(): Promise<FetchResult> {
           })
           .select('id, season_id')
           .single();
-        currentGameweek = newGw;
+        currentGameweek = newGameweekData as GameweekReference | null;
       }
 
       const gameweekId = currentGameweek?.id || 1;
@@ -128,12 +143,13 @@ export async function fetchMatches(): Promise<FetchResult> {
           }
 
           // Ensure a tournament_series record exists for this tournament & gameweek
-          let { data: seriesRecord } = await (supabase.from('tournament_series') as any)
+          const { data: seriesData } = await supabase.from('tournament_series')
             .select('id')
             .eq('tournament_id', tournament.id)
             .eq('gameweek_id', gameweekId)
             .limit(1)
             .maybeSingle();
+          let seriesRecord = seriesData as SeriesReference | null;
 
           if (!seriesRecord) {
             const { data: newSeries, error: seriesError } = await supabase
@@ -376,7 +392,7 @@ async function resolveOrCreateTeam(
     const currentName = teamNameMap.get(existingDbId) ?? '';
     // Only update if the new name is a genuine improvement (not still a placeholder)
     if (teamName !== currentName && !/^Team \d+$/.test(teamName) && teamName !== 'Team null') {
-      await (supabase.from('professional_teams') as any)
+      await supabase.from('professional_teams')
         .update({ name: teamName, logo_url: logoUrl })
         .eq('id', existingDbId);
       teamNameMap.set(existingDbId, teamName);
@@ -386,10 +402,11 @@ async function resolveOrCreateTeam(
   }
 
   // Check if team with this name already exists in database
-  const { data: existingByName } = await (supabase.from('professional_teams') as any)
+  const { data: existingByNameData } = await supabase.from('professional_teams')
     .select('id, data_provider_id')
     .ilike('name', teamName)
     .maybeSingle();
+  const existingByName = existingByNameData as TeamReference | null;
 
   if (existingByName) {
     teamIdMap.set(pIdStr, existingByName.id);
@@ -397,7 +414,7 @@ async function resolveOrCreateTeam(
   }
 
   // Insert newly discovered team
-  const { data: newTeam, error } = await (supabase.from('professional_teams') as any)
+  const { data: newTeamData, error } = await supabase.from('professional_teams')
     .insert({
       name: teamName,
       slug: `team-${pIdStr}`,
@@ -406,6 +423,7 @@ async function resolveOrCreateTeam(
     })
     .select('id')
     .maybeSingle();
+  const newTeam = newTeamData as { id: number } | null;
 
   if (newTeam) {
     teamIdMap.set(pIdStr, newTeam.id);
@@ -413,10 +431,11 @@ async function resolveOrCreateTeam(
   }
 
   if (error?.code === '23505') {
-    const { data: retryTeam } = await (supabase.from('professional_teams') as any)
+    const { data: retryTeamData } = await supabase.from('professional_teams')
       .select('id')
       .or(`data_provider_id.eq.${pIdStr},name.ilike.${teamName}`)
       .maybeSingle();
+    const retryTeam = retryTeamData as { id: number } | null;
     if (retryTeam) {
       teamIdMap.set(pIdStr, retryTeam.id);
       return retryTeam.id;

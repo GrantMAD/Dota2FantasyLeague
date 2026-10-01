@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Search, Users, Trophy, Eye, Swords } from 'lucide-react';
 import AdminTeamDetailModal from '@/components/admin/AdminTeamDetailModal';
 
@@ -15,10 +15,21 @@ interface FantasyTeam {
   lastActive: string;
 }
 
+interface LeaderboardEntry {
+  id: number | string;
+  created_at?: string | null;
+  total_points?: number | null;
+  rank?: number | null;
+  fantasy_teams?: {
+    id?: number | string | null;
+    name?: string | null;
+    profiles?: { display_name?: string | null; username?: string | null } | null;
+  } | null;
+}
+
 export default function AdminFantasyTeamsPage() {
   const [teams, setTeams] = useState<FantasyTeam[]>([]);
   const [query, setQuery] = useState('');
-  const [loading, setLoading] = useState(true);
   const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -26,10 +37,10 @@ export default function AdminFantasyTeamsPage() {
       try {
         const res = await fetch('/api/leaderboard?limit=100');
         if (res.ok) {
-          const json = await res.json();
+          const json = (await res.json()) as { leaderboard?: LeaderboardEntry[] };
           const items = Array.isArray(json.leaderboard) ? json.leaderboard : [];
           setTeams(
-            items.map((item: any) => ({
+            items.map((item) => ({
               id: String(item.fantasy_teams?.id || item.id),
               name: item.fantasy_teams?.name || 'Fantasy Squad',
               owner: item.fantasy_teams?.profiles?.display_name || item.fantasy_teams?.profiles?.username || 'Manager',
@@ -43,8 +54,6 @@ export default function AdminFantasyTeamsPage() {
         }
       } catch (err) {
         console.error('Failed to load fantasy teams', err);
-      } finally {
-        setLoading(false);
       }
     }
     loadFantasyTeams();

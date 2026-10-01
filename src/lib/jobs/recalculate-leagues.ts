@@ -10,6 +10,47 @@ interface JobResult {
   duration: number;
 }
 
+interface ClassicParticipantRow {
+  id: number;
+  fantasy_seasons: { total_points: number | null } | null;
+}
+
+interface ParticipantIdRow {
+  id: number;
+}
+
+interface MatchupParticipant {
+  fantasy_season_id: number;
+}
+
+interface H2HMatchupRow {
+  id: number;
+  participant_a_id: number;
+  participant_b_id: number;
+  participant_a: MatchupParticipant | null;
+  participant_b: MatchupParticipant | null;
+}
+
+interface LineupPointsRow {
+  total_points: number | null;
+}
+
+interface LeagueRow {
+  id: number;
+  scoring_type: string;
+}
+
+interface GameweekRow {
+  id: number;
+  status: string;
+}
+
+type ParticipantRecordField = 'wins' | 'losses' | 'draws';
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
 class RecalculateLeagues {
   private supabase: ReturnType<typeof createClient>;
 
@@ -26,13 +67,14 @@ class RecalculateLeagues {
   private async recalculateClassicLeague(leagueId: number): Promise<boolean> {
     try {
       // Get all participants in the league, joined with their fantasy season to get total points
-      const { data: participants, error: fetchError } = await this.supabase
+      const { data: participantData, error: fetchError } = await this.supabase
         .from('league_participants')
         .select(`
           id,
           fantasy_seasons(total_points)
         `)
-        .eq('league_id', leagueId) as any;
+        .eq('league_id', leagueId);
+      const participants = (participantData ?? []) as ClassicParticipantRow[];
 
       if (fetchError || !participants) {
         console.error(`Failed to fetch participants for classic league ${leagueId}:`, fetchError);
@@ -40,7 +82,7 @@ class RecalculateLeagues {
       }
 
       // Sort by total points descending
-      const sortedParticipants = participants.sort((a: any, b: any) => {
+      const sortedParticipants = participants.sort((a, b) => {
         const pointsA = a.fantasy_seasons?.total_points || 0;
         const pointsB = b.fantasy_seasons?.total_points || 0;
         return pointsB - pointsA;
@@ -50,15 +92,15 @@ class RecalculateLeagues {
       let rank = 1;
       for (const p of sortedParticipants) {
         const points = p.fantasy_seasons?.total_points || 0;
-        await (this.supabase
-          .from('league_participants') as any)
+        await this.supabase
+          .from('league_participants')
           .update({ rank, points })
           .eq('id', p.id);
         rank++;
       }
 
       return true;
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error(`Error recalculating classic league ${leagueId}:`, err);
       return false;
     }
@@ -87,10 +129,11 @@ class RecalculateLeagues {
       }
 
       // Fetch participants
-      const { data: participants, error: fetchError } = await this.supabase
+      const { data: participantData, error: fetchError } = await this.supabase
         .from('league_participants')
         .select('id')
-        .eq('league_id', leagueId) as any;
+        .eq('league_id', leagueId);
+      const participants = (participantData ?? []) as ParticipantIdRow[];
 
       if (fetchError || !participants || participants.length === 0) {
         return 0;
@@ -107,7 +150,7 @@ class RecalculateLeagues {
 
         if (participantB) {
           // Standard matchup
-          await (this.supabase.from('head_to_head_matchups') as any).insert({
+          await this.supabase.from('head_to_head_matchups').insert({
             league_id: leagueId,
             gameweek_id: gameweekId,
             participant_a_id: participantA.id,
@@ -117,7 +160,7 @@ class RecalculateLeagues {
           fixturesGenerated++;
         } else {
           // BYE week for the odd participant out
-          await (this.supabase.from('head_to_head_matchups') as any).insert({
+          await this.supabase.from('head_to_head_matchups').insert({
             league_id: leagueId,
             gameweek_id: gameweekId,
             participant_a_id: participantA.id,
@@ -130,7 +173,7 @@ class RecalculateLeagues {
       }
 
       return fixturesGenerated;
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error(`Error generating H2H fixtures for league ${leagueId}:`, err);
       return 0;
     }
@@ -142,7 +185,7 @@ class RecalculateLeagues {
   private async calculateH2HResults(gameweekId: number): Promise<number> {
     try {
       // Find open matchups for this gameweek
-      const { data: matchups, error: matchupsError } = await this.supabase
+      const { data: matchupData, error: matchupsError } = await this.supabase
         .from('head_to_head_matchups')
         .select(`
           id,
@@ -153,7 +196,8 @@ class RecalculateLeagues {
         `)
         .eq('gameweek_id', gameweekId)
         .is('winner_id', null)
-        .eq('is_bye', false) as any;
+        .eq('is_bye', false);
+      const matchups = (matchupData ?? []) as H2HMatchupRow[];
 
       if (matchupsError || !matchups || matchups.length === 0) {
         return 0;
@@ -168,19 +212,21 @@ class RecalculateLeagues {
         if (!fantasySeasonA || !fantasySeasonB) continue;
 
         // Get points for both participants in this gameweek
-        const { data: lineupA } = await this.supabase
+        const { data: lineupAData } = await this.supabase
           .from('fantasy_lineups')
           .select('total_points')
           .eq('fantasy_season_id', fantasySeasonA)
           .eq('gameweek_id', gameweekId)
-          .single() as any;
+          .single();
+        const lineupA = lineupAData as LineupPointsRow | null;
 
-        const { data: lineupB } = await this.supabase
+        const { data: lineupBData } = await this.supabase
           .from('fantasy_lineups')
           .select('total_points')
           .eq('fantasy_season_id', fantasySeasonB)
           .eq('gameweek_id', gameweekId)
-          .single() as any;
+          .single();
+        const lineupB = lineupBData as LineupPointsRow | null;
 
         const pointsA = lineupA?.total_points || 0;
         const pointsB = lineupB?.total_points || 0;
@@ -197,8 +243,8 @@ class RecalculateLeagues {
         }
 
         // Update matchup
-        await (this.supabase
-          .from('head_to_head_matchups') as any)
+        await this.supabase
+          .from('head_to_head_matchups')
           .update({
             points_a: pointsA,
             points_b: pointsB,
@@ -225,24 +271,25 @@ class RecalculateLeagues {
       // In a real scenario, this would be a separate pass per H2H league.
 
       return resultsCalculated;
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error(`Error calculating H2H results for gameweek ${gameweekId}:`, err);
       return 0;
     }
   }
 
-  private async incrementParticipantRecord(participantId: number, field: 'wins' | 'losses' | 'draws') {
+  private async incrementParticipantRecord(participantId: number, field: ParticipantRecordField) {
      // Fetch current, then increment to avoid race conditions if multiple jobs run,
      // though RPC is better.
-     const { data } = await this.supabase
+     const { data: participantData } = await this.supabase
        .from('league_participants')
        .select(field)
        .eq('id', participantId)
-       .single() as any;
+       .single();
+     const data = participantData as Record<ParticipantRecordField, number | null> | null;
      
      if (data) {
-       await (this.supabase
-         .from('league_participants') as any)
+       await this.supabase
+         .from('league_participants')
          .update({ [field]: (data[field] || 0) + 1 })
          .eq('id', participantId);
      }
@@ -263,10 +310,11 @@ class RecalculateLeagues {
 
     try {
       // 1. Fetch active leagues
-      const { data: leagues, error: leaguesError } = await this.supabase
+      const { data: leagueData, error: leaguesError } = await this.supabase
         .from('leagues')
         .select('id, scoring_type')
-        .eq('status', 'active') as any;
+        .eq('status', 'active');
+      const leagues = (leagueData ?? []) as LeagueRow[];
 
       if (leaguesError) {
         result.errors.push(`Failed to fetch active leagues: ${leaguesError.message}`);
@@ -275,13 +323,14 @@ class RecalculateLeagues {
       }
 
       // 2. Fetch current active gameweek and recently closed gameweeks
-      const { data: gameweeks } = await this.supabase
+      const { data: gameweekData } = await this.supabase
         .from('gameweeks')
         .select('id, status')
-        .in('status', ['active', 'closed']) as any;
+        .in('status', ['active', 'closed']);
+      const gameweeks = (gameweekData ?? []) as GameweekRow[];
       
-      const activeGameweek = gameweeks?.find((gw: any) => gw.status === 'active');
-      const closedGameweeks = gameweeks?.filter((gw: any) => gw.status === 'closed') || [];
+      const activeGameweek = gameweeks.find((gameweek) => gameweek.status === 'active');
+      const closedGameweeks = gameweeks.filter((gameweek) => gameweek.status === 'closed');
 
 
       for (const league of leagues || []) {
@@ -298,8 +347,8 @@ class RecalculateLeagues {
                result.h2hFixturesGenerated += generated;
              }
           }
-        } catch (err: any) {
-           result.errors.push(`Error processing league ${league.id}: ${err.message}`);
+          } catch (err: unknown) {
+            result.errors.push(`Error processing league ${league.id}: ${errorMessage(err)}`);
         }
       }
 
@@ -311,8 +360,8 @@ class RecalculateLeagues {
 
 
       result.success = true;
-    } catch (err: any) {
-      result.errors.push(`Fatal error in recalculate leagues job: ${err.message}`);
+    } catch (err: unknown) {
+      result.errors.push(`Fatal error in recalculate leagues job: ${errorMessage(err)}`);
       console.error('Recalculate leagues job failed:', err);
     }
 

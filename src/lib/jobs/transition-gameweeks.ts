@@ -9,6 +9,13 @@ interface JobResult {
   duration: number;
 }
 
+interface TransitionResult {
+  success: boolean;
+  gameweeks_activated?: number;
+  gameweeks_closed?: number;
+  seasons_rolled_over?: number;
+}
+
 class TransitionGameweeks {
   private supabase: ReturnType<typeof createClient>;
 
@@ -37,18 +44,19 @@ class TransitionGameweeks {
         throw error;
       }
 
-      if (data && (data as any).success) {
-        result.gameweeksActivated = (data as any).gameweeks_activated || 0;
-        result.gameweeksClosed = (data as any).gameweeks_closed || 0;
-        result.seasonsRolledOver = (data as any).seasons_rolled_over || 0;
+      const transitionResult = data as TransitionResult | null;
+      if (transitionResult?.success) {
+        result.gameweeksActivated = transitionResult.gameweeks_activated || 0;
+        result.gameweeksClosed = transitionResult.gameweeks_closed || 0;
+        result.seasonsRolledOver = transitionResult.seasons_rolled_over || 0;
       } else {
         result.success = false;
         result.errors.push('RPC returned failure or unexpected format.');
       }
-    } catch (err: any) {
+    } catch (error: unknown) {
       result.success = false;
-      result.errors.push(err.message || String(err));
-      console.error('[Transition Gameweeks Job] Failed:', err);
+      result.errors.push(error instanceof Error ? error.message : String(error));
+      console.error('[Transition Gameweeks Job] Failed:', error);
     }
 
     result.duration = Date.now() - startTime;
