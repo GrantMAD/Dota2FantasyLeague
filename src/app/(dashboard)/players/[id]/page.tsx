@@ -283,7 +283,7 @@ export default function PlayerDetailPage() {
             <div className="flex flex-col md:flex-row md:items-end gap-6 -mt-16">
                <div className="relative w-32 h-32 rounded-xl bg-slate-800 border-4 border-slate-900 shadow-lg overflow-hidden flex items-center justify-center shrink-0 z-10">
                   {player.profile_image_url ? (
-                     <Image src={player.profile_image_url} alt={player.in_game_name} fill sizes="128px" unoptimized className="object-cover" />
+                     <Image src={player.profile_image_url} alt={player.in_game_name} fill sizes="128px" unoptimized loading="eager" className="object-cover" />
                   ) : (
                      <span className="player-avatar-initials text-4xl font-bold">{player.in_game_name?.substring(0, 2).toUpperCase()}</span>
                   )}
@@ -330,15 +330,15 @@ export default function PlayerDetailPage() {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
          <div className="bg-slate-800/40 border border-slate-700 rounded-xl p-5 text-center shadow-sm">
             <div className="text-xs text-slate-400 uppercase mb-1">Season Pts</div>
-            <div className="text-2xl font-bold text-white font-mono">{player.total_season_points ?? '184.5'}</div>
+            <div className="text-2xl font-bold text-white font-mono">{player.total_season_points != null ? Number(player.total_season_points).toFixed(1) : '184.5'}</div>
          </div>
          <div className="bg-slate-800/40 border border-slate-700 rounded-xl p-5 text-center shadow-sm">
             <div className="text-xs text-slate-400 uppercase mb-1">Last GW Pts</div>
-            <div className="text-2xl font-bold text-emerald-400 font-mono">+{player.last_gw_points ?? '24.5'}</div>
+            <div className="text-2xl font-bold text-emerald-400 font-mono">+{player.last_gw_points != null ? Number(player.last_gw_points).toFixed(2) : '24.50'}</div>
          </div>
          <div className="bg-slate-800/40 border border-slate-700 rounded-xl p-5 text-center shadow-sm">
             <div className="text-xs text-slate-400 uppercase mb-1">Selected By</div>
-            <div className="text-2xl font-bold text-white font-mono">{player.ownership_percentage ?? '48.5'}%</div>
+            <div className="text-2xl font-bold text-white font-mono">{player.ownership_percentage != null ? Number(player.ownership_percentage).toFixed(1) : '48.5'}%</div>
          </div>
          <div className="bg-slate-800/40 border border-slate-700 rounded-xl p-5 text-center shadow-sm">
             <div className="text-xs text-slate-400 uppercase mb-1">Form Rating</div>
