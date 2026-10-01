@@ -42,7 +42,7 @@ export async function GET(request: NextRequest) {
       .from('professional_players')
       .select('*, professional_teams(name, logo_url)', { count: 'exact' });
 
-    const showAll = searchParams.get('show_all') === 'true';
+    const showAll = searchParams.get('show_all') === 'true' || Boolean(search && search.trim().length > 0);
     if (!showAll) {
       query = query.eq('availability_status', 'available');
     }

@@ -140,12 +140,38 @@ export async function syncPlayers(): Promise<SyncResult> {
           .select('id, name, data_provider_id, team_id, availability_status')
           .neq('availability_status', 'inactive');
 
+        // Protect players who have played in matches within the last 30 days from being marked inactive
+        const cutoff30d = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+        const { data: recentMatches } = await supabase
+          .from('matches')
+          .select('id')
+          .gte('scheduled_time', cutoff30d);
+
+        const recentMatchIds = (recentMatches || []).map((m: { id: number }) => m.id);
+        const activeMatchPlayerDbIds = new Set<number>();
+        if (recentMatchIds.length > 0) {
+          // Check match_player_stats in chunks of 100 matches
+          for (let m = 0; m < recentMatchIds.length; m += 100) {
+            const chunk = recentMatchIds.slice(m, m + 100);
+            const { data: recentStats } = await supabase
+              .from('match_player_stats')
+              .select('player_id')
+              .in('match_id', chunk);
+            for (const row of recentStats || []) {
+              if (row.player_id) activeMatchPlayerDbIds.add(row.player_id);
+            }
+          }
+        }
+
         let softDeletedCount = 0;
         const nowIso = new Date().toISOString();
 
         for (const dbp of dbPlayersToAudit || []) {
           // If player has no data_provider_id (e.g. custom admin player), don't touch
           if (!dbp.data_provider_id) continue;
+
+          // If the player played in a tournament match within the last 30 days, do NOT mark inactive
+          if (activeMatchPlayerDbIds.has(dbp.id)) continue;
 
           // If provider response does NOT contain this player's data_provider_id
           if (!activeProviderIds.has(String(dbp.data_provider_id))) {
@@ -324,6 +350,7 @@ async function processSyncBatch(
               profile_image_url: player.imageUrl,
               last_synced_at: new Date().toISOString(),
               primary_role: effectiveRole,
+              availability_status: 'available',
             };
 
             // Only overwrite team_id if we resolved a valid team or player explicitly has no team

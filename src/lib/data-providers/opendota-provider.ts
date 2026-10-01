@@ -146,10 +146,14 @@ export class OpenDotaProvider extends DataProviderBase implements DataProvider {
       // Filter to genuinely active pro players:
       // - Must have a name
       // - Must be flagged as pro by OpenDota
-      // - Must be on an active team (team_id must be a real non-zero value)
-      // This excludes retired players who still carry is_pro=true but have no team,
-      // and players with a stale team_name string but no team_id.
-      const validPlayers = rawPlayers.filter((player) => player.name && player.is_pro && player.team_id && player.team_id !== 0);
+      // - Must be on an active team: either a real non-zero team_id OR a valid team_name (e.g. Saberlight, Insania, Fly on Virtus.pro)
+      // This excludes retired players who still carry is_pro=true but have no team information at all.
+      const validPlayers = rawPlayers.filter(
+        (player) =>
+          player.name &&
+          player.is_pro &&
+          ((player.team_id && player.team_id !== 0) || (player.team_name && player.team_name.trim().length > 0))
+      );
 
       // Map OpenDota fantasy_role integer to role name
       const roleMap: Record<number, string> = {
@@ -161,24 +165,27 @@ export class OpenDotaProvider extends DataProviderBase implements DataProvider {
 
       const mapped: PlayerData[] = validPlayers.map((p) => {
         const steamId = p.steamid ? String(p.steamid) : String(p.account_id);
-        const primaryRole = roleMap[p.fantasy_role] || 'Carry';
+        const roleIndex = p.fantasy_role != null ? p.fantasy_role : 0;
+        const primaryRole = roleMap[roleIndex] || 'Carry';
+        const teamIdStr = p.team_id && p.team_id !== 0 ? String(p.team_id) : undefined;
+        const teamNameStr = p.team_name && p.team_name.trim().length > 0 ? p.team_name.trim() : undefined;
 
         return {
           id: String(p.account_id),
           steamId,
-          name: p.name || p.personaname,
+          name: (p.name || p.personaname || `Player ${p.account_id}`).trim(),
           tag: p.team_tag || undefined,
           country: p.country_code || p.loccountrycode || undefined,
           roles: [primaryRole],
-          team: p.team_id
+          team: (teamIdStr || teamNameStr)
             ? {
-                id: String(p.team_id),
-                name: p.team_name || 'Independent',
+                id: teamIdStr || `name-${teamNameStr}`,
+                name: teamNameStr || 'Independent',
               }
             : undefined,
           isActive: true,
           profileUrl: p.profileurl || `https://opendota.com/players/${p.account_id}`,
-          imageUrl: p.avatarfull || p.avatarmedium || p.avatar,
+          imageUrl: p.avatarfull || p.avatarmedium || p.avatar || undefined,
           lastUpdated: new Date(),
         };
       });
@@ -214,13 +221,13 @@ export class OpenDotaProvider extends DataProviderBase implements DataProvider {
         id: String(playerId),
         steamId: String(playerId),
         name: player.profile.personaname || 'Unknown',
-        tag: player.profile.name,
-        country: player.profile.loccountrycode,
+        tag: player.profile.name || undefined,
+        country: player.profile.loccountrycode || undefined,
         roles: [], // OpenDota doesn't explicitly provide roles
         team: undefined, // Would need separate team lookup
         isActive: player.profile.last_login ? true : false,
         profileUrl: `https://opendota.com/players/${playerId}`,
-        imageUrl: player.profile.avatarfull,
+        imageUrl: player.profile.avatarfull || undefined,
         lastUpdated: new Date(),
       };
     } catch (error) {
@@ -264,7 +271,7 @@ export class OpenDotaProvider extends DataProviderBase implements DataProvider {
           region: undefined,
           country: undefined,
           foundedDate: undefined,
-          logoUrl: t.logo_url,
+          logoUrl: t.logo_url || undefined,
           roster: [], // Would need separate API call per team
           isActive: true,
           lastUpdated: new Date(),
@@ -297,12 +304,12 @@ export class OpenDotaProvider extends DataProviderBase implements DataProvider {
 
       return {
         id: String(teamId),
-        name: team.name,
-        tag: team.tag,
+        name: team.name || `Team ${teamId}`,
+        tag: team.tag || '',
         region: undefined,
-        country: team.country,
+        country: team.country || undefined,
         foundedDate: team.created_at ? new Date(team.created_at * 1000) : undefined,
-        logoUrl: team.logo_url,
+        logoUrl: team.logo_url || undefined,
         roster: (roster || []).map((r) => ({
           playerId: String(r.account_id),
           joinedDate: new Date(r.time_joined * 1000),
@@ -405,7 +412,7 @@ export class OpenDotaProvider extends DataProviderBase implements DataProvider {
           scheduledAt: new Date(m.start_time * 1000),
           startedAt: m.start_time ? new Date(m.start_time * 1000) : undefined,
           endedAt: m.start_time && m.duration ? new Date((m.start_time + m.duration) * 1000) : undefined,
-          status: m.radiant_win !== undefined ? 'concluded' : 'upcoming',
+          status: m.radiant_win !== undefined ? 'concluded' : 'scheduled',
           seriesStatus: undefined,
           lastUpdated: new Date(),
         }));

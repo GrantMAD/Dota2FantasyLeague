@@ -191,10 +191,10 @@ const JOBS: JobDefinition[] = [
   },
   {
     name: 'backfill-team-logos',
-    schedule: '', // Manual only — run after sync-teams when logos are missing
+    schedule: '30 5 * * *', // Daily at 5:30 AM UTC (runs before player backfill at 6 AM UTC)
     handler: backfillTeamLogos,
-    enabled: false, // Never auto-run; only triggered explicitly from the admin panel
-    timeout: 30 * 60 * 1000, // 30 minutes (134 teams × 1.1s + retries)
+    enabled: process.env.ENABLE_LOGO_BACKFILL !== 'false',
+    timeout: 30 * 60 * 1000, // 30 minutes
   },
   {
     name: 'purge-inactive-data',

@@ -149,7 +149,7 @@ const JOB_METADATA: Record<string, {
     category: 'maintenance',
   },
   'backfill-team-logos': {
-    description: 'Individually fetches each team with a missing logo from OpenDota. Run this after sync-teams to fill logos for lower-rated teams (below the top-1000 bulk list cutoff) such as regional or recently formed rosters.',
+    description: 'Individually fetches each team with a missing logo from OpenDota. Runs automatically every day at 5:30 AM UTC, or can be triggered manually.',
     category: 'maintenance',
   },
   'purge-inactive-data': {
