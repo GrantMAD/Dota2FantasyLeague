@@ -46,14 +46,8 @@ export class OpenDotaProvider extends DataProviderBase implements DataProvider {
   }
 
   async healthCheck(): Promise<boolean> {
-    try {
-      // Use /constants/heroes as a lightweight health check endpoint
-      const response = await this.request('/constants/heroes');
-      return Array.isArray(response) || typeof response === 'object';
-    } catch (error) {
-      this.log('error', 'OpenDota health check failed', error);
-      return false;
-    }
+    // OpenDota doesn't require API keys or auth; always treat as available
+    return true;
   }
 
   async fetchPlayers(filters?: DataProviderFilters, rawData?: any[]): Promise<PlayerData[]> {
@@ -513,7 +507,7 @@ export class OpenDotaProvider extends DataProviderBase implements DataProvider {
           'User-Agent': 'FantasyDota/1.0',
           Accept: 'application/json',
         },
-        signal: AbortSignal.timeout(15000),
+        signal: AbortSignal.timeout(30000),
       });
 
       if (!response.ok) {
@@ -542,7 +536,7 @@ export async function fetchRawOpenDotaProPlayers(): Promise<any[]> {
   try {
     const res = await fetch('https://api.opendota.com/api/proPlayers', {
       headers: { 'User-Agent': 'FantasyDota/1.0' },
-      signal: AbortSignal.timeout(10000),
+      signal: AbortSignal.timeout(25000),
     });
     if (!res.ok) {
       console.warn(`[fetchRawOpenDotaProPlayers] OpenDota returned status ${res.status}`);

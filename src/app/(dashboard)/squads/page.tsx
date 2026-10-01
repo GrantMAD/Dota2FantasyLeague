@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
-import { ArrowRight, Sparkles, ShieldAlert, ArrowLeftRight, UserCheck } from 'lucide-react';
+import { ArrowRight, Sparkles, ShieldAlert, ArrowLeftRight, UserCheck, AlertTriangle, DollarSign, X } from 'lucide-react';
 import { SquadHero } from './components/SquadHero';
 import { SquadFilters, type SquadTab, type SquadViewMode } from './components/SquadFilters';
 import { SquadPlayerCard, type SquadPlayer } from './components/SquadPlayerCard';
@@ -50,6 +50,7 @@ export default function SquadsPage() {
   const [selectedRole, setSelectedRole] = useState<string>('ALL');
 
   const [selectedPlayer, setSelectedPlayer] = useState<PlayerDetails | null>(null);
+  const [removedPlayers, setRemovedPlayers] = useState<Array<{ id: number; playerName: string; refundAmount: number; message: string }>>([]);
   const [playerLoading, setPlayerLoading] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -75,6 +76,7 @@ export default function SquadsPage() {
         setGlobalRank(data.globalRank ?? null);
         setLineup(data.lineup || []);
         setOwnedPlayers(data.ownedPlayers || []);
+        setRemovedPlayers(data.removedPlayersNotice || []);
       } catch (err: unknown) {
         setError(err instanceof Error ? err.message : 'Failed to load squad lineup');
       } finally {
@@ -255,6 +257,60 @@ export default function SquadsPage() {
         </div>
       )}
 
+      {/* Prominent Banner: Players removed from pool as they are no longer active */}
+      {removedPlayers.length > 0 && (
+        <div className="mb-8 relative overflow-hidden rounded-3xl border border-amber-500/40 bg-[linear-gradient(135deg,rgba(245,158,11,0.15),rgba(15,23,42,0.95))] p-6 sm:p-7 shadow-xl shadow-amber-500/10">
+          <div className="absolute left-0 top-0 bottom-0 w-2 bg-amber-400 rounded-l-3xl" />
+          <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+            <div className="max-w-3xl">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/20 border border-amber-500/30 text-amber-300 text-xs font-bold mb-3 tracking-wide">
+                <AlertTriangle className="w-4 h-4 text-amber-400" />
+                ACTION REQUIRED · ROSTER POOL UPDATE
+              </div>
+              <h2 className="text-xl sm:text-2xl font-black text-white mb-2 tracking-tight">
+                Players Removed From Pool (No Longer Active)
+              </h2>
+              <p className="text-slate-300 text-sm leading-relaxed mb-4">
+                The following player{removedPlayers.length !== 1 ? 's' : ''} in your squad were removed from the competitive fantasy pool because they are no longer active on professional teams. Their full market value has been refunded to your bank budget:
+              </p>
+              
+              <div className="flex flex-wrap items-center gap-2.5 mb-2">
+                {removedPlayers.map((p) => (
+                  <div
+                    key={p.id}
+                    className="inline-flex items-center gap-2 rounded-xl border border-amber-500/30 bg-slate-900/80 px-3.5 py-1.5 text-xs font-semibold shadow-inner"
+                  >
+                    <span className="font-bold text-amber-200">{p.playerName}</span>
+                    <span className="inline-flex items-center font-mono text-emerald-400 font-bold bg-emerald-950/60 border border-emerald-500/30 px-2 py-0.5 rounded-lg">
+                      +${p.refundAmount.toFixed(1)}M Refunded
+                    </span>
+                  </div>
+                ))}
+              </div>
+              <p className="text-xs text-slate-400 mt-2">
+                Their starting positions are now vacant. Visit the Transfer Market to sign active replacement players before the gameweek deadline.
+              </p>
+            </div>
+
+            <div className="flex flex-col sm:flex-row md:flex-col gap-2.5 shrink-0 w-full sm:w-auto">
+              <Link
+                href="/transfers"
+                className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-bold text-sm bg-gradient-to-r from-amber-400 to-amber-500 text-slate-950 hover:brightness-110 shadow-lg shadow-amber-500/20 transition-all cursor-pointer"
+              >
+                Sign Replacements
+                <ArrowRight className="w-4 h-4" />
+              </Link>
+              <Link
+                href="/lineups"
+                className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl font-semibold text-xs border border-slate-700 bg-slate-900/80 text-slate-300 hover:text-white hover:border-slate-500 transition-all"
+              >
+                Adjust Lineup
+              </Link>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Unassigned squad members warning */}
       {lineup.length === 0 && ownedPlayers.length > 0 && (
         <div className="mb-6 rounded-2xl border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-200 flex items-center gap-3">
@@ -266,12 +322,13 @@ export default function SquadsPage() {
         </div>
       )}
 
-      {/* Unavailable active starters notice */}
-      {startersLineup.some(
-        (e) =>
-          e.professional_players?.availability_status &&
-          e.professional_players.availability_status !== 'available'
-      ) && (
+      {/* Unavailable active starters notice (only if not already displayed in removedPlayers notice) */}
+      {removedPlayers.length === 0 &&
+        startersLineup.some(
+          (e) =>
+            e.professional_players?.availability_status &&
+            e.professional_players.availability_status !== 'available'
+        ) && (
         <div className="mb-6 rounded-2xl border border-rose-500/40 bg-rose-500/10 px-4 py-3.5 text-sm text-rose-200 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div className="flex items-start sm:items-center gap-3">
             <ShieldAlert className="w-5 h-5 text-rose-400 shrink-0 mt-0.5 sm:mt-0" />

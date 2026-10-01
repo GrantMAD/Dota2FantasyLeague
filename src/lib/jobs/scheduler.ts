@@ -28,6 +28,7 @@ import { sendRankNotifications } from './send-rank-notifications';
 import { transitionGameweeks } from './transition-gameweeks';
 import { backfillPlaceholderPlayers } from './backfill-placeholder-players';
 import { backfillTeamLogos } from './backfill-team-logos';
+import { purgeInactiveData } from './purge-inactive-data';
 
 type JobName =
   | 'sync-players'
@@ -47,7 +48,8 @@ type JobName =
   | 'send-rank-notifications'
   | 'transition-gameweeks'
   | 'backfill-placeholder-players'
-  | 'backfill-team-logos';
+  | 'backfill-team-logos'
+  | 'purge-inactive-data';
 
 interface JobDefinition {
   name: JobName;
@@ -193,6 +195,13 @@ const JOBS: JobDefinition[] = [
     handler: backfillTeamLogos,
     enabled: false, // Never auto-run; only triggered explicitly from the admin panel
     timeout: 30 * 60 * 1000, // 30 minutes (134 teams × 1.1s + retries)
+  },
+  {
+    name: 'purge-inactive-data',
+    schedule: '0 4 * * 0', // Weekly Sunday at 4:00 AM UTC
+    handler: purgeInactiveData,
+    enabled: process.env.ENABLE_DATA_PURGE !== 'false',
+    timeout: 15 * 60 * 1000, // 15 minutes
   },
 ];
 

@@ -65,27 +65,38 @@ export async function PUT(request: NextRequest) {
     const body = await request.json();
     const gameweekId = Number(body.gameweekId);
     const lineup = Array.isArray(body.lineup) ? body.lineup : [];
-    if (!gameweekId || lineup.length < 5) return NextResponse.json({ error: 'At least 5 starting players are required.' }, { status: 400 });
+    if (!gameweekId) return NextResponse.json({ error: 'gameweekId is required.' }, { status: 400 });
+
+    const bySlot = new Map<string, { playerId: number; isCaptain?: boolean; isViceCaptain?: boolean }>(
+      lineup.map((entry: { slot: string; playerId: number; isCaptain?: boolean; isViceCaptain?: boolean }) => [entry.slot, entry])
+    );
+
+    // Captain/vice-captain are required only if there are any entries at all
     const captains = lineup.filter((entry: { isCaptain?: boolean }) => entry.isCaptain);
     const viceCaptains = lineup.filter((entry: { isViceCaptain?: boolean }) => entry.isViceCaptain);
-    if (captains.length !== 1 || viceCaptains.length !== 1) return NextResponse.json({ error: 'Select exactly one captain and one vice-captain.' }, { status: 400 });
-    const bySlot = new Map<string, { playerId: number; isCaptain?: boolean; isViceCaptain?: boolean }>(lineup.map((entry: { slot: string; playerId: number; isCaptain?: boolean; isViceCaptain?: boolean }) => [entry.slot, entry]));
-    const starterSlots = ['carry', 'mid', 'offlane', 'support', 'hard_support'] as const;
-    if (starterSlots.some((slot) => !bySlot.has(slot))) return NextResponse.json({ error: 'Every starting lineup slot (Carry, Mid, Offlane, Support, Hard Support) must be filled.' }, { status: 400 });
+    if (lineup.length > 0 && (captains.length > 1 || viceCaptains.length > 1)) {
+      return NextResponse.json({ error: 'Select at most one captain and one vice-captain.' }, { status: 400 });
+    }
 
     const supabase = supabaseServer();
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: season } = await (supabase.from('fantasy_seasons') as any).select('id').eq('user_id', user.userId).limit(1).maybeSingle();
     if (!season) return NextResponse.json({ error: 'Fantasy season not found.' }, { status: 404 });
+
     const playerIds: number[] = lineup.map((entry: { playerId: number }) => Number(entry.playerId));
     if (new Set(playerIds).size !== playerIds.length) return NextResponse.json({ error: 'A player cannot occupy more than one lineup slot.' }, { status: 400 });
+
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: squad } = await (supabase.from('fantasy_squads') as any).select('id').eq('fantasy_season_id', season.id).limit(1).maybeSingle();
     if (!squad) return NextResponse.json({ error: 'Fantasy squad not found.' }, { status: 404 });
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: members } = await (supabase.from('fantasy_squad_members') as any).select('player_id, removed_date').eq('squad_id', squad.id).in('player_id', playerIds);
-    const ownedIds = new Set((members ?? []).filter((member: { removed_date: string | null }) => !member.removed_date).map((member: { player_id: number }) => Number(member.player_id)));
-    if (playerIds.some((playerId) => !ownedIds.has(playerId))) return NextResponse.json({ error: 'Every lineup player must belong to your active squad.' }, { status: 400 });
+
+    if (playerIds.length > 0) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: members } = await (supabase.from('fantasy_squad_members') as any).select('player_id, removed_date').eq('squad_id', squad.id).in('player_id', playerIds);
+      const ownedIds = new Set((members ?? []).filter((member: { removed_date: string | null }) => !member.removed_date).map((member: { player_id: number }) => Number(member.player_id)));
+      if (playerIds.some((playerId) => !ownedIds.has(playerId))) return NextResponse.json({ error: 'Every lineup player must belong to your active squad.' }, { status: 400 });
+    }
+
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: gameweek } = await (supabase.from('gameweeks') as any).select('status, deadline').eq('id', gameweekId).maybeSingle();
     if (!gameweek) return NextResponse.json({ error: 'Gameweek not found.' }, { status: 404 });
@@ -94,13 +105,13 @@ export async function PUT(request: NextRequest) {
     const row = {
       fantasy_season_id: season.id,
       gameweek_id: gameweekId,
-      captain_player_id: captains[0].playerId,
-      vice_captain_player_id: viceCaptains[0].playerId,
-      carry_id: bySlot.get('carry')!.playerId,
-      mid_id: bySlot.get('mid')!.playerId,
-      offlane_id: bySlot.get('offlane')!.playerId,
-      support_id: bySlot.get('support')!.playerId,
-      hard_support_id: bySlot.get('hard_support')!.playerId,
+      captain_player_id: captains[0]?.playerId ?? null,
+      vice_captain_player_id: viceCaptains[0]?.playerId ?? null,
+      carry_id: bySlot.get('carry')?.playerId ?? null,
+      mid_id: bySlot.get('mid')?.playerId ?? null,
+      offlane_id: bySlot.get('offlane')?.playerId ?? null,
+      support_id: bySlot.get('support')?.playerId ?? null,
+      hard_support_id: bySlot.get('hard_support')?.playerId ?? null,
       bench_1_id: bySlot.get('bench_1')?.playerId ?? null,
       bench_2_id: bySlot.get('bench_2')?.playerId ?? null,
       bench_3_id: bySlot.get('bench_3')?.playerId ?? null,

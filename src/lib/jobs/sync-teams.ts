@@ -49,8 +49,44 @@ export async function syncTeams(): Promise<SyncResult> {
 
     try {
       // Fetch all teams from data provider
-      const teams = await provider.fetchTeams({ activeOnly: true });
-      console.log(`[syncTeams] Fetched ${teams.length} teams from provider`);
+      const rawTeams = await provider.fetchTeams({ activeOnly: true });
+      console.log(`[syncTeams] Fetched ${rawTeams.length} teams from provider`);
+
+      // Determine active team IDs from recent matches (last 90 days) or tournaments
+      const ninetyDaysAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString();
+      const supabase = getSupabaseServerClient();
+      const { data: recentMatches } = await supabase
+        .from('matches')
+        .select('team_a_id, team_b_id')
+        .gte('scheduled_time', ninetyDaysAgo);
+
+      const activeDbTeamIds = new Set<number>();
+      for (const m of recentMatches || []) {
+        if (m.team_a_id) activeDbTeamIds.add(m.team_a_id);
+        if (m.team_b_id) activeDbTeamIds.add(m.team_b_id);
+      }
+
+      // If we have active matches in the DB, filter provider teams that match active DB teams
+      // otherwise keep provider teams that have live rosters/activity
+      let teams = rawTeams;
+      if (activeDbTeamIds.size > 0) {
+        // Map DB team IDs to provider IDs
+        const { data: dbActiveTeams } = await supabase
+          .from('professional_teams')
+          .select('id, data_provider_id')
+          .in('id', Array.from(activeDbTeamIds));
+
+        const activeProviderIds = new Set(
+          (dbActiveTeams || [])
+            .map((t: any) => t.data_provider_id)
+            .filter(Boolean) as string[]
+        );
+
+        if (activeProviderIds.size > 0) {
+          teams = rawTeams.filter((t: { id: string | number }) => activeProviderIds.has(String(t.id)));
+          console.log(`[syncTeams] Filtered to ${teams.length} active tournament/match teams`);
+        }
+      }
 
       // Get existing teams for deduplication
       const existingTeams = await getExistingTeams();

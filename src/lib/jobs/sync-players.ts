@@ -106,6 +106,53 @@ export async function syncPlayers(): Promise<SyncResult> {
         );
       }
 
+      // Step: Post-sync soft delete (Phase 1)
+      // Any player currently marked available who was NOT in the provider's active response
+      // gets marked as 'inactive'.
+      try {
+        const activeProviderIds = new Set<string>();
+        for (const p of players) {
+          if (p.steamId) activeProviderIds.add(String(p.steamId));
+          if (p.id) activeProviderIds.add(String(p.id));
+        }
+
+        const supabase = getSupabaseServerClient();
+        const { data: dbPlayersToAudit } = await supabase
+          .from('professional_players')
+          .select('id, name, data_provider_id, team_id, availability_status')
+          .neq('availability_status', 'inactive');
+
+        let softDeletedCount = 0;
+        const nowIso = new Date().toISOString();
+
+        for (const dbp of dbPlayersToAudit || []) {
+          // If player has no data_provider_id (e.g. custom admin player), don't touch
+          if (!dbp.data_provider_id) continue;
+
+          // If provider response does NOT contain this player's data_provider_id
+          if (!activeProviderIds.has(String(dbp.data_provider_id))) {
+            const { error: softDelErr } = await supabase
+              .from('professional_players')
+              .update({
+                availability_status: 'inactive',
+                last_synced_at: nowIso,
+              })
+              .eq('id', dbp.id);
+
+            if (!softDelErr) {
+              softDeletedCount++;
+              console.log(`[syncPlayers] Soft-deleted player ${dbp.name} (${dbp.id}) — absent from provider`);
+            }
+          }
+        }
+
+        if (softDeletedCount > 0) {
+          console.log(`[syncPlayers] Marked ${softDeletedCount} absent players as inactive`);
+        }
+      } catch (softDelError) {
+        console.warn('[syncPlayers] Error during post-sync soft delete step:', softDelError);
+      }
+
       // Log successful completion
       await logJobExecution('sync-players', 'completed', {
         created: result.created,

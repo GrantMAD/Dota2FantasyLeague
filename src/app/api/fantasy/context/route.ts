@@ -95,6 +95,7 @@ export async function GET(request: NextRequest) {
     // 4. Fetch Target Gameweek Lineup
     let lineupEntries: any[] = [];
     let lineupPlayerIds: number[] = [];
+    const ownedPlayerSet = new Set(ownedPlayerIds);
 
     if (targetGw) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -105,14 +106,12 @@ export async function GET(request: NextRequest) {
         .maybeSingle();
 
       if (lineupRow) {
-        lineupPlayerIds = slots
-          .map((slot) => getSlotId(lineupRow, slot))
-          .filter((id): id is number => id !== null);
-
         lineupEntries = slots
           .map((slot) => {
             const playerId = getSlotId(lineupRow, slot);
             if (!playerId) return null;
+            // If the player is no longer owned (e.g. purged from pool), slot is vacant
+            if (!ownedPlayerSet.has(playerId)) return null;
             return {
               slot,
               player_id: playerId,
@@ -122,10 +121,29 @@ export async function GET(request: NextRequest) {
             };
           })
           .filter(Boolean);
+
+        lineupPlayerIds = lineupEntries.map((e) => e.player_id);
       }
     }
 
-    // 5. Gather all unique player IDs (owned + in lineup) to fetch in single roundtrip
+    // 4b. Fetch recent player_removed notifications to inform user
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: removedNotifications } = await (supabase.from('user_notifications') as any)
+      .select('id, title, message, metadata, created_at')
+      .eq('user_id', user.userId)
+      .eq('type', 'player_removed')
+      .order('created_at', { ascending: false })
+      .limit(5);
+
+    const removedPlayersNotice = (removedNotifications || []).map((n: any) => ({
+      id: n.id,
+      playerName: n.metadata?.player_name || n.title.replace('Player Removed: ', ''),
+      refundAmount: Number(n.metadata?.refund_amount ?? 5.0),
+      message: n.message,
+      createdAt: n.created_at,
+    }));
+
+    // 5. Gather all unique player IDs (owned + valid lineup) to fetch in single roundtrip
     const allRelevantPlayerIds = Array.from(new Set([...ownedPlayerIds, ...lineupPlayerIds]));
 
     let playerMap = new Map<number, any>();
@@ -215,6 +233,7 @@ export async function GET(request: NextRequest) {
       lineup: populatedLineup,
       ownedPlayerIds,
       ownedPlayers,
+      removedPlayersNotice: removedPlayersNotice || [],
     });
   } catch (error: unknown) {
     console.error('[fantasy/context] Unhandled error:', error);

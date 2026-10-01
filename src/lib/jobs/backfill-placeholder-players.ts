@@ -137,10 +137,11 @@ export async function backfillPlaceholderPlayers(): Promise<BackfillPlayersResul
       if (p.steamid) proMap.set(String(p.steamid), p);
     }
 
-    // 2. Fetch all placeholder players from database
+    // 2. Fetch all placeholder players from database (only active players)
     const { data: placeholderPlayers, error: dbError } = await supabase
       .from('professional_players')
       .select('id, name, in_game_name, slug, data_provider_id, primary_role')
+      .eq('availability_status', 'available')
       .or('name.ilike.Player (%,name.ilike.Player #%');
 
     if (dbError) {

@@ -4,29 +4,19 @@ import { useMemo, useState, useEffect } from 'react';
 import { Plus, Search, Pencil, Trash2, Users } from 'lucide-react';
 
 
-type PlayerStatus = 'active' | 'inactive' | 'flagged';
-
 interface PlayerRecord {
   id: number;
   name: string;
   team: string;
   role: string;
   price: number;
-  status: PlayerStatus;
   fantasyPoints: number;
 }
-
-const statusStyles: Record<PlayerStatus, string> = {
-  active: 'bg-green-500/10 text-green-400 border-green-500/30',
-  inactive: 'bg-gray-500/10 text-gray-300 border-gray-500/30',
-  flagged: 'bg-yellow-500/10 text-yellow-400 border-yellow-500/30',
-};
 
 export default function AdminPlayersPage() {
   const [players, setPlayers] = useState<PlayerRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'all' | PlayerStatus>('all');
   const [rosteredOnly, setRosteredOnly] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [draft, setDraft] = useState<PlayerRecord>({
@@ -35,7 +25,6 @@ export default function AdminPlayersPage() {
     team: '',
     role: 'Carry',
     price: 0,
-    status: 'active',
     fantasyPoints: 0,
   });
 
@@ -60,7 +49,6 @@ export default function AdminPlayersPage() {
               team: p.professional_teams?.name || 'Free Agent',
               role: p.primary_role || 'Carry',
               price: Number(p.current_price ?? 0),
-              status: (p.availability_status === 'inactive' ? 'inactive' : 'active') as PlayerStatus,
               fantasyPoints: p.gameweek_points || 0,
             }))
           );
@@ -79,11 +67,10 @@ export default function AdminPlayersPage() {
       const matchesQuery = `${player.name} ${player.team} ${player.role}`
         .toLowerCase()
         .includes(query.toLowerCase());
-      const matchesStatus = statusFilter === 'all' || player.status === statusFilter;
       const matchesRostered = !rosteredOnly || player.team !== 'Free Agent';
-      return matchesQuery && matchesStatus && matchesRostered;
+      return matchesQuery && matchesRostered;
     });
-  }, [players, query, statusFilter, rosteredOnly]);
+  }, [players, query, rosteredOnly]);
 
   const totalValue = players.reduce((sum, player) => sum + player.price, 0);
 
@@ -103,7 +90,6 @@ export default function AdminPlayersPage() {
       team: '',
       role: 'Carry',
       price: 0,
-      status: 'active',
       fantasyPoints: 0,
     });
     setShowForm(false);
@@ -133,7 +119,6 @@ export default function AdminPlayersPage() {
               team: '',
               role: 'Carry',
               price: 0,
-              status: 'active',
               fantasyPoints: 0,
             });
             setShowForm(true);
@@ -147,7 +132,7 @@ export default function AdminPlayersPage() {
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
         <StatCard label="Total Players" value={players.length} />
-        <StatCard label="Active" value={players.filter((p) => p.status === 'active').length} />
+        <StatCard label="Rostered" value={players.filter((p) => p.team !== 'Free Agent').length} />
         <StatCard label="Market Value" value={`$${totalValue.toFixed(1)}M`} />
       </div>
 
@@ -179,21 +164,6 @@ export default function AdminPlayersPage() {
               <span className={`h-2 w-2 rounded-full ${rosteredOnly ? 'bg-amber-400' : 'bg-gray-600'}`} />
               <span>Signed Rosters Only</span>
             </button>
-
-            {(['all', 'active', 'inactive', 'flagged'] as const).map((option) => (
-              <button
-                key={option}
-                type="button"
-                onClick={() => setStatusFilter(option)}
-                className={`rounded px-3 py-2 text-sm font-medium ${
-                  statusFilter === option
-                    ? 'bg-amber-500/20 text-amber-400'
-                    : 'bg-gray-700/50 text-gray-300 hover:bg-gray-700'
-                }`}
-              >
-                {option === 'all' ? 'All' : option}
-              </button>
-            ))}
           </div>
         </div>
       </div>
@@ -214,13 +184,6 @@ export default function AdminPlayersPage() {
                 <option>Mid</option>
                 <option>Offlane</option>
                 <option>Support</option>
-              </select>
-            </Field>
-            <Field label="Status">
-              <select value={draft.status} onChange={(event) => setDraft({ ...draft, status: event.target.value as PlayerStatus })} className="w-full rounded border border-gray-600 bg-gray-900 px-3 py-2 text-white outline-none focus:border-amber-500">
-                <option value="active">Active</option>
-                <option value="inactive">Inactive</option>
-                <option value="flagged">Flagged</option>
               </select>
             </Field>
             <Field label="Price">
@@ -249,9 +212,6 @@ export default function AdminPlayersPage() {
                 <div className="space-y-2">
                   <div className="flex items-center gap-3">
                     <h3 className="text-xl font-semibold text-white">{player.name}</h3>
-                    <span className={`rounded border px-2 py-1 text-xs font-medium ${statusStyles[player.status]}`}>
-                      {player.status}
-                    </span>
                   </div>
                   <div className="flex flex-wrap gap-3 text-sm text-gray-400">
                     <span>{player.team}</span>

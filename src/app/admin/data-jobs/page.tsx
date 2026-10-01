@@ -152,6 +152,11 @@ const JOB_METADATA: Record<string, {
     description: 'Individually fetches each team with a missing logo from OpenDota. Run this after sync-teams to fill logos for lower-rated teams (below the top-1000 bulk list cutoff) such as regional or recently formed rosters.',
     category: 'maintenance',
   },
+  'purge-inactive-data': {
+    requires: ['sync-players', 'sync-teams'],
+    description: 'Permanently removes players absent from provider data for 7+ days and empty teams. Automatically refunds fantasy squad budgets, clears captain assignments, and notifies owners.',
+    category: 'maintenance',
+  },
   'send-deadline-notifications': {
     description: 'Pushes gameweek deadline reminder notifications to users.',
     category: 'notification',
@@ -227,6 +232,7 @@ export default function DataJobsPage() {
   const [refreshing, setRefreshing] = useState(false);
   const [runningJobs, setRunningJobs] = useState<Record<string, boolean>>({});
   const [retrying, setRetrying] = useState<string | null>(null);
+  const [showPurgeConfirm, setShowPurgeConfirm] = useState(false);
 
   async function getAuthHeaders(): Promise<Record<string, string>> {
     try {
@@ -304,6 +310,14 @@ export default function DataJobsPage() {
     return () => clearInterval(interval);
   }, []);
   /* eslint-enable react-hooks/set-state-in-effect, react-hooks/exhaustive-deps */
+
+  function handleTriggerClick(jobName: string) {
+    if (jobName === 'purge-inactive-data') {
+      setShowPurgeConfirm(true);
+    } else {
+      void triggerJob(jobName);
+    }
+  }
 
   async function triggerJob(jobName: string) {
     setRunningJobs((prev) => ({ ...prev, [jobName]: true }));
@@ -550,7 +564,7 @@ export default function DataJobsPage() {
                 key={job.job_name}
                 job={job}
                 isLocallyRunning={Boolean(runningJobs[job.job_name])}
-                onTrigger={() => triggerJob(job.job_name)}
+                onTrigger={() => handleTriggerClick(job.job_name)}
                 disabled={refreshing}
                 jobMeta={JOB_METADATA[job.job_name]}
               />
@@ -596,6 +610,50 @@ export default function DataJobsPage() {
           </div>
         </div>
       </div>
+
+      {/* Purge Inactive Data Confirmation Dialog */}
+      {showPurgeConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-xl border border-red-500/40 bg-slate-900 p-6 shadow-2xl">
+            <div className="flex items-center gap-3 text-red-400">
+              <AlertOctagon className="h-6 w-6" />
+              <h3 className="text-lg font-bold text-white">Confirm Data Purge</h3>
+            </div>
+            <div className="mt-4 space-y-3 text-xs leading-relaxed text-slate-300">
+              <p>
+                This job will <strong>permanently delete</strong> players who have been inactive/absent for 7+ days, as well as teams with no remaining players or recent matches.
+              </p>
+              <div className="rounded-lg border border-amber-500/30 bg-amber-950/20 p-3 text-amber-200">
+                <p className="font-semibold text-amber-400">Automated Squad Compensation &amp; Safety:</p>
+                <ul className="mt-1 list-disc space-y-1 pl-4 text-[11px] text-amber-200/90">
+                  <li>Affected squad slots will be cleared and the player&apos;s full market value refunded to user budgets.</li>
+                  <li>Captain and vice-captain assignments for deleted players will be safely unset.</li>
+                  <li>Owners will receive an in-app notification explaining the removal and refund.</li>
+                </ul>
+              </div>
+            </div>
+            <div className="mt-6 flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setShowPurgeConfirm(false)}
+                className="rounded-lg border border-slate-700 bg-slate-800 px-4 py-2 text-xs font-semibold text-slate-300 transition hover:bg-slate-700"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowPurgeConfirm(false);
+                  void triggerJob('purge-inactive-data');
+                }}
+                className="rounded-lg border border-red-500/50 bg-red-600 px-4 py-2 text-xs font-semibold text-white shadow-md transition hover:bg-red-500"
+              >
+                Confirm &amp; Run Purge
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
