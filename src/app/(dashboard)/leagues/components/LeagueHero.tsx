@@ -2,6 +2,7 @@
 
 import { Trophy, Users, Star, Copy, Check, Swords } from 'lucide-react';
 import { useState } from 'react';
+import { useToast } from '@/components/Toast';
 import type { LeagueRecord, StandingEntry } from '@/app/(dashboard)/leagues/types';
 
 interface LeagueHeroProps {
@@ -10,6 +11,7 @@ interface LeagueHeroProps {
 }
 
 export function LeagueHero({ league, onOpen }: LeagueHeroProps) {
+  const toast = useToast();
   const [copied, setCopied] = useState(false);
 
   const topEntry = league.standings?.sort((a: StandingEntry, b: StandingEntry) => (a.rank ?? 999) - (b.rank ?? 999))[0];
@@ -20,6 +22,7 @@ export function LeagueHero({ league, onOpen }: LeagueHeroProps) {
     if (league.inviteCode) {
       void navigator.clipboard.writeText(league.inviteCode);
       setCopied(true);
+      toast.info('Copied to Clipboard', `Invite code ${league.inviteCode} copied.`);
       setTimeout(() => setCopied(false), 2000);
     }
   };

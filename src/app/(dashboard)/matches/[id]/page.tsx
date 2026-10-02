@@ -3,6 +3,8 @@
 import { use, useEffect, useState, Suspense } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
+import { Share2, Check } from 'lucide-react';
+import { useToast } from '@/components/Toast';
 import { TeamLogo } from '../components/TeamLogo';
 
 type MatchDetail = {
@@ -65,9 +67,11 @@ function MatchDetailInner({ params }: { params: Promise<{ id: string }> }) {
   const searchParams = useSearchParams();
   const fromGameweek = searchParams.get('from') === 'gameweek';
   const gwId = searchParams.get('gwId');
+  const toast = useToast();
   const [match, setMatch] = useState<MatchDetail | null>(null);
   const [playerStats, setPlayerStats] = useState<PlayerStat[]>([]);
   const [fantasyBreakdown, setFantasyBreakdown] = useState<FantasyBreakdown[]>([]);
+  const [copied, setCopied] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -212,7 +216,24 @@ function MatchDetailInner({ params }: { params: Promise<{ id: string }> }) {
             </p>
           </div>
 
-          <div>
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => {
+                if (typeof window !== 'undefined') {
+                  void navigator.clipboard.writeText(window.location.href);
+                  setCopied(true);
+                  toast.success('Link Copied', 'Match center link copied to clipboard.');
+                  setTimeout(() => setCopied(false), 2000);
+                }
+              }}
+              className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-medium border border-slate-700 bg-slate-800/80 text-slate-300 hover:border-amber-500/50 hover:text-amber-400 transition"
+              title="Share Match"
+            >
+              {copied ? <Check className="h-3.5 w-3.5 text-emerald-400" /> : <Share2 className="h-3.5 w-3.5" />}
+              <span>{copied ? 'Copied!' : 'Share'}</span>
+            </button>
+
             {isLive ? (
               <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold tracking-wide uppercase bg-red-500/20 text-red-400 border border-red-500/40 animate-pulse">
                 <span className="w-2 h-2 rounded-full bg-red-500" />

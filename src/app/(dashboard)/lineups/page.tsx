@@ -107,9 +107,14 @@ export default function LineupsPage() {
       ...current.filter((entry) => entry.slot !== slot),
       { slot, player_id: playerId, is_starter: !slot.startsWith('bench'), is_captain: false, is_vice_captain: false, professional_players: player },
     ]);
+    const playerName = player?.in_game_name || player?.name || 'Player';
+    const slotLabel = slot.replace('_', ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+    toast.info('Slot Updated', `${playerName} assigned to ${slotLabel}.`);
   };
 
   const setCaptain = (playerId: number, vice = false) => {
+    const playerObj = ownedPlayers.find((p) => p.id === playerId);
+    const playerName = playerObj?.in_game_name || playerObj?.name || 'Player';
     setLineup((current) => {
       const selected = current.find((entry) => entry.player_id === playerId);
       if (!selected) return current;
@@ -141,6 +146,10 @@ export default function LineupsPage() {
         };
       });
     });
+    toast.success(
+      vice ? 'Vice-Captain Selected' : 'Captain Selected',
+      `${playerName} is now your ${vice ? 'Vice-Captain' : 'Captain (2x points)'}.`
+    );
   };
 
   const saveLineup = async () => {

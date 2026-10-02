@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { Gamepad2, RefreshCw, ChevronDown, ChevronUp, Swords, Flag, Database, Clock, Hash } from 'lucide-react';
+import { useToast } from '@/components/Toast';
 
 
 interface GameweekRecord {
@@ -94,6 +95,7 @@ function formatDate(val: unknown) {
 }
 
 export default function AdminGameweeksPage() {
+  const toast = useToast();
   const [gameweeks, setGameweeks] = useState<GameweekRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [cycling, setCycling] = useState<number | null>(null);
@@ -131,6 +133,7 @@ export default function AdminGameweeksPage() {
       }
     } catch (err) {
       console.error('Failed to load gameweeks', err);
+      toast.error('Load Error', 'Failed to load gameweeks');
     } finally {
       setLoading(false);
     }
@@ -157,12 +160,18 @@ export default function AdminGameweeksPage() {
               : gw
           )
         );
+        toast.success(
+          'Gameweek Transitioned',
+          `${gameweek.name} is now ${DB_TO_DISPLAY[nextDbStatus]?.toUpperCase()}.`
+        );
       } else {
         const json = await res.json().catch(() => ({}));
         console.error('Failed to cycle status', json);
+        toast.error('Transition Failed', json.error || `Could not cycle ${gameweek.name} status`);
       }
     } catch (err) {
       console.error('Error cycling status', err);
+      toast.error('Transition Error', `Network error updating ${gameweek.name}`);
     } finally {
       setCycling(null);
     }

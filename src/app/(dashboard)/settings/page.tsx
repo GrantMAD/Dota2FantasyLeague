@@ -301,8 +301,26 @@ function SettingsContent() {
               <h2 className="text-xl font-bold text-white">Notification preferences</h2>
               <p className="mt-2 text-sm leading-6 text-slate-400">Choose the channels you want to keep active for important fantasy updates.</p>
               <div className="mt-6 space-y-3">
-                {renderToggle('Push notifications', 'Receive device alerts for deadlines, price changes, and important fantasy actions.', formData.pushNotifications, () => setFormData({ ...formData, pushNotifications: !formData.pushNotifications }))}
-                {renderToggle('Email summaries', 'Receive weekly summaries and important account updates by email.', formData.emailNotifications, () => setFormData({ ...formData, emailNotifications: !formData.emailNotifications }))}
+                {renderToggle(
+                  'Push notifications',
+                  'Receive device alerts for deadlines, price changes, and important fantasy actions.',
+                  formData.pushNotifications,
+                  () => {
+                    const nextVal = !formData.pushNotifications;
+                    setFormData({ ...formData, pushNotifications: nextVal });
+                    toast.info('Notification Preference', `Push alerts ${nextVal ? 'enabled' : 'disabled'}.`);
+                  }
+                )}
+                {renderToggle(
+                  'Email summaries',
+                  'Receive weekly summaries and important account updates by email.',
+                  formData.emailNotifications,
+                  () => {
+                    const nextVal = !formData.emailNotifications;
+                    setFormData({ ...formData, emailNotifications: nextVal });
+                    toast.info('Notification Preference', `Email digests ${nextVal ? 'enabled' : 'disabled'}.`);
+                  }
+                )}
               </div>
               <div className="mt-5 rounded-xl border border-amber-500/25 bg-amber-500/5 p-4 text-sm leading-6 text-amber-200">These controls currently apply to this session UI. Delivery preferences can be persisted when the notification preference API is connected.</div>
               <Link href="/notifications" className="mt-5 inline-flex text-sm font-semibold text-cyan-300 hover:text-cyan-200">Open notification center →</Link>

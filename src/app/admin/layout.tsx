@@ -1,6 +1,8 @@
 import type { ReactNode } from 'react';
 import AdminSidebar from '@/components/admin/AdminSidebar';
 import { ThemeToggle } from '@/components/theme/ThemeToggle';
+import { ToastProvider } from '@/components/Toast/ToastContext';
+import { ToastContainer } from '@/components/Toast/ToastContainer';
 
 export const metadata = {
   title: 'Admin Console | Fantasy Dota 2',
@@ -9,32 +11,36 @@ export const metadata = {
 
 export default function AdminLayout({ children }: { children: ReactNode }) {
   return (
-    <div className="flex h-screen bg-gray-900">
-      {/* Sidebar */}
-      <AdminSidebar />
+    <ToastProvider>
+      <div className="flex h-screen bg-gray-900">
+        {/* Sidebar */}
+        <AdminSidebar />
 
-      {/* Main Content */}
-      <main className="flex-1 overflow-y-auto">
-        <div className="min-h-full bg-gray-900 text-white">
-          {/* Top Bar */}
-          <div className="border-b border-gray-800 bg-gray-800/50 px-8 py-4">
-            <div className="flex items-center justify-between">
-              <h1 className="text-2xl font-bold">Admin Console</h1>
-              <div className="flex items-center gap-4">
-                <ThemeToggle />
-                <span className="text-sm text-gray-400">
-                  {new Date().toLocaleString()}
-                </span>
+        {/* Main Content */}
+        <main className="flex-1 overflow-y-auto">
+          <div className="min-h-full bg-gray-900 text-white">
+            {/* Top Bar */}
+            <div className="border-b border-gray-800 bg-gray-800/50 px-8 py-4">
+              <div className="flex items-center justify-between">
+                <h1 className="text-2xl font-bold">Admin Console</h1>
+                <div className="flex items-center gap-4">
+                  <ThemeToggle />
+                  <span className="text-sm text-gray-400">
+                    {new Date().toLocaleString()}
+                  </span>
+                </div>
               </div>
             </div>
-          </div>
 
-          {/* Content */}
-          <div className="p-8">
-            {children}
+            {/* Content */}
+            <div className="p-8">
+              {children}
+            </div>
           </div>
-        </div>
-      </main>
-    </div>
+        </main>
+      </div>
+      <ToastContainer />
+    </ToastProvider>
   );
 }
+

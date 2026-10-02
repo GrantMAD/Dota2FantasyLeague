@@ -20,11 +20,13 @@ interface ParticipantIdRow {
 }
 
 interface MatchupParticipant {
+  user_id: string;
   fantasy_season_id: number;
 }
 
 interface H2HMatchupRow {
   id: number;
+  league_id: number;
   participant_a_id: number;
   participant_b_id: number;
   participant_a: MatchupParticipant | null;
@@ -61,6 +63,12 @@ class RecalculateLeagues {
     );
   }
 
+  // Helper to bypass strict Database generic inference when schema types are not generated for all tables
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  private table(tableName: string): any {
+    return this.supabase.from(tableName);
+  }
+
   /**
    * Re-rank all participants in a classic league based on their total points
    */
@@ -92,8 +100,7 @@ class RecalculateLeagues {
       let rank = 1;
       for (const p of sortedParticipants) {
         const points = p.fantasy_seasons?.total_points || 0;
-        await this.supabase
-          .from('league_participants')
+        await this.table('league_participants')
           .update({ rank, points })
           .eq('id', p.id);
         rank++;
@@ -150,7 +157,7 @@ class RecalculateLeagues {
 
         if (participantB) {
           // Standard matchup
-          await this.supabase.from('head_to_head_matchups').insert({
+          await this.table('head_to_head_matchups').insert({
             league_id: leagueId,
             gameweek_id: gameweekId,
             participant_a_id: participantA.id,
@@ -160,7 +167,7 @@ class RecalculateLeagues {
           fixturesGenerated++;
         } else {
           // BYE week for the odd participant out
-          await this.supabase.from('head_to_head_matchups').insert({
+          await this.table('head_to_head_matchups').insert({
             league_id: leagueId,
             gameweek_id: gameweekId,
             participant_a_id: participantA.id,
@@ -189,10 +196,11 @@ class RecalculateLeagues {
         .from('head_to_head_matchups')
         .select(`
           id,
+          league_id,
           participant_a_id,
           participant_b_id,
-          participant_a:league_participants!participant_a_id(fantasy_season_id),
-          participant_b:league_participants!participant_b_id(fantasy_season_id)
+          participant_a:league_participants!participant_a_id(user_id, fantasy_season_id),
+          participant_b:league_participants!participant_b_id(user_id, fantasy_season_id)
         `)
         .eq('gameweek_id', gameweekId)
         .is('winner_id', null)
@@ -208,6 +216,8 @@ class RecalculateLeagues {
       for (const matchup of matchups) {
         const fantasySeasonA = matchup.participant_a?.fantasy_season_id;
         const fantasySeasonB = matchup.participant_b?.fantasy_season_id;
+        const userIdA = matchup.participant_a?.user_id;
+        const userIdB = matchup.participant_b?.user_id;
 
         if (!fantasySeasonA || !fantasySeasonB) continue;
 
@@ -243,8 +253,7 @@ class RecalculateLeagues {
         }
 
         // Update matchup
-        await this.supabase
-          .from('head_to_head_matchups')
+        await this.table('head_to_head_matchups')
           .update({
             points_a: pointsA,
             points_b: pointsB,
@@ -264,6 +273,52 @@ class RecalculateLeagues {
           await this.incrementParticipantRecord(matchup.participant_b_id, 'draws');
         }
 
+        // Dispatch notifications to both managers
+        try {
+          const notifTable = this.supabase.from('user_notifications') as unknown as {
+            insert: (data: Record<string, unknown>[]) => PromiseLike<unknown>;
+          };
+          const notifs: Record<string, unknown>[] = [];
+
+          if (userIdA) {
+            const titleA = isDraw ? 'H2H Matchup Tied!' : winnerId === matchup.participant_a_id ? 'You Won Your H2H Matchup!' : 'H2H Matchup Defeat';
+            const msgA = isDraw
+              ? `You drew your H2H fixture with ${pointsA.toFixed(1)} points.`
+              : winnerId === matchup.participant_a_id
+                ? `Victory! You scored ${pointsA.toFixed(1)} pts against ${pointsB.toFixed(1)} pts.`
+                : `You scored ${pointsA.toFixed(1)} pts but fell short against ${pointsB.toFixed(1)} pts.`;
+            notifs.push({
+              user_id: userIdA,
+              type: 'system',
+              title: titleA,
+              message: msgA,
+              metadata: { gameweek_id: gameweekId, league_id: matchup.league_id, matchup_id: matchup.id },
+            });
+          }
+
+          if (userIdB) {
+            const titleB = isDraw ? 'H2H Matchup Tied!' : winnerId === matchup.participant_b_id ? 'You Won Your H2H Matchup!' : 'H2H Matchup Defeat';
+            const msgB = isDraw
+              ? `You drew your H2H fixture with ${pointsB.toFixed(1)} points.`
+              : winnerId === matchup.participant_b_id
+                ? `Victory! You scored ${pointsB.toFixed(1)} pts against ${pointsA.toFixed(1)} pts.`
+                : `You scored ${pointsB.toFixed(1)} pts but fell short against ${pointsA.toFixed(1)} pts.`;
+            notifs.push({
+              user_id: userIdB,
+              type: 'system',
+              title: titleB,
+              message: msgB,
+              metadata: { gameweek_id: gameweekId, league_id: matchup.league_id, matchup_id: matchup.id },
+            });
+          }
+
+          if (notifs.length > 0) {
+            await notifTable.insert(notifs);
+          }
+        } catch (notifErr) {
+          console.warn('Failed to insert H2H matchup notifications:', notifErr);
+        }
+
         resultsCalculated++;
       }
 
@@ -280,16 +335,14 @@ class RecalculateLeagues {
   private async incrementParticipantRecord(participantId: number, field: ParticipantRecordField) {
      // Fetch current, then increment to avoid race conditions if multiple jobs run,
      // though RPC is better.
-     const { data: participantData } = await this.supabase
-       .from('league_participants')
+     const { data: participantData } = await this.table('league_participants')
        .select(field)
        .eq('id', participantId)
        .single();
      const data = participantData as Record<ParticipantRecordField, number | null> | null;
      
      if (data) {
-       await this.supabase
-         .from('league_participants')
+       await this.table('league_participants')
          .update({ [field]: (data[field] || 0) + 1 })
          .eq('id', participantId);
      }

@@ -432,6 +432,7 @@ export default function LeaguesPage() {
                           e.stopPropagation();
                           void navigator.clipboard.writeText(selectedLeague.inviteCode);
                           setCopiedInvite(true);
+                          toast.info('Copied to Clipboard', `Invite code ${selectedLeague.inviteCode} copied.`);
                           setTimeout(() => setCopiedInvite(false), 2000);
                         }}
                         className="rounded p-1 text-slate-400 hover:text-amber-400 transition-colors"

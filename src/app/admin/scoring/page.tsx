@@ -2,6 +2,7 @@
 
 import { useEffect, useEffectEvent, useState } from 'react';
 import { CheckCircle, X } from 'lucide-react';
+import { useToast } from '@/components/Toast';
 
 interface ScoringRule {
   id: number;
@@ -60,6 +61,7 @@ function getErrorMessage(error: unknown, fallback: string): string {
 }
 
 export default function AdminScoringPage() {
+  const toast = useToast();
   const [activeTab, setActiveTab] = useState<'rules' | 'balance' | 'historical' | 'simulator'>('rules');
   const [ruleVersions, setRuleVersions] = useState<RuleVersion[]>([]);
   const [selectedVersion, setSelectedVersion] = useState<number | null>(null);
@@ -173,6 +175,7 @@ export default function AdminScoringPage() {
   const handlePublish = async () => {
     if (!publishGameweekId.trim()) {
       setError('Please enter a Gameweek ID.');
+      toast.error('Validation Error', 'Please specify a Gameweek ID.');
       return;
     }
     try {
@@ -187,10 +190,16 @@ export default function AdminScoringPage() {
         const data = await res.json();
         throw new Error(data.error || 'Failed to publish');
       }
+      toast.success(
+        'Scoring Rules Published',
+        `Rule version ${selectedVersion} published effective from GW ${publishGameweekId}.`
+      );
       setPublishGameweekId('');
       await fetchRules();
     } catch (err: unknown) {
-      setError(getErrorMessage(err, 'Failed to publish scoring rules'));
+      const msg = getErrorMessage(err, 'Failed to publish scoring rules');
+      setError(msg);
+      toast.error('Publish Failed', msg);
       setLoading(false);
     }
   };
@@ -236,8 +245,11 @@ export default function AdminScoringPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
       setSimResult(data);
+      toast.info('Simulation Calculated', `Calculated fantasy points: ${data.total ?? 0}`);
     } catch (err: unknown) {
-      setError(getErrorMessage(err, 'Failed to simulate scoring'));
+      const msg = getErrorMessage(err, 'Failed to simulate scoring');
+      setError(msg);
+      toast.error('Simulation Error', msg);
     } finally {
       setSimLoading(false);
     }

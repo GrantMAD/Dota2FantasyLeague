@@ -25,6 +25,7 @@ import { updatePlayerPrices } from './update-player-prices';
 import { sendDeadlineNotifications } from './send-deadline-notifications';
 import { sendPriceChangeNotifications } from './send-price-change-notifications';
 import { sendRankNotifications } from './send-rank-notifications';
+import { sendUnavailablePlayerNotifications } from './send-unavailable-player-notifications';
 import { transitionGameweeks } from './transition-gameweeks';
 import { backfillPlaceholderPlayers } from './backfill-placeholder-players';
 import { backfillTeamLogos } from './backfill-team-logos';
@@ -46,6 +47,7 @@ type JobName =
   | 'send-deadline-notifications'
   | 'send-price-change-notifications'
   | 'send-rank-notifications'
+  | 'send-unavailable-player-notifications'
   | 'transition-gameweeks'
   | 'backfill-placeholder-players'
   | 'backfill-team-logos'
@@ -172,6 +174,13 @@ const JOBS: JobDefinition[] = [
     name: 'send-rank-notifications',
     schedule: '*/70 * * * *', // After global rankings calc
     handler: sendRankNotifications,
+    enabled: process.env.ENABLE_NOTIFICATIONS !== 'false',
+    timeout: 5 * 60 * 1000,
+  },
+  {
+    name: 'send-unavailable-player-notifications',
+    schedule: '*/30 * * * *', // Check for unavailable players every 30 minutes
+    handler: sendUnavailablePlayerNotifications,
     enabled: process.env.ENABLE_NOTIFICATIONS !== 'false',
     timeout: 5 * 60 * 1000,
   },

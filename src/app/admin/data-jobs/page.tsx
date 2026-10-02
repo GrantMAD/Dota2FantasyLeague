@@ -19,6 +19,7 @@ import {
   AlertOctagon,
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
+import { useToast } from '@/components/Toast';
 
 function formatDateTime(val: string | null | undefined, fallback = '-'): string {
   if (!val) return fallback;
@@ -169,6 +170,10 @@ const JOB_METADATA: Record<string, {
     description: 'Notifies users of significant rank changes after scoring.',
     category: 'notification',
   },
+  'send-unavailable-player-notifications': {
+    description: 'Alerts users to swap out players in their squad who have become unavailable, inactive, or benched.',
+    category: 'notification',
+  },
 };
 
 const CATEGORY_COLOURS: Record<string, string> = {
@@ -226,6 +231,7 @@ interface FailedJob {
 }
 
 export default function DataJobsPage() {
+  const toast = useToast();
   const [jobs, setJobs] = useState<JobStatus[]>([]);
   const [failedJobs, setFailedJobs] = useState<FailedJob[]>([]);
   const [loading, setLoading] = useState(true);
@@ -321,6 +327,7 @@ export default function DataJobsPage() {
 
   async function triggerJob(jobName: string) {
     setRunningJobs((prev) => ({ ...prev, [jobName]: true }));
+    toast.info('Job Triggered', `Job ${jobName} has been queued.`);
     try {
       const authHeaders = await getAuthHeaders();
       const response = await fetch('/api/admin/jobs/run', {
@@ -332,10 +339,15 @@ export default function DataJobsPage() {
         body: JSON.stringify({ job_name: jobName }),
       });
       if (response.ok) {
+        toast.success('Job Complete', `Job ${jobName} finished successfully.`);
         await fetchJobStatus(true);
+      } else {
+        const errData = await response.json().catch(() => ({}));
+        toast.error('Job Failed', errData.error || `Job ${jobName} execution returned an error.`);
       }
     } catch (error) {
       console.error('Failed to trigger job:', error);
+      toast.error('Job Error', `Failed to connect or trigger ${jobName}.`);
     } finally {
       setRunningJobs((prev) => ({ ...prev, [jobName]: false }));
     }
@@ -343,9 +355,10 @@ export default function DataJobsPage() {
 
   async function retryJob(jobId: string, jobName: string) {
     setRetrying(jobId);
+    toast.info('Retrying Job', `Attempting retry for ${jobName}...`);
     try {
       const authHeaders = await getAuthHeaders();
-      await fetch('/api/admin/jobs/run', {
+      const response = await fetch('/api/admin/jobs/run', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -353,10 +366,16 @@ export default function DataJobsPage() {
         },
         body: JSON.stringify({ job_name: jobName }),
       });
+      if (response.ok) {
+        toast.success('Retry Succeeded', `Job ${jobName} executed successfully.`);
+      } else {
+        toast.error('Retry Failed', `Could not complete retry for ${jobName}.`);
+      }
       await fetchFailedJobs();
       await fetchJobStatus(true);
     } catch (error) {
       console.error('Failed to retry job:', error);
+      toast.error('Retry Error', `Network error retrying ${jobName}.`);
     } finally {
       setRetrying(null);
     }
@@ -694,10 +713,13 @@ function JobCard({ job, isLocallyRunning, onTrigger, disabled, jobMeta }: JobCar
   const hasStats = createdCount != null || updatedCount != null || skippedCount != null || errorCount > 0;
   const hasMetadata = job.metadata && Object.keys(job.metadata).length > 0;
 
+  const toast = useToast();
+
   function copyLogToClipboard() {
     if (!job.metadata) return;
     navigator.clipboard.writeText(JSON.stringify(job.metadata, null, 2));
     setCopied(true);
+    toast.success('Copied to Clipboard', `Metadata for ${job.job_name} copied.`);
     setTimeout(() => setCopied(false), 2000);
   }
 

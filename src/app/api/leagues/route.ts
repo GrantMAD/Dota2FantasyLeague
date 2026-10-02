@@ -113,14 +113,37 @@ export async function POST(request: NextRequest) {
     if (body.action === 'join') {
       const inviteCode = typeof body.inviteCode === 'string' ? body.inviteCode.trim().toUpperCase() : '';
       if (!inviteCode) return NextResponse.json({ error: 'Invite code is required to join a league.' }, { status: 400 });
-      const { data: league, error: leagueError } = await supabase.from('leagues').select('id, name, max_participants, current_participants, invite_code, league_type, privacy_level, description, status').eq('invite_code', inviteCode).eq('status', 'active').maybeSingle();
+      const { data: league, error: leagueError } = await supabase
+        .from('leagues')
+        .select('id, name, creator_id, max_participants, current_participants, invite_code, league_type, privacy_level, description, status')
+        .eq('invite_code', inviteCode)
+        .eq('status', 'active')
+        .maybeSingle();
       if (leagueError || !league) return NextResponse.json({ error: 'That invite code does not match an active league.' }, { status: 404 });
       if (league.max_participants && league.current_participants >= league.max_participants) return NextResponse.json({ error: 'This league is full.' }, { status: 409 });
-      const { data: fantasySeason } = await supabase.from('fantasy_seasons').select('id').eq('user_id', user.userId).limit(1).maybeSingle();
+      const { data: fantasySeason } = await supabase.from('fantasy_seasons').select('id, team_name').eq('user_id', user.userId).limit(1).maybeSingle();
       if (!fantasySeason) return NextResponse.json({ error: 'Create a fantasy team before joining a league.' }, { status: 400 });
       const { error: participantError } = await supabase.from('league_participants').insert({ league_id: league.id, user_id: user.userId, fantasy_season_id: fantasySeason.id });
       if (participantError) return NextResponse.json({ error: participantError.code === '23505' ? 'You are already in this league.' : 'Failed to join league.' }, { status: participantError.code === '23505' ? 409 : 500 });
       await supabase.from('leagues').update({ current_participants: league.current_participants + 1 }).eq('id', league.id);
+
+      // Notify the league creator if someone else joined their league
+      if (league.creator_id && league.creator_id !== user.userId) {
+        const { data: joiningUser } = await supabase.from('users').select('username, display_name').eq('id', user.userId).maybeSingle();
+        const joinerName = joiningUser?.display_name || joiningUser?.username || 'A player';
+        const teamName = fantasySeason.team_name ? ` with team "${fantasySeason.team_name}"` : '';
+
+        await (supabase.from('user_notifications') as unknown as {
+          insert: (val: Record<string, unknown>) => PromiseLike<unknown>;
+        }).insert({
+          user_id: league.creator_id,
+          type: 'league_invite',
+          title: `New Challenger in ${league.name}`,
+          message: `${joinerName} has joined ${league.name}${teamName}!`,
+          metadata: { league_id: league.id, joined_by: user.userId },
+        });
+      }
+
       return NextResponse.json({ data: { ...league, type: league.league_type === 'head_to_head' ? 'h2h' : 'classic', privacyLevel: league.privacy_level, maxParticipants: league.max_participants, currentParticipants: league.current_participants + 1, inviteCode: league.invite_code, standings: [], fixtures: [] }, message: `Joined ${league.name} successfully.` });
     }
 
