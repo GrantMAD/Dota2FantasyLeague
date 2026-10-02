@@ -39,6 +39,7 @@ type SelectedManager = {
 
 export default function LeaderboardPage() {
    const [entries, setEntries] = useState<LeaderboardEntry[]>([]);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(1);
@@ -48,6 +49,22 @@ export default function LeaderboardPage() {
   const [countries, setCountries] = useState<{ code: string; name: string }[]>([
     { code: '', name: 'Global (All)' }
   ]);
+
+  useEffect(() => {
+    async function fetchCurrentUser() {
+      try {
+        const res = await fetch('/api/user/profile');
+        if (!res.ok) return;
+        const data = (await res.json()) as { profile?: { id?: string } | null };
+        if (data.profile?.id) {
+          setCurrentUserId(data.profile.id);
+        }
+      } catch {
+        // Fallback gracefully if not logged in or fetch fails
+      }
+    }
+    void fetchCurrentUser();
+  }, []);
 
   useEffect(() => {
     async function fetchCountries() {
@@ -177,6 +194,7 @@ export default function LeaderboardPage() {
                         const profile = team?.profiles;
                         const isTop3 = entry.rank <= 3;
                         const managerName = profile?.display_name || profile?.username || 'Anonymous Manager';
+                        const isCurrentUser = Boolean(currentUserId && team?.user_id === currentUserId);
                         
                         return (
                            <tr
@@ -193,7 +211,11 @@ export default function LeaderboardPage() {
                                  teamName: team?.name || 'Unknown Team',
                                  country: profile?.country || null,
                               })}
-                              className="hover:bg-slate-700/50 transition-colors group cursor-pointer"
+                              className={`transition-colors group cursor-pointer ${
+                                 isCurrentUser
+                                    ? 'bg-teal-950/40 border-l-4 border-l-teal-400 hover:bg-teal-900/40'
+                                    : 'border-l-4 border-l-transparent hover:bg-slate-700/50'
+                              }`}
                               title="Click to view manager profile"
                            >
                               <td className="px-6 py-4 text-center">
@@ -201,6 +223,7 @@ export default function LeaderboardPage() {
                                     entry.rank === 1 ? 'bg-yellow-500 text-yellow-950 shadow-[0_0_15px_rgba(234,179,8,0.5)]' :
                                     entry.rank === 2 ? 'bg-slate-300 text-slate-800 shadow-[0_0_10px_rgba(203,213,225,0.4)]' :
                                     entry.rank === 3 ? 'bg-amber-700 text-amber-100 shadow-[0_0_10px_rgba(180,83,9,0.4)]' :
+                                    isCurrentUser ? 'text-teal-300 bg-teal-900/60 ring-1 ring-teal-500/40' :
                                     'text-slate-400 bg-slate-800'
                                  }`}>
                                     {entry.rank}
@@ -213,31 +236,38 @@ export default function LeaderboardPage() {
                               </td>
                               <td className="px-6 py-4">
                                  <div className="flex items-center gap-3">
-                                    <div className={`w-10 h-10 rounded-full bg-slate-700 overflow-hidden shrink-0 border ${isTop3 ? 'border-amber-500/50' : 'border-slate-600'}`}>
+                                    <div className={`w-10 h-10 rounded-full bg-slate-700 overflow-hidden shrink-0 border ${isCurrentUser ? 'border-teal-400/70 ring-2 ring-teal-400/20' : isTop3 ? 'border-amber-500/50' : 'border-slate-600'}`}>
                                        {profile?.avatar_url ? (
                                           <Image src={profile.avatar_url} alt="Avatar" width={40} height={40} unoptimized className="w-full h-full object-cover" />
                                        ) : (
-                                          <div className="w-full h-full flex items-center justify-center text-slate-400 font-bold">
+                                          <div className={`w-full h-full flex items-center justify-center font-bold ${isCurrentUser ? 'text-teal-300' : 'text-slate-400'}`}>
                                              {team?.name?.substring(0, 1).toUpperCase() || '?'}
                                           </div>
                                        )}
                                     </div>
                                     <div>
-                                       <div className="font-bold text-white group-hover:text-amber-400 transition-colors">{team?.name || 'Unknown Team'}</div>
+                                       <div className="flex items-center gap-2">
+                                          <span className={`font-bold transition-colors ${isCurrentUser ? 'text-teal-300 group-hover:text-teal-200' : 'text-white group-hover:text-amber-400'}`}>{team?.name || 'Unknown Team'}</span>
+                                          {isCurrentUser && (
+                                             <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-teal-500/20 text-teal-300 border border-teal-500/30">
+                                                You
+                                             </span>
+                                          )}
+                                       </div>
                                        <div className="text-xs text-slate-400 flex items-center gap-1.5 mt-0.5">
                                           {profile?.country && (
                                              <span className="text-[10px] bg-slate-700 px-1.5 rounded">{profile.country}</span>
                                           )}
-                                          {managerName}
+                                          <span>{managerName}</span>
                                        </div>
                                     </div>
                                  </div>
                               </td>
                               <td className="px-6 py-4 text-right font-mono">
-                                 <span className="text-slate-300 font-medium">{entry.gameweek_points || 0}</span>
+                                 <span className={`font-medium ${isCurrentUser ? 'text-teal-200' : 'text-slate-300'}`}>{entry.gameweek_points || 0}</span>
                               </td>
                               <td className="px-6 py-4 text-right font-mono">
-                                 <span className="text-lg font-bold text-amber-400">{entry.total_points || 0}</span>
+                                 <span className={`text-lg font-bold ${isCurrentUser ? 'text-teal-400' : 'text-amber-400'}`}>{entry.total_points || 0}</span>
                               </td>
                            </tr>
                         );

@@ -47,7 +47,17 @@ function SettingsContent() {
       try {
         const res = await fetch('/api/user/profile');
         if (!res.ok) return;
-        const data = (await res.json()) as { profile?: { display_name?: string | null; username?: string; email?: string; country_code?: string | null; timezone?: string | null } };
+        const data = (await res.json()) as {
+          profile?: {
+            display_name?: string | null;
+            username?: string;
+            email?: string;
+            country_code?: string | null;
+            timezone?: string | null;
+            email_notifications?: boolean | null;
+            push_notifications?: boolean | null;
+          };
+        };
         const profile = data.profile;
         if (!profile) return;
         setAccountData({ username: profile.username || '', email: profile.email || '' });
@@ -56,6 +66,8 @@ function SettingsContent() {
           displayName: profile.display_name || profile.username || '',
           countryCode: profile.country_code || 'US',
           timezone: profile.timezone || 'UTC',
+          emailNotifications: profile.email_notifications ?? true,
+          pushNotifications: profile.push_notifications ?? true,
         }));
       } catch {
         setMessage('Unable to load profile preferences');
@@ -87,6 +99,8 @@ function SettingsContent() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           display_name: formData.displayName,
+          email_notifications: formData.emailNotifications,
+          push_notifications: formData.pushNotifications,
         }),
       });
 
@@ -100,6 +114,34 @@ function SettingsContent() {
       toast.error('Save Failed', errMsg);
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleNotificationToggle = async (key: 'pushNotifications' | 'emailNotifications', nextVal: boolean) => {
+    const updated = {
+      ...formData,
+      [key]: nextVal,
+    };
+    setFormData(updated);
+
+    const label = key === 'pushNotifications' ? 'Push alerts' : 'Email digests';
+    try {
+      const res = await fetch('/api/user/profile', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email_notifications: updated.emailNotifications,
+          push_notifications: updated.pushNotifications,
+        }),
+      });
+
+      if (!res.ok) throw new Error('Failed to save notification preference');
+      toast.info('Notification Preference', `${label} ${nextVal ? 'enabled' : 'disabled'}.`);
+    } catch (error: unknown) {
+      // Revert on failure
+      setFormData(formData);
+      const errMsg = error instanceof Error ? error.message : 'Failed to save preference';
+      toast.error('Save Failed', errMsg);
     }
   };
 
@@ -305,24 +347,16 @@ function SettingsContent() {
                   'Push notifications',
                   'Receive device alerts for deadlines, price changes, and important fantasy actions.',
                   formData.pushNotifications,
-                  () => {
-                    const nextVal = !formData.pushNotifications;
-                    setFormData({ ...formData, pushNotifications: nextVal });
-                    toast.info('Notification Preference', `Push alerts ${nextVal ? 'enabled' : 'disabled'}.`);
-                  }
+                  () => void handleNotificationToggle('pushNotifications', !formData.pushNotifications)
                 )}
                 {renderToggle(
                   'Email summaries',
                   'Receive weekly summaries and important account updates by email.',
                   formData.emailNotifications,
-                  () => {
-                    const nextVal = !formData.emailNotifications;
-                    setFormData({ ...formData, emailNotifications: nextVal });
-                    toast.info('Notification Preference', `Email digests ${nextVal ? 'enabled' : 'disabled'}.`);
-                  }
+                  () => void handleNotificationToggle('emailNotifications', !formData.emailNotifications)
                 )}
               </div>
-              <div className="mt-5 rounded-xl border border-amber-500/25 bg-amber-500/5 p-4 text-sm leading-6 text-amber-200">These controls currently apply to this session UI. Delivery preferences can be persisted when the notification preference API is connected.</div>
+              <div className="mt-5 rounded-xl border border-emerald-500/25 bg-emerald-500/5 p-4 text-sm leading-6 text-emerald-200">Delivery preferences are saved automatically and synchronized with your account profile.</div>
               <Link href="/notifications" className="mt-5 inline-flex text-sm font-semibold text-cyan-300 hover:text-cyan-200">Open notification center →</Link>
             </div>
           )}
