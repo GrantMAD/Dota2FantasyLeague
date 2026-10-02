@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Gamepad2, RefreshCw, ChevronDown, ChevronUp, Swords, Flag, Database, Clock, Hash } from 'lucide-react';
 import { useToast } from '@/components/Toast';
 
@@ -103,7 +103,7 @@ export default function AdminGameweeksPage() {
   const [detailsCache, setDetailsCache] = useState<Record<number, GameweekDetail>>({});
   const [detailsLoading, setDetailsLoading] = useState<number | null>(null);
 
-  async function loadGameweeks() {
+  const loadGameweeks = useCallback(async () => {
     setLoading(true);
     try {
       const res = await fetch('/api/gameweeks');
@@ -137,11 +137,11 @@ export default function AdminGameweeksPage() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [toast]);
 
   // This effect intentionally loads external data when the admin page mounts.
   // eslint-disable-next-line react-hooks/set-state-in-effect
-  useEffect(() => { void loadGameweeks(); }, []);
+  useEffect(() => { void loadGameweeks(); }, [loadGameweeks]);
 
   const cycleStatus = async (gameweek: GameweekRecord) => {
     const nextDbStatus = NEXT_DB_STATUS[gameweek.dbStatus];

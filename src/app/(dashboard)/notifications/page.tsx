@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
+import { Bell, CheckCircle2, Clock, Sparkles, TrendingUp, Trophy } from 'lucide-react';
 import { useToast } from '@/components/Toast';
 
 type NotificationCategory = 'all' | 'unread' | 'deadline' | 'market' | 'scoring' | 'league';
@@ -226,6 +227,69 @@ export default function NotificationsPage() {
     return getCategoryFromType(notification.type) === activeCategory;
   });
 
+  const getEmptyStateConfig = (category: NotificationCategory) => {
+    switch (category) {
+      case 'deadline':
+        return {
+          icon: Clock,
+          color: 'text-red-400 border-red-500/30 bg-red-500/10',
+          title: 'No deadline alerts',
+          description: 'You have no pending lineup locks, transfer cutoffs, or upcoming gameweek deadlines.',
+          actionHref: '/lineups',
+          actionText: 'Check Lineup',
+        };
+      case 'market':
+        return {
+          icon: TrendingUp,
+          color: 'text-amber-400 border-amber-500/30 bg-amber-500/10',
+          title: 'No market updates',
+          description: 'No player price changes, transfer market trends, or chip alerts to report right now.',
+          actionHref: '/transfers',
+          actionText: 'Browse Market',
+        };
+      case 'scoring':
+        return {
+          icon: Sparkles,
+          color: 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10',
+          title: 'No scoring updates',
+          description: 'Scores, match completions, and fantasy point adjustments will appear here when games conclude.',
+          actionHref: '/gameweeks',
+          actionText: 'View Gameweeks',
+        };
+      case 'league':
+        return {
+          icon: Trophy,
+          color: 'text-cyan-400 border-cyan-500/30 bg-cyan-500/10',
+          title: 'No league activity',
+          description: 'No head-to-head match results, rank movements, or commissioner messages yet.',
+          actionHref: '/leagues',
+          actionText: 'Go to Leagues',
+        };
+      case 'unread':
+        return {
+          icon: CheckCircle2,
+          color: 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10',
+          title: 'No unread notifications',
+          description: "You're all caught up! All your notifications have been marked as read.",
+          actionHref: null,
+          actionText: null,
+        };
+      case 'all':
+      default:
+        return {
+          icon: Bell,
+          color: 'text-slate-400 border-slate-700 bg-slate-800',
+          title: 'You are all caught up',
+          description: 'No fantasy alerts or notifications right now. Check back during upcoming match days!',
+          actionHref: '/dashboard',
+          actionText: 'Back to Dashboard',
+        };
+    }
+  };
+
+  const emptyConfig = getEmptyStateConfig(activeCategory);
+  const EmptyIcon = emptyConfig.icon;
+
   return (
     <div className="mx-auto max-w-5xl px-4 py-12">
       <div className="mb-8 flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
@@ -285,11 +349,21 @@ export default function NotificationsPage() {
           ))
         ) : visibleNotifications.length === 0 ? (
           <div className="rounded-2xl border border-slate-800 bg-slate-900/80 p-12 text-center">
-            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full border border-slate-700 bg-slate-800 text-slate-400">
-              <svg className="h-8 w-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path></svg>
+            <div className={`mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl border ${emptyConfig.color}`}>
+              <EmptyIcon className="h-8 w-8" />
             </div>
-            <h3 className="text-lg font-semibold text-white">You are all caught up</h3>
-            <p className="mt-2 text-sm text-slate-400">No alerts in this category right now.</p>
+            <h3 className="text-lg font-semibold text-white">{emptyConfig.title}</h3>
+            <p className="mx-auto mt-2 max-w-md text-sm text-slate-400">{emptyConfig.description}</p>
+            {emptyConfig.actionHref && emptyConfig.actionText && (
+              <div className="mt-6">
+                <Link
+                  href={emptyConfig.actionHref}
+                  className="inline-flex items-center gap-2 rounded-xl border border-cyan-500/40 bg-cyan-500/10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-cyan-300 transition hover:bg-cyan-500/20 hover:text-cyan-200"
+                >
+                  {emptyConfig.actionText}
+                </Link>
+              </div>
+            )}
           </div>
         ) : (
           visibleNotifications.map((notification) => {

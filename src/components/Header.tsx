@@ -41,6 +41,7 @@ type HeaderProfile = {
 
 type HeaderNotification = {
   id: number;
+  type: string;
   title: string;
   message: string;
   is_read: boolean;
@@ -296,6 +297,43 @@ export function Header() {
       </button>
     </div>
   );
+  const getNotificationHref = (type: string) => {
+    switch (type) {
+      case 'gameweek_deadline':
+      case 'lineup_deadline':
+      case 'deadline':
+        return '/lineups';
+      case 'price_change':
+      case 'transfer_market':
+      case 'wildcard_used':
+        return '/transfers';
+      case 'score_posted':
+      case 'gameweek_result':
+      case 'rank_movement':
+        return '/gameweeks';
+      case 'league_activity':
+      case 'league_result':
+      case 'h2h_result':
+        return '/leagues';
+      default:
+        return '/notifications';
+    }
+  };
+
+  const handleNotificationClick = async (notification: HeaderNotification) => {
+    setNotificationMenuOpen(false);
+    if (!notification.is_read) {
+      setNotifications((current) =>
+        current.map((item) => (item.id === notification.id ? { ...item, is_read: true } : item))
+      );
+      try {
+        await fetchWithAuth(`/api/notifications/${notification.id}/read`, { method: 'PUT' });
+      } catch (err) {
+        console.error('Failed to mark notification read', err);
+      }
+    }
+  };
+
   const notificationMenu = (
     <div className="absolute right-0 top-12 z-50 w-80 rounded-lg border border-slate-700 bg-slate-900 p-2 shadow-xl">
       <div className="flex items-center justify-between border-b border-slate-700 px-3 py-2">
@@ -307,13 +345,23 @@ export function Header() {
       ) : (
         <div className="max-h-80 overflow-y-auto">
           {notifications.map((notification) => (
-            <div key={notification.id} className={`border-b border-slate-800 px-3 py-3 last:border-b-0 ${notification.is_read ? 'opacity-70' : ''}`}>
+            <Link
+              key={notification.id}
+              href={getNotificationHref(notification.type)}
+              onClick={() => void handleNotificationClick(notification)}
+              className={`block border-b border-slate-800 px-3 py-3 transition hover:bg-slate-800/60 last:border-b-0 ${notification.is_read ? 'opacity-70' : 'bg-slate-800/20'}`}
+            >
               <div className="flex items-start justify-between gap-3">
-                <p className="text-sm font-medium text-white">{notification.title}</p>
+                <div className="flex items-center gap-1.5 min-w-0">
+                  {!notification.is_read && (
+                    <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-cyan-400" />
+                  )}
+                  <p className="truncate text-sm font-medium text-white">{notification.title}</p>
+                </div>
                 <span className="shrink-0 text-[11px] text-slate-500">{formatNotificationTime(notification.created_at)}</span>
               </div>
               <p className="mt-1 line-clamp-2 text-xs text-slate-400">{notification.message}</p>
-            </div>
+            </Link>
           ))}
         </div>
       )}
