@@ -410,7 +410,7 @@ export class FantasyScoreCalculator {
         const perfs = (perfsRes.data ?? []) as ExistingPerformanceRow[];
 
         // Build quick lookup for performance_id
-        const perfMap = new Map<string, string>();
+        const perfMap = new Map<string, number>();
         perfs.forEach((performanceRow) => {
           perfMap.set(`${performanceRow.player_id}_${performanceRow.match_id}`, performanceRow.id);
         });
@@ -462,9 +462,10 @@ export class FantasyScoreCalculator {
         }
 
         if (breakdownsToUpsert.length > 0) {
-          const { error: upsertError } = await this.supabase
-            .from('fantasy_points_breakdown')
-            .upsert(breakdownsToUpsert, { onConflict: 'performance_id' });
+          const { error: upsertError } = await (
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            this.supabase.from('fantasy_points_breakdown') as any
+          ).upsert(breakdownsToUpsert, { onConflict: 'performance_id' });
 
           if (upsertError) {
             result.errors.push(`Failed to upsert breakdown chunk: ${upsertError.message}`);

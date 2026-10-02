@@ -184,7 +184,7 @@ export async function GET(
       `)
       .eq('fantasy_season_id', fantasySeasonId);
 
-    const squads = (rawSquads ?? []) as SquadRecord[];
+    const squads = (rawSquads ?? []) as unknown as SquadRecord[];
     const squad = squads?.[0] || null;
     const allMembers = squad?.fantasy_squad_members || [];
     const activeMembers = allMembers.filter((member) => !member.removed_date);
@@ -240,7 +240,7 @@ export async function GET(
           )
         `)
         .in('id', Array.from(lineupPlayerIds));
-      const playersData = (rawPlayersData ?? []) as AdminPlayerRecord[];
+      const playersData = (rawPlayersData ?? []) as unknown as AdminPlayerRecord[];
 
       playersData.forEach((player) => {
         playerMap[player.id] = player;
@@ -292,7 +292,7 @@ export async function GET(
       `)
       .eq('fantasy_season_id', fantasySeasonId)
       .order('created_at', { ascending: false });
-    const rawTransfers = (rawTransferData ?? []) as TransferRecord[];
+    const rawTransfers = (rawTransferData ?? []) as unknown as TransferRecord[];
 
     // Collect transfer player IDs
     const transferPlayerIds = new Set<number>();
@@ -319,7 +319,7 @@ export async function GET(
             )
           `)
           .in('id', missingIds);
-        const additionalPlayers = (rawAdditionalPlayers ?? []) as AdminPlayerRecord[];
+        const additionalPlayers = (rawAdditionalPlayers ?? []) as unknown as AdminPlayerRecord[];
 
         additionalPlayers.forEach((player) => {
           playerMap[player.id] = player;
@@ -354,7 +354,7 @@ export async function GET(
         )
       `)
       .eq('fantasy_season_id', fantasySeasonId);
-    const rawLeagues = (rawLeagueData ?? []) as LeagueParticipationRecord[];
+    const rawLeagues = (rawLeagueData ?? []) as unknown as LeagueParticipationRecord[];
 
     const formattedLeagues = rawLeagues.map((lp) => ({
       id: lp.id,

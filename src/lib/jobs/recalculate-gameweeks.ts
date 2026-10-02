@@ -204,9 +204,10 @@ class RecalculateGameweeks {
     try {
       const totalPoints = await this.calculateLineupTotal(lineup);
 
-      const { error } = await this.supabase
-        .from('fantasy_lineups')
-        .update({ total_points: totalPoints })
+      const { error } = await (
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        this.supabase.from('fantasy_lineups') as any
+      ).update({ total_points: totalPoints })
         .eq('id', lineup.id);
 
       if (error) {
@@ -239,9 +240,10 @@ class RecalculateGameweeks {
       const latestLineup = [...lineups].sort((a, b) => (b.gameweek_id || 0) - (a.gameweek_id || 0))[0];
       const latestPoints = latestLineup?.total_points || 0;
 
-      const { error } = await this.supabase
-        .from('fantasy_seasons')
-        .update({
+      const { error } = await (
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        this.supabase.from('fantasy_seasons') as any
+      ).update({
           total_points: Math.round(totalPoints * 100) / 100,
           gameweek_points_latest: Math.round(latestPoints * 100) / 100,
         })
@@ -295,9 +297,10 @@ class RecalculateGameweeks {
       // Update fantasy_seasons with new ranks
       let updated = 0;
       for (const [userId, newRank] of userRanks.entries()) {
-        const { error: updateError } = await this.supabase
-          .from('fantasy_seasons')
-          .update({ global_rank: newRank })
+        const { error: updateError } = await (
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          this.supabase.from('fantasy_seasons') as any
+        ).update({ global_rank: newRank })
           .eq('user_id', userId)
           .eq('season_id', seasonId);
 
@@ -327,11 +330,12 @@ class RecalculateGameweeks {
     };
 
     try {
-      // Find gameweeks that have closed (all matches completed)
+      // Find gameweeks that are active or closed — active ones score in real-time,
+      // closed ones are fully finalised and also trigger leaderboard updates.
       const { data: rawGameweekData, error: gameweekError } = await this.supabase
         .from('gameweeks')
         .select('id, season_id, status')
-        .eq('status', 'closed');
+        .in('status', ['closed', 'active']);
       const gameweeks = (rawGameweekData ?? []) as ClosedGameweekRow[];
 
       if (gameweekError) {
@@ -341,7 +345,7 @@ class RecalculateGameweeks {
       }
 
       if (gameweeks.length === 0) {
-        console.log('No closed gameweeks to recalculate');
+        console.log('No active or closed gameweeks to recalculate');
         result.success = true;
         result.duration = Date.now() - startTime;
         return result;
@@ -385,9 +389,12 @@ class RecalculateGameweeks {
             }
           }
 
-          // Generate leaderboard for this gameweek
-          const leaderboardsGenerated = await this.generateGameweekLeaderboard(gameweek.id, gameweek.season_id);
-          result.leaderboardsGenerated += leaderboardsGenerated;
+          // Only generate leaderboard rankings for fully closed gameweeks —
+          // active gameweek rankings change every match so we skip them here.
+          if (gameweek.status === 'closed') {
+            const leaderboardsGenerated = await this.generateGameweekLeaderboard(gameweek.id, gameweek.season_id);
+            result.leaderboardsGenerated += leaderboardsGenerated;
+          }
 
           result.gameweeksRecalculated++;
         } catch (err: unknown) {

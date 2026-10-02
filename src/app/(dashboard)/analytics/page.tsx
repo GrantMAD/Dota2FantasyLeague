@@ -2,6 +2,19 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
+import { useTheme } from '@/components/theme/ThemeProvider';
+import {
+  ResponsiveContainer,
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  Tooltip,
+  CartesianGrid,
+  BarChart,
+  Bar,
+  Cell,
+} from 'recharts';
 
 type TrendRow = {
   gameweekId: number;
@@ -61,6 +74,22 @@ const initialData: AnalyticsData = {
 };
 
 export default function AnalyticsDashboard() {
+  const { theme } = useTheme();
+  const isLight = theme === 'light';
+
+  const chartTheme = useMemo(() => ({
+    gridStroke: isLight ? '#cbd5e1' : '#334155',
+    axisStroke: isLight ? '#94a3b8' : '#64748b',
+    tickFill: isLight ? '#475569' : '#94a3b8',
+    yTickFill: isLight ? '#334155' : '#e2e8f0',
+    tooltipBg: isLight ? '#ffffff' : '#0f172a',
+    tooltipBorder: isLight ? '#cbd5e1' : '#334155',
+    tooltipText: isLight ? '#0f172a' : '#f8fafc',
+    tooltipItemColor: isLight ? '#334155' : '#e2e8f0',
+    globalAvgLine: isLight ? '#64748b' : '#94a3b8',
+    globalAvgDot: isLight ? '#475569' : '#64748b',
+  }), [isLight]);
+
   const [data, setData] = useState(initialData);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<'my' | 'market' | 'dream'>('my');
@@ -82,10 +111,7 @@ export default function AnalyticsDashboard() {
     fetchAnalytics();
   }, []);
 
-  const trendMax = useMemo(() => {
-    const values = data.trend.flatMap((row: TrendRow) => [row.userScore, row.globalAverage]);
-    return Math.max(100, ...values, 0);
-  }, [data.trend]);
+
 
   const activeTabContent = useMemo(() => {
     if (tab === 'market') {
@@ -180,65 +206,164 @@ export default function AnalyticsDashboard() {
 
               {tab === 'my' && (
                 <div className="space-y-8">
-                  <div className="analytics-chart-panel rounded-2xl border border-slate-800 bg-slate-950/70 p-4">
-                    <div className="mb-4 flex items-center justify-between">
-                      <h3 className="analytics-chart-heading text-lg font-semibold text-white">Gameweek Trajectory</h3>
-                      <span className="analytics-chart-label text-xs text-slate-400">User vs average</span>
+                  <div className="analytics-chart-panel rounded-2xl border border-slate-800 bg-slate-950/70 p-5">
+                    <div className="mb-4 flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                      <div>
+                        <h3 className="analytics-chart-heading text-lg font-bold text-white">Gameweek Trajectory</h3>
+                        <p className="text-xs text-slate-400">Your gameweek performance compared against the global manager average</p>
+                      </div>
+                      <div className="flex items-center gap-4 text-xs">
+                        <span className="inline-flex items-center gap-1.5 font-medium text-cyan-400">
+                          <span className="h-2.5 w-2.5 rounded-full bg-cyan-400" /> Your Score
+                        </span>
+                        <span className="inline-flex items-center gap-1.5 font-medium text-slate-400">
+                          <span className="h-2.5 w-2.5 rounded-full bg-slate-400" /> Global Avg
+                        </span>
+                      </div>
                     </div>
-                    <div className="flex h-48 items-end gap-2">
-                      {data.trend.length ? data.trend.map((row: TrendRow, index: number) => {
-                        const userHeight = (row.userScore / trendMax) * 100;
-                        const avgHeight = (row.globalAverage / trendMax) * 100;
-                        return (
-                          <div key={`${row.gameweekId}-${index}`} className="flex flex-1 flex-col items-center gap-2">
-                            <div className="flex h-36 w-full items-end justify-center gap-1">
-                              <div className="analytics-user-bar w-1/2 rounded-t-xl bg-cyan-500/90" style={{ height: `${Math.max(userHeight, 8)}%` }} title={`User: ${row.userScore}`} />
-                              <div className="analytics-average-bar w-1/2 rounded-t-xl bg-slate-600" style={{ height: `${Math.max(avgHeight, 8)}%` }} title={`Average: ${row.globalAverage}`} />
-                            </div>
-                            <span className="text-[10px] text-slate-400">GW{index + 1}</span>
-                          </div>
-                        );
-                      }) : (
-                        <div className="flex h-full w-full items-center justify-center text-sm text-slate-400">No score history available yet.</div>
-                      )}
-                    </div>
+                    {data.trend.length ? (
+                      <div className="h-64 w-full">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <LineChart
+                            data={data.trend.map((row: TrendRow) => ({
+                              name: `GW${row.gameweekId}`,
+                              userScore: row.userScore,
+                              globalAverage: row.globalAverage,
+                            }))}
+                            margin={{ top: 12, right: 16, left: -16, bottom: 4 }}
+                          >
+                            <CartesianGrid strokeDasharray="3 3" stroke={chartTheme.gridStroke} opacity={0.5} vertical={false} />
+                            <XAxis
+                              dataKey="name"
+                              stroke={chartTheme.axisStroke}
+                              tick={{ fill: chartTheme.tickFill, fontSize: 12 }}
+                              tickLine={{ stroke: chartTheme.axisStroke }}
+                            />
+                            <YAxis
+                              stroke={chartTheme.axisStroke}
+                              tick={{ fill: chartTheme.tickFill, fontSize: 12 }}
+                              tickLine={{ stroke: chartTheme.axisStroke }}
+                            />
+                            <Tooltip
+                              contentStyle={{
+                                backgroundColor: chartTheme.tooltipBg,
+                                borderColor: chartTheme.tooltipBorder,
+                                borderRadius: '0.75rem',
+                                boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.2)',
+                                color: chartTheme.tooltipText,
+                                fontSize: '12px',
+                              }}
+                              itemStyle={{ color: chartTheme.tooltipItemColor, padding: '2px 0' }}
+                              labelStyle={{ fontWeight: 'bold', color: isLight ? '#0284c7' : '#38bdf8', marginBottom: '4px' }}
+                            />
+                            <Line
+                              type="monotone"
+                              dataKey="userScore"
+                              name="Your Score"
+                              stroke="#06b6d4"
+                              strokeWidth={3}
+                              dot={{ r: 4, fill: '#06b6d4', stroke: isLight ? '#ffffff' : '#083344', strokeWidth: 2 }}
+                              activeDot={{ r: 6, fill: '#22d3ee', stroke: isLight ? '#0f172a' : '#fff', strokeWidth: 2 }}
+                            />
+                            <Line
+                              type="monotone"
+                              dataKey="globalAverage"
+                              name="Global Average"
+                              stroke={chartTheme.globalAvgLine}
+                              strokeWidth={2}
+                              strokeDasharray="4 4"
+                              dot={{ r: 3, fill: chartTheme.globalAvgDot }}
+                            />
+                          </LineChart>
+                        </ResponsiveContainer>
+                      </div>
+                    ) : (
+                      <div className="flex h-48 w-full items-center justify-center text-sm text-slate-400">
+                        No score history available yet.
+                      </div>
+                    )}
                   </div>
 
                   <div className="grid gap-6 lg:grid-cols-2">
-                    <div className="analytics-chart-panel rounded-2xl border border-slate-800 bg-slate-950/70 p-4">
-                      <h3 className="analytics-chart-heading mb-4 text-lg font-semibold text-white">Role Scoring Breakdown</h3>
-                      <div className="space-y-3">
-                        {(data.roleBreakdown.length ? data.roleBreakdown : [{ role: 'Support', points: 0 }, { role: 'Carry', points: 0 }, { role: 'Mid', points: 0 }]).map((item: RoleBreakdownRow) => (
-                          <div key={item.role}>
-                            <div className="mb-1 flex items-center justify-between text-sm">
-                              <span className="analytics-chart-label text-slate-300">{item.role}</span>
-                              <span className="analytics-chart-value text-white">{item.points} pts</span>
-                            </div>
-                            <div className="analytics-bar-track h-2 rounded-full bg-slate-800">
-                              <div className="analytics-role-bar h-full rounded-full bg-linear-to-r from-cyan-500 to-emerald-500" style={{ width: `${Math.min((item.points / Math.max(1, data.user.totalPoints || 1)) * 100, 100)}%` }} />
-                            </div>
-                          </div>
-                        ))}
+                    <div className="analytics-chart-panel rounded-2xl border border-slate-800 bg-slate-950/70 p-5">
+                      <div className="mb-4 flex items-center justify-between">
+                        <div>
+                          <h3 className="analytics-chart-heading text-lg font-bold text-white">Role Scoring Breakdown</h3>
+                          <p className="text-xs text-slate-400">Distribution of total fantasy points earned by position</p>
+                        </div>
                       </div>
+                      {data.roleBreakdown.length ? (
+                        <div className="h-60 w-full">
+                          <ResponsiveContainer width="100%" height="100%">
+                            <BarChart
+                              layout="vertical"
+                              data={data.roleBreakdown}
+                              margin={{ top: 8, right: 24, left: 12, bottom: 8 }}
+                            >
+                              <CartesianGrid strokeDasharray="3 3" stroke={chartTheme.gridStroke} opacity={0.5} horizontal={false} />
+                              <XAxis
+                                type="number"
+                                stroke={chartTheme.axisStroke}
+                                tick={{ fill: chartTheme.tickFill, fontSize: 11 }}
+                                tickLine={{ stroke: chartTheme.axisStroke }}
+                              />
+                              <YAxis
+                                dataKey="role"
+                                type="category"
+                                stroke={chartTheme.axisStroke}
+                                tick={{ fill: chartTheme.yTickFill, fontSize: 12, fontWeight: 500 }}
+                                tickLine={false}
+                                width={90}
+                              />
+                              <Tooltip
+                                contentStyle={{
+                                  backgroundColor: chartTheme.tooltipBg,
+                                  borderColor: chartTheme.tooltipBorder,
+                                  borderRadius: '0.75rem',
+                                  boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.2)',
+                                  color: chartTheme.tooltipText,
+                                  fontSize: '12px',
+                                }}
+                                itemStyle={{ color: chartTheme.tooltipItemColor, padding: '2px 0' }}
+                                labelStyle={{ fontWeight: 'bold', color: isLight ? '#0f766e' : '#2dd4bf', marginBottom: '4px' }}
+                                formatter={(value) => [`${value ?? 0} pts`, 'Points']}
+                              />
+                              <Bar dataKey="points" radius={[0, 8, 8, 0]}>
+                                {data.roleBreakdown.map((entry: RoleBreakdownRow, index: number) => {
+                                  const colors = ['#06b6d4', '#10b981', '#3b82f6', '#f59e0b', '#8b5cf6'];
+                                  return <Cell key={`cell-${entry.role}-${index}`} fill={colors[index % colors.length]} />;
+                                })}
+                              </Bar>
+                            </BarChart>
+                          </ResponsiveContainer>
+                        </div>
+                      ) : (
+                        <div className="flex h-48 w-full items-center justify-center text-sm text-slate-400">
+                          No role breakdown data available yet.
+                        </div>
+                      )}
                     </div>
 
-                    <div className="analytics-chart-panel rounded-2xl border border-slate-800 bg-slate-950/70 p-4">
-                      <h3 className="analytics-chart-heading mb-4 text-lg font-semibold text-white">Captaincy Efficiency</h3>
+                    <div className="analytics-chart-panel rounded-2xl border border-slate-800 bg-slate-950/70 p-5">
+                      <div className="mb-4">
+                        <h3 className="analytics-chart-heading text-lg font-bold text-white">Captaincy Efficiency</h3>
+                        <p className="analytics-chart-subtitle text-xs text-slate-400">Points earned vs potential optimal captain choice</p>
+                      </div>
                       <div className="space-y-4">
                         <div className="flex items-end justify-between">
-                          <span className="analytics-chart-label text-slate-400">Captain points</span>
+                          <span className="analytics-chart-label text-sm text-slate-400">Captain points</span>
                           <span className="analytics-chart-value text-2xl font-bold text-white">{data.captainEfficiency.captainPoints}</span>
                         </div>
                         <div className="flex items-end justify-between">
-                          <span className="analytics-chart-label text-slate-400">Ideal cap value</span>
-                          <span className="text-xl font-semibold text-cyan-300">{data.captainEfficiency.idealCapPoints}</span>
+                          <span className="analytics-chart-label text-sm text-slate-400">Ideal cap value</span>
+                          <span className="text-xl font-semibold text-cyan-400">{data.captainEfficiency.idealCapPoints}</span>
                         </div>
                         <div>
                           <div className="mb-1 flex items-center justify-between text-sm">
-                            <span className="analytics-chart-label text-slate-400">Efficiency</span>
-                            <span className="text-emerald-400">{data.captainEfficiency.efficiency}%</span>
+                            <span className="analytics-chart-label text-sm text-slate-400">Efficiency</span>
+                            <span className="font-semibold text-emerald-400">{data.captainEfficiency.efficiency}%</span>
                           </div>
-                          <div className="analytics-bar-track h-2 rounded-full bg-slate-800">
+                          <div className="analytics-bar-track h-2.5 rounded-full bg-slate-800">
                             <div className="analytics-efficiency-bar h-full rounded-full bg-linear-to-r from-amber-500 to-emerald-500" style={{ width: `${Math.min(data.captainEfficiency.efficiency, 100)}%` }} />
                           </div>
                         </div>

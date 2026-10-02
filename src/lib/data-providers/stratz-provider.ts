@@ -211,18 +211,18 @@ export class StratzProvider extends DataProviderBase implements DataProvider {
       const limit = filters?.limit || activePlayers.length;
 
       return activePlayers.slice(offset, offset + limit).map((a) => ({
-        id: String(a.steamAccountId),
-        steamId: String(a.steamAccountId),
-        name: a.name,
-        tag: a.team?.tag,
+        id: String(a.id),
+        steamId: String(a.id),
+        name: a.name ?? '',
+        tag: a.team?.tag ?? undefined,
         country: Array.isArray(a.countries) ? a.countries[0] : (a.countries ?? undefined),
         roles: a.fantasyRole ? [roleMap[a.fantasyRole] || 'Carry'] : ['Carry'],
         team: a.team
           ? { id: String(a.team.id), name: a.team.name }
           : undefined,
         isActive: true,
-        profileUrl: a.steam?.profileUrl,
-        imageUrl: a.steam?.avatar,
+        profileUrl: a.steam?.profileUrl ?? undefined,
+        imageUrl: a.steam?.avatar ?? undefined,
         lastUpdated: new Date(),
       }));
     } catch (error) {
@@ -279,10 +279,10 @@ export class StratzProvider extends DataProviderBase implements DataProvider {
 
       return {
         id: String(p.id),
-        steamId: String(p.steamId),
-        name: p.name || p.realName,
-        tag: p.tag,
-        country: p.countryCode,
+        steamId: p.steamId ? String(p.steamId) : String(p.id),
+        name: p.name ?? p.realName ?? '',
+        tag: p.tag ?? undefined,
+        country: p.countryCode ?? undefined,
         roles: p.roles || [],
         team: p.team
           ? {
@@ -292,7 +292,7 @@ export class StratzProvider extends DataProviderBase implements DataProvider {
           : undefined,
         isActive: true,
         profileUrl: p.profileUri ? `https://stratz.com${p.profileUri}` : undefined,
-        imageUrl: p.avatar,
+        imageUrl: p.avatar ?? undefined,
         lastUpdated: new Date(),
       };
     } catch (error) {
@@ -339,15 +339,15 @@ export class StratzProvider extends DataProviderBase implements DataProvider {
 
       return teams.map((t) => ({
         id: String(t.id),
-        name: t.name,
-        tag: t.tag,
-        region: t.countryCode,
-        country: t.countryCode,
+        name: t.name || `Team ${t.id}`,
+        tag: t.tag || t.name?.slice(0, 4) || 'D2',
+        region: t.countryCode || undefined,
+        country: t.countryCode || undefined,
         foundedDate: t.founded ? new Date(t.founded) : undefined,
-        logoUrl: t.logo,
+        logoUrl: t.logo || undefined,
         roster: (t.players || []).map((p) => ({
           playerId: String(p.id),
-          joinedDate: new Date(p.joinedDate),
+          joinedDate: p.joinedDate ? new Date(p.joinedDate) : new Date(),
           position: undefined,
         })),
         isActive: true,
@@ -406,15 +406,15 @@ export class StratzProvider extends DataProviderBase implements DataProvider {
 
       return {
         id: String(t.id),
-        name: t.name,
-        tag: t.tag,
-        region: t.countryCode,
-        country: t.countryCode,
+        name: t.name || `Team ${t.id}`,
+        tag: t.tag || t.name?.slice(0, 4) || 'D2',
+        region: t.countryCode || undefined,
+        country: t.countryCode || undefined,
         foundedDate: t.founded ? new Date(t.founded) : undefined,
-        logoUrl: t.logo,
+        logoUrl: t.logo || undefined,
         roster: (t.players || []).map((p) => ({
           playerId: String(p.id),
-          joinedDate: new Date(p.joinedDate),
+          joinedDate: p.joinedDate ? new Date(p.joinedDate) : new Date(),
           position: undefined,
         })),
         isActive: true,
@@ -472,8 +472,8 @@ export class StratzProvider extends DataProviderBase implements DataProvider {
       return leagues.map((l) => ({
         id: String(l.id),
         name: l.name,
-        region: l.region,
-        prizePool: l.prizePool,
+        region: l.region || undefined,
+        prizePool: l.prizePool ?? undefined,
         currency: 'USD',
         startDate: new Date(l.startDate),
         endDate: l.endDate ? new Date(l.endDate) : undefined,
@@ -629,7 +629,7 @@ export class StratzProvider extends DataProviderBase implements DataProvider {
             players: radiantPlayers.map((p) => ({
               playerId: String(p.id),
               heroId: String(p.heroId),
-              heroName: p.hero?.displayName || p.hero?.shortName || (p.heroId ? String(p.heroId) : undefined),
+              heroName: p.hero?.displayName || p.hero?.shortName || (p.heroId ? String(p.heroId) : 'Hero'),
               kills: p.kills,
               deaths: p.deaths,
               assists: p.assists,
@@ -651,7 +651,7 @@ export class StratzProvider extends DataProviderBase implements DataProvider {
             players: direPlayers.map((p) => ({
               playerId: String(p.id),
               heroId: String(p.heroId),
-              heroName: p.hero?.displayName || p.hero?.shortName || (p.heroId ? String(p.heroId) : undefined),
+              heroName: p.hero?.displayName || p.hero?.shortName || (p.heroId ? String(p.heroId) : 'Hero'),
               kills: p.kills,
               deaths: p.deaths,
               assists: p.assists,

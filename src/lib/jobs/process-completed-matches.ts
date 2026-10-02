@@ -111,11 +111,12 @@ class ProcessCompletedMatches {
       healing: stats.healing,
     };
 
-    const { error } = await this.supabase
-      .from('player_performances')
-      .upsert(performance, {
-        onConflict: 'player_id,match_id',
-      });
+    const { error } = await (
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      this.supabase.from('player_performances') as any
+    ).upsert(performance, {
+      onConflict: 'player_id,match_id',
+    });
 
     if (error) {
       console.error(`Failed to create performance for player ${stats.player_id} match ${stats.match_id}:`, error);
@@ -209,9 +210,10 @@ class ProcessCompletedMatches {
                 updateData[`bench_${benchIndex + 1}_id`] = null;
               }
 
-              const { error: updateError } = await this.supabase
-                .from('fantasy_lineups')
-                .update(updateData)
+              const { error: updateError } = await (
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                this.supabase.from('fantasy_lineups') as any
+              ).update(updateData)
                 .eq('id', lineup.id);
 
               if (!updateError) {
@@ -307,11 +309,12 @@ class ProcessCompletedMatches {
           }));
 
           // Bulk upsert all performances for this chunk
-          const { error: upsertError } = await this.supabase
-            .from('player_performances')
-            .upsert(performancesToUpsert, {
-              onConflict: 'player_id,match_id',
-            });
+          const { error: upsertError } = await (
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            this.supabase.from('player_performances') as any
+          ).upsert(performancesToUpsert, {
+            onConflict: 'player_id,match_id',
+          });
 
           if (upsertError) {
             result.errors.push(`Failed to upsert performances chunk: ${upsertError.message}`);
