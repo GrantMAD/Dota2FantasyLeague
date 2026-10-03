@@ -87,6 +87,9 @@ export function Header() {
   const [isSearchingPlayers, setIsSearchingPlayers] = useState(false);
   const userMenuRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const mobileDrawerRef = useRef<HTMLDivElement>(null);
+  const touchStartXRef = useRef<number>(0);
+  const touchStartYRef = useRef<number>(0);
 
   useEffect(() => {
     document.documentElement.dataset.sidebarCollapsed = String(sidebarCollapsed);
@@ -236,6 +239,7 @@ export function Header() {
         setUserMenuOpen(false);
         setNotificationMenuOpen(false);
         setSearchOpen(false);
+        setMobileMenuOpen(false);
       }
     }
 
@@ -244,6 +248,33 @@ export function Header() {
     return () => {
       document.removeEventListener('mousedown', closePopups);
       document.removeEventListener('keydown', closeOnEscape);
+    };
+  }, []);
+
+  // Swipe-to-close gesture on the mobile off-canvas drawer
+  useEffect(() => {
+    const drawer = mobileDrawerRef.current;
+    if (!drawer) return;
+
+    function handleTouchStart(e: TouchEvent) {
+      touchStartXRef.current = e.touches[0].clientX;
+      touchStartYRef.current = e.touches[0].clientY;
+    }
+
+    function handleTouchEnd(e: TouchEvent) {
+      const deltaX = e.changedTouches[0].clientX - touchStartXRef.current;
+      const deltaY = e.changedTouches[0].clientY - touchStartYRef.current;
+      // Left swipe: deltaX is negative and more horizontal than vertical
+      if (deltaX < -50 && Math.abs(deltaX) > Math.abs(deltaY)) {
+        setMobileMenuOpen(false);
+      }
+    }
+
+    drawer.addEventListener('touchstart', handleTouchStart, { passive: true });
+    drawer.addEventListener('touchend', handleTouchEnd, { passive: true });
+    return () => {
+      drawer.removeEventListener('touchstart', handleTouchStart);
+      drawer.removeEventListener('touchend', handleTouchEnd);
     };
   }, []);
 
@@ -698,66 +729,6 @@ export function Header() {
             </div>
           </div>
 
-        {/* Mobile Navigation */}
-        {mobileMenuOpen && (
-          <div className="md:hidden border-t border-slate-700 py-4 space-y-1 max-h-[calc(100vh-4rem)] overflow-y-auto">
-            {primaryNavLinks.map((link) => {
-              const Icon = link.icon;
-              return (
-                <Link
-                  key={link.href}
-                  href={link.href}
-                  className={`flex items-center gap-3 px-4 py-2.5 rounded-lg font-medium transition-colors ${
-                    isActive(link.href)
-                      ? 'bg-amber-500/20 text-amber-500'
-                      : 'text-slate-400 hover:text-white hover:bg-slate-800'
-                  }`}
-                  onClick={() => setMobileMenuOpen(false)}
-                >
-                  <Icon className="h-5 w-5 shrink-0" />
-                  <span>{link.label}</span>
-                </Link>
-              );
-            })}
-            <div className="border-t border-slate-700/80 pt-2 mt-2">
-              {bottomNavLinks.map((link) => {
-                const Icon = link.icon;
-                return (
-                  <Link
-                    key={link.href}
-                    href={link.href}
-                    className={`flex items-center gap-3 px-4 py-2.5 rounded-lg font-medium transition-colors ${
-                      isActive(link.href)
-                        ? 'bg-amber-500/20 text-amber-500'
-                        : 'text-slate-400 hover:text-white hover:bg-slate-800'
-                    }`}
-                    onClick={() => setMobileMenuOpen(false)}
-                  >
-                    <Icon className="h-5 w-5 shrink-0" />
-                    <span>{link.label}</span>
-                  </Link>
-                );
-              })}
-              {profile?.role === 'admin' && (
-                <Link
-                  href="/admin/dashboard"
-                  className={`flex items-center gap-3 px-4 py-2.5 rounded-lg font-medium transition-colors ${
-                    pathname.startsWith('/admin')
-                      ? 'bg-amber-500/20 text-amber-400 font-semibold'
-                      : 'text-amber-400/80 hover:bg-amber-500/10 hover:text-amber-300'
-                  }`}
-                  onClick={() => setMobileMenuOpen(false)}
-                >
-                  <Shield className="h-5 w-5 shrink-0 text-amber-400" />
-                  <span>Admin Console</span>
-                </Link>
-              )}
-            </div>
-            <div className="border-t border-slate-700 pt-3 mt-3">
-              <div className="px-4 py-2"><ThemeToggle /></div>
-            </div>
-          </div>
-        )}
       </nav>
 
       {/* Command Palette Modal (Ctrl+K / Cmd+K) */}
@@ -846,6 +817,116 @@ export function Header() {
           </div>
         )}
       </header>
+
+      {/* Mobile Off-Canvas Drawer (audit item 2.14 — swipe-to-close) */}
+      {/* Backdrop */}
+      <div
+        className={`fixed inset-0 z-[55] bg-slate-950/60 backdrop-blur-sm transition-opacity duration-300 md:hidden ${
+          mobileMenuOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
+        }`}
+        onClick={() => setMobileMenuOpen(false)}
+        aria-hidden="true"
+      />
+
+      {/* Drawer Panel — always in DOM so touch events attach to stable element */}
+      <div
+        ref={mobileDrawerRef}
+        className={`fixed inset-y-0 left-0 z-[60] flex w-72 flex-col bg-slate-900 border-r border-slate-700/80 shadow-2xl transition-transform duration-300 ease-in-out md:hidden ${
+          mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'
+        }`}
+        aria-label="Mobile navigation drawer"
+        aria-hidden={!mobileMenuOpen}
+      >
+        {/* Drawer Header */}
+        <div className="flex items-center justify-between px-4 py-4 border-b border-slate-700/80 shrink-0">
+          <Link
+            href="/dashboard"
+            onClick={() => setMobileMenuOpen(false)}
+            className="flex items-center gap-2 font-bold text-xl"
+          >
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-linear-to-br from-amber-500 to-orange-600">
+              <span className="font-bold text-white">D2</span>
+            </div>
+            <span className="bg-linear-to-r from-amber-500 to-orange-600 bg-clip-text text-transparent">
+              Fantasy
+            </span>
+          </Link>
+          <button
+            type="button"
+            aria-label="Close navigation menu"
+            onClick={() => setMobileMenuOpen(false)}
+            className="rounded-lg p-2 text-slate-400 hover:bg-slate-800 hover:text-white transition-colors"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        {/* Swipe hint */}
+        <p className="px-4 pt-1.5 pb-0.5 text-[10px] text-slate-600 flex items-center gap-1 shrink-0">
+          <span aria-hidden="true">←</span> Swipe left to close
+        </p>
+
+        {/* Nav Links */}
+        <nav className="flex-1 overflow-y-auto px-3 py-2 space-y-0.5">
+          {primaryNavLinks.map((link) => {
+            const Icon = link.icon;
+            return (
+              <Link
+                key={link.href}
+                href={link.href}
+                className={`flex items-center gap-3 px-3 py-2.5 rounded-lg font-medium transition-colors ${
+                  isActive(link.href)
+                    ? 'bg-amber-500/20 text-amber-500'
+                    : 'text-slate-400 hover:text-white hover:bg-slate-800'
+                }`}
+                onClick={() => setMobileMenuOpen(false)}
+              >
+                <Icon className="h-5 w-5 shrink-0" />
+                <span>{link.label}</span>
+              </Link>
+            );
+          })}
+          <div className="border-t border-slate-700/80 pt-2 mt-2 space-y-0.5">
+            {bottomNavLinks.map((link) => {
+              const Icon = link.icon;
+              return (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  className={`flex items-center gap-3 px-3 py-2.5 rounded-lg font-medium transition-colors ${
+                    isActive(link.href)
+                      ? 'bg-amber-500/20 text-amber-500'
+                      : 'text-slate-400 hover:text-white hover:bg-slate-800'
+                  }`}
+                  onClick={() => setMobileMenuOpen(false)}
+                >
+                  <Icon className="h-5 w-5 shrink-0" />
+                  <span>{link.label}</span>
+                </Link>
+              );
+            })}
+            {profile?.role === 'admin' && (
+              <Link
+                href="/admin/dashboard"
+                className={`flex items-center gap-3 px-3 py-2.5 rounded-lg font-medium transition-colors ${
+                  pathname.startsWith('/admin')
+                    ? 'bg-amber-500/20 text-amber-400 font-semibold'
+                    : 'text-amber-400/80 hover:bg-amber-500/10 hover:text-amber-300'
+                }`}
+                onClick={() => setMobileMenuOpen(false)}
+              >
+                <Shield className="h-5 w-5 shrink-0 text-amber-400" />
+                <span>Admin Console</span>
+              </Link>
+            )}
+          </div>
+        </nav>
+
+        {/* Drawer Footer — Theme Toggle */}
+        <div className="border-t border-slate-700 px-4 py-3 shrink-0">
+          <ThemeToggle />
+        </div>
+      </div>
     </>
   );
 }
