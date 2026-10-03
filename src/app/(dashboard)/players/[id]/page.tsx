@@ -4,6 +4,8 @@ import { useState, useEffect } from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
+import { ShieldCheck, ArrowRightLeft } from 'lucide-react';
+import { fetchWithAuth } from '@/lib/fetch-with-auth';
 
 type FantasyBreakdown = {
   combat_points?: number;
@@ -96,6 +98,7 @@ export default function PlayerDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedMatch, setSelectedMatch] = useState<MatchHistoryItem | null>(null);
+  const [ownedPlayerIds, setOwnedPlayerIds] = useState<number[]>([]);
 
   useEffect(() => {
     async function fetchPlayer() {
@@ -112,6 +115,23 @@ export default function PlayerDetailPage() {
     }
     if (id) fetchPlayer();
   }, [id]);
+
+  useEffect(() => {
+    async function fetchTransferContext() {
+      try {
+        const res = await fetchWithAuth('/api/fantasy/transfer-context');
+        if (res.ok) {
+          const data = await res.json();
+          if (Array.isArray(data.ownedPlayerIds)) {
+            setOwnedPlayerIds(data.ownedPlayerIds);
+          }
+        }
+      } catch {
+        // Non-blocking: unauthenticated users or offline mode won't display squad badge
+      }
+    }
+    fetchTransferContext();
+  }, []);
 
   if (loading) {
     return (
@@ -290,8 +310,14 @@ export default function PlayerDetailPage() {
                </div>
                
                <div className="flex-1 pb-2">
-                  <div className="flex items-center gap-3 mb-1">
+                  <div className="flex flex-wrap items-center gap-2.5 mb-1">
                      <h1 className="text-4xl font-bold text-white">{player.in_game_name}</h1>
+                     {ownedPlayerIds.includes(player.id) && (
+                        <span className="inline-flex items-center gap-1.5 bg-emerald-500/15 text-emerald-400 text-xs px-3 py-1 rounded-full border border-emerald-500/40 font-semibold">
+                           <ShieldCheck className="w-3.5 h-3.5" />
+                           In Your Squad
+                        </span>
+                     )}
                      {player.availability_status === 'available' || player.availability_status === 'active' ? (
                         <span className="bg-emerald-500/20 text-emerald-400 text-xs px-2.5 py-0.5 rounded-full border border-emerald-500/30 font-semibold">Available</span>
                      ) : (
@@ -317,10 +343,23 @@ export default function PlayerDetailPage() {
                      <div className="text-sm text-slate-400 uppercase tracking-wider mb-1">Current Price</div>
                      <div className="text-3xl font-mono font-bold text-amber-400">${player.current_price || '0.0'}M</div>
                   </div>
-                  <Link href="/transfers" className="player-detail-transfer-link bg-slate-700 hover:bg-emerald-600 border border-slate-600 hover:border-emerald-500 text-white px-6 py-2 rounded-lg font-medium transition-all shadow-lg flex items-center justify-center gap-2">
-                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4"></path></svg>
-                     Manage in Transfers
-                  </Link>
+                  {ownedPlayerIds.includes(player.id) ? (
+                     <Link
+                        href="/squads"
+                        className="player-detail-transfer-link bg-emerald-600/20 hover:bg-emerald-600/30 border border-emerald-500/40 text-emerald-300 hover:text-emerald-200 px-5 py-2 rounded-lg font-medium transition-all shadow-md flex items-center justify-center gap-2 text-sm"
+                     >
+                        <ShieldCheck className="w-4 h-4" />
+                        View In Squad
+                     </Link>
+                  ) : (
+                     <Link
+                        href={`/transfers?search=${encodeURIComponent(player.in_game_name || player.name)}`}
+                        className="player-detail-transfer-link bg-amber-500 hover:bg-amber-400 text-slate-950 font-semibold px-5 py-2 rounded-lg transition-all shadow-lg flex items-center justify-center gap-2 text-sm"
+                     >
+                        <ArrowRightLeft className="w-4 h-4" />
+                        Transfer In
+                     </Link>
+                  )}
                </div>
             </div>
          </div>

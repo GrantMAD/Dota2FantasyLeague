@@ -3,7 +3,7 @@
 import { use, useEffect, useState, Suspense } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { Share2, Check } from 'lucide-react';
+import { Share2, Check, ArrowLeft } from 'lucide-react';
 import { useToast } from '@/components/Toast';
 import { TeamLogo } from '../components/TeamLogo';
 
@@ -167,10 +167,10 @@ function MatchDetailInner({ params }: { params: Promise<{ id: string }> }) {
       <div className="flex items-center justify-between">
         <Link
           href={fromGameweek && gwId ? `/gameweeks/${gwId}` : '/matches'}
-          className="inline-flex items-center gap-2 text-xs font-semibold text-slate-400 hover:text-amber-400 transition-colors"
+          className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-400 hover:text-amber-400 transition-colors group"
         >
-          <span>←</span>
-          <span>{fromGameweek && gwId ? `Back to Gameweek ${match?.gameweeks?.gameweek_number ?? gwId}` : 'Back to All Matches'}</span>
+          <ArrowLeft className="w-3.5 h-3.5 transition-transform group-hover:-translate-x-0.5" />
+          <span>{fromGameweek && gwId ? `Back to Gameweek ${match?.gameweeks?.gameweek_number ?? gwId}` : 'Back to Matches'}</span>
         </Link>
 
         {match.gameweeks && (
