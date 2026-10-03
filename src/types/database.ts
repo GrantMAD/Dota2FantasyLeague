@@ -89,6 +89,8 @@ export interface Tournament {
   start_date: string;
   end_date: string;
   eligible: boolean;
+  data_provider_id?: string | null;
+  last_synced_at?: string | null;
   created_at: string;
   updated_at: string;
 }

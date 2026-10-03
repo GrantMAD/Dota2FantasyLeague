@@ -67,7 +67,7 @@ const JOB_METADATA: Record<string, {
   manualStep?: number;      // 1-6 for the ordered data-sync jobs; undefined = auto-only
   requires?: string[];      // job names that must run first
   description: string;      // short human description
-  category: 'sync' | 'scoring' | 'notification' | 'maintenance';
+  category: 'sync' | 'scoring' | 'notification' | 'maintenance' | 'reconciliation';
 }> = {
   'sync-teams': {
     manualStep: 1,
@@ -158,6 +158,12 @@ const JOB_METADATA: Record<string, {
     description: 'Permanently removes players absent from provider data for 7+ days and empty teams. Automatically refunds fantasy squad budgets, clears captain assignments, and notifies owners.',
     category: 'maintenance',
   },
+  'auto-resolve-conflicts': {
+    manualStep: 13,
+    requires: ['sync-players', 'sync-teams'],
+    description: 'Automatically resolves high-confidence data conflicts in data_conflicts using provider precedence and field confidence scores. Applies the winning value directly to professional_players or professional_teams and marks each row resolved. Safe to re-run.',
+    category: 'reconciliation',
+  },
   'send-deadline-notifications': {
     description: 'Pushes gameweek deadline reminder notifications to users.',
     category: 'notification',
@@ -177,17 +183,19 @@ const JOB_METADATA: Record<string, {
 };
 
 const CATEGORY_COLOURS: Record<string, string> = {
-  sync:         'border-amber-500/30 bg-amber-500/10 text-amber-300',
-  scoring:      'border-sky-500/30 bg-sky-500/10 text-sky-300',
-  notification: 'border-violet-500/30 bg-violet-500/10 text-violet-300',
-  maintenance:  'border-slate-600/60 bg-slate-800/40 text-slate-400',
+  sync:            'border-amber-500/30 bg-amber-500/10 text-amber-300',
+  scoring:         'border-sky-500/30 bg-sky-500/10 text-sky-300',
+  notification:    'border-violet-500/30 bg-violet-500/10 text-violet-300',
+  maintenance:     'border-slate-600/60 bg-slate-800/40 text-slate-400',
+  reconciliation:  'border-emerald-500/30 bg-emerald-500/10 text-emerald-300',
 };
 
 const CATEGORY_LABELS: Record<string, string> = {
-  sync:         'Data Sync',
-  scoring:      'Scoring',
-  notification: 'Notifications',
-  maintenance:  'Maintenance',
+  sync:            'Data Sync',
+  scoring:         'Scoring',
+  notification:    'Notifications',
+  maintenance:     'Maintenance',
+  reconciliation:  'Reconciliation',
 };
 
 interface JobResultSummary {
@@ -563,6 +571,21 @@ export default function DataJobsPage() {
                   })}
                 </div>
               </div>
+
+              {/* Phase 3: Reconciliation */}
+              <div className="mt-2.5">
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-emerald-400/80">Phase 3: Reconciliation</span>
+                <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[11px]">
+                  {[13].map((n) => {
+                    const jobName = Object.entries(JOB_METADATA).find(([, m]) => m.manualStep === n)?.[0];
+                    return jobName ? (
+                      <span key={n} className="inline-flex items-center gap-1 rounded-md border border-emerald-500/20 bg-emerald-950/30 px-2 py-0.5 font-mono text-emerald-300">
+                        <span className="font-bold text-emerald-400">{n}.</span> {jobName}
+                      </span>
+                    ) : null;
+                  })}
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -594,39 +617,129 @@ export default function DataJobsPage() {
 
       {/* Schedule Reference Card */}
       <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-5 shadow-sm">
-        <div className="flex items-center gap-2 mb-3">
+        <div className="flex items-center gap-2 mb-1">
           <Calendar className="h-4 w-4 text-amber-400" />
           <h3 className="text-sm font-semibold text-white">Automated Schedule Manifest</h3>
         </div>
-        <div className="grid grid-cols-1 gap-2 text-xs sm:grid-cols-2 lg:grid-cols-3">
-          <div className="rounded-lg border border-slate-800/80 bg-slate-950/40 p-3">
-            <div className="font-mono font-medium text-amber-400">sync-players</div>
-            <div className="mt-1 text-slate-400">Daily at 03:00 UTC (Stratz/OpenDota roster ingest)</div>
+        <p className="text-xs text-slate-400 mb-3">
+          In production all jobs below run automatically via Vercel Cron — no manual intervention required.
+          The times listed are UTC. Manual triggers above are only needed when seeding a new environment or
+          forcing an out-of-cycle refresh.
+        </p>
+        <div className="space-y-3 text-xs">
+
+          {/* Data Sync */}
+          <div className="rounded-lg border border-amber-500/20 bg-amber-950/10 p-3">
+            <div className="text-[10px] font-bold uppercase tracking-wider text-amber-400/70 mb-2">Data Sync</div>
+            <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2 lg:grid-cols-3">
+              <div className="rounded border border-slate-800/80 bg-slate-950/40 p-2">
+                <div className="font-mono font-medium text-amber-300">sync-players</div>
+                <div className="mt-0.5 text-slate-400">Daily 03:00 UTC &mdash; pro player roster ingest</div>
+              </div>
+              <div className="rounded border border-slate-800/80 bg-slate-950/40 p-2">
+                <div className="font-mono font-medium text-amber-300">sync-teams</div>
+                <div className="mt-0.5 text-slate-400">Daily 03:15 UTC &mdash; pro team roster ingest</div>
+              </div>
+              <div className="rounded border border-slate-800/80 bg-slate-950/40 p-2">
+                <div className="font-mono font-medium text-amber-300">discover-tournaments</div>
+                <div className="mt-0.5 text-slate-400">Every 6 h &mdash; league &amp; event discovery</div>
+              </div>
+              <div className="rounded border border-slate-800/80 bg-slate-950/40 p-2">
+                <div className="font-mono font-medium text-amber-300">fetch-matches</div>
+                <div className="mt-0.5 text-slate-400">Every 1 h &mdash; match header batch ingest</div>
+              </div>
+              <div className="rounded border border-slate-800/80 bg-slate-950/40 p-2">
+                <div className="font-mono font-medium text-amber-300">fetch-match-details</div>
+                <div className="mt-0.5 text-slate-400">Every 30 min &mdash; per-player stat breakdown</div>
+              </div>
+              <div className="rounded border border-slate-800/80 bg-slate-950/40 p-2">
+                <div className="font-mono font-medium text-amber-300">track-roster-changes</div>
+                <div className="mt-0.5 text-slate-400">Daily 02:00 UTC &mdash; transfer window auditing</div>
+              </div>
+            </div>
           </div>
-          <div className="rounded-lg border border-slate-800/80 bg-slate-950/40 p-3">
-            <div className="font-mono font-medium text-amber-400">sync-teams</div>
-            <div className="mt-1 text-slate-400">Daily at 03:15 UTC (Pro tier 1-2 teams)</div>
+
+          {/* Scoring */}
+          <div className="rounded-lg border border-purple-500/20 bg-purple-950/10 p-3">
+            <div className="text-[10px] font-bold uppercase tracking-wider text-purple-400/70 mb-2">Scoring &amp; Standings</div>
+            <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2 lg:grid-cols-3">
+              <div className="rounded border border-slate-800/80 bg-slate-950/40 p-2">
+                <div className="font-mono font-medium text-purple-300">transition-gameweeks</div>
+                <div className="mt-0.5 text-slate-400">Every 5 min &mdash; closes GWs at deadline</div>
+              </div>
+              <div className="rounded border border-slate-800/80 bg-slate-950/40 p-2">
+                <div className="font-mono font-medium text-purple-300">process-completed-matches</div>
+                <div className="mt-0.5 text-slate-400">Every 45 min &mdash; stats to performances</div>
+              </div>
+              <div className="rounded border border-slate-800/80 bg-slate-950/40 p-2">
+                <div className="font-mono font-medium text-purple-300">calculate-fantasy-scores</div>
+                <div className="mt-0.5 text-slate-400">Every 50 min &mdash; full point breakdowns</div>
+              </div>
+              <div className="rounded border border-slate-800/80 bg-slate-950/40 p-2">
+                <div className="font-mono font-medium text-purple-300">recalculate-gameweeks</div>
+                <div className="mt-0.5 text-slate-400">Every 55 min &mdash; aggregates GW totals</div>
+              </div>
+              <div className="rounded border border-slate-800/80 bg-slate-950/40 p-2">
+                <div className="font-mono font-medium text-purple-300">recalculate-leagues</div>
+                <div className="mt-0.5 text-slate-400">Every 60 min &mdash; classic &amp; H2H standings</div>
+              </div>
+              <div className="rounded border border-slate-800/80 bg-slate-950/40 p-2">
+                <div className="font-mono font-medium text-purple-300">calculate-global-rankings</div>
+                <div className="mt-0.5 text-slate-400">Every 65 min &mdash; global leaderboard</div>
+              </div>
+              <div className="rounded border border-slate-800/80 bg-slate-950/40 p-2">
+                <div className="font-mono font-medium text-purple-300">update-player-prices</div>
+                <div className="mt-0.5 text-slate-400">Every 10 min &mdash; form &amp; ownership pricing</div>
+              </div>
+            </div>
           </div>
-          <div className="rounded-lg border border-slate-800/80 bg-slate-950/40 p-3">
-            <div className="font-mono font-medium text-amber-400">discover-tournaments</div>
-            <div className="mt-1 text-slate-400">Daily at 04:00 UTC (League & event discovery)</div>
+
+          {/* Notifications */}
+          <div className="rounded-lg border border-violet-500/20 bg-violet-950/10 p-3">
+            <div className="text-[10px] font-bold uppercase tracking-wider text-violet-400/70 mb-2">Notifications</div>
+            <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2 lg:grid-cols-3">
+              <div className="rounded border border-slate-800/80 bg-slate-950/40 p-2">
+                <div className="font-mono font-medium text-violet-300">send-deadline-notifications</div>
+                <div className="mt-0.5 text-slate-400">Every 1 h &mdash; approaching GW deadline alerts</div>
+              </div>
+              <div className="rounded border border-slate-800/80 bg-slate-950/40 p-2">
+                <div className="font-mono font-medium text-violet-300">send-price-change-notifications</div>
+                <div className="mt-0.5 text-slate-400">Every 15 min &mdash; price change alerts</div>
+              </div>
+              <div className="rounded border border-slate-800/80 bg-slate-950/40 p-2">
+                <div className="font-mono font-medium text-violet-300">send-rank-notifications</div>
+                <div className="mt-0.5 text-slate-400">Every 70 min &mdash; rank change alerts</div>
+              </div>
+              <div className="rounded border border-slate-800/80 bg-slate-950/40 p-2">
+                <div className="font-mono font-medium text-violet-300">send-unavailable-player-notifications</div>
+                <div className="mt-0.5 text-slate-400">Every 30 min &mdash; inactive player alerts</div>
+              </div>
+            </div>
           </div>
-          <div className="rounded-lg border border-slate-800/80 bg-slate-950/40 p-3">
-            <div className="font-mono font-medium text-amber-400">fetch-matches</div>
-            <div className="mt-1 text-slate-400">Every 6 hours (Match batch header ingest)</div>
+
+          {/* Maintenance & Reconciliation */}
+          <div className="rounded-lg border border-slate-600/30 bg-slate-900/30 p-3">
+            <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400/70 mb-2">Maintenance &amp; Reconciliation</div>
+            <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2 lg:grid-cols-3">
+              <div className="rounded border border-slate-800/80 bg-slate-950/40 p-2">
+                <div className="font-mono font-medium text-emerald-300">auto-resolve-conflicts</div>
+                <div className="mt-0.5 text-slate-400">Daily 03:45 UTC &mdash; auto-resolves provider conflicts</div>
+              </div>
+              <div className="rounded border border-slate-800/80 bg-slate-950/40 p-2">
+                <div className="font-mono font-medium text-slate-300">purge-inactive-data</div>
+                <div className="mt-0.5 text-slate-400">Weekly Sun 04:00 UTC &mdash; removes orphaned records</div>
+              </div>
+              <div className="rounded border border-slate-800/80 bg-slate-950/40 p-2">
+                <div className="font-mono font-medium text-slate-300">backfill-team-logos</div>
+                <div className="mt-0.5 text-slate-400">Daily 05:30 UTC &mdash; resolves missing team logos</div>
+              </div>
+              <div className="rounded border border-slate-800/80 bg-slate-950/40 p-2">
+                <div className="font-mono font-medium text-slate-300">backfill-placeholder-players</div>
+                <div className="mt-0.5 text-slate-400">Daily 06:00 UTC &mdash; resolves placeholder names</div>
+              </div>
+            </div>
           </div>
-          <div className="rounded-lg border border-slate-800/80 bg-slate-950/40 p-3">
-            <div className="font-mono font-medium text-amber-400">fetch-match-details</div>
-            <div className="mt-1 text-slate-400">Every 2 hours (Player fantasy breakdown)</div>
-          </div>
-          <div className="rounded-lg border border-slate-800/80 bg-slate-950/40 p-3">
-            <div className="font-mono font-medium text-amber-400">track-roster-changes</div>
-            <div className="mt-1 text-slate-400">Daily at 05:00 UTC (Transfer window auditing)</div>
-          </div>
-          <div className="rounded-lg border border-amber-500/20 bg-amber-950/20 p-3">
-            <div className="font-mono font-medium text-amber-300">transition-gameweeks</div>
-            <div className="mt-1 text-slate-400">Every 5 min — closes active gameweeks when deadline passes; must run before recalculate-gameweeks</div>
-          </div>
+
         </div>
       </div>
 

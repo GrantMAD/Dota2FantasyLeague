@@ -47,14 +47,15 @@ export async function discoverTournaments(): Promise<DiscoveryResult> {
 
       console.log(`[discoverTournaments] Found ${tournaments.length} tournaments`);
 
-      // Get existing tournaments
+      // Get existing tournaments — keyed by data_provider_id for reliable lookup
       const existingTournaments = await getExistingTournaments();
       const supabase = getSupabaseServerClient();
 
       // Process each tournament
       for (const tournament of tournaments) {
         try {
-          const existing = existingTournaments.get(tournament.id);
+          // Look up by the provider's own ID (stored as data_provider_id)
+          const existing = existingTournaments.get(String(tournament.id));
 
           if (existing) {
             // Update existing tournament
@@ -112,19 +113,27 @@ export async function discoverTournaments(): Promise<DiscoveryResult> {
               ? new Date(tournament.endDate)
               : new Date(startDateObj.getTime() + 14 * 24 * 60 * 60 * 1000);
 
+            const slug = `${tournament.id}-${tournament.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')}`;
+
+            // Use upsert on (season_id, slug) so reruns never crash on duplicates.
+            // If the row already exists (same season + slug) it updates name/tier/sync time.
             const { error } = await supabase
               .from('tournaments')
-              .insert({
-                season_id: seasonId,
-                name: tournament.name,
-                slug: `${tournament.id}-${tournament.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')}`,
-                status: 'provisional',
-                tier: tournament.tier || 'Professional',
-                start_date: startDateObj.toISOString().split('T')[0],
-                end_date: endDateObj.toISOString().split('T')[0],
-                eligible: true,
-                last_synced_at: new Date().toISOString(),
-              });
+              .upsert(
+                {
+                  season_id: seasonId,
+                  name: tournament.name,
+                  slug,
+                  data_provider_id: String(tournament.id),
+                  status: 'provisional',
+                  tier: tournament.tier || 'Professional',
+                  start_date: startDateObj.toISOString().split('T')[0],
+                  end_date: endDateObj.toISOString().split('T')[0],
+                  eligible: true,
+                  last_synced_at: new Date().toISOString(),
+                },
+                { onConflict: 'season_id,slug' }
+              );
 
             if (error) throw error;
             result.discovered++;
@@ -175,7 +184,15 @@ async function getExistingTournaments(): Promise<Map<string, Tournament>> {
 
   const tournamentMap = new Map<string, Tournament>();
   for (const tournament of data || []) {
-    tournamentMap.set(tournament.slug, tournament);
+    // Key by data_provider_id so the lookup in the main loop matches
+    // what the provider returns as tournament.id
+    if (tournament.data_provider_id) {
+      tournamentMap.set(tournament.data_provider_id, tournament);
+    }
+    // Also key by slug as a fallback for manually created tournaments
+    if (tournament.slug) {
+      tournamentMap.set(tournament.slug, tournament);
+    }
   }
 
   return tournamentMap;

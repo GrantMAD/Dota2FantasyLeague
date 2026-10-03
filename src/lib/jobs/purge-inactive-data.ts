@@ -282,10 +282,15 @@ export async function purgeInactiveData(): Promise<PurgeResult> {
       // to preserve historical stats; players without match performances
       // are permanently hard-deleted.
       // -----------------------------------------------------------
+      // Supabase has a default 1000-row response cap. With 94 players × many
+      // matches each the query could be silently truncated, causing players with
+      // performances to be misclassified as safe-to-delete. A high explicit
+      // limit ensures we see all player_id entries for the candidate set.
       const { data: playersWithPerformances } = await supabase
         .from('player_performances')
         .select('player_id')
-        .in('player_id', candidateIds);
+        .in('player_id', candidateIds)
+        .limit(50000);
 
       const protectedIds = new Set(
         ((playersWithPerformances ?? []) as PlayerPerformanceRow[]).map((player) => player.player_id)
@@ -298,25 +303,54 @@ export async function purgeInactiveData(): Promise<PurgeResult> {
         for (let i = 0; i < safeToDeleteIds.length; i += chunkSize) {
           const chunk = safeToDeleteIds.slice(i, i + chunkSize);
 
-          // Delete prices for these players
-          await supabase
-            .from('player_prices')
-            .delete()
-            .in('player_id', chunk);
+          try {
+            // Delete all FK-dependent rows first, in dependency order,
+            // before touching professional_players.
+            // None of these tables have ON DELETE CASCADE so we must clean
+            // them manually or Postgres will reject the player DELETE.
 
-          // Delete the players
-          const { error: delErr } = await supabase
-            .from('professional_players')
-            .delete()
-            .in('id', chunk);
+            // 1. match_player_substitutions (references player via rostered_player_id / stand_in_player_id)
+            await supabase.from('match_player_substitutions').delete().in('rostered_player_id', chunk);
+            await supabase.from('match_player_substitutions').delete().in('stand_in_player_id', chunk);
 
-          if (delErr) {
-            result.errors.push(`Failed to delete player chunk: ${delErr.message}`);
-          } else {
-            result.playersDeleted += chunk.length;
+            // 2. match_player_stats
+            await supabase.from('match_player_stats').delete().in('player_id', chunk);
+
+            // 3. team_roster_history
+            await supabase.from('team_roster_history').delete().in('player_id', chunk);
+
+            // 4. player_transfers (both in and out legs)
+            await supabase.from('player_transfers').delete().in('player_id_out', chunk);
+            await supabase.from('player_transfers').delete().in('player_id_in', chunk);
+
+            // 5. gameweek_scores
+            await supabase.from('gameweek_scores').delete().in('player_id', chunk);
+
+            // 6. player_prices
+            await supabase.from('player_prices').delete().in('player_id', chunk);
+
+            // 7. player_performances (ON DELETE CASCADE propagates to fantasy_points_breakdown)
+            // Safety net: safeToDeleteIds should have no performances, but if the
+            // protectedIds query was still incomplete this prevents the FK violation.
+            await supabase.from('player_performances').delete().in('player_id', chunk);
+
+            // 8. Finally delete the players
+            const { error: delErr } = await supabase
+              .from('professional_players')
+              .delete()
+              .in('id', chunk);
+
+            if (delErr) {
+              result.errors.push(`Failed to delete player chunk: ${delErr.message}`);
+            } else {
+              result.playersDeleted += chunk.length;
+            }
+          } catch (chunkErr) {
+            result.errors.push(`Failed to delete player chunk: ${(chunkErr as Error).message}`);
           }
         }
       }
+
 
       // For protected players with match history, ensure their availability is inactive and team is unassigned
       const protectedArray = Array.from(protectedIds);

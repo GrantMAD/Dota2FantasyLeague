@@ -30,6 +30,7 @@ import { transitionGameweeks } from './transition-gameweeks';
 import { backfillPlaceholderPlayers } from './backfill-placeholder-players';
 import { backfillTeamLogos } from './backfill-team-logos';
 import { purgeInactiveData } from './purge-inactive-data';
+import { autoResolveConflicts } from './auto-resolve-conflicts';
 
 type JobName =
   | 'sync-players'
@@ -51,7 +52,8 @@ type JobName =
   | 'transition-gameweeks'
   | 'backfill-placeholder-players'
   | 'backfill-team-logos'
-  | 'purge-inactive-data';
+  | 'purge-inactive-data'
+  | 'auto-resolve-conflicts';
 
 interface JobDefinition {
   name: JobName;
@@ -211,6 +213,13 @@ const JOBS: JobDefinition[] = [
     handler: purgeInactiveData,
     enabled: process.env.ENABLE_DATA_PURGE !== 'false',
     timeout: 15 * 60 * 1000, // 15 minutes
+  },
+  {
+    name: 'auto-resolve-conflicts',
+    schedule: '45 3 * * *', // Daily at 3:45 AM UTC — after sync-players (3:00) and sync-teams (3:15)
+    handler: autoResolveConflicts,
+    enabled: true,
+    timeout: 5 * 60 * 1000, // 5 minutes
   },
 ];
 
