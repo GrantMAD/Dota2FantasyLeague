@@ -17,6 +17,7 @@ import {
   HelpCircle,
 } from 'lucide-react';
 import { fetchWithAuth } from '@/lib/fetch-with-auth';
+import { useToast } from '@/components/Toast';
 
 interface ProfessionalTeam {
   id: number;
@@ -261,11 +262,15 @@ export default function PlayersPage() {
   }, []);
 
   // ── Fetch players ───────────────────────────────────────────────────────────
+  const toast = useToast();
+  const [error, setError] = useState<string | null>(null);
+
   useEffect(() => {
     let cancelled = false;
 
     async function loadPlayers() {
       setLoading(true);
+      setError(null);
       try {
         const offset = (page - 1) * limit;
         const params = new URLSearchParams({
@@ -279,12 +284,20 @@ export default function PlayersPage() {
         if (teamIdFilter)    params.append('team_id', teamIdFilter.toString());
 
         const res = await fetch(`/api/players?${params.toString()}`);
-        if (!res.ok || cancelled) return;
+        if (!res.ok) {
+          const body = await res.json().catch(() => ({}));
+          throw new Error(body.error || `Failed to fetch players (${res.status})`);
+        }
+        if (cancelled) return;
         const data = (await res.json()) as { data?: Player[]; total?: number };
         setPlayers(data.data || []);
         setTotal(data.total || 0);
-      } catch (err) {
-        if (!cancelled) console.error('Failed to fetch players', err);
+      } catch (err: unknown) {
+        if (!cancelled) {
+          const msg = err instanceof Error ? err.message : 'Failed to fetch players';
+          setError(msg);
+          toast.error('Load Error', msg);
+        }
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -292,7 +305,7 @@ export default function PlayersPage() {
 
     void loadPlayers();
     return () => { cancelled = true; };
-  }, [page, limit, debouncedSearch, roleFilter, teamIdFilter]);
+  }, [page, limit, debouncedSearch, roleFilter, teamIdFilter, toast]);
 
   const totalPages = Math.ceil(total / limit);
 
@@ -492,6 +505,21 @@ export default function PlayersPage() {
                 <tr>
                   <td colSpan={6} className="px-6 py-24 text-center">
                     <div className="inline-block animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-amber-500" />
+                  </td>
+                </tr>
+              ) : error ? (
+                <tr>
+                  <td colSpan={6} className="px-6 py-16 text-center">
+                    <div className="flex flex-col items-center gap-2 text-rose-400">
+                      <p className="font-semibold text-sm">{error}</p>
+                      <button
+                        type="button"
+                        onClick={() => setPage(1)}
+                        className="text-xs text-amber-400 hover:text-amber-300 underline transition-colors"
+                      >
+                        Try refreshing
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ) : displayedPlayers.length === 0 ? (

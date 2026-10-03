@@ -6,22 +6,10 @@ import { ActiveGameweekHero } from './components/ActiveGameweekHero';
 import { GameweekCard } from './components/GameweekCard';
 import { GameweekFilters } from './components/GameweekFilters';
 
-export type GameweekTab = 'all' | 'planning' | 'past';
+import type { GameweekRow } from '@/types/fantasy';
+export type { GameweekRow };
 
-export type GameweekRow = {
-  id: number;
-  season_id: number;
-  gameweek_number: number;
-  start_date: string;
-  end_date: string;
-  deadline: string;
-  status: 'upcoming' | 'active' | 'closed' | 'locked';
-  match_count: number;
-  tournaments: Array<{ id: number; name: string; slug?: string | null }>;
-  flags: Array<{ flag: string; team_id: number; professional_teams?: { id: number; name: string; slug?: string | null; logo_url?: string | null } | null }>;
-  top_scorer: { player_id: number; total_points: number; name: string; in_game_name?: string | null; primary_role?: string | null } | null;
-  user_score: number | null;
-};
+export type GameweekTab = 'all' | 'planning' | 'past';
 
 const isWeekPast = (gw: GameweekRow) => gw.status === 'closed' || gw.status === 'locked';
 

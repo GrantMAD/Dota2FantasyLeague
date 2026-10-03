@@ -6,36 +6,7 @@ import Link from 'next/link';
 import { ArrowLeftRight, CheckCircle2, Minus, Plus } from 'lucide-react';
 import { fetchWithAuth } from '@/lib/fetch-with-auth';
 import { useToast } from '@/components/Toast';
-
-type TransferPlayer = {
-  id: number;
-  name: string;
-  in_game_name: string | null;
-  primary_role: string;
-  profile_image_url: string | null;
-  current_price: number;
-  recent_points?: number | null;
-  gameweek_points?: number | null;
-  availability_status?: string | null;
-  ownership_percentage?: number | null;
-  total_season_points?: number | null;
-  last_gw_points?: number | null;
-  real_name?: string | null;
-  professional_teams?: { name?: string | null; region?: string | null } | null;
-  performances?: TransferPerformance[];
-};
-
-type TransferPerformance = {
-  id: number;
-  gameweek_id: number;
-  kills: number;
-  deaths: number;
-  assists: number;
-  gold_per_minute: number;
-  experience_per_minute: number;
-  matches?: { team_b?: { name?: string | null } | null } | null;
-  fantasy_points_breakdown?: { total_points?: number | null } | null;
-};
+import type { FantasyPlayer as TransferPlayer, PlayerPerformanceRecord as TransferPerformance } from '@/types/fantasy';
 
 // 5 starters + 3 bench = 8 player squad
 const SQUAD_MAX_SIZE = 8;
@@ -163,8 +134,9 @@ export default function TransfersPage() {
 
   // Support and Hard Support are grouped together since pro data doesn't always
   // distinguish Pos 4 from Pos 5 — matches the API's .in() filter behaviour.
-  const roleMatches = (playerRole: string, filter: string): boolean => {
+  const roleMatches = (playerRole: string | null | undefined, filter: string): boolean => {
     if (!filter) return true;
+    if (!playerRole) return false;
     const supportGroup = ['Support', 'Hard Support'];
     if (supportGroup.includes(filter)) return supportGroup.includes(playerRole);
     return playerRole === filter;
@@ -203,7 +175,8 @@ export default function TransfersPage() {
   // Normalise player role for squad slot purposes:
   // 'Hard Support' and 'Support' both map to the 'Support' slot since the DB
   // stores support players under either label interchangeably.
-  const normaliseSlotRole = (role: string): StarterRole => {
+  const normaliseSlotRole = (role?: string | null): StarterRole | '' => {
+    if (!role) return '';
     if (role === 'Hard Support') return 'Support';
     return role as StarterRole;
   };

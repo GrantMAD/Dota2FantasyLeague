@@ -17,6 +17,8 @@ import {
   Shield,
 } from 'lucide-react';
 import { fetchWithAuth } from '@/lib/fetch-with-auth';
+import { useToast } from '@/components/Toast';
+import type { DashboardData, DashboardStarter, LeagueStanding } from '@/types/fantasy';
 
 interface StatCard {
   icon: React.ReactNode;
@@ -26,41 +28,11 @@ interface StatCard {
   trendColor?: string;
 }
 
-interface LeagueStanding {
-  rank: number | null;
-  leagues?: { name?: string } | null;
-}
-
-interface DashboardStarter {
-  id: number;
-  slot: string;
-  name: string;
-  in_game_name?: string | null;
-  primary_role: string;
-  current_price?: number | null;
-  is_captain?: boolean;
-  is_vice_captain?: boolean;
-  team_name?: string | null;
-}
-
-interface DashboardData {
-  activeSquadCount: number;
-  squadValue: number;
-  bankBalance: number;
-  totalPoints: number;
-  globalRank: number | null;
-  freeTransfers: number;
-  squadName?: string;
-  gameweek?: { gameweek_number: number; deadline: string; status: string } | null;
-  captain?: { name: string } | null;
-  viceCaptain?: { name: string } | null;
-  starters?: DashboardStarter[];
-  leagueStandings: LeagueStanding[];
-}
-
 export default function DashboardPage() {
   const router = useRouter();
+  const toast = useToast();
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [stats, setStats] = useState<StatCard[]>([]);
   const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
 
@@ -120,15 +92,17 @@ export default function DashboardPage() {
             trendColor: 'text-amber-500',
           },
         ]);
-      } catch (error) {
-        console.error('Error fetching dashboard stats:', error);
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : 'Error fetching dashboard stats';
+        setError(msg);
+        toast.error('Load Error', msg);
       } finally {
         setLoading(false);
       }
     };
     
     fetchStats();
-  }, [router]);
+  }, [router, toast]);
 
   return (
     <div className="dashboard-page min-h-screen">
@@ -151,6 +125,12 @@ export default function DashboardPage() {
               Manage Squad
             </Link>
           </div>
+
+          {error && (
+            <div className="mb-6 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+              {error}
+            </div>
+          )}
 
           {/* Stats Grid */}
           {loading ? (

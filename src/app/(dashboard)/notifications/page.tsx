@@ -4,18 +4,9 @@ import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { Bell, CheckCircle2, Clock, Sparkles, TrendingUp, Trophy } from 'lucide-react';
 import { useToast } from '@/components/Toast';
+import type { NotificationRecord as Notification } from '@/types/fantasy';
 
 type NotificationCategory = 'all' | 'unread' | 'deadline' | 'market' | 'scoring' | 'league';
-
-interface Notification {
-  id: number;
-  type: string;
-  title: string;
-  message: string;
-  is_read: boolean;
-  created_at: string;
-  metadata?: Record<string, unknown> | null;
-}
 
 const categories: Array<{ key: NotificationCategory; label: string; countKey?: string }> = [
   { key: 'all', label: 'All' },
@@ -63,7 +54,7 @@ export default function NotificationsPage() {
         toast.error('Action Failed', 'Could not mark notification as read');
       }
     } catch (requestError) {
-      console.error('Failed to mark read', requestError);
+      void requestError;
       toast.error('Action Failed', 'Could not mark notification as read');
     }
   };

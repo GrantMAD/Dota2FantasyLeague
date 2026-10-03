@@ -77,8 +77,8 @@ export default function LeaderboardPage() {
             ...data.countries
           ]);
         }
-      } catch (err) {
-        console.error('Failed to fetch countries for filter', err);
+      } catch {
+        // Countries list is optional (used only for filter dropdown); silently ignore failures
       }
     }
     fetchCountries();

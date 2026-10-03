@@ -29,6 +29,7 @@ export default function LeaguesPage() {
   const [tab, setTab] = useState<'classic' | 'h2h'>('classic');
   const [leagues, setLeagues] = useState<LeagueRecord[]>([]);
   const [loading, setLoading] = useState(true);
+  const [pageError, setPageError] = useState<string | null>(null);
 
   // modal state
   const [actionMode, setActionMode] = useState<ActionMode>(null);
@@ -45,11 +46,27 @@ export default function LeaguesPage() {
   const [copiedInvite, setCopiedInvite] = useState(false);
 
   useEffect(() => {
-    void fetchWithAuth('/api/leagues')
-      .then((r) => r.json())
-      .then((p) => setLeagues(p.leagues || p.data || []))
-      .catch(() => setLeagues([]))
-      .finally(() => setLoading(false));
+    async function loadLeagues() {
+      try {
+        setLoading(true);
+        setPageError(null);
+        const res = await fetchWithAuth('/api/leagues');
+        if (!res.ok) {
+          const body = await res.json().catch(() => ({}));
+          throw new Error(body.error || 'Failed to load leagues');
+        }
+        const p = await res.json();
+        setLeagues(p.leagues || p.data || []);
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : 'Failed to load leagues';
+        setPageError(msg);
+        setLeagues([]);
+        toast.error('Load Error', msg);
+      } finally {
+        setLoading(false);
+      }
+    }
+    void loadLeagues();
   }, []);
 
   const visibleLeagues = leagues.filter((l) => l.type === tab);
@@ -206,6 +223,12 @@ export default function LeaguesPage() {
         </div>
       ) : (
         <>
+          {pageError && (
+            <div className="mb-6 rounded-2xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+              {pageError}
+            </div>
+          )}
+
           {/* ── Hero Banner ──────────────────────────────────────────── */}
           {heroLeague && (
             <LeagueHero

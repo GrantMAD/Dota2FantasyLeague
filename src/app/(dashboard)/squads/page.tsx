@@ -4,42 +4,11 @@ import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import { Users } from 'lucide-react';
 import Link from 'next/link';
-
-type SquadPlayer = {
-  id: number;
-  name: string;
-  in_game_name: string | null;
-  primary_role: string | null;
-  profile_image_url: string | null;
-  availability_status: string | null;
-  current_price: number;
-  professional_teams?: { name?: string; slug?: string } | null;
-};
-
-type LineupEntry = {
-  slot: string;
-  player_id: number;
-  is_captain: boolean;
-  is_vice_captain: boolean;
-  professional_players?: SquadPlayer | null;
-};
+import type { FantasyPlayer as SquadPlayer, LineupEntry, PlayerPerformanceRecord as PlayerPerformance } from '@/types/fantasy';
 
 type Gameweek = { id: number; gameweek_number: number };
 
-type PlayerPerformance = {
-  id: number;
-  gameweek_id: number;
-  kills: number;
-  deaths: number;
-  assists: number;
-  fantasy_points_breakdown?: { total_points?: number } | null;
-};
-
-type PlayerDetails = SquadPlayer & {
-  total_season_points?: number;
-  last_gw_points?: number;
-  performances?: PlayerPerformance[];
-};
+type PlayerDetails = SquadPlayer;
 
 export default function SquadsPage() {
   const [lineup, setLineup] = useState<LineupEntry[]>([]);

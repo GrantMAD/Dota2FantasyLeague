@@ -4,36 +4,7 @@ import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import { UserCheck, TrendingUp, TrendingDown, Minus } from 'lucide-react';
 import { useToast } from '@/components/Toast';
-
-type ChipType = 'triple-captain' | 'bench-boost' | null;
-
-type ChipStatus = {
-  tripleCaptainUsed?: boolean;
-  tripleCaptainGameweekId?: number | null;
-  benchBoostUsed?: boolean;
-  benchBoostGameweekId?: number | null;
-};
-
-type LineupPlayer = {
-  id: number;
-  name: string;
-  in_game_name?: string | null;
-  primary_role?: string | null;
-  profile_image_url?: string | null;
-  current_price?: number;
-  last_gw_points?: number;
-  recent_points?: number;
-  form_trend?: 'up' | 'down' | 'flat';
-  professional_teams?: { name?: string | null } | null;
-};
-
-type LineupEntry = {
-  slot: string;
-  player_id: number;
-  is_captain: boolean;
-  is_vice_captain: boolean;
-  professional_players?: LineupPlayer | null;
-};
+import type { ChipType, ChipStatus, FantasyPlayer as LineupPlayer, LineupEntry } from '@/types/fantasy';
 
 const SpinnerIcon = () => (
   <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -86,7 +57,6 @@ export default function LineupsPage() {
           benchBoostGameweekId: data.chips.benchBoostGameweekId,
         } : null);
       } catch (err) {
-        console.error('Failed to fetch fantasy context', err);
         toastError('Load Error', err instanceof Error ? err.message : 'Unable to load fantasy lineup');
       } finally {
         setLoading(false);
