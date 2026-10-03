@@ -159,7 +159,7 @@ export default function SquadsPage() {
     }
 
     return (
-      <div data-guide={slotName === 'carry' ? 'squad-first-player' : undefined} role="button" tabIndex={0} onClick={() => openPlayerDetails(player.id)} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') openPlayerDetails(player.id); }} className="relative flex min-h-24 flex-1 cursor-pointer items-center gap-4 rounded-xl border border-cyan-500/30 bg-slate-800/80 px-4 py-3 shadow-lg transition-colors hover:border-cyan-400/70 hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-cyan-400">
+      <div data-guide={slotName === 'carry' ? 'squad-first-player' : undefined} data-tour={slotName === 'carry' ? 'squad-first-player' : undefined} role="button" tabIndex={0} onClick={() => openPlayerDetails(player.id)} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') openPlayerDetails(player.id); }} className="relative flex min-h-24 flex-1 cursor-pointer items-center gap-4 rounded-xl border border-cyan-500/30 bg-slate-800/80 px-4 py-3 shadow-lg transition-colors hover:border-cyan-400/70 hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-cyan-400">
         <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-full border border-slate-600 bg-slate-700">
           {player.profile_image_url ? (
             <Image src={player.profile_image_url} alt={player.in_game_name || player.name} width={56} height={56} unoptimized className="h-full w-full object-cover" />
@@ -201,7 +201,7 @@ export default function SquadsPage() {
             </div>
           )}
         </div>
-        <div data-guide="squad-actions" className="flex gap-4">
+        <div data-guide="squad-actions" data-tour="squad-actions" className="flex gap-4">
            <Link href="/transfers" className="bg-slate-800 hover:bg-slate-700 border border-slate-600 text-white px-4 py-2 rounded-lg font-medium transition-colors text-sm">
              Make Transfers
            </Link>
@@ -218,7 +218,7 @@ export default function SquadsPage() {
       )}
 
       {/* Role-based squad board */}
-      <div data-guide="squad-pitch" className="mb-8 rounded-2xl border border-slate-700 bg-slate-900/50 p-4 shadow-xl sm:p-6">
+      <div data-guide="squad-pitch" data-tour="squad-pitch" className="mb-8 rounded-2xl border border-slate-700 bg-slate-900/50 p-4 shadow-xl sm:p-6">
         <div className="mb-5 flex items-end justify-between gap-4">
           <div>
             <span data-guide="squad-starters-badge" className="squad-section-label text-xs font-bold uppercase tracking-widest text-cyan-400">Starting Squad</span>
@@ -236,7 +236,7 @@ export default function SquadsPage() {
       </div>
 
       {/* Bench */}
-      <div data-guide="squad-bench" className="rounded-2xl border border-slate-700/70 bg-slate-800/40 p-4 sm:p-6">
+      <div data-guide="squad-bench" data-tour="squad-bench" className="rounded-2xl border border-slate-700/70 bg-slate-800/40 p-4 sm:p-6">
         <div className="mb-5 flex items-end justify-between gap-4">
           <div>
             <span className="squad-section-label text-xs font-bold uppercase tracking-widest text-slate-400">Substitutes</span>

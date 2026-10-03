@@ -144,7 +144,7 @@ export default function DashboardPage() {
               ))}
             </div>
           ) : (
-            <div data-guide="dashboard-stats" className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
+            <div data-guide="dashboard-stats" data-tour="dashboard-stats" className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
               {stats.map((stat, idx) => (
                 <div
                   key={idx}
@@ -192,7 +192,7 @@ export default function DashboardPage() {
           <div className="lg:col-span-2">
             <div className="mb-8">
               <h2 className="text-2xl font-bold text-white mb-6">Quick Actions</h2>
-              <div data-guide="dashboard-actions" className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div data-guide="dashboard-actions" data-tour="dashboard-actions" className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <Link
                   href="/lineups"
                   className="bg-slate-800/50 border border-slate-700 rounded-lg p-6 hover:border-amber-500/50 hover:bg-slate-800 transition-all group"
@@ -377,7 +377,7 @@ export default function DashboardPage() {
           <div className="space-y-6 lg:pt-14">
 
             {/* Upcoming Gameweek */}
-            <div data-guide="dashboard-gameweek" className="bg-slate-800/50 border border-slate-700 rounded-lg p-6">
+            <div data-guide="dashboard-gameweek" data-tour="dashboard-gameweek" className="bg-slate-800/50 border border-slate-700 rounded-lg p-6">
               <div className="flex items-center justify-between gap-3 mb-4">
                 <h3 className="font-semibold text-white">Current Gameweek</h3>
                 {dashboardData?.gameweek?.status === 'active' && (

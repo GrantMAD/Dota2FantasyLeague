@@ -109,7 +109,7 @@ function TeamDropdown({ teams, selectedId, onChange, brokenTeamLogos, onTeamLogo
                 {selected.name.slice(0, 2).toUpperCase()}
               </span>
             )}
-            <span className="truncate max-w-[130px]">{selected.name}</span>
+            <span className="truncate max-w-32.5">{selected.name}</span>
           </>
         ) : (
           <>
@@ -177,7 +177,6 @@ export default function PlayersPage() {
 
   // Team list for the dropdown
   const [teams, setTeams] = useState<ProfessionalTeam[]>([]);
-  const [teamsLoading, setTeamsLoading] = useState(true);
   const [brokenTeamLogos, setBrokenTeamLogos] = useState<Set<number>>(new Set());
 
   // Player logo broken tracking
@@ -216,7 +215,6 @@ export default function PlayersPage() {
   // ── Load teams for dropdown ─────────────────────────────────────────────────
   useEffect(() => {
     async function loadTeams() {
-      setTeamsLoading(true);
       try {
         const res = await fetch('/api/teams?limit=200');
         if (res.ok) {
@@ -228,8 +226,6 @@ export default function PlayersPage() {
         }
       } catch {
         // non-critical
-      } finally {
-        setTeamsLoading(false);
       }
     }
     void loadTeams();
@@ -363,6 +359,7 @@ export default function PlayersPage() {
             <div className="relative grow">
               <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
               <input
+                data-tour="players-search"
                 type="text"
                 placeholder="Search players by name..."
                 value={search}
@@ -393,7 +390,7 @@ export default function PlayersPage() {
           </div>
 
           {/* Row 2: Role pills + Squad toggle + Clear */}
-          <div className="flex flex-wrap items-center gap-2">
+          <div data-tour="players-filters" className="flex flex-wrap items-center gap-2">
             {/* Role label */}
             <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider mr-1 shrink-0">Role:</span>
 
@@ -423,6 +420,7 @@ export default function PlayersPage() {
             {/* My Squad toggle — only shown when user has a squad */}
             {ownedPlayerIds.length > 0 && (
               <button
+                data-tour="players-squad-pin"
                 type="button"
                 onClick={() => setPinOwnedFirst((v) => !v)}
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-semibold transition-all ${
@@ -441,7 +439,7 @@ export default function PlayersPage() {
               <button
                 type="button"
                 onClick={clearAllFilters}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-slate-600 bg-slate-900/70 text-xs font-semibold text-slate-400 hover:text-white hover:border-red-500/50 hover:text-red-400 transition-all ml-auto"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-slate-600 bg-slate-900/70 text-xs font-semibold text-slate-400 hover:border-red-500/50 hover:text-red-400 transition-all ml-auto"
               >
                 <X className="w-3 h-3" />
                 Clear filters
@@ -541,11 +539,12 @@ export default function PlayersPage() {
                   </td>
                 </tr>
               ) : (
-                displayedPlayers.map((player) => {
+                displayedPlayers.map((player, index) => {
                   const isOwned = ownedPlayerIds.includes(player.id);
                   return (
                     <tr
                       key={player.id}
+                      data-tour={index === 0 ? 'players-table-row' : undefined}
                       className={`transition-colors ${
                         isOwned
                           ? 'bg-emerald-950/20 hover:bg-emerald-950/35 border-l-2 border-l-emerald-500'

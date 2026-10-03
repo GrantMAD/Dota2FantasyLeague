@@ -377,6 +377,7 @@ export default function TransfersPage() {
               <div>
                 <label className="block text-xs font-medium text-slate-400 mb-1">Search Player</label>
                 <input
+                  data-tour="transfers-search"
                   type="text"
                   placeholder="e.g. Yatoro, Nisha..."
                   value={search}
@@ -575,6 +576,7 @@ export default function TransfersPage() {
                 </p>
               )}
               <button
+                data-tour="transfers-action"
                 disabled={actionLoading || selectedPlayerIn === null || selectedPlayerOut === null || !rolesMatch}
                 onClick={submitTransfer}
                 className="w-full bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold py-2.5 rounded-lg transition-colors disabled:opacity-50 shadow-md"
@@ -593,7 +595,7 @@ export default function TransfersPage() {
             </div>
           )}
 
-          <div className="bg-slate-800/40 border border-slate-700 rounded-xl overflow-hidden shadow-sm">
+          <div data-tour="transfers-table" className="bg-slate-800/40 border border-slate-700 rounded-xl overflow-hidden shadow-sm">
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse">
                 <thead>

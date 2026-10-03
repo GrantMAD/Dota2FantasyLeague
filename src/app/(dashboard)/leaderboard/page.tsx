@@ -138,6 +138,7 @@ export default function LeaderboardPage() {
         
         <div className="relative bg-slate-800 border border-slate-700 rounded-lg">
            <select 
+              data-tour="leaderboard-filter"
               value={countryFilter}
               onChange={(e) => { setCountryFilter(e.target.value); setPage(1); }}
               className="w-full bg-transparent text-slate-300 text-sm pl-4 pr-10 py-3 focus:outline-none appearance-none cursor-pointer"
@@ -162,7 +163,7 @@ export default function LeaderboardPage() {
         </div>
       )}
 
-      <div className="bg-slate-800/40 border border-slate-700 rounded-xl overflow-hidden shadow-xl">
+      <div data-tour="leaderboard-table" className="bg-slate-800/40 border border-slate-700 rounded-xl overflow-hidden shadow-xl">
          <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse min-w-150">
                <thead>
@@ -199,6 +200,7 @@ export default function LeaderboardPage() {
                         return (
                            <tr
                               key={entry.id}
+                              data-tour={isCurrentUser ? 'leaderboard-you-row' : undefined}
                               onClick={() => setSelectedUser({
                                  manager: managerName,
                                  username: profile?.username || managerName.toLowerCase().replace(/\s+/g, '_'),

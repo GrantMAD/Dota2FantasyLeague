@@ -2,8 +2,10 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { Suspense } from "react";
 import { ThemeProvider } from "@/components/theme/ThemeProvider";
-import { PageGuideOverlay } from "../components/PageGuideOverlay";
 import { SessionProvider } from "@/components/SessionProvider";
+import { PageTour } from "@/components/PageTour";
+import { TourTriggerButton } from "@/components/TourTriggerButton";
+import { TourProvider } from "@/context/TourContext";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -34,10 +36,13 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       <body className="min-h-screen bg-linear-to-br from-slate-950 to-slate-900 text-white">
         <ThemeProvider>
           <SessionProvider>
-            {children}
-            <Suspense fallback={null}>
-              <PageGuideOverlay />
-            </Suspense>
+            <TourProvider>
+              {children}
+              <Suspense fallback={null}>
+                <PageTour />
+                <TourTriggerButton />
+              </Suspense>
+            </TourProvider>
           </SessionProvider>
         </ThemeProvider>
       </body>

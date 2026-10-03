@@ -19,6 +19,7 @@ export function LeagueCard({ league, onClick }: LeagueCardProps) {
 
   return (
     <div
+      data-tour="leagues-card"
       onClick={onClick}
       className={`group cursor-pointer rounded-2xl border p-5 shadow-lg shadow-slate-950/30 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-xl bg-slate-950/60 ${borderTone}`}
     >
@@ -79,7 +80,7 @@ export function LeagueCard({ league, onClick }: LeagueCardProps) {
             <div className="flex h-6 w-6 items-center justify-center rounded-full bg-amber-500/20 text-[10px] font-bold text-amber-400 border border-amber-500/30">
               #1
             </div>
-            <span className="truncate text-xs text-slate-300 max-w-[120px]">{topEntry.manager}</span>
+            <span className="truncate text-xs text-slate-300 max-w-30">{topEntry.manager}</span>
             <span className="font-mono text-xs font-bold text-amber-400">{topEntry.points}pts</span>
           </div>
         ) : (

@@ -253,6 +253,7 @@ export default function LineupsPage() {
               <button
                 type="button"
                 data-guide="lineup-save-btn"
+                data-tour="lineup-save-btn"
                 onClick={saveLineup}
                 disabled={saving || !isLineupReady || lineupLocked}
                 className="rounded-lg bg-amber-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50 transition-opacity"
@@ -290,7 +291,7 @@ export default function LineupsPage() {
             ) : (
               <div className="space-y-8">
                 {/* Starting 5 */}
-                <div data-guide="lineup-starters">
+                <div data-guide="lineup-starters" data-tour="lineup-starters">
                   <div className="flex items-center justify-between mb-3">
                     <h3 className="text-xs font-bold uppercase tracking-wider text-amber-400 flex items-center gap-2">
                       <span className="h-2 w-2 rounded-full bg-emerald-400"></span>
@@ -311,7 +312,7 @@ export default function LineupsPage() {
                   </div>
 
                   {/* Captain & Vice-Captain Controls */}
-                  <div data-guide="lineup-captain-controls" className="mb-4 grid grid-cols-1 gap-3 rounded-lg border border-slate-700 bg-slate-900/60 p-4 md:grid-cols-2">
+                  <div data-guide="lineup-captain-controls" data-tour="lineup-captain-controls" className="mb-4 grid grid-cols-1 gap-3 rounded-lg border border-slate-700 bg-slate-900/60 p-4 md:grid-cols-2">
                     <div>
                       <div className="flex items-center justify-between mb-2">
                         <label className="block text-xs font-bold uppercase tracking-wider text-amber-400">Captain · 2x points</label>
@@ -456,7 +457,7 @@ export default function LineupsPage() {
                   </div>
 
                 {/* Bench Substitutes */}
-                <div data-guide="lineup-bench" className="border-t border-slate-700/70 pt-6">
+                <div data-guide="lineup-bench" data-tour="lineup-bench" className="border-t border-slate-700/70 pt-6">
                   <div className="flex items-center justify-between mb-3">
                     <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-2">
                       <span className="h-2 w-2 rounded-full bg-amber-400"></span>
@@ -543,7 +544,7 @@ export default function LineupsPage() {
         </div>
 
         {/* Chips sidebar */}
-        <div data-guide="lineup-chips" className="lg:col-span-1 space-y-4">
+        <div data-guide="lineup-chips" data-tour="lineup-chips" className="lg:col-span-1 space-y-4">
           {/* Triple Captain */}
           <div className="lineup-chip-card lineup-chip-purple bg-purple-900/20 border border-purple-700/50 rounded-xl p-5">
             <h3 className="font-semibold text-purple-400 mb-2 text-sm flex items-center justify-between">

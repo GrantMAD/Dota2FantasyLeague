@@ -161,7 +161,7 @@ export default function LeaguesPage() {
   const h2hCount = leagues.filter((l) => l.type === 'h2h').length;
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-10">
+    <div data-tour="leagues-my-leagues" className="max-w-7xl mx-auto px-4 py-10">
       {/* ── Page Header ──────────────────────────────────────────── */}
       <div className="mb-8 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
         <div>
@@ -179,6 +179,7 @@ export default function LeaguesPage() {
 
         <div className="flex shrink-0 items-center gap-3">
           <button
+            data-tour="leagues-join"
             type="button"
             onClick={() => setActionMode('join')}
             className="inline-flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-900/80 px-3 py-2 text-sm font-medium text-slate-200 transition hover:border-slate-500 hover:text-white"
@@ -187,6 +188,7 @@ export default function LeaguesPage() {
             Join with Code
           </button>
           <button
+            data-tour="leagues-create"
             type="button"
             onClick={() => setActionMode('create')}
             className="inline-flex items-center gap-2 rounded-xl border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm font-medium text-amber-300 transition hover:border-amber-400 hover:bg-amber-500/15"
