@@ -1,7 +1,8 @@
 'use client';
 
 import Image from 'next/image';
-import { X } from 'lucide-react';
+import Link from 'next/link';
+import { X, ExternalLink } from 'lucide-react';
 import type { SquadPlayer } from './SquadPlayerCard';
 
 type PlayerPerformance = {
@@ -179,6 +180,18 @@ export function PlayerDetailModal({ player, loading, onClose }: PlayerDetailModa
               No recent match performance data recorded for this season yet.
             </div>
           )}
+        </div>
+
+        {/* View Full Profile Link */}
+        <div className="mt-6 flex justify-end">
+          <Link
+            href={`/players/${player.id}`}
+            onClick={onClose}
+            className="inline-flex items-center gap-1.5 rounded-xl border border-teal-500/30 bg-teal-500/10 px-4 py-2 text-xs font-semibold text-teal-300 transition hover:bg-teal-500/20"
+          >
+            <span>View Full Player Profile</span>
+            <ExternalLink className="h-3.5 w-3.5" />
+          </Link>
         </div>
       </div>
     </div>

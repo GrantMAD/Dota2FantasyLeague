@@ -97,16 +97,29 @@ export interface LineupEntry {
 /**
  * Starter summary representation used in dashboard widgets.
  */
+export interface ScoreBreakdown {
+  combat: number;
+  economy: number;
+  objective: number;
+  win: number;
+  performance: number;
+  total: number;
+}
+
 export interface DashboardStarter {
   id: number;
   slot: string;
   name: string;
   in_game_name?: string | null;
   primary_role: string;
+  profile_image_url?: string | null;
   current_price?: number | null;
   is_captain?: boolean;
   is_vice_captain?: boolean;
   team_name?: string | null;
+  // Gameweek scoring (populated when a closed/active GW has breakdown data)
+  gw_points?: number | null;
+  score_breakdown?: ScoreBreakdown | null;
 }
 
 /**

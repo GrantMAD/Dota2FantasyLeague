@@ -227,9 +227,13 @@ export async function fetchMatchDetails(): Promise<FetchDetailsResult> {
             result.scored += statsToInsert.length;
 
             // Mark match as having details fetched, and store duration / winner if available
+            // Also force status = 'completed' so process-completed-matches can always find this
+            // match, regardless of whether it was ingested via the automated flow or the admin
+            // Sync Now button (which may leave status as 'scheduled' or 'live').
             const updateMatchPayload: Record<string, unknown> = {
               detailed_stats_fetched_at: new Date().toISOString(),
               last_synced_at: new Date().toISOString(),
+              status: 'completed',
             };
 
             if (details.duration) {

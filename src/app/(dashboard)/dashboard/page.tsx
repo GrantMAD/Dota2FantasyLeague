@@ -15,10 +15,12 @@ import {
   Zap,
   Megaphone,
   Shield,
+  Info,
 } from 'lucide-react';
 import { fetchWithAuth } from '@/lib/fetch-with-auth';
 import { useToast } from '@/components/Toast';
 import type { DashboardData, DashboardStarter, LeagueStanding } from '@/types/fantasy';
+import { PlayerDetailModal, type PlayerDetails } from '@/app/(dashboard)/squads/components/PlayerDetailModal';
 
 interface StatCard {
   icon: React.ReactNode;
@@ -35,6 +37,30 @@ export default function DashboardPage() {
   const [error, setError] = useState<string | null>(null);
   const [stats, setStats] = useState<StatCard[]>([]);
   const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
+  const [selectedPlayer, setSelectedPlayer] = useState<PlayerDetails | null>(null);
+  const [playerLoading, setPlayerLoading] = useState(false);
+
+  useEffect(() => {
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setSelectedPlayer(null);
+    };
+    document.addEventListener('keydown', closeOnEscape);
+    return () => document.removeEventListener('keydown', closeOnEscape);
+  }, []);
+
+  const openPlayerDetails = async (playerId: number) => {
+    setPlayerLoading(true);
+    try {
+      const response = await fetch(`/api/players/${playerId}`);
+      if (!response.ok) throw new Error('Unable to load player details');
+      const data = (await response.json()) as { player: PlayerDetails };
+      setSelectedPlayer(data.player);
+    } catch (detailError) {
+      toast.error(detailError instanceof Error ? detailError.message : 'Unable to load player details');
+    } finally {
+      setPlayerLoading(false);
+    }
+  };
 
   useEffect(() => {
     const fetchStats = async () => {
@@ -169,7 +195,7 @@ export default function DashboardPage() {
 
       {/* Main Content */}
       <section className="max-w-7xl mx-auto px-4 py-12">
-        {/* What's New — full width */}
+        {/* What's New â€” full width */}
         <div className="dashboard-whats-new relative overflow-hidden rounded-xl mb-8 border border-amber-500/30 bg-linear-to-r from-amber-500/10 via-slate-800/80 to-slate-800/50 px-8 py-6 flex items-center gap-6 flex-wrap shadow-lg shadow-amber-500/5">
           {/* Left accent bar */}
           <div className="absolute left-0 top-0 bottom-0 w-1 bg-linear-to-b from-amber-400 to-orange-600 rounded-l-xl" />
@@ -183,7 +209,7 @@ export default function DashboardPage() {
           <div className="flex items-center gap-3">
             <span className="dashboard-whats-new-title text-amber-400 font-semibold text-sm">Season 2026 Starts</span>
             <span className="dashboard-whats-new-divider text-slate-600">|</span>
-            <span className="dashboard-whats-new-desc text-slate-300 text-sm">Fantasy season 2026 is now live — build your squad and compete!</span>
+            <span className="dashboard-whats-new-desc text-slate-300 text-sm">Fantasy season 2026 is now live â€” build your squad and compete!</span>
           </div>
         </div>
 
@@ -271,104 +297,273 @@ export default function DashboardPage() {
                 </Link>
               </div>
             ) : (
-              <div className="bg-slate-800/40 border border-slate-700 rounded-xl p-6 shadow-sm">
-                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-5 border-b border-slate-700/80">
+              <div className="rounded-2xl p-5 shadow-sm"
+                style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
+
+                {/* Panel header */}
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-5 mb-5"
+                  style={{ borderBottom: '1px solid var(--border)' }}>
                   <div>
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="p-1 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20 flex items-center justify-center">
-                        <Shield className="w-4 h-4" />
-                      </span>
-                      <h3 className="text-lg font-bold text-white">
+                    <div className="flex items-center gap-2.5 mb-1">
+                      <div className="flex h-8 w-8 items-center justify-center rounded-xl"
+                        style={{ background: 'color-mix(in srgb, var(--accent-primary) 12%, transparent)', border: '1px solid color-mix(in srgb, var(--accent-primary) 30%, transparent)' }}>
+                        <Shield className="h-4 w-4" style={{ color: 'var(--accent-primary)' }} />
+                      </div>
+                      <h3 className="text-base font-bold" style={{ color: 'var(--text-primary)' }}>
                         {dashboardData.squadName || 'Active Squad'}
                       </h3>
-                      <span className="px-2 py-0.5 text-xs font-semibold rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                      <span className="rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider"
+                        style={{ background: 'color-mix(in srgb, var(--success) 12%, transparent)', color: 'var(--success)', border: '1px solid color-mix(in srgb, var(--success) 30%, transparent)' }}>
                         Active
                       </span>
                     </div>
-                    <p className="text-xs text-slate-400">
-                      Gameweek {dashboardData.gameweek?.gameweek_number || 1} • 5 Starters • Squad Value: ${Number(dashboardData.squadValue || 0).toFixed(1)}M
+                    <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                      Gameweek {dashboardData.gameweek?.gameweek_number || 1} &nbsp;&middot;&nbsp; 5 Starters &nbsp;&middot;&nbsp; Squad Value: ${Number(dashboardData.squadValue || 0).toFixed(1)}M
                     </p>
                   </div>
 
-                  <div className="flex items-center gap-2">
+                  <div className="flex shrink-0 items-center gap-2">
                     <Link
                       href="/lineups"
-                      className="px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-amber-500 text-white hover:bg-amber-600 transition-colors shadow-sm"
+                      className="rounded-xl px-3.5 py-1.5 text-xs font-bold text-white shadow-sm transition hover:opacity-90"
+                      style={{ background: 'var(--accent-primary)' }}
                     >
                       Edit Lineup
                     </Link>
                     <Link
                       href="/squads"
-                      className="px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-slate-700 hover:bg-slate-600 text-slate-200 transition-colors"
+                      className="rounded-xl px-3.5 py-1.5 text-xs font-semibold transition hover:opacity-80"
+                      style={{ background: 'var(--surface-raised)', color: 'var(--text-secondary)', border: '1px solid var(--border)' }}
                     >
-                      View Full Squad
+                      Full Squad
                     </Link>
                   </div>
                 </div>
 
-                {/* Starting 5 Lineup Strip */}
-                <div className="pt-5">
-                  <div className="flex items-center justify-between mb-3">
-                    <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-400">
-                      Starting Five Lineup
-                    </h4>
-                    <span className="text-xs text-slate-400">
-                      {dashboardData.starters && dashboardData.starters.length > 0 ? `${dashboardData.starters.length}/5 Selected` : 'Ready to configure'}
+                {/* Section label */}
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[11px] font-bold uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>
+                      Starting Five
                     </span>
+                    {dashboardData.starters && dashboardData.starters.some(s => s.gw_points != null) && (
+                      <span className="rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider"
+                        style={{ background: 'color-mix(in srgb, var(--accent-primary) 12%, transparent)', color: 'var(--accent-primary)', border: '1px solid color-mix(in srgb, var(--accent-primary) 25%, transparent)' }}>
+                        Live Scores
+                      </span>
+                    )}
                   </div>
+                  <span className="text-[11px]" style={{ color: 'var(--text-muted)' }}>
+                    {dashboardData.starters && dashboardData.starters.length > 0
+                      ? `${dashboardData.starters.length} / 5 set`
+                      : 'Not configured'}
+                  </span>
+                </div>
 
-                  {dashboardData.starters && dashboardData.starters.length > 0 ? (
-                    <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-                      {dashboardData.starters.map((player) => (
+                {dashboardData.starters && dashboardData.starters.length > 0 ? (
+                  <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+                    {[...dashboardData.starters].sort((a, b) => {
+                      const getRank = (p: typeof a) => {
+                        if (p.is_captain) return 0;
+                        if (p.is_vice_captain) return 1;
+                        return 2;
+                      };
+                      return getRank(a) - getRank(b);
+                    }).map((player) => {
+                      const roleColours: Record<string, { bg: string; text: string; border: string }> = {
+                        carry:        { bg: 'rgba(251,113,133,0.12)', text: '#fb7185', border: 'rgba(251,113,133,0.28)' },
+                        mid:          { bg: 'rgba(251,191,36,0.12)',  text: '#f59e0b', border: 'rgba(251,191,36,0.28)' },
+                        offlane:      { bg: 'rgba(52,211,153,0.12)',  text: '#34d399', border: 'rgba(52,211,153,0.28)' },
+                        support:      { bg: 'rgba(96,165,250,0.12)',  text: '#60a5fa', border: 'rgba(96,165,250,0.28)' },
+                        hard_support: { bg: 'rgba(167,139,250,0.12)', text: '#a78bfa', border: 'rgba(167,139,250,0.28)' },
+                      };
+                      const rc = roleColours[player.slot] ?? { bg: 'rgba(148,163,184,0.12)', text: '#94a3b8', border: 'rgba(148,163,184,0.28)' };
+                      const displayName = player.in_game_name || player.name;
+                      const initials = displayName.substring(0, 2).toUpperCase();
+                      const roleLabel = player.slot.replace('_', ' ');
+
+                      return (
                         <div
                           key={player.id}
-                          className="relative rounded-lg border border-slate-700/80 bg-slate-850 p-3 hover:border-slate-600 transition-all flex flex-col justify-between"
+                          onClick={() => openPlayerDetails(player.id)}
+                          role="button"
+                          tabIndex={0}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                              e.preventDefault();
+                              openPlayerDetails(player.id);
+                            }
+                          }}
+                          className="relative flex flex-col rounded-2xl overflow-visible transition-all duration-200 hover:-translate-y-0.5 hover:shadow-xl hover:z-20 cursor-pointer select-none"
+                          style={{ background: 'var(--surface-raised)', border: '1px solid var(--border)' }}
                         >
+                          {/* Role-coloured top accent bar */}
+                          <div className="h-[3px] w-full rounded-t-2xl" style={{ background: `linear-gradient(90deg, ${rc.text}, transparent)` }} />
+
+                          {/* Captain / VC badge */}
                           {player.is_captain && (
-                            <span className="absolute -top-2 -right-1 px-1.5 py-0.5 rounded text-[10px] font-black bg-amber-500 text-slate-950 shadow-sm">
+                            <span className="absolute -top-2 right-2 z-10 flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-black shadow-md"
+                              style={{ background: 'var(--accent-primary)', color: 'var(--background)' }}>
                               C
                             </span>
                           )}
                           {player.is_vice_captain && (
-                            <span className="absolute -top-2 -right-1 px-1.5 py-0.5 rounded text-[10px] font-black bg-cyan-500 text-slate-950 shadow-sm">
-                              VC
+                            <span className="absolute -top-2 right-2 z-10 flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-black shadow-md"
+                              style={{ background: 'var(--accent-secondary)', color: 'var(--background)' }}>
+                              V
                             </span>
                           )}
 
-                          <div>
-                            <span className="text-[10px] uppercase font-bold text-amber-400/90 tracking-wide block mb-1">
-                              {player.slot.replace('_', ' ')}
-                            </span>
-                            <p className="text-sm font-bold text-white truncate" title={player.in_game_name || player.name}>
-                              {player.in_game_name || player.name}
-                            </p>
-                            <p className="text-[11px] text-slate-400 truncate">
-                              {player.team_name || 'Free Agent'}
-                            </p>
+                          <div className="flex flex-col gap-2 p-3 flex-1">
+                            {/* Avatar */}
+                            <div className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl overflow-hidden text-sm font-black"
+                              style={{ background: rc.bg, border: `1px solid ${rc.border}`, color: rc.text }}>
+                              {player.profile_image_url ? (
+                                // eslint-disable-next-line @next/next/no-img-element
+                                <img
+                                  src={player.profile_image_url}
+                                  alt={displayName}
+                                  className="h-full w-full object-cover object-top"
+                                  onError={(e) => {
+                                    (e.currentTarget as HTMLImageElement).style.display = 'none';
+                                    (e.currentTarget.nextSibling as HTMLElement | null)?.removeAttribute('hidden');
+                                  }}
+                                />
+                              ) : null}
+                              <span hidden={!!player.profile_image_url}>{initials}</span>
+                            </div>
+
+                            {/* Player name + team */}
+                            <div className="min-w-0">
+                              <p className="truncate text-[13px] font-bold leading-snug"
+                                style={{ color: 'var(--text-primary)' }}
+                                title={displayName}>
+                                {displayName}
+                              </p>
+                              <p className="mt-0.5 truncate text-[11px]" style={{ color: 'var(--text-muted)' }}>
+                                {player.team_name || 'Free Agent'}
+                              </p>
+                            </div>
+
+                            {/* Role pill on its own row (tightened spacing) */}
+                            <div>
+                              <span className="inline-block rounded-md px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide leading-none"
+                                style={{ background: rc.bg, border: `1px solid ${rc.border}`, color: rc.text }}>
+                                {roleLabel}
+                              </span>
+                            </div>
                           </div>
 
-                          <div className="mt-3 pt-2 border-t border-slate-700/50 flex items-center justify-between text-[11px]">
-                            <span className="text-slate-400">Price</span>
-                            <span className="font-semibold text-emerald-400">
-                              ${Number(player.current_price || 0).toFixed(1)}M
-                            </span>
+                          {/* Footer — always same structure: GW pts row + price row */}
+                          <div className="mt-auto px-3 pb-3">
+                            <div className="relative group/tooltip rounded-xl px-2.5 py-2"
+                              style={{ background: 'var(--surface-muted)', border: '1px solid var(--border)' }}>
+
+                              {/* Info hint indicator icon positioned half-in half-off the top-right corner */}
+                              <div
+                                className="absolute -top-2 -right-2 z-10 flex h-4 w-4 items-center justify-center rounded-full text-[10px] font-bold shadow-md transition-transform duration-150 group-hover/tooltip:scale-110"
+                                style={{
+                                  background: 'var(--accent-secondary, #f59e0b)',
+                                  color: 'var(--background, #0f172a)',
+                                  border: '1.5px solid var(--surface-raised, #1e293b)'
+                                }}
+                                title="Score breakdown info"
+                              >
+                                <Info className="h-2.5 w-2.5" />
+                              </div>
+
+                              {/* Row 1: GW Points */}
+                              <div className="flex items-center justify-between">
+                                <span className="text-[10px] font-medium" style={{ color: 'var(--text-muted)' }}>GW Pts</span>
+                                {player.gw_points != null ? (
+                                  <span className="font-mono text-sm font-black" style={{ color: 'var(--accent-primary)' }}>
+                                    {player.is_captain
+                                      ? (player.gw_points * 2).toFixed(1)
+                                      : player.gw_points.toFixed(1)}
+                                    {player.is_captain && (
+                                      <span className="ml-0.5 text-[9px] font-bold opacity-60">&times;2</span>
+                                    )}
+                                  </span>
+                                ) : (
+                                  <span className="font-mono text-sm font-semibold" style={{ color: 'var(--text-muted)', opacity: 0.4 }}>—</span>
+                                )}
+                              </div>
+
+                              {/* Row 2: Price — always present */}
+                              <div className="mt-0.5 flex items-center justify-between">
+                                <span className="text-[10px] font-medium" style={{ color: 'var(--text-muted)' }}>Price</span>
+                                <span className="font-mono text-[11px] font-semibold" style={{ color: 'var(--success)' }}>
+                                  ${Number(player.current_price || 0).toFixed(1)}M
+                                </span>
+                              </div>
+
+                              {/* Score breakdown tooltip */}
+                              <div
+                                className="pointer-events-none absolute bottom-full right-0 z-30 mb-2 hidden w-52 rounded-2xl p-3 shadow-2xl group-hover/tooltip:block"
+                                style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
+                                <p className="mb-2 text-[10px] font-bold uppercase tracking-widest"
+                                  style={{ color: 'var(--text-muted)' }}>
+                                  Score Breakdown
+                                </p>
+                                {player.score_breakdown ? (
+                                  <>
+                                    {([
+                                      ['\u2694\uFE0F Combat',    player.score_breakdown.combat],
+                                      ['\uD83D\uDCB0 Economy',   player.score_breakdown.economy],
+                                      ['\uD83C\uDFC6 Objective', player.score_breakdown.objective],
+                                      ['\uD83C\uDFC5 Win',       player.score_breakdown.win],
+                                      ['\uD83D\uDCCA Perf.',     player.score_breakdown.performance],
+                                    ] as [string, number][]).map(([label, val]) => (
+                                      <div key={label} className="flex items-center justify-between py-[3px] text-[11px]">
+                                        <span style={{ color: 'var(--text-secondary)' }}>{label}</span>
+                                        <span className="font-mono font-semibold"
+                                          style={{ color: val >= 0 ? 'var(--text-primary)' : 'var(--danger)' }}>
+                                          {val >= 0 ? '+' : ''}{val.toFixed(1)}
+                                        </span>
+                                      </div>
+                                    ))}
+                                    <div className="mt-2 flex items-center justify-between border-t pt-2 text-[11px]"
+                                      style={{ borderColor: 'var(--border)' }}>
+                                      <span className="font-semibold" style={{ color: 'var(--text-secondary)' }}>Total</span>
+                                      <span className="font-mono font-black" style={{ color: 'var(--accent-primary)' }}>
+                                        {player.score_breakdown.total.toFixed(1)} pts
+                                      </span>
+                                    </div>
+                                  </>
+                                ) : (
+                                  <p className="text-xs leading-relaxed py-1" style={{ color: 'var(--text-muted)' }}>
+                                    This player does not yet have any fantasy points.
+                                  </p>
+                                )}
+                              </div>
+                            </div>
                           </div>
                         </div>
-                      ))}
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center rounded-2xl border border-dashed py-12 text-center"
+                    style={{ borderColor: 'var(--border)', background: 'var(--surface-muted)' }}>
+                    <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl"
+                      style={{ background: 'var(--surface-raised)', border: '1px solid var(--border)' }}>
+                      <Shield className="h-7 w-7" style={{ color: 'var(--text-muted)' }} />
                     </div>
-                  ) : (
-                    <div className="rounded-lg border border-dashed border-slate-700 p-6 text-center">
-                      <p className="text-sm text-slate-300 font-medium mb-1">No starting 5 set for this gameweek yet</p>
-                      <p className="text-xs text-slate-400 mb-4">Pick your 5 starters and captain to start accumulating points</p>
-                      <Link
-                        href="/lineups"
-                        className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-semibold bg-amber-500 text-white hover:bg-amber-600 transition-colors"
-                      >
-                        Set Starting Lineup →
-                      </Link>
-                    </div>
-                  )}
-                </div>
+                    <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
+                      No lineup set yet
+                    </p>
+                    <p className="mt-1 mb-6 max-w-[26ch] text-xs leading-relaxed" style={{ color: 'var(--text-muted)' }}>
+                      Pick your 5 starters and a captain to start accumulating points this gameweek
+                    </p>
+                    <Link
+                      href="/lineups"
+                      className="inline-flex items-center gap-1.5 rounded-xl px-5 py-2 text-xs font-bold text-white shadow-sm transition hover:opacity-90"
+                      style={{ background: 'var(--accent-primary)' }}
+                    >
+                      Set Starting Lineup &rarr;
+                    </Link>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -440,13 +635,20 @@ export default function DashboardPage() {
                 href="/leagues"
                 className="block text-center text-amber-500 hover:text-orange-600 text-sm font-semibold mt-4"
               >
-                View Leaderboards →
+                View Leaderboards â†’
               </Link>
             </div>
 
           </div>
         </div>
       </section>
+
+      {/* Player Detail Modal */}
+      <PlayerDetailModal
+        player={selectedPlayer}
+        loading={playerLoading}
+        onClose={() => setSelectedPlayer(null)}
+      />
     </div>
   );
 }

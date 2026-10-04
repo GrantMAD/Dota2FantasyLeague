@@ -113,6 +113,7 @@ export async function GET(request: NextRequest) {
       name: string;
       in_game_name: string | null;
       primary_role: string;
+      profile_image_url: string | null;
       professional_teams: { name: string } | null;
     };
 
@@ -129,7 +130,7 @@ export async function GET(request: NextRequest) {
       allDetailPlayerIds.length > 0
         ? (supabase
             .from('professional_players')
-            .select('id, name, in_game_name, primary_role, professional_teams(name)')
+            .select('id, name, in_game_name, primary_role, profile_image_url, professional_teams(name)')
             .in('id', allDetailPlayerIds) as unknown as Promise<{ data: StarterQueryPlayer[] | null }>)
         : Promise.resolve({ data: [] }),
     ]);
@@ -161,7 +162,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Resolve starters
-    const starters = lineupRow
+    const starterObjects = lineupRow
       ? slots
           .map((slot) => {
             const pid = lineupRow[`${slot}_id`];
@@ -173,14 +174,68 @@ export async function GET(request: NextRequest) {
               name: p.name,
               in_game_name: p.in_game_name,
               primary_role: p.primary_role,
+              profile_image_url: p.profile_image_url || null,
               current_price: latestPrices.get(p.id) ?? 0,
               is_captain: lineupRow.captain_player_id === p.id,
               is_vice_captain: lineupRow.vice_captain_player_id === p.id,
               team_name: p.professional_teams?.name || null,
+              gw_points: null as number | null,
+              score_breakdown: null as {
+                combat: number; economy: number; objective: number;
+                win: number; performance: number; total: number;
+              } | null,
             };
           })
           .filter(Boolean)
       : [];
+
+    // Fetch GW score breakdowns for starters when a gameweek is available
+    if (gameweek && starterObjects.length > 0) {
+      type BreakdownRow = {
+        player_id: number;
+        fantasy_points_breakdown: {
+          combat_points: number | null;
+          economy_points: number | null;
+          objective_points: number | null;
+          win_points: number | null;
+          performance_index_points: number | null;
+          total_points: number | null;
+        } | null;
+      };
+      const starterPlayerIds = starterObjects.map((s) => s!.id);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: perfRows } = await (supabase.from('player_performances') as any)
+        .select('player_id, fantasy_points_breakdown(combat_points, economy_points, objective_points, win_points, performance_index_points, total_points)')
+        .eq('gameweek_id', gameweek.id)
+        .in('player_id', starterPlayerIds);
+
+      if (perfRows && Array.isArray(perfRows)) {
+        const breakdownMap = new Map<number, BreakdownRow['fantasy_points_breakdown']>();
+        (perfRows as BreakdownRow[]).forEach((row) => {
+          if (row.fantasy_points_breakdown) {
+            breakdownMap.set(row.player_id, row.fantasy_points_breakdown);
+          }
+        });
+
+        starterObjects.forEach((starter) => {
+          if (!starter) return;
+          const bd = breakdownMap.get(starter.id);
+          if (bd) {
+            starter.gw_points = Number(bd.total_points ?? 0);
+            starter.score_breakdown = {
+              combat: Number(bd.combat_points ?? 0),
+              economy: Number(bd.economy_points ?? 0),
+              objective: Number(bd.objective_points ?? 0),
+              win: Number(bd.win_points ?? 0),
+              performance: Number(bd.performance_index_points ?? 0),
+              total: Number(bd.total_points ?? 0),
+            };
+          }
+        });
+      }
+    }
+
+    const starters = starterObjects;
 
     const response = NextResponse.json({
       fantasySeasonId: fantasySeason.id,

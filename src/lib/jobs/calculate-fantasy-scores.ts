@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import { recalculateGameweeks } from './recalculate-gameweeks';
 
 interface JobResult {
   success: boolean;
@@ -481,6 +482,19 @@ export class FantasyScoreCalculator {
       result.gameweeksUpdated = updatedGameweeks.size;
       result.success = true;
       console.log(`[CalculateScores] Completed in ${Date.now() - startTime}ms. Calculated ${result.scoresCalculated} scores across ${result.gameweeksUpdated} gameweeks.`);
+
+      // Immediately update fantasy_seasons.total_points so the dashboard reflects fresh
+      // scores without waiting for the next recalculate-gameweeks cron slot.
+      if (result.scoresCalculated > 0) {
+        console.log('[CalculateScores] Chaining recalculate-gameweeks to refresh season totals...');
+        try {
+          await recalculateGameweeks();
+          console.log('[CalculateScores] Season totals refreshed successfully.');
+        } catch (gwErr: unknown) {
+          // Non-fatal — scores are written; totals will catch up on the next cron run.
+          console.warn('[CalculateScores] recalculate-gameweeks chain failed (non-fatal):', gwErr);
+        }
+      }
     } catch (err: unknown) {
       result.errors.push(`Fatal error in score calculation job: ${errorMessage(err)}`);
       console.error('Score calculation job failed:', err);
