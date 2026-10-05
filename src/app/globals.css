@@ -273,6 +273,15 @@ body {
   color: #0f766e !important;
 }
 
+[data-theme='light'] .dashboard-hero {
+  background: var(--background) !important;
+  border-color: var(--border) !important;
+}
+
+[data-theme='light'] .dashboard-hero-title {
+  color: var(--text-primary) !important;
+}
+
 [data-theme='light'] .profile-card .bg-slate-800\/50 {
   background-color: #d5e2ec !important;
 }
@@ -292,7 +301,6 @@ body {
 [data-theme='light'] .text-gray-400 { color: var(--text-muted) !important; }
 [data-theme='light'] .text-slate-500,
 [data-theme='light'] .text-gray-500 { color: var(--text-muted) !important; }
-[data-theme='light'] .dashboard-hero-title { color: #f5f7fb !important; }
 [data-theme='light'] .squad-section-label { color: #087f78 !important; }
 [data-theme='light'] .squad-card-muted { color: #456078 !important; }
 [data-theme='light'] .squad-card-role { color: #132238 !important; }

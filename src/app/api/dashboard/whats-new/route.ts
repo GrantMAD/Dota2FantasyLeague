@@ -4,7 +4,7 @@ import { getOrCreateFantasySeason } from '@/lib/fantasy-season';
 import { supabaseServer } from '@/lib/supabase';
 
 interface AnnouncementEvent {
-  kind: 'tournament' | 'gameweek';
+  kind: 'tournament';
   id: number;
   title: string;
   startedAt: string;
@@ -50,36 +50,16 @@ export async function GET(request: NextRequest) {
     const fantasySeason = await getOrCreateFantasySeason(supabase, userId);
 
     if (!fantasySeason?.season_id) {
-      return NextResponse.json({ event: null, gameweek: null, updates: [] });
+      return NextResponse.json({ events: [], gameweek: null, updates: [] });
     }
 
     const now = new Date();
     const today = now.toISOString().slice(0, 10);
     const nowIso = now.toISOString();
     const [
-      tournamentResult,
-      latestStartedGameweekResult,
       currentGameweekResult,
       squadResult,
     ] = await Promise.all([
-      supabase
-        .from('tournaments')
-        .select('id, name, start_date, tier')
-        .eq('season_id', fantasySeason.season_id)
-        .eq('eligible', true)
-        .neq('status', 'archived')
-        .lte('start_date', today)
-        .order('start_date', { ascending: false })
-        .limit(1)
-        .maybeSingle(),
-      supabase
-        .from('gameweeks')
-        .select('id, gameweek_number, start_date')
-        .eq('season_id', fantasySeason.season_id)
-        .lte('start_date', nowIso)
-        .order('start_date', { ascending: false })
-        .limit(1)
-        .maybeSingle(),
       supabase
         .from('gameweeks')
         .select('id, gameweek_number, start_date, deadline, status')
@@ -95,12 +75,6 @@ export async function GET(request: NextRequest) {
         .maybeSingle(),
     ]);
 
-    if (tournamentResult.error) {
-      throw new Error(`Failed to fetch latest started tournament: ${tournamentResult.error.message}`);
-    }
-    if (latestStartedGameweekResult.error) {
-      throw new Error(`Failed to fetch latest started gameweek: ${latestStartedGameweekResult.error.message}`);
-    }
     if (currentGameweekResult.error) {
       throw new Error(`Failed to fetch current gameweek context: ${currentGameweekResult.error.message}`);
     }
@@ -108,51 +82,70 @@ export async function GET(request: NextRequest) {
       throw new Error(`Failed to fetch fantasy squad: ${squadResult.error.message}`);
     }
 
-    const latestStartedGameweek = latestStartedGameweekResult.data;
-    const tournament = tournamentResult.data;
-    const tournamentStartedAt = tournament ? `${tournament.start_date}T00:00:00.000Z` : null;
-    const tournamentIsNewestEvent = tournament && (
-      !latestStartedGameweek
-      || Date.parse(tournamentStartedAt!) > Date.parse(latestStartedGameweek.start_date)
-    );
-    const event: AnnouncementEvent | null = tournamentIsNewestEvent && tournament && tournamentStartedAt ? {
-        kind: 'tournament',
-        id: tournament.id,
-        title: tournament.name,
-        startedAt: tournamentStartedAt,
-        href: `/tournaments/${tournament.id}`,
-        tier: tournament.tier,
-      } : null;
+    const { data: activeTournamentRows, error: tournamentsError } = await supabase
+      .from('tournaments')
+      .select('id, name, start_date, end_date, tier')
+      .eq('season_id', fantasySeason.season_id)
+      .eq('eligible', true)
+      .neq('status', 'archived')
+      .lte('start_date', today)
+      .gte('end_date', today)
+      .order('start_date', { ascending: false });
+    if (tournamentsError) {
+      throw new Error(`Failed to fetch active tournaments: ${tournamentsError.message}`);
+    }
 
-    if (event) {
+    const activeTournaments = activeTournamentRows ?? [];
+    const tournamentIds = activeTournaments.map((tournament) => tournament.id);
+    let events: AnnouncementEvent[] = [];
+    if (tournamentIds.length > 0) {
       const { data: series, error: seriesError } = await supabase
         .from('tournament_series')
-        .select('id, best_of')
-        .eq('tournament_id', event.id);
+        .select('id, tournament_id, best_of')
+        .in('tournament_id', tournamentIds);
       if (seriesError) {
         throw new Error(`Failed to fetch tournament series: ${seriesError.message}`);
       }
 
       const seriesRows = series ?? [];
-      const seriesIds = seriesRows.map((row) => row.id);
-      const bestOfFormats = [...new Set(
-        seriesRows.map((row) => Number(row.best_of)).filter((bestOf) => Number.isFinite(bestOf) && bestOf > 0),
-      )].sort((left, right) => left - right);
-      let matchCount = 0;
-      if (seriesIds.length > 0) {
+      const seriesByTournament = new Map<number, number[]>();
+      for (const row of seriesRows) {
+        const tournamentSeriesIds = seriesByTournament.get(row.tournament_id) ?? [];
+        tournamentSeriesIds.push(row.id);
+        seriesByTournament.set(row.tournament_id, tournamentSeriesIds);
+      }
+      const matchCountResults = await Promise.all(activeTournaments.map(async (tournament) => {
+        const tournamentSeriesIds = seriesByTournament.get(tournament.id) ?? [];
+        if (tournamentSeriesIds.length === 0) return [tournament.id, 0] as const;
+
         const { count, error: matchesError } = await supabase
           .from('matches')
           .select('id', { count: 'exact', head: true })
-          .in('series_id', seriesIds);
+          .in('series_id', tournamentSeriesIds);
         if (matchesError) {
-          throw new Error(`Failed to count tournament matches: ${matchesError.message}`);
+          throw new Error(`Failed to count matches for tournament ${tournament.id}: ${matchesError.message}`);
         }
-        matchCount = count ?? 0;
-      }
+        return [tournament.id, count ?? 0] as const;
+      }));
+      const matchCounts = new Map(matchCountResults);
 
-      event.seriesCount = seriesRows.length;
-      event.matchCount = matchCount;
-      event.bestOfFormats = bestOfFormats;
+      events = activeTournaments.map((tournament) => {
+        const tournamentSeries = seriesRows.filter((row) => row.tournament_id === tournament.id);
+        const bestOfFormats = [...new Set(
+          tournamentSeries.map((row) => Number(row.best_of)).filter((bestOf) => Number.isFinite(bestOf) && bestOf > 0),
+        )].sort((left, right) => left - right);
+        return {
+          kind: 'tournament',
+          id: tournament.id,
+          title: tournament.name,
+          startedAt: `${tournament.start_date}T00:00:00.000Z`,
+          href: `/tournaments/${tournament.id}`,
+          tier: tournament.tier,
+          seriesCount: tournamentSeries.length,
+          matchCount: matchCounts.get(tournament.id) ?? 0,
+          bestOfFormats,
+        };
+      });
     }
 
     const currentGameweek = currentGameweekResult.data;
@@ -189,7 +182,7 @@ export async function GET(request: NextRequest) {
       }
       const ownedPlayerIds = new Set((members ?? []).map((member) => Number(member.player_id)));
       if (ownedPlayerIds.size > 0) {
-        const updateWindowStart = event?.startedAt
+        const updateWindowStart = events[0]?.startedAt
           ?? new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString();
         const { data: notifications, error: notificationsError } = await supabase
           .from('user_notifications')
@@ -236,7 +229,7 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    return NextResponse.json({ event, gameweek, updates });
+    return NextResponse.json({ events, gameweek, updates });
   } catch (error: unknown) {
     console.error('Dashboard What’s New API Error:', error);
     const authError = error as AuthError;

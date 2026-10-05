@@ -35,7 +35,7 @@ interface StatCard {
 }
 
 interface WhatsNewEvent {
-  kind: 'tournament' | 'gameweek';
+  kind: 'tournament';
   id: number;
   title: string;
   startedAt: string;
@@ -69,7 +69,7 @@ interface WhatsNewUpdate {
 }
 
 interface WhatsNewData {
-  event: WhatsNewEvent | null;
+  events: WhatsNewEvent[];
   gameweek: WhatsNewGameweek | null;
   updates: WhatsNewUpdate[];
 }
@@ -230,7 +230,7 @@ export default function DashboardPage() {
   return (
     <div className="dashboard-page min-h-screen">
       {/* Hero Section */}
-      <section className="bg-linear-to-r from-slate-900 via-slate-800 to-slate-900 border-b border-slate-700 py-12 px-4">
+      <section className="dashboard-hero bg-linear-to-r from-slate-900 via-slate-800 to-slate-900 border-b border-slate-700 py-12 px-4">
         <div className="max-w-7xl mx-auto">
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8">
             <div>
@@ -292,7 +292,7 @@ export default function DashboardPage() {
 
       {/* Main Content */}
       <section className="max-w-7xl mx-auto px-4 py-12">
-        {whatsNew && (whatsNew.event || whatsNew.gameweek || whatsNew.updates.length > 0) && (
+        {whatsNew && (whatsNew.events.length > 0 || whatsNew.gameweek || whatsNew.updates.length > 0) && (
           <section className="dashboard-whats-new mb-8 rounded-xl p-5 sm:p-6" aria-labelledby="whats-new-heading">
             <div className="mb-5 flex items-center gap-3">
               <span className="whats-new-heading-icon flex items-center justify-center rounded-lg p-2">
@@ -325,29 +325,30 @@ export default function DashboardPage() {
               </Link>
             )}
 
-            {(whatsNew.event || whatsNew.updates.length > 0) && (
+            {(whatsNew.events.length > 0 || whatsNew.updates.length > 0) && (
               <div>
                 <h4 className="whats-new-section-label mb-2">Recent updates</h4>
                 <div className="whats-new-update-list">
-                  {whatsNew.event && (
+                  {whatsNew.events.map((event) => (
                     <Link
-                      href={whatsNew.event.href}
+                      href={event.href}
+                      key={event.id}
                       className="whats-new-update-row whats-new-tournament-row group flex flex-wrap items-center gap-x-3 gap-y-2 py-3 transition-colors"
                     >
                       <Trophy aria-hidden="true" className="whats-new-update-icon h-4 w-4 shrink-0" />
-                      <span className="whats-new-update-type">Tournament started</span>
-                      <span className="whats-new-update-title">{whatsNew.event.title}</span>
+                      <span className="whats-new-update-type">Tournament active</span>
+                      <span className="whats-new-update-title">{event.title}</span>
                       <span className="whats-new-update-detail">
-                        {[whatsNew.event.tier, `${whatsNew.event.seriesCount ?? 0} series`, `${whatsNew.event.matchCount ?? 0} matches`,
-                          ...(whatsNew.event.bestOfFormats && whatsNew.event.bestOfFormats.length > 0
-                            ? [`Bo${whatsNew.event.bestOfFormats.join(' / Bo')}`]
+                        {[event.tier, `${event.seriesCount ?? 0} series`, `${event.matchCount ?? 0} matches`,
+                          ...(event.bestOfFormats && event.bestOfFormats.length > 0
+                            ? [`Bo${event.bestOfFormats.join(' / Bo')}`]
                             : [])]
                           .filter(Boolean)
                           .join(' · ')}
                       </span>
                       <ArrowRight aria-hidden="true" className="ml-auto h-4 w-4 shrink-0 transition-transform group-hover:translate-x-1" />
                     </Link>
-                  )}
+                  ))}
 
                   {whatsNew.updates.map((update) => {
                     const UpdateIcon = update.kind === 'availability' ? AlertTriangle : TrendingUp;
