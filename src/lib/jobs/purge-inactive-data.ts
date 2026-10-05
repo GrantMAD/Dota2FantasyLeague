@@ -13,6 +13,7 @@
  */
 
 import { getSupabaseServerClient } from '@/lib/db/supabase-server';
+import { getTeamsSafeToDelete } from './team-purge-safety';
 
 export interface PurgeResult {
   playersDeleted: number;
@@ -70,6 +71,11 @@ interface PlayerTeamRow {
 interface MatchTeamIdsRow {
   team_a_id: number | null;
   team_b_id: number | null;
+}
+
+interface RosterHistoryTeamIdsRow {
+  team_id: number;
+  previous_team_id: number | null;
 }
 
 interface PlayerRemovedNotification {
@@ -393,30 +399,66 @@ export async function purgeInactiveData(): Promise<PurgeResult> {
 
       // Verify they don't have recent match participation in last 90 days
       const ninetyDaysAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString();
-      const { data: recentMatches } = await supabase
+      const { data: recentMatches, error: recentMatchesErr } = await supabase
         .from('matches')
         .select('team_a_id, team_b_id')
         .gte('scheduled_time', ninetyDaysAgo);
 
-      const matchTeamIds = new Set<number>();
-      for (const match of (recentMatches ?? []) as MatchTeamIdsRow[]) {
-        if (match.team_a_id) matchTeamIds.add(match.team_a_id);
-        if (match.team_b_id) matchTeamIds.add(match.team_b_id);
+      if (recentMatchesErr) {
+        result.errors.push(`Failed to check recent team matches: ${recentMatchesErr.message}`);
       }
 
-      const safeToDeleteTeams = emptyTeamIds.filter((id) => !matchTeamIds.has(id));
+      const [historyByCurrentTeam, historyByPreviousTeam] = await Promise.all([
+        supabase
+          .from('team_roster_history')
+          .select('team_id')
+          .in('team_id', emptyTeamIds),
+        supabase
+          .from('team_roster_history')
+          .select('previous_team_id')
+          .in('previous_team_id', emptyTeamIds),
+      ]);
 
-      if (safeToDeleteTeams.length > 0) {
-        const { error: teamDelErr } = await supabase
-          .from('professional_teams')
-          .delete()
-          .in('id', safeToDeleteTeams);
+      if (historyByCurrentTeam.error || historyByPreviousTeam.error) {
+        const historyError = historyByCurrentTeam.error ?? historyByPreviousTeam.error;
+        result.errors.push(`Failed to check team roster history: ${historyError.message}`);
+      }
 
-        if (teamDelErr) {
-          result.errors.push(`Failed to delete empty teams: ${teamDelErr.message}`);
-        } else {
-          result.teamsDeleted = safeToDeleteTeams.length;
-          console.log(`[purgeInactiveData] Deleted ${safeToDeleteTeams.length} empty inactive teams`);
+      if (recentMatchesErr || historyByCurrentTeam.error || historyByPreviousTeam.error) {
+        console.warn('[purgeInactiveData] Skipping empty-team deletion because safety checks failed');
+      } else {
+        const matchTeamIds = new Set<number>();
+        for (const match of (recentMatches ?? []) as MatchTeamIdsRow[]) {
+          if (match.team_a_id) matchTeamIds.add(match.team_a_id);
+          if (match.team_b_id) matchTeamIds.add(match.team_b_id);
+        }
+
+        const rosterHistoryTeamIds = new Set<number>();
+        for (const row of (historyByCurrentTeam.data ?? []) as Pick<RosterHistoryTeamIdsRow, 'team_id'>[]) {
+          rosterHistoryTeamIds.add(row.team_id);
+        }
+        for (const row of (historyByPreviousTeam.data ?? []) as Pick<RosterHistoryTeamIdsRow, 'previous_team_id'>[]) {
+          if (row.previous_team_id !== null) rosterHistoryTeamIds.add(row.previous_team_id);
+        }
+
+        const safeToDeleteTeams = getTeamsSafeToDelete(
+          emptyTeamIds,
+          matchTeamIds,
+          rosterHistoryTeamIds
+        );
+
+        if (safeToDeleteTeams.length > 0) {
+          const { error: teamDelErr } = await supabase
+            .from('professional_teams')
+            .delete()
+            .in('id', safeToDeleteTeams);
+
+          if (teamDelErr) {
+            result.errors.push(`Failed to delete empty teams: ${teamDelErr.message}`);
+          } else {
+            result.teamsDeleted = safeToDeleteTeams.length;
+            console.log(`[purgeInactiveData] Deleted ${safeToDeleteTeams.length} empty inactive teams`);
+          }
         }
       }
     }

@@ -13,6 +13,7 @@ import type { ProfessionalPlayer } from '@/types/database';
 import { hasConflict } from '@/lib/data-reconciliation/conflict-resolution';
 import { createVersionRecord, detectFieldChanges } from '@/lib/data-reconciliation/data-versioning';
 import { calculateCompletenessScore, calculateFreshnessScore, calculateReliabilityScore } from '@/lib/data-reconciliation/data-quality';
+import { shouldDeactivateMissingPlayers } from './player-sync-safety';
 
 interface SyncResult {
   created: number;
@@ -73,11 +74,17 @@ export async function syncPlayers(): Promise<SyncResult> {
       // 1. Pre-fetch raw OpenDota proPlayers ONCE — reused for both role lookup and
       //    fallback player mapping. Eliminates the duplicate HTTP call that previously
       //    fired on every sync run (once for role lookup, once on STRATZ failure).
-      const rawOpenDotaPlayers = await fetchRawOpenDotaProPlayers();
-      console.log(`[syncPlayers] OpenDota pre-fetch: ${rawOpenDotaPlayers.length} total players fetched`);
+      let rawOpenDotaPlayers: OpenDotaPlayerRow[] | null = null;
+      try {
+        rawOpenDotaPlayers = await fetchRawOpenDotaProPlayers();
+        console.log(`[syncPlayers] OpenDota pre-fetch: ${rawOpenDotaPlayers.length} total players fetched`);
+      } catch (error: unknown) {
+        if (provider.name === 'OpenDota') throw error;
+        console.warn('[syncPlayers] OpenDota supplemental pre-fetch failed; primary provider will be used without OpenDota fallback', error);
+      }
 
       // 2. Build role lookup from already-fetched data (no extra HTTP call)
-      const roleLookup = buildRoleLookupFromRaw(rawOpenDotaPlayers);
+      const roleLookup = buildRoleLookupFromRaw(rawOpenDotaPlayers ?? []);
       console.log(`[syncPlayers] Built role lookup for ${roleLookup.size} players`);
 
       // 3. Fetch players.
@@ -87,15 +94,21 @@ export async function syncPlayers(): Promise<SyncResult> {
       //      pre-fetched OpenDota data (still no extra HTTP call on fallback).
       let players: import('@/lib/data-providers/provider-interface').PlayerData[];
       if (provider.name === 'OpenDota') {
-        players = mapRawOpenDotaPlayersToPlayerData(rawOpenDotaPlayers);
+        players = mapRawOpenDotaPlayersToPlayerData(rawOpenDotaPlayers ?? []);
         console.log(`[syncPlayers] Using pre-fetched OpenDota data: ${players.length} active players`);
       } else {
         players = await provider.fetchPlayers({ activeOnly: true }).catch(async (err) => {
+          if (!rawOpenDotaPlayers || rawOpenDotaPlayers.length === 0) {
+            throw new Error(`Primary provider failed and OpenDota fallback is unavailable: ${err.message}`);
+          }
           console.warn(`[syncPlayers] Primary provider failed (${err.message}), using pre-fetched OpenDota data`);
           return mapRawOpenDotaPlayersToPlayerData(rawOpenDotaPlayers);
         });
       }
       console.log(`[syncPlayers] Fetched ${players.length} players from provider`);
+      if (players.length === 0) {
+        throw new Error('Player sync received an empty active-player feed; refusing to process or deactivate players');
+      }
 
       // Get existing players for deduplication
       const existingPlayers = await getExistingPlayers();
@@ -135,66 +148,92 @@ export async function syncPlayers(): Promise<SyncResult> {
         }
 
         const supabase = getSupabaseServerClient();
-        const { data: dbPlayersToAudit } = await supabase
+        const { data: dbPlayersToAudit, error: playersToAuditError } = await supabase
           .from('professional_players')
           .select('id, name, data_provider_id, team_id, availability_status')
           .neq('availability_status', 'inactive');
-
-        // Protect players who have played in matches within the last 30 days from being marked inactive
-        const cutoff30d = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
-        const { data: recentMatches } = await supabase
-          .from('matches')
-          .select('id')
-          .gte('scheduled_time', cutoff30d);
-
-        const recentMatchIds = (recentMatches || []).map((m: { id: number }) => m.id);
-        const activeMatchPlayerDbIds = new Set<number>();
-        if (recentMatchIds.length > 0) {
-          // Check match_player_stats in chunks of 100 matches
-          for (let m = 0; m < recentMatchIds.length; m += 100) {
-            const chunk = recentMatchIds.slice(m, m + 100);
-            const { data: recentStats } = await supabase
-              .from('match_player_stats')
-              .select('player_id')
-              .in('match_id', chunk);
-            for (const row of recentStats || []) {
-              if (row.player_id) activeMatchPlayerDbIds.add(row.player_id);
-            }
-          }
+        if (playersToAuditError) {
+          throw new Error(`Failed to fetch existing players before deactivation: ${playersToAuditError.message}`);
         }
 
-        let softDeletedCount = 0;
-        const nowIso = new Date().toISOString();
-
-        for (const dbp of dbPlayersToAudit || []) {
-          // If player has no data_provider_id (e.g. custom admin player), don't touch
-          if (!dbp.data_provider_id) continue;
-
-          // If the player played in a tournament match within the last 30 days, do NOT mark inactive
-          if (activeMatchPlayerDbIds.has(dbp.id)) continue;
-
-          // If provider response does NOT contain this player's data_provider_id
-          if (!activeProviderIds.has(String(dbp.data_provider_id))) {
-            const { error: softDelErr } = await supabase
-              .from('professional_players')
-              .update({
-                availability_status: 'inactive',
-                last_synced_at: nowIso,
-              })
-              .eq('id', dbp.id);
-
-            if (!softDelErr) {
-              softDeletedCount++;
-              console.log(`[syncPlayers] Soft-deleted player ${dbp.name} (${dbp.id}) — absent from provider`);
-            }
-          }
+        const providerLinkedExistingPlayers = (dbPlayersToAudit ?? []).filter(
+          (player: { data_provider_id: string | null }) => player.data_provider_id,
+        );
+        const canDeactivateMissingPlayers = shouldDeactivateMissingPlayers(
+          players.length,
+          providerLinkedExistingPlayers.length,
+        );
+        if (!canDeactivateMissingPlayers) {
+          console.warn(
+            `[syncPlayers] Skipping player deactivation: fetched ${players.length} players ` +
+            `for ${providerLinkedExistingPlayers.length} active provider-linked database players; feed coverage is below the 50% safety threshold`
+          );
         }
 
-        if (softDeletedCount > 0) {
-          console.log(`[syncPlayers] Marked ${softDeletedCount} absent players as inactive`);
+        if (canDeactivateMissingPlayers) {
+          // Protect players who have played in matches within the last 30 days from being marked inactive
+          const cutoff30d = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+          const { data: recentMatches, error: recentMatchesError } = await supabase
+            .from('matches')
+            .select('id')
+            .gte('scheduled_time', cutoff30d);
+          if (recentMatchesError) {
+            throw new Error(`Failed to fetch recent matches before player deactivation: ${recentMatchesError.message}`);
+          }
+
+          const recentMatchIds = (recentMatches || []).map((m: { id: number }) => m.id);
+          const activeMatchPlayerDbIds = new Set<number>();
+          if (recentMatchIds.length > 0) {
+            // Check match_player_stats in chunks of 100 matches
+            for (let m = 0; m < recentMatchIds.length; m += 100) {
+              const chunk = recentMatchIds.slice(m, m + 100);
+              const { data: recentStats, error: recentStatsError } = await supabase
+                .from('match_player_stats')
+                .select('player_id')
+                .in('match_id', chunk);
+              if (recentStatsError) {
+                throw new Error(`Failed to fetch recent match players before deactivation: ${recentStatsError.message}`);
+              }
+              for (const row of recentStats || []) {
+                if (row.player_id) activeMatchPlayerDbIds.add(row.player_id);
+              }
+            }
+          }
+
+          let softDeletedCount = 0;
+          const nowIso = new Date().toISOString();
+
+          for (const dbp of dbPlayersToAudit || []) {
+            // If player has no data_provider_id (e.g. custom admin player), don't touch
+            if (!dbp.data_provider_id) continue;
+
+            // If the player played in a tournament match within the last 30 days, do NOT mark inactive
+            if (activeMatchPlayerDbIds.has(dbp.id)) continue;
+
+            // If provider response does NOT contain this player's data_provider_id
+            if (!activeProviderIds.has(String(dbp.data_provider_id))) {
+              const { error: softDelErr } = await supabase
+                .from('professional_players')
+                .update({
+                  availability_status: 'inactive',
+                  last_synced_at: nowIso,
+                })
+                .eq('id', dbp.id);
+
+              if (!softDelErr) {
+                softDeletedCount++;
+                console.log(`[syncPlayers] Soft-deleted player ${dbp.name} (${dbp.id}) — absent from provider`);
+              }
+            }
+          }
+
+          if (softDeletedCount > 0) {
+            console.log(`[syncPlayers] Marked ${softDeletedCount} absent players as inactive`);
+          }
         }
       } catch (softDelError) {
         console.warn('[syncPlayers] Error during post-sync soft delete step:', softDelError);
+        throw softDelError;
       }
 
       // Log successful completion

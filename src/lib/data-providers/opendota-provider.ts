@@ -620,23 +620,30 @@ export class OpenDotaProvider extends DataProviderBase implements DataProvider {
  * eliminating the duplicate HTTP call that previously fired on every sync run.
  */
 export async function fetchRawOpenDotaProPlayers(): Promise<OpenDotaProPlayer[]> {
-  try {
-    const res = await fetch('https://api.opendota.com/api/proPlayers', {
-      headers: { 'User-Agent': 'FantasyDota/1.0' },
-      signal: AbortSignal.timeout(25000),
-    });
-    if (!res.ok) {
-      console.warn(`[fetchRawOpenDotaProPlayers] OpenDota returned status ${res.status}`);
-      return [];
-    }
-    const data: unknown = await res.json();
-    return Array.isArray(data)
-      ? data.filter((player): player is OpenDotaProPlayer =>
-          typeof player === 'object' && player !== null && 'account_id' in player && typeof player.account_id === 'number'
-        )
-      : [];
-  } catch (error) {
-    console.warn(`[fetchRawOpenDotaProPlayers] Failed: ${(error as Error).message}`);
-    return [];
+  const response = await fetch('https://api.opendota.com/api/proPlayers', {
+    headers: { 'User-Agent': 'FantasyDota/1.0' },
+    signal: AbortSignal.timeout(25000),
+  });
+  if (!response.ok) {
+    throw new Error(`OpenDota /proPlayers request failed with status ${response.status}`);
   }
+
+  const data: unknown = await response.json();
+  if (!Array.isArray(data)) {
+    throw new Error('OpenDota /proPlayers returned an invalid response; expected an array');
+  }
+
+  const invalidIndex = data.findIndex((player) =>
+    typeof player !== 'object' ||
+    player === null ||
+    !('account_id' in player) ||
+    typeof player.account_id !== 'number' ||
+    !Number.isSafeInteger(player.account_id) ||
+    player.account_id <= 0
+  );
+  if (invalidIndex !== -1) {
+    throw new Error(`OpenDota /proPlayers returned an incomplete player record at index ${invalidIndex}`);
+  }
+
+  return data as OpenDotaProPlayer[];
 }
