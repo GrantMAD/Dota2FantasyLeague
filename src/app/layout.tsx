@@ -4,6 +4,7 @@ import { Suspense } from "react";
 import { ThemeProvider } from "@/components/theme/ThemeProvider";
 import { SessionProvider } from "@/components/SessionProvider";
 import { PageTour } from "@/components/PageTour";
+import { PageGuideModal } from "@/components/PageGuideModal";
 import { TourTriggerButton } from "@/components/TourTriggerButton";
 import { TourProvider } from "@/context/TourContext";
 import "./globals.css";
@@ -40,6 +41,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
               {children}
               <Suspense fallback={null}>
                 <PageTour />
+                <PageGuideModal />
                 <TourTriggerButton />
               </Suspense>
             </TourProvider>

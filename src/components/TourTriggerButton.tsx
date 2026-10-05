@@ -1,57 +1,30 @@
 'use client';
 
-import { HelpCircle, RotateCcw, X } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { CircleHelp } from 'lucide-react';
 import { usePathname } from 'next/navigation';
-import { getPageTour } from '@/lib/tourSteps';
+import { getPageGuide } from '@/lib/pageGuides';
 import { useTour } from '@/context/TourContext';
+import { useTheme } from '@/components/theme/ThemeProvider';
 
 export function TourTriggerButton() {
   const pathname = usePathname();
-  const { isOpen, openTour, isCompleted, isDismissed, dismissReplayButton } = useTour();
-  const pageTour = getPageTour(pathname);
-  const [mounted, setMounted] = useState(false);
+  const { isOpen, isGuideOpen, openGuide } = useTour();
+  const { theme } = useTheme();
+  const pageGuide = getPageGuide(pathname);
 
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  // No tour defined, tour is currently open, or user has dismissed the replay button.
-  if (!pageTour || isOpen) return null;
-
-  // Before mount, always render the non-replay variant so server and first
-  // client render agree (DB state is not available server-side).
-  const showReplay = mounted && isCompleted;
-
-  // Hide entirely once dismissed (after mount to avoid hydration mismatch).
-  if (mounted && isDismissed) return null;
+  if (!pageGuide || isOpen || isGuideOpen) return null;
 
   return (
-    <div className="fixed bottom-6 right-6 z-50 flex items-center gap-1">
+    <div className="fixed bottom-6 right-6 z-50">
       <button
         type="button"
-        onClick={openTour}
-        className="inline-flex items-center gap-2 rounded-full border border-cyan-400/40 bg-slate-950/80 px-4 py-2.5 text-sm font-semibold text-cyan-300 shadow-[0_12px_30px_rgba(34,211,238,0.18)] backdrop-blur-md transition hover:border-cyan-300 hover:bg-slate-900/90"
-        aria-label={showReplay ? 'Replay this page tour' : 'Tour this page'}
+        onClick={openGuide}
+        className={`flex h-12 w-12 items-center justify-center rounded-full border shadow-[0_12px_30px_rgba(34,211,238,0.18)] backdrop-blur-md transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 focus-visible:ring-offset-2 ${theme === 'dark' ? 'border-cyan-400/50 bg-slate-950/90 text-cyan-300 hover:bg-slate-900' : 'border-cyan-700/40 bg-white/95 text-cyan-800 hover:bg-cyan-50'} `}
+        aria-label="Open page guide"
+        title="Page guide"
       >
-        <span className="flex h-6 w-6 items-center justify-center rounded-full bg-cyan-500/10 text-cyan-300">
-          {showReplay ? <RotateCcw className="h-4 w-4" /> : <HelpCircle className="h-4 w-4" />}
-        </span>
-        <span>{showReplay ? 'Replay tour' : 'Tour this page'}</span>
+        <CircleHelp className="h-6 w-6" aria-hidden="true" />
       </button>
-
-      {/* Dismiss button — only visible when the tour has been completed */}
-      {showReplay && (
-        <button
-          type="button"
-          onClick={dismissReplayButton}
-          className="flex h-7 w-7 items-center justify-center rounded-full border border-slate-700/60 bg-slate-950/80 text-slate-500 backdrop-blur-md transition hover:border-slate-500 hover:text-slate-300"
-          aria-label="Hide replay button"
-          title="Don't show this again"
-        >
-          <X className="h-3.5 w-3.5" />
-        </button>
-      )}
     </div>
   );
 }

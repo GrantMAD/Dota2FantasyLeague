@@ -14,8 +14,11 @@ import { fetchWithAuth } from '@/lib/fetch-with-auth';
 
 interface TourContextValue {
   isOpen: boolean;
-  openTour: () => void;
   closeTour: () => void;
+  isGuideOpen: boolean;
+  openGuide: () => void;
+  closeGuide: () => void;
+  startTour: () => void;
   stepIndex: number;
   setStepIndex: (n: number) => void;
   isCompleted: boolean;
@@ -32,6 +35,7 @@ export function TourProvider({ children }: { children: ReactNode }) {
   const pageKey = pathname || '/';
 
   const [isOpen, setIsOpen] = useState(false);
+  const [isGuideOpen, setIsGuideOpen] = useState(false);
   const [stepIndex, setStepIndex] = useState(0);
 
   // Set of page keys the user has completed tours for (from the DB).
@@ -62,14 +66,24 @@ export function TourProvider({ children }: { children: ReactNode }) {
   const isCompleted = loaded && completedPages.has(pageKey);
   const isDismissed = loaded && dismissedPages.has(pageKey);
 
-  const openTour = useCallback(() => {
-    setStepIndex(0);
-    setIsOpen(true);
-  }, []);
-
   const closeTour = useCallback(() => {
     setIsOpen(false);
     setStepIndex(0);
+  }, []);
+
+  const openGuide = useCallback(() => {
+    setIsOpen(false);
+    setIsGuideOpen(true);
+  }, []);
+
+  const closeGuide = useCallback(() => {
+    setIsGuideOpen(false);
+  }, []);
+
+  const startTour = useCallback(() => {
+    setIsGuideOpen(false);
+    setStepIndex(0);
+    setIsOpen(true);
   }, []);
 
   const markCompleted = useCallback(() => {
@@ -111,8 +125,11 @@ export function TourProvider({ children }: { children: ReactNode }) {
   const value = useMemo<TourContextValue>(
     () => ({
       isOpen,
-      openTour,
       closeTour,
+      isGuideOpen,
+      openGuide,
+      closeGuide,
+      startTour,
       stepIndex,
       setStepIndex,
       isCompleted,
@@ -121,7 +138,7 @@ export function TourProvider({ children }: { children: ReactNode }) {
       dismissReplayButton,
       pageKey,
     }),
-    [closeTour, dismissReplayButton, isDismissed, isCompleted, isOpen, markCompleted, openTour, pageKey, stepIndex],
+    [closeGuide, closeTour, dismissReplayButton, isCompleted, isDismissed, isGuideOpen, isOpen, markCompleted, openGuide, pageKey, startTour, stepIndex],
   );
 
   return <TourContext.Provider key={pageKey} value={value}>{children}</TourContext.Provider>;
