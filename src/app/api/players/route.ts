@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase';
 import { getCached, setCached } from '@/lib/response-cache';
+import { createErrorResponse, verifyAdminAuth } from '@/lib/auth-utils';
 
 type PriceRow = { player_id: number; price: number | null; gameweek_id: number };
 type ScoreRow = { player_id: number; total_points: number | null; gameweek_id: number };
@@ -148,11 +149,32 @@ export async function GET(request: NextRequest) {
  */
 export async function POST(request: NextRequest) {
   try {
+    await verifyAdminAuth(request);
+    const body: unknown = await request.json();
+    const allowedFields = [
+      'name',
+      'slug',
+      'in_game_name',
+      'team_id',
+      'primary_role',
+      'secondary_roles',
+      'profile_image_url',
+      'country',
+      'data_provider_id',
+      'availability_status',
+      'last_synced_at',
+      'current_price',
+    ];
+    if (
+      typeof body !== 'object' ||
+      body === null ||
+      Array.isArray(body) ||
+      Object.keys(body).some((field) => !allowedFields.includes(field))
+    ) {
+      return NextResponse.json({ error: 'Invalid player fields.' }, { status: 400 });
+    }
+
     const supabase = supabaseServer();
-    const body = await request.json();
-    
-    // TODO: Add admin authorization check
-    
     const { data, error } = await supabase
       .from('professional_players')
       .insert([body])
@@ -166,10 +188,7 @@ export async function POST(request: NextRequest) {
     }
     
     return NextResponse.json({ data }, { status: 201 });
-  } catch (error) {
-    return NextResponse.json(
-      { error: 'Internal server error', details: String(error) },
-      { status: 500 }
-    );
+  } catch (error: unknown) {
+    return createErrorResponse(error as Error);
   }
 }

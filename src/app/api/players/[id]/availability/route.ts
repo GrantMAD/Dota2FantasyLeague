@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase';
-import { verifyAuth, AuthError } from '@/lib/auth-utils';
+import { createErrorResponse, verifyAdminAuth } from '@/lib/auth-utils';
 
 interface RouteContext {
   params: Promise<{ id: string }>;
@@ -13,10 +13,7 @@ interface RouteContext {
  */
 export async function PUT(request: NextRequest, context: RouteContext) {
   try {
-    await verifyAuth(request);
-    
-    // In a real implementation, verify user is an admin here
-    // if (user.role !== 'admin') return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+    await verifyAdminAuth(request);
 
     const params = await context.params;
     const playerId = parseInt(params.id, 10);
@@ -60,10 +57,6 @@ export async function PUT(request: NextRequest, context: RouteContext) {
 
     return NextResponse.json({ message: 'Availability updated successfully.', player: data });
   } catch (error: unknown) {
-    const authError = error as AuthError;
-    if (authError.status) {
-      return NextResponse.json({ error: authError.message }, { status: authError.status });
-    }
-    return NextResponse.json({ error: 'An unexpected error occurred.' }, { status: 500 });
+    return createErrorResponse(error as Error);
   }
 }

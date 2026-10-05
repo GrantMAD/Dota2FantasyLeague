@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { verifyAuth } from '@/lib/auth-utils';
+import { verifyAdminAuth } from '@/lib/auth-utils';
 import { FantasyScoreCalculator } from '@/lib/jobs/calculate-fantasy-scores';
 
 export async function POST(request: NextRequest) {
   try {
-    await verifyAuth(request);
+    await verifyAdminAuth(request);
 
     const body = (await request.json()) as {
       seasonId?: string | number;

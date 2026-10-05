@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase';
+import { createErrorResponse, verifyAdminAuth } from '@/lib/auth-utils';
 import { getRoleByHeroName } from '@/lib/constants/dota-heroes';
 
 interface RouteContext {
@@ -295,6 +296,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
  */
 export async function PATCH(request: NextRequest, context: RouteContext) {
   try {
+    await verifyAdminAuth(request);
     const params = await context.params;
     const gameweekId = parseInt(params.id, 10);
     if (isNaN(gameweekId)) {
@@ -339,7 +341,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     }
 
     return NextResponse.json({ data });
-  } catch {
-    return NextResponse.json({ error: 'An unexpected error occurred.' }, { status: 500 });
+  } catch (error: unknown) {
+    return createErrorResponse(error as Error);
   }
 }

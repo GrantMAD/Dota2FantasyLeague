@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase';
-import { verifyAuth } from '@/lib/auth-utils';
+import { verifyAdminAuth } from '@/lib/auth-utils';
 
 export async function POST(request: NextRequest) {
   try {
-    await verifyAuth(request);
+    await verifyAdminAuth(request);
 
     const body = await request.json();
     const { version, seasonId = 1, gameweekId } = body;

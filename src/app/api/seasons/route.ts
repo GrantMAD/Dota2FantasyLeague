@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase';
+import { createErrorResponse, verifyAdminAuth } from '@/lib/auth-utils';
 
 /**
  * GET /api/seasons - Fetch all seasons
@@ -50,11 +51,30 @@ export async function GET(request: NextRequest) {
  */
 export async function POST(request: NextRequest) {
   try {
+    await verifyAdminAuth(request);
+    const body: unknown = await request.json();
+    const allowedFields = [
+      'name',
+      'slug',
+      'status',
+      'start_date',
+      'end_date',
+      'starting_budget',
+      'max_players_per_team',
+      'squad_size',
+      'starters_required',
+      'bench_size',
+    ];
+    if (
+      typeof body !== 'object' ||
+      body === null ||
+      Array.isArray(body) ||
+      Object.keys(body).some((field) => !allowedFields.includes(field))
+    ) {
+      return NextResponse.json({ error: 'Invalid season fields.' }, { status: 400 });
+    }
+
     const supabase = supabaseServer();
-    const body = await request.json();
-    
-    // TODO: Add admin authorization check
-    
     const { data, error } = await supabase
       .from('seasons')
       .insert([body])
@@ -68,10 +88,7 @@ export async function POST(request: NextRequest) {
     }
     
     return NextResponse.json({ data }, { status: 201 });
-  } catch (error) {
-    return NextResponse.json(
-      { error: 'Internal server error', details: String(error) },
-      { status: 500 }
-    );
+  } catch (error: unknown) {
+    return createErrorResponse(error as Error);
   }
 }

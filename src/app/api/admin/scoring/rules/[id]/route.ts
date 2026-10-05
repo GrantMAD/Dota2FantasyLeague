@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase';
-import { verifyAuth } from '@/lib/auth-utils';
+import { verifyAdminAuth } from '@/lib/auth-utils';
 
 export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    await verifyAuth(request);
+    await verifyAdminAuth(request);
 
     const { id } = await params;
     const ruleId = parseInt(id, 10);

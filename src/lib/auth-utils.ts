@@ -82,8 +82,8 @@ export async function verifyAuth(request: Request): Promise<AuthResult> {
     } as AuthError;
   }
 
-  // Query role from public.users table (fallback to metadata if user row not yet found)
-  let role: string | undefined = data.user.user_metadata?.role;
+  // Prefer the server-managed profile role; only fall back to trusted app metadata.
+  let role: string | undefined = data.user.app_metadata?.role;
   const { data: userProfile } = await supabase.from('users')
     .select('role')
     .eq('id', data.user.id)
@@ -127,7 +127,7 @@ export function applyRefreshedTokens(response: NextResponse, auth: AuthResult): 
 export async function verifyAdminAuth(request: Request): Promise<string> {
   const auth = await verifyAuth(request);
 
-  // Check if user has admin role (stored in user metadata)
+  // Check if user has an administrator role from a trusted source.
   if (auth.role !== 'admin') {
     throw {
       status: 403,

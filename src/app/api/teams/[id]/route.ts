@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase';
+import { createErrorResponse, verifyAdminAuth } from '@/lib/auth-utils';
 
 /**
  * PATCH /api/teams/[id] - Update a professional team (admin only)
@@ -10,6 +11,7 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    await verifyAdminAuth(request);
     const supabase = supabaseServer();
     const { id: rawId } = await params;
     const id = parseInt(rawId, 10);
@@ -48,10 +50,7 @@ export async function PATCH(
     }
 
     return NextResponse.json({ data });
-  } catch (error) {
-    return NextResponse.json(
-      { error: 'Internal server error', details: String(error) },
-      { status: 500 }
-    );
+  } catch (error: unknown) {
+    return createErrorResponse(error as Error);
   }
 }

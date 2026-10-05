@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { createErrorResponse, verifyAdminAuth } from '@/lib/auth-utils';
 
 interface FailedJobRecord {
   id: number;
@@ -15,8 +16,9 @@ interface FailedJobRecord {
  * GET /api/admin/jobs/failed
  * Returns failed and dead-letter job entries from job_execution_log.
  */
-export async function GET() {
+export async function GET(request: Request) {
   try {
+    await verifyAdminAuth(request);
     const supabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL || '',
       process.env.SUPABASE_SERVICE_ROLE_KEY || ''
@@ -36,9 +38,6 @@ export async function GET() {
 
     return NextResponse.json({ failedJobs: (data || []) as FailedJobRecord[] });
   } catch (error: unknown) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Failed to load failed jobs.' },
-      { status: 500 }
-    );
+    return createErrorResponse(error as Error);
   }
 }

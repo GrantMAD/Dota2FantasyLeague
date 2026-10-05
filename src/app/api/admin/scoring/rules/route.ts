@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase';
-import { verifyAuth } from '@/lib/auth-utils';
+import { verifyAdminAuth } from '@/lib/auth-utils';
 
 interface ScoringRule {
   id: number;
@@ -26,7 +26,7 @@ interface ScoringRuleVersion {
 
 export async function GET(request: NextRequest) {
   try {
-    await verifyAuth(request); // Assuming admins have valid auth for now; in prod, check role
+    await verifyAdminAuth(request);
 
     const searchParams = request.nextUrl.searchParams;
     const seasonId = searchParams.get('season_id') || '1'; // Default to season 1 if not provided
@@ -77,7 +77,7 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    await verifyAuth(request);
+    await verifyAdminAuth(request);
 
     const body = await request.json();
     const { seasonId = 1 } = body;

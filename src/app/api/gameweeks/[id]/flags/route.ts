@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase';
-import { verifyAuth, AuthError } from '@/lib/auth-utils';
+import { createErrorResponse, verifyAdminAuth } from '@/lib/auth-utils';
 
 interface RouteContext {
   params: Promise<{ id: string }>;
@@ -54,8 +54,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
  */
 export async function POST(request: NextRequest, context: RouteContext) {
   try {
-    // Only authenticated users (admins) can set flags
-    await verifyAuth(request);
+    await verifyAdminAuth(request);
 
     const params = await context.params;
     const gameweekId = parseInt(params.id, 10);
@@ -96,11 +95,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
     return NextResponse.json({ message: 'Flag set successfully.', flag: data });
   } catch (error: unknown) {
-    const authError = error as AuthError;
-    if (authError.status) {
-      return NextResponse.json({ error: authError.message }, { status: authError.status });
-    }
-    return NextResponse.json({ error: 'An unexpected error occurred.' }, { status: 500 });
+    return createErrorResponse(error as Error);
   }
 }
 
@@ -111,7 +106,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
  */
 export async function DELETE(request: NextRequest, context: RouteContext) {
   try {
-    await verifyAuth(request);
+    await verifyAdminAuth(request);
 
     const params = await context.params;
     const gameweekId = parseInt(params.id, 10);
@@ -142,10 +137,6 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
 
     return NextResponse.json({ message: 'Flag removed successfully.' });
   } catch (error: unknown) {
-    const authError = error as AuthError;
-    if (authError.status) {
-      return NextResponse.json({ error: authError.message }, { status: authError.status });
-    }
-    return NextResponse.json({ error: 'An unexpected error occurred.' }, { status: 500 });
+    return createErrorResponse(error as Error);
   }
 }
