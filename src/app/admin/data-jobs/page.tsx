@@ -138,7 +138,7 @@ const JOB_METADATA: Record<string, {
   'update-player-prices': {
     manualStep: 12,
     requires: ['calculate-fantasy-scores'],
-    description: 'Adjusts player market prices based on ownership and recent performance.',
+    description: 'Recalculates prices for the latest closed gameweek using fantasy points and a smaller ownership adjustment. Safe to rerun without compounding.',
     category: 'scoring',
   },
   'transition-gameweeks': {
@@ -1056,4 +1056,3 @@ function JobCard({ job, isLocallyRunning, onTrigger, disabled, jobMeta }: JobCar
     </div>
   );
 }
-

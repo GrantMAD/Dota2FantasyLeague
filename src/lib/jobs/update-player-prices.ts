@@ -9,50 +9,42 @@ interface PriceUpdateResult {
 }
 
 /**
- * Calculates the new price for a player after applying dynamic market movement.
+ * Calculates the new price once for a completed gameweek.
  *
  * Formula:
- *   movement = (recentFormDelta × 0.1) + (ownershipFactor × 0.5)
+ *   movement = (gameweekFantasyPoints × 0.02) + (ownershipFactor × 0.1)
  *   newPrice  = currentPrice + clamp(movement, -maxWeeklyMove, +maxWeeklyMove)
  *
  * @param currentPrice    - Player's current price in millions (e.g. 5.0 = $5M)
- * @param recentFormDelta - Difference between avg score in last 2 GWs vs prior 2 GWs.
- *                          Positive = improving form, negative = declining form.
+ * @param gameweekFantasyPoints - Sum of the player's fantasy points in the latest closed gameweek.
  * @param ownershipFactor - Fraction of active squads owning this player (0.0 – 1.0).
- *                          High ownership → price rises; low ownership → price falls.
- * @param maxWeeklyMove   - Maximum price movement allowed per update cycle (in millions).
+ *                          Ownership adds a smaller demand signal, up to +$0.10M.
+ * @param maxWeeklyMove   - Maximum price movement allowed per gameweek (in millions).
  */
 export function calculateDynamicPriceChange(
   currentPrice: number,
-  recentFormDelta: number,
+  gameweekFantasyPoints: number,
   ownershipFactor: number,
   maxWeeklyMove: number,
 ): number {
-  const movement = recentFormDelta * 0.1 + ownershipFactor * 0.5;
+  const movement = gameweekFantasyPoints * 0.02 + ownershipFactor * 0.1;
   const bounded = Math.max(-maxWeeklyMove, Math.min(maxWeeklyMove, movement));
   return Number((currentPrice + bounded).toFixed(2));
 }
 
-// ---------------------------------------------------------------------------
-// Helper types
-// ---------------------------------------------------------------------------
-
-interface PerformanceRow {
+interface GameweekPointsRow {
   player_id: number;
-  gameweek_id: number;
-  kills: number;
-  deaths: number;
-  assists: number;
-  gold_per_minute: number;
+  fantasy_points_breakdown:
+    | { total_points: number | null }
+    | { total_points: number | null }[]
+    | null;
 }
 
-// ---------------------------------------------------------------------------
-// Core score function — maps a raw performance row to a single numeric value.
-// Deliberately simple: kills/assists reward output, deaths penalise it,
-// GPM rewards economic efficiency (normalised to the same magnitude as K/A/D).
-// ---------------------------------------------------------------------------
-function scorePerformance(row: PerformanceRow): number {
-  return row.kills + row.assists - row.deaths + row.gold_per_minute / 100;
+interface PlayerPriceRow {
+  player_id: number;
+  gameweek_id: number;
+  price: number;
+  price_change: number | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -69,73 +61,39 @@ class UpdatePlayerPrices {
     );
   }
 
-  /**
-   * Bulk-fetches player_performances for up to the last 4 closed gameweeks
-   * for a given batch of player IDs, then returns a map of:
-   *   playerId → recentFormDelta
-   *
-   * "Recent form delta" = avg score across the 2 most recent GWs
-   *                       minus avg score across the 2 GWs before that.
-   * A positive delta means the player is in better form than previously.
-   *
-   * Players with fewer than 1 performance in either window return delta = 0
-   * (neutral — price unchanged from form signal).
-   */
-  private async buildFormDeltaMap(
+  private async buildGameweekPointsMap(
     playerIds: number[],
-    recentGameweekIds: number[], // ordered newest → oldest, up to 4
+    gameweekId: number,
   ): Promise<Map<number, number>> {
-    const formMap = new Map<number, number>();
-    if (playerIds.length === 0 || recentGameweekIds.length === 0) return formMap;
+    const pointsMap = new Map<number, number>();
+    const pageSize = 1000;
+    let offset = 0;
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: perfRows, error } = await (this.supabase.from('player_performances') as any)
-      .select('player_id, gameweek_id, kills, deaths, assists, gold_per_minute')
-      .in('player_id', playerIds)
-      .in('gameweek_id', recentGameweekIds);
+    while (true) {
+      const { data, error } = await (this.supabase.from('player_performances') as any)
+        .select('player_id, fantasy_points_breakdown(total_points)')
+        .eq('gameweek_id', gameweekId)
+        .in('player_id', playerIds)
+        .range(offset, offset + pageSize - 1);
 
-    if (error || !perfRows) return formMap;
-
-    // Group performances by player, then by gameweek
-    const byPlayer = new Map<number, Map<number, number[]>>();
-    for (const row of perfRows as PerformanceRow[]) {
-      const pid = Number(row.player_id);
-      const gwid = Number(row.gameweek_id);
-      if (!byPlayer.has(pid)) byPlayer.set(pid, new Map());
-      const gwMap = byPlayer.get(pid)!;
-      if (!gwMap.has(gwid)) gwMap.set(gwid, []);
-      gwMap.get(gwid)!.push(scorePerformance(row));
-    }
-
-    // recentGameweekIds is ordered newest → oldest
-    const recentWindow = recentGameweekIds.slice(0, 2);  // last 2 GWs
-    const priorWindow  = recentGameweekIds.slice(2, 4);  // 2 GWs before that
-
-    for (const [pid, gwMap] of byPlayer.entries()) {
-      const avg = (gwIds: number[]): number | null => {
-        const scores: number[] = [];
-        for (const gwid of gwIds) {
-          const vals = gwMap.get(gwid);
-          if (vals && vals.length > 0) {
-            scores.push(vals.reduce((a, b) => a + b, 0) / vals.length);
-          }
-        }
-        return scores.length > 0 ? scores.reduce((a, b) => a + b, 0) / scores.length : null;
-      };
-
-      const recentAvg = avg(recentWindow);
-      const priorAvg  = avg(priorWindow);
-
-      if (recentAvg !== null && priorAvg !== null) {
-        formMap.set(pid, recentAvg - priorAvg);
-      } else if (recentAvg !== null) {
-        // Only recent data available — treat prior as 0 (assume average baseline)
-        formMap.set(pid, recentAvg);
+      if (error) {
+        throw new Error(`Failed to fetch fantasy points for gameweek ${gameweekId}: ${error.message}`);
       }
-      // If no data at all, leave out of map → will default to 0 in execute()
+
+      const rows = (data ?? []) as GameweekPointsRow[];
+      for (const row of rows) {
+        const breakdown = Array.isArray(row.fantasy_points_breakdown)
+          ? row.fantasy_points_breakdown[0]
+          : row.fantasy_points_breakdown;
+        const points = Number(breakdown?.total_points ?? 0);
+        pointsMap.set(row.player_id, (pointsMap.get(row.player_id) ?? 0) + points);
+      }
+
+      if (rows.length < pageSize) break;
+      offset += pageSize;
     }
 
-    return formMap;
+    return pointsMap;
   }
 
   /**
@@ -143,15 +101,14 @@ class UpdatePlayerPrices {
    * batch by counting active squad memberships relative to all active squads
    * in the season.
    *
-   * A player owned by 40% of managers → ownershipFactor = 0.40
-   * This drives an upward price signal proportional to demand.
+   * A player owned by 40% of managers → ownershipFactor = 0.40.
+   * This adds a modest demand signal to the fantasy-points movement.
    *
    * Uses a two-step query to avoid PostgREST's single-level relation filter
    * limitation — we first resolve fantasy_season IDs then query squad members.
    */
   private async buildOwnershipMap(
     playerIds: number[],
-    seasonId: number,
     fantasySeasonIds: number[],
     totalActiveSquads: number,
   ): Promise<Map<number, number>> {
@@ -160,9 +117,10 @@ class UpdatePlayerPrices {
 
     // Step 1: Resolve squad IDs that belong to this season (via fantasy_season_ids)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: squadRows } = await (this.supabase.from('fantasy_squads') as any)
+    const { data: squadRows, error: squadsError } = await (this.supabase.from('fantasy_squads') as any)
       .select('id')
       .in('fantasy_season_id', fantasySeasonIds);
+    if (squadsError) throw new Error(`Failed to fetch season squads for ownership: ${squadsError.message}`);
 
     const squadIds: number[] = (squadRows ?? []).map((r: { id: number }) => Number(r.id));
     if (squadIds.length === 0) return ownershipMap;
@@ -175,7 +133,7 @@ class UpdatePlayerPrices {
       .in('squad_id', squadIds)
       .is('removed_date', null);
 
-    if (error || !ownershipRows) return ownershipMap;
+    if (error) throw new Error(`Failed to fetch player ownership: ${error.message}`);
 
     // Count occurrences per player
     const countMap = new Map<number, number>();
@@ -189,6 +147,56 @@ class UpdatePlayerPrices {
     }
 
     return ownershipMap;
+  }
+
+  private async buildBasePriceMap(
+    playerIds: number[],
+    seasonId: number,
+    gameweekId: number,
+  ): Promise<Map<number, number>> {
+    const currentGameweekResult = await (this.supabase.from('player_prices') as any)
+      .select('player_id, gameweek_id, price, price_change')
+      .eq('season_id', seasonId)
+      .eq('gameweek_id', gameweekId)
+      .in('player_id', playerIds);
+    if (currentGameweekResult.error) {
+      throw new Error(`Failed to fetch existing gameweek prices: ${currentGameweekResult.error.message}`);
+    }
+
+    const currentGameweekPrices = new Map<number, PlayerPriceRow>(
+      (currentGameweekResult.data ?? []).map((row: PlayerPriceRow) => [row.player_id, row]),
+    );
+    const previousPrices = new Map<number, number>();
+    const pageSize = 1000;
+    let offset = 0;
+
+    while (previousPrices.size < playerIds.length) {
+      const { data, error } = await (this.supabase.from('player_prices') as any)
+        .select('player_id, gameweek_id, price')
+        .eq('season_id', seasonId)
+        .in('player_id', playerIds)
+        .lt('gameweek_id', gameweekId)
+        .order('gameweek_id', { ascending: false })
+        .range(offset, offset + pageSize - 1);
+
+      if (error) throw new Error(`Failed to fetch previous gameweek prices: ${error.message}`);
+
+      const rows = (data ?? []) as Array<{ player_id: number; price: number }>;
+      for (const row of rows) {
+        if (!previousPrices.has(row.player_id)) previousPrices.set(row.player_id, Number(row.price));
+      }
+
+      if (rows.length < pageSize) break;
+      offset += pageSize;
+    }
+
+    const basePrices = new Map(previousPrices);
+    for (const [playerId, row] of currentGameweekPrices) {
+      if (basePrices.has(playerId)) continue;
+      basePrices.set(playerId, Number(row.price) - Number(row.price_change ?? 0));
+    }
+
+    return basePrices;
   }
 
   async execute(): Promise<PriceUpdateResult> {
@@ -208,32 +216,35 @@ class UpdatePlayerPrices {
       // 1. Resolve active season
       // -----------------------------------------------------------------------
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: seasonData } = await (this.supabase.from('seasons') as any)
+      const { data: seasonData, error: seasonError } = await (this.supabase.from('seasons') as any)
         .select('id')
         .order('id', { ascending: false })
         .limit(1)
         .maybeSingle();
+      if (seasonError) throw new Error(`Failed to resolve active season: ${seasonError.message}`);
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const seasonId = Number((seasonData as any)?.id ?? 1);
+      const seasonId = Number((seasonData as any)?.id);
+      if (!Number.isInteger(seasonId)) throw new Error('No season is available for player pricing.');
 
       // -----------------------------------------------------------------------
-      // 2. Resolve the last 4 closed gameweeks (for form calculation)
+      // 2. Resolve the latest closed gameweek. Prices are updated once per
+      //    gameweek; repeat runs always recalculate from that week's base price.
       // -----------------------------------------------------------------------
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: closedGwData } = await (this.supabase.from('gameweeks') as any)
+      const { data: closedGameweek, error: gameweekError } = await (this.supabase.from('gameweeks') as any)
         .select('id')
         .eq('season_id', seasonId)
         .eq('status', 'closed')
         .order('id', { ascending: false })
-        .limit(4);
-
-      const recentGameweekIds: number[] = (closedGwData ?? []).map(
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (r: any) => Number(r.id),
-      );
-
-      // The gameweek we write prices into = the most recently closed one
-      const gameweekId = recentGameweekIds[0] ?? 1;
+        .limit(1)
+        .maybeSingle();
+      if (gameweekError) throw new Error(`Failed to resolve latest closed gameweek: ${gameweekError.message}`);
+      if (!closedGameweek) {
+        result.success = true;
+        result.duration = Date.now() - startTime;
+        return result;
+      }
+      const gameweekId = Number(closedGameweek.id);
 
       // -----------------------------------------------------------------------
       // 3. Resolve all fantasy_season IDs for this season, then count squads.
@@ -241,9 +252,12 @@ class UpdatePlayerPrices {
       //    limitation. Results are reused across all player batches.
       // -----------------------------------------------------------------------
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: fantasySeasonRows } = await (this.supabase.from('fantasy_seasons') as any)
+      const { data: fantasySeasonRows, error: fantasySeasonsError } = await (this.supabase.from('fantasy_seasons') as any)
         .select('id')
         .eq('season_id', seasonId);
+      if (fantasySeasonsError) {
+        throw new Error(`Failed to fetch fantasy seasons for ownership: ${fantasySeasonsError.message}`);
+      }
 
       const fantasySeasonIds: number[] = (fantasySeasonRows ?? []).map(
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -252,9 +266,10 @@ class UpdatePlayerPrices {
 
       // Count total active squads (one squad per fantasy_season)
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { count: totalSquadsCount } = await (this.supabase.from('fantasy_squads') as any)
+      const { count: totalSquadsCount, error: squadCountError } = await (this.supabase.from('fantasy_squads') as any)
         .select('id', { count: 'exact', head: true })
         .in('fantasy_season_id', fantasySeasonIds.length > 0 ? fantasySeasonIds : [-1]);
+      if (squadCountError) throw new Error(`Failed to count season squads: ${squadCountError.message}`);
 
       const totalActiveSquads = Number(totalSquadsCount ?? 0);
 
@@ -267,14 +282,13 @@ class UpdatePlayerPrices {
       while (hasMore) {
         const { data: playerData, error: playersError } = await this.supabase
           .from('professional_players')
-          .select('id')
+          .select('id, current_price')
           .eq('availability_status', 'available')
           .order('id', { ascending: true })
           .range(offset, offset + PAGE_SIZE - 1);
 
         if (playersError) {
-          result.errors.push(`Failed to fetch players at offset ${offset}: ${playersError.message}`);
-          break;
+          throw new Error(`Failed to fetch players at offset ${offset}: ${playersError.message}`);
         }
 
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -285,67 +299,50 @@ class UpdatePlayerPrices {
         }
 
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const playerIds = players.map((p: any) => Number(p.id));
+        const playerIds = players.map((player: { id: number }) => Number(player.id));
 
         // -------------------------------------------------------------------
-        // 5. Bulk-fetch current prices for this batch
+        // 5. Build gameweek fantasy points, ownership, and stable base prices.
         // -------------------------------------------------------------------
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { data: priceRows } = await (this.supabase.from('player_prices') as any)
-          .select('player_id, price, gameweek_id')
-          .eq('season_id', seasonId)
-          .in('player_id', playerIds)
-          .order('gameweek_id', { ascending: false });
-
-        const priceMap = new Map<number, number>();
-        for (const row of priceRows ?? []) {
-          const pid = Number(row.player_id);
-          if (!priceMap.has(pid)) priceMap.set(pid, Number(row.price ?? 5.0));
-        }
-
-        // -------------------------------------------------------------------
-        // 6. Bulk-build form delta and ownership maps for this batch
-        // -------------------------------------------------------------------
-        const [formDeltaMap, ownershipMap] = await Promise.all([
-          this.buildFormDeltaMap(playerIds, recentGameweekIds),
-          this.buildOwnershipMap(playerIds, seasonId, fantasySeasonIds, totalActiveSquads),
+        const [gameweekPointsMap, ownershipMap, basePriceMap] = await Promise.all([
+          this.buildGameweekPointsMap(playerIds, gameweekId),
+          this.buildOwnershipMap(playerIds, fantasySeasonIds, totalActiveSquads),
+          this.buildBasePriceMap(playerIds, seasonId, gameweekId),
         ]);
 
         // -------------------------------------------------------------------
-        // 7. Build upsert payload
+        // 6. Build idempotent price updates using this game's base price.
         // -------------------------------------------------------------------
-        const upsertRows: object[] = [];
+        const upsertRows: Array<{
+          season_id: number;
+          player_id: number;
+          gameweek_id: number;
+          price: number;
+          price_change: number;
+          ownership_percentage: number;
+        }> = [];
         for (const player of players) {
-          try {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const playerId = Number((player as any).id);
-            const currentPrice    = priceMap.get(playerId)    ?? 5.0;
-            const recentFormDelta = formDeltaMap.get(playerId) ?? 0;
-            const ownershipFactor = ownershipMap.get(playerId) ?? 0;
+          const playerId = Number((player as { id: number }).id);
+          const currentPrice = basePriceMap.get(playerId)
+            ?? Number((player as { current_price: number | null }).current_price ?? 5.0);
+          const gameweekFantasyPoints = gameweekPointsMap.get(playerId) ?? 0;
+          const ownershipFactor = ownershipMap.get(playerId) ?? 0;
+          const nextPrice = calculateDynamicPriceChange(
+            currentPrice,
+            gameweekFantasyPoints,
+            ownershipFactor,
+            0.5,
+          );
 
-            const nextPrice = calculateDynamicPriceChange(
-              currentPrice,
-              recentFormDelta,
-              ownershipFactor,
-              0.5,
-            );
-
-            upsertRows.push({
-              season_id: seasonId,
-              player_id: playerId,
-              gameweek_id: gameweekId,
-              price: nextPrice,
-              price_change: Number((nextPrice - currentPrice).toFixed(2)),
-              ownership_percentage: Math.max(0, Math.min(100, ownershipFactor * 100)),
-            });
-
-            result.playersProcessed++;
-          } catch (err: unknown) {
-            result.errors.push(
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              `Error building price for player ${(player as any).id}: ${(err as Error).message}`,
-            );
-          }
+          upsertRows.push({
+            season_id: seasonId,
+            player_id: playerId,
+            gameweek_id: gameweekId,
+            price: nextPrice,
+            price_change: Number((nextPrice - currentPrice).toFixed(2)),
+            ownership_percentage: Math.max(0, Math.min(100, ownershipFactor * 100)),
+          });
+          result.playersProcessed++;
         }
 
         // -------------------------------------------------------------------
@@ -357,18 +354,17 @@ class UpdatePlayerPrices {
             .upsert(upsertRows, { onConflict: 'season_id,player_id,gameweek_id' });
 
           if (upsertError) {
-            result.errors.push(`Bulk upsert failed at offset ${offset}: ${upsertError.message}`);
-          } else {
-            result.pricesUpdated += upsertRows.length;
-            // Keep professional_players.current_price in sync for fast lookups
-            const playerPriceUpdates = (upsertRows as Array<{ player_id: number; price: number }>).map(
-              (row) =>
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                (this.supabase.from('professional_players') as any)
-                  .update({ current_price: row.price })
-                  .eq('id', row.player_id),
-            );
-            await Promise.allSettled(playerPriceUpdates);
+            throw new Error(`Bulk upsert failed at offset ${offset}: ${upsertError.message}`);
+          }
+          result.pricesUpdated += upsertRows.length;
+          const playerPriceUpdates = await Promise.all(upsertRows.map((row) =>
+            (this.supabase.from('professional_players') as any)
+              .update({ current_price: row.price })
+              .eq('id', row.player_id),
+          ));
+          const failedPlayerUpdate = playerPriceUpdates.find((update) => update.error);
+          if (failedPlayerUpdate) {
+            throw new Error(`Failed to sync a player's current price: ${failedPlayerUpdate.error.message}`);
           }
         }
 
@@ -376,7 +372,7 @@ class UpdatePlayerPrices {
         if (players.length < PAGE_SIZE) hasMore = false;
       }
 
-      result.success = true;
+      result.success = result.errors.length === 0;
     } catch (err: unknown) {
       result.errors.push(`Fatal error in price update job: ${(err as Error).message}`);
     }

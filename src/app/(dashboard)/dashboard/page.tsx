@@ -14,6 +14,10 @@ import {
   BarChart3,
   Zap,
   Megaphone,
+  ArrowRight,
+  CalendarClock,
+  AlertTriangle,
+  TrendingUp,
   Shield,
   Info,
 } from 'lucide-react';
@@ -30,6 +34,46 @@ interface StatCard {
   trendColor?: string;
 }
 
+interface WhatsNewEvent {
+  kind: 'tournament' | 'gameweek';
+  id: number;
+  title: string;
+  startedAt: string;
+  href: string;
+  tier?: string | null;
+  seriesCount?: number;
+  matchCount?: number;
+  bestOfFormats?: number[];
+  deadline?: string | null;
+  matchStatuses?: Record<string, number>;
+}
+
+interface WhatsNewGameweek {
+  id: number;
+  number: number;
+  status: string;
+  startsAt: string;
+  deadline: string;
+  matchCount: number;
+  matchStatuses: Record<string, number>;
+  href: string;
+}
+
+interface WhatsNewUpdate {
+  id: number;
+  kind: 'price_change' | 'availability';
+  title: string;
+  message: string;
+  createdAt: string;
+  href: string;
+}
+
+interface WhatsNewData {
+  event: WhatsNewEvent | null;
+  gameweek: WhatsNewGameweek | null;
+  updates: WhatsNewUpdate[];
+}
+
 export default function DashboardPage() {
   const router = useRouter();
   const toast = useToast();
@@ -39,6 +83,8 @@ export default function DashboardPage() {
   const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
   const [selectedPlayer, setSelectedPlayer] = useState<PlayerDetails | null>(null);
   const [playerLoading, setPlayerLoading] = useState(false);
+  const [whatsNew, setWhatsNew] = useState<WhatsNewData | null>(null);
+  const [whatsNewError, setWhatsNewError] = useState<string | null>(null);
 
   useEffect(() => {
     const closeOnEscape = (event: KeyboardEvent) => {
@@ -130,6 +176,57 @@ export default function DashboardPage() {
     fetchStats();
   }, [router, toast]);
 
+  useEffect(() => {
+    let cancelled = false;
+
+    const fetchWhatsNew = async () => {
+      try {
+        const response = await fetchWithAuth('/api/dashboard/whats-new');
+        const data = await response.json();
+        if (!response.ok) {
+          throw new Error(data.error || `Failed to load What's New (${response.status})`);
+        }
+        if (!cancelled) {
+          setWhatsNew(data as WhatsNewData);
+          setWhatsNewError(null);
+        }
+      } catch (err: unknown) {
+        if (!cancelled) {
+          setWhatsNewError(err instanceof Error ? err.message : 'Unable to load What’s New.');
+        }
+      }
+    };
+
+    void fetchWhatsNew();
+    const intervalId = window.setInterval(() => void fetchWhatsNew(), 5 * 60 * 1000);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(intervalId);
+    };
+  }, []);
+
+  const formatUtcDate = (date: string) =>
+    new Intl.DateTimeFormat('en', {
+      dateStyle: 'medium',
+      timeStyle: 'short',
+      timeZone: 'UTC',
+    }).format(new Date(date));
+
+  const describeMatchStatuses = (statuses: Record<string, number>) => {
+    const labels: Record<string, string> = {
+      scheduled: 'scheduled',
+      in_progress: 'live',
+      completed: 'completed',
+      cancelled: 'cancelled',
+      postponed: 'postponed',
+    };
+    return Object.entries(statuses)
+      .filter(([, count]) => count > 0)
+      .map(([status, count]) => `${count} ${labels[status] ?? status.replaceAll('_', ' ')}`)
+      .join(' · ');
+  };
+
   return (
     <div className="dashboard-page min-h-screen">
       {/* Hero Section */}
@@ -195,23 +292,91 @@ export default function DashboardPage() {
 
       {/* Main Content */}
       <section className="max-w-7xl mx-auto px-4 py-12">
-        {/* What's New â€” full width */}
-        <div className="dashboard-whats-new relative overflow-hidden rounded-xl mb-8 border border-amber-500/30 bg-linear-to-r from-amber-500/10 via-slate-800/80 to-slate-800/50 px-8 py-6 flex items-center gap-6 flex-wrap shadow-lg shadow-amber-500/5">
-          {/* Left accent bar */}
-          <div className="absolute left-0 top-0 bottom-0 w-1 bg-linear-to-b from-amber-400 to-orange-600 rounded-l-xl" />
-          <div className="flex items-center gap-3">
-            <span className="p-2 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-400 flex items-center justify-center">
-              <Megaphone className="w-5 h-5" />
-            </span>
-            <h3 className="text-lg font-bold text-white whitespace-nowrap">What&apos;s New</h3>
-            <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-500 text-slate-900">NEW</span>
+        {whatsNew && (whatsNew.event || whatsNew.gameweek || whatsNew.updates.length > 0) && (
+          <section className="dashboard-whats-new mb-8 rounded-xl p-5 sm:p-6" aria-labelledby="whats-new-heading">
+            <div className="mb-5 flex items-center gap-3">
+              <span className="whats-new-heading-icon flex items-center justify-center rounded-lg p-2">
+                <Megaphone className="h-5 w-5" />
+              </span>
+              <h3 id="whats-new-heading" className="text-lg font-bold">What&apos;s New</h3>
+              <span className="whats-new-live-indicator">
+                <span aria-hidden="true" className="whats-new-live-dot" />
+                Live
+              </span>
+            </div>
+
+            {whatsNew.gameweek && (
+              <Link
+                href={whatsNew.gameweek.href}
+                className="whats-new-gameweek group mb-5 flex flex-wrap items-center gap-x-4 gap-y-2 rounded-lg px-4 py-3 transition-colors"
+              >
+                <span className="whats-new-gameweek-label">
+                  {whatsNew.gameweek.status === 'active' || Date.parse(whatsNew.gameweek.startsAt) <= Date.now()
+                    ? 'Current'
+                    : 'Next'}
+                </span>
+                <span className="whats-new-gameweek-number">GW {whatsNew.gameweek.number}</span>
+                <span className="whats-new-gameweek-detail">{whatsNew.gameweek.matchCount} matches</span>
+                {describeMatchStatuses(whatsNew.gameweek.matchStatuses) && (
+                  <span className="whats-new-gameweek-detail">{describeMatchStatuses(whatsNew.gameweek.matchStatuses)}</span>
+                )}
+                <span className="whats-new-gameweek-detail">Deadline: {formatUtcDate(whatsNew.gameweek.deadline)} UTC</span>
+                <ArrowRight aria-hidden="true" className="ml-auto h-4 w-4 shrink-0 transition-transform group-hover:translate-x-1" />
+              </Link>
+            )}
+
+            {(whatsNew.event || whatsNew.updates.length > 0) && (
+              <div>
+                <h4 className="whats-new-section-label mb-2">Recent updates</h4>
+                <div className="whats-new-update-list">
+                  {whatsNew.event && (
+                    <Link
+                      href={whatsNew.event.href}
+                      className="whats-new-update-row whats-new-tournament-row group flex flex-wrap items-center gap-x-3 gap-y-2 py-3 transition-colors"
+                    >
+                      <Trophy aria-hidden="true" className="whats-new-update-icon h-4 w-4 shrink-0" />
+                      <span className="whats-new-update-type">Tournament started</span>
+                      <span className="whats-new-update-title">{whatsNew.event.title}</span>
+                      <span className="whats-new-update-detail">
+                        {[whatsNew.event.tier, `${whatsNew.event.seriesCount ?? 0} series`, `${whatsNew.event.matchCount ?? 0} matches`,
+                          ...(whatsNew.event.bestOfFormats && whatsNew.event.bestOfFormats.length > 0
+                            ? [`Bo${whatsNew.event.bestOfFormats.join(' / Bo')}`]
+                            : [])]
+                          .filter(Boolean)
+                          .join(' · ')}
+                      </span>
+                      <ArrowRight aria-hidden="true" className="ml-auto h-4 w-4 shrink-0 transition-transform group-hover:translate-x-1" />
+                    </Link>
+                  )}
+
+                  {whatsNew.updates.map((update) => {
+                    const UpdateIcon = update.kind === 'availability' ? AlertTriangle : TrendingUp;
+                    return (
+                      <Link
+                        href={update.href}
+                        key={update.id}
+                        className="whats-new-update-row group flex flex-wrap items-center gap-x-3 gap-y-1 py-3 transition-colors"
+                      >
+                        <UpdateIcon aria-hidden="true" className={`whats-new-update-icon h-4 w-4 shrink-0 ${update.kind === 'availability' ? 'whats-new-availability-icon' : 'whats-new-price-icon'}`} />
+                        <span className="whats-new-update-type">
+                          {update.kind === 'availability' ? 'Squad availability' : 'Player price'}
+                        </span>
+                        <span className="whats-new-update-title">{update.title}</span>
+                        <span className="whats-new-update-detail">{update.message}</span>
+                        <ArrowRight aria-hidden="true" className="ml-auto h-4 w-4 shrink-0 transition-transform group-hover:translate-x-1" />
+                      </Link>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </section>
+        )}
+        {whatsNewError && (
+          <div role="status" className="mb-8 rounded-xl border border-rose-500/30 bg-rose-950/30 px-5 py-4 text-sm text-rose-200">
+            What&apos;s New could not be loaded: {whatsNewError}
           </div>
-          <div className="flex items-center gap-3">
-            <span className="dashboard-whats-new-title text-amber-400 font-semibold text-sm">Season 2026 Starts</span>
-            <span className="dashboard-whats-new-divider text-slate-600">|</span>
-            <span className="dashboard-whats-new-desc text-slate-300 text-sm">Fantasy season 2026 is now live â€” build your squad and compete!</span>
-          </div>
-        </div>
+        )}
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Primary Actions */}
@@ -398,7 +563,7 @@ export default function DashboardPage() {
                           style={{ background: 'var(--surface-raised)', border: '1px solid var(--border)' }}
                         >
                           {/* Role-coloured top accent bar */}
-                          <div className="h-[3px] w-full rounded-t-2xl" style={{ background: `linear-gradient(90deg, ${rc.text}, transparent)` }} />
+                          <div className="h-0.75 w-full rounded-t-2xl" style={{ background: `linear-gradient(90deg, ${rc.text}, transparent)` }} />
 
                           {/* Captain / VC badge */}
                           {player.is_captain && (
@@ -514,7 +679,7 @@ export default function DashboardPage() {
                                       ['\uD83C\uDFC5 Win',       player.score_breakdown.win],
                                       ['\uD83D\uDCCA Perf.',     player.score_breakdown.performance],
                                     ] as [string, number][]).map(([label, val]) => (
-                                      <div key={label} className="flex items-center justify-between py-[3px] text-[11px]">
+                                      <div key={label} className="flex items-center justify-between py-0.75 text-[11px]">
                                         <span style={{ color: 'var(--text-secondary)' }}>{label}</span>
                                         <span className="font-mono font-semibold"
                                           style={{ color: val >= 0 ? 'var(--text-primary)' : 'var(--danger)' }}>
