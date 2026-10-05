@@ -46,7 +46,9 @@ export async function POST(request: Request) {
 
     return Response.json({
       success: true,
-      message: `Job ${jobName} started`,
+      message: result.status === 'skipped'
+        ? `Job ${jobName} skipped because another execution holds its lock`
+        : `Job ${jobName} ${result.status}`,
       result,
     });
   } catch (error) {

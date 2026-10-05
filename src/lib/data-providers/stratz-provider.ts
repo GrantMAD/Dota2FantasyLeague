@@ -61,6 +61,16 @@ interface StratzPlayerRecord {
   teams?: StratzRosterTeam[] | null;
 }
 
+interface StratzProSteamAccountRecord {
+  steamAccountId: number | string | null;
+  name?: string | null;
+  isPro?: boolean;
+  fantasyRole?: number | null;
+  team?: { id: number | string; name: string; tag?: string | null } | null;
+  countries?: string | string[] | null;
+  steam?: { avatar?: string | null; profileUrl?: string | null } | null;
+}
+
 interface StratzRosterTeam {
   id: number | string;
   name?: string;
@@ -192,8 +202,15 @@ export class StratzProvider extends DataProviderBase implements DataProvider {
         }
       `;
 
-      const response = await this.graphqlRequest<{ proSteamAccounts?: StratzPlayerRecord[] }>(query);
+      const response = await this.graphqlRequest<{ proSteamAccounts?: StratzProSteamAccountRecord[] }>(query);
       const accounts = response.data?.proSteamAccounts || [];
+
+      for (const account of accounts) {
+        const steamAccountId = String(account.steamAccountId ?? '').trim();
+        if (!/^\d+$/.test(steamAccountId) || !Number.isSafeInteger(Number(steamAccountId)) || Number(steamAccountId) <= 0) {
+          throw new Error('STRATZ pro player record is missing a valid steamAccountId');
+        }
+      }
 
       const roleMap: Record<number, string> = {
         1: 'Carry',
@@ -211,8 +228,8 @@ export class StratzProvider extends DataProviderBase implements DataProvider {
       const limit = filters?.limit || activePlayers.length;
 
       return activePlayers.slice(offset, offset + limit).map((a) => ({
-        id: String(a.id),
-        steamId: String(a.id),
+        id: String(a.steamAccountId),
+        steamId: String(a.steamAccountId),
         name: a.name ?? '',
         tag: a.team?.tag ?? undefined,
         country: Array.isArray(a.countries) ? a.countries[0] : (a.countries ?? undefined),

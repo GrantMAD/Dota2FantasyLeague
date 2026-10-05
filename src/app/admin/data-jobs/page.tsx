@@ -210,7 +210,7 @@ interface JobResultSummary {
 interface JobStatus {
   job_name: string;
   schedule?: string | null;
-  status: 'idle' | 'running' | 'completed' | 'failed';
+  status: 'idle' | 'running' | 'completed' | 'failed' | 'skipped';
   last_run: string | null;
   last_duration_ms: number | null;
   next_run: string | null;
@@ -809,6 +809,7 @@ function JobCard({ job, isLocallyRunning, onTrigger, disabled, jobMeta }: JobCar
   const isRunning = job.status === 'running' || isLocallyRunning;
   const isCompleted = job.status === 'completed' && !isLocallyRunning;
   const isFailed = job.status === 'failed' && !isLocallyRunning;
+  const isSkipped = job.status === 'skipped' && !isLocallyRunning;
 
   // Extract structured metadata summary if available
   const meta = (job.metadata || {}) as JobResultSummary;
@@ -886,6 +887,11 @@ function JobCard({ job, isLocallyRunning, onTrigger, disabled, jobMeta }: JobCar
                 <span className="inline-flex items-center gap-1 rounded-full border border-rose-500/30 bg-rose-500/10 px-2 py-0.5 text-xs font-medium text-rose-400">
                   <AlertTriangle className="h-3 w-3" />
                   Failed
+                </span>
+              ) : isSkipped ? (
+                <span className="inline-flex items-center gap-1 rounded-full border border-amber-500/30 bg-amber-500/10 px-2.5 py-0.5 text-xs font-medium text-amber-400">
+                  <Clock className="h-3 w-3" />
+                  Skipped — already running
                 </span>
               ) : (
                 <span className="inline-flex items-center gap-1 rounded-full border border-slate-700 bg-slate-800/60 px-2 py-0.5 text-xs font-medium text-slate-400">

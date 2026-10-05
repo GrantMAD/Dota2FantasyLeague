@@ -1,70 +1,19 @@
-/**
- * Utility to calculate the next execution Date for standard 5-part cron expressions
- * format: minute hour dayOfMonth month dayOfWeek
- */
+import { matchesCronSchedule } from './job-schedule';
+
+const MAX_SEARCH_MINUTES = 366 * 24 * 60;
+
+/** Calculate the next matching UTC minute for a standard five-field cron expression. */
 export function getNextCronDate(cronExpression: string, fromDate: Date = new Date()): Date {
-  const parts = cronExpression.trim().split(/\s+/);
-  if (parts.length < 5) {
-    return new Date(fromDate.getTime() + 60 * 60 * 1000);
-  }
+  const nextMinute = new Date(fromDate.getTime());
+  nextMinute.setUTCSeconds(0, 0);
+  nextMinute.setUTCMinutes(nextMinute.getUTCMinutes() + 1);
 
-  const [minStr, hourStr] = parts;
-
-  // Pattern: "*/N * * * *" -> Every N minutes
-  if (minStr.startsWith('*/') && hourStr === '*') {
-    const step = parseInt(minStr.replace('*/', ''), 10) || 5;
-    const currentMins = fromDate.getUTCMinutes();
-    const nextMins = Math.floor(currentMins / step) * step + step;
-    const nextDate = new Date(fromDate.getTime());
-    nextDate.setUTCSeconds(0, 0);
-    nextDate.setUTCMinutes(nextMins);
-    return nextDate;
-  }
-
-  // Pattern: "M */N * * *" -> Every N hours at minute M
-  if (hourStr.startsWith('*/')) {
-    const step = parseInt(hourStr.replace('*/', ''), 10) || 1;
-    const targetMin = parseInt(minStr, 10) || 0;
-    const nextDate = new Date(fromDate.getTime());
-    nextDate.setUTCSeconds(0, 0);
-    nextDate.setUTCMinutes(targetMin);
-
-    const currentHour = fromDate.getUTCHours();
-    const currentMin = fromDate.getUTCMinutes();
-
-    let nextHour = Math.floor(currentHour / step) * step;
-    if (nextHour < currentHour || (nextHour === currentHour && currentMin >= targetMin)) {
-      nextHour += step;
+  for (let offset = 0; offset < MAX_SEARCH_MINUTES; offset += 1) {
+    if (matchesCronSchedule(cronExpression, nextMinute)) {
+      return nextMinute;
     }
-    nextDate.setUTCHours(nextHour);
-    return nextDate;
+    nextMinute.setUTCMinutes(nextMinute.getUTCMinutes() + 1);
   }
 
-  // Pattern: "M * * * *" -> Hourly at minute M
-  if (hourStr === '*' && !minStr.startsWith('*/')) {
-    const targetMin = parseInt(minStr, 10) || 0;
-    const nextDate = new Date(fromDate.getTime());
-    nextDate.setUTCSeconds(0, 0);
-    nextDate.setUTCMinutes(targetMin);
-    if (fromDate.getUTCMinutes() >= targetMin) {
-      nextDate.setUTCHours(nextDate.getUTCHours() + 1);
-    }
-    return nextDate;
-  }
-
-  // Pattern: "M H * * *" -> Daily at H:M UTC
-  if (!hourStr.includes('*') && !minStr.includes('*')) {
-    const targetHour = parseInt(hourStr, 10) || 0;
-    const targetMin = parseInt(minStr, 10) || 0;
-    const nextDate = new Date(fromDate.getTime());
-    nextDate.setUTCSeconds(0, 0);
-    nextDate.setUTCHours(targetHour, targetMin, 0, 0);
-    if (nextDate.getTime() <= fromDate.getTime()) {
-      nextDate.setUTCDate(nextDate.getUTCDate() + 1);
-    }
-    return nextDate;
-  }
-
-  // Default fallback: 1 hour in the future
-  return new Date(fromDate.getTime() + 60 * 60 * 1000);
+  throw new Error(`No next run found within one year for cron schedule: ${cronExpression}`);
 }

@@ -9,6 +9,7 @@
  */
 
 import { getSupabaseServerClient } from '@/lib/db/supabase-server';
+import { randomUUID } from 'node:crypto';
 
 import { syncPlayers } from './sync-players';
 import { syncTeams } from './sync-teams';
@@ -31,6 +32,8 @@ import { backfillPlaceholderPlayers } from './backfill-placeholder-players';
 import { backfillTeamLogos } from './backfill-team-logos';
 import { purgeInactiveData } from './purge-inactive-data';
 import { autoResolveConflicts } from './auto-resolve-conflicts';
+import { matchesCronSchedule } from './job-schedule';
+import { acquireDistributedJobLock, releaseDistributedJobLock } from './job-lock';
 
 type JobName =
   | 'sync-players'
@@ -65,7 +68,7 @@ interface JobDefinition {
 
 interface JobResult {
   jobName: JobName;
-  status: 'pending' | 'running' | 'completed' | 'failed';
+  status: 'pending' | 'running' | 'completed' | 'failed' | 'skipped';
   startedAt: Date;
   completedAt?: Date;
   result?: unknown;
@@ -118,35 +121,35 @@ const JOBS: JobDefinition[] = [
   },
   {
     name: 'process-completed-matches',
-    schedule: '*/45 * * * *', // Every 45 minutes (after match details fetch)
+    schedule: '45 * * * *', // Hourly at :45, after match details fetch
     handler: processCompletedMatches,
     enabled: process.env.ENABLE_SCORE_CALCULATION !== 'false',
     timeout: 10 * 60 * 1000,
   },
   {
     name: 'calculate-fantasy-scores',
-    schedule: '*/50 * * * *', // Every 50 minutes (after processing matches)
+    schedule: '50 * * * *', // Hourly at :50, after processing matches
     handler: calculateFantasyScores,
     enabled: process.env.ENABLE_SCORE_CALCULATION !== 'false',
     timeout: 15 * 60 * 1000,
   },
   {
     name: 'recalculate-gameweeks',
-    schedule: '*/55 * * * *', // Every 55 minutes (after calculating scores)
+    schedule: '55 * * * *', // Hourly at :55, after calculating scores
     handler: recalculateGameweeks,
     enabled: process.env.ENABLE_SCORE_CALCULATION !== 'false',
     timeout: 10 * 60 * 1000,
   },
   {
     name: 'recalculate-leagues',
-    schedule: '*/60 * * * *', // Every 60 minutes
+    schedule: '0 * * * *', // Hourly at :00
     handler: recalculateLeagues,
     enabled: process.env.ENABLE_LEAGUE_RECALCULATION !== 'false',
     timeout: 15 * 60 * 1000,
   },
   {
     name: 'calculate-global-rankings',
-    schedule: '*/65 * * * *', // Every 65 minutes
+    schedule: '5 * * * *', // Hourly at :05, after league recalculation
     handler: calculateGlobalRankings,
     enabled: process.env.ENABLE_GLOBAL_RANKINGS !== 'false',
     timeout: 15 * 60 * 1000,
@@ -174,7 +177,7 @@ const JOBS: JobDefinition[] = [
   },
   {
     name: 'send-rank-notifications',
-    schedule: '*/70 * * * *', // After global rankings calc
+    schedule: '10 * * * *', // Hourly at :10, after global rankings calculation
     handler: sendRankNotifications,
     enabled: process.env.ENABLE_NOTIFICATIONS !== 'false',
     timeout: 5 * 60 * 1000,
@@ -348,24 +351,79 @@ export async function runJob(jobName: JobName): Promise<JobResult> {
   runningJobs.set(jobName, result);
   console.log(`[Scheduler] Starting job: ${jobName}`);
 
+  const executionId = randomUUID();
+  let lockAcquired = false;
   try {
-    // Run job with timeout
-    const jobPromise = jobDef.handler();
-    const timeoutPromise = new Promise((_, reject) =>
-      setTimeout(
-        () => reject(new Error(`Job timeout after ${jobDef.timeout}ms`)),
-        jobDef.timeout
-      )
-    );
-
-    result.result = await Promise.race([jobPromise, timeoutPromise]);
-    result.status = 'completed';
-
-    console.log(`[Scheduler] Job ${jobName} completed successfully`);
+    lockAcquired = await acquireDistributedJobLock(jobName, executionId);
+    if (!lockAcquired) {
+      result.status = 'skipped';
+      result.error = 'Another scheduler instance owns the distributed job lock';
+      result.completedAt = new Date();
+      result.duration = result.completedAt.getTime() - result.startedAt.getTime();
+      console.log(`[Scheduler] Job ${jobName} already running on another instance, skipping`);
+      runningJobs.set(jobName, result);
+      recordJobHistory({ ...result });
+      await persistJobExecution(result);
+      return result;
+    }
   } catch (error) {
     result.status = 'failed';
     result.error = (error as Error).message;
-    console.error(`[Scheduler] Job ${jobName} failed:`, error);
+    console.error(`[Scheduler] Job ${jobName} could not acquire its distributed lock:`, error);
+    result.completedAt = new Date();
+    result.duration = result.completedAt.getTime() - result.startedAt.getTime();
+    runningJobs.set(jobName, result);
+    recordJobHistory({ ...result });
+    await persistJobExecution(result);
+    await maybeDispatchAlert(result);
+    return result;
+  }
+
+  let timeoutHandle: ReturnType<typeof setTimeout> | undefined;
+  const handlerPromise = Promise.resolve().then(jobDef.handler);
+  const settledHandler = handlerPromise.then(
+    (value) => ({ status: 'completed' as const, value }),
+    (error: unknown) => ({ status: 'failed' as const, error })
+  );
+  const timeoutPromise = new Promise<{ status: 'timed-out' }>((resolve) => {
+    timeoutHandle = setTimeout(() => {
+      resolve({ status: 'timed-out' });
+    }, jobDef.timeout);
+  });
+  const outcome = await Promise.race([settledHandler, timeoutPromise]);
+
+  if (outcome.status === 'timed-out') {
+    result.status = 'failed';
+    result.error =
+      `Job exceeded timeout after ${jobDef.timeout}ms; execution was not cancelled and its distributed lock remains held until it settles or expires.`;
+    result.completedAt = new Date();
+    result.duration = result.completedAt.getTime() - result.startedAt.getTime();
+    console.error(`[Scheduler] Job ${jobName} timed out; underlying work was not cancelled`);
+    runningJobs.set(jobName, result);
+    recordJobHistory({ ...result });
+    await persistJobExecution(result);
+    await maybeDispatchAlert(result);
+
+    void settledHandler.then(async (lateOutcome) => {
+      console.warn(`[Scheduler] Timed-out job ${jobName} settled later with status ${lateOutcome.status}`);
+      try {
+        await releaseDistributedJobLock(jobName, executionId);
+      } catch (error) {
+        console.error(`[Scheduler] Failed to release late-settled job lock for ${jobName}:`, error);
+      }
+    });
+    return result;
+  }
+
+  if (timeoutHandle) clearTimeout(timeoutHandle);
+  if (outcome.status === 'failed') {
+    result.status = 'failed';
+    result.error = outcome.error instanceof Error ? outcome.error.message : String(outcome.error);
+    console.error(`[Scheduler] Job ${jobName} failed:`, outcome.error);
+  } else {
+    result.result = outcome.value;
+    result.status = 'completed';
+    console.log(`[Scheduler] Job ${jobName} completed successfully`);
   }
 
   result.completedAt = new Date();
@@ -376,8 +434,27 @@ export async function runJob(jobName: JobName): Promise<JobResult> {
   recordJobHistory({ ...result });
   await persistJobExecution(result);
   await maybeDispatchAlert(result);
+  try {
+    await releaseDistributedJobLock(jobName, executionId);
+  } catch (error) {
+    console.error(`[Scheduler] Failed to release distributed job lock for ${jobName}:`, error);
+  }
 
   return result;
+}
+
+export async function runScheduledJobs(now: Date = new Date()): Promise<JobResult[]> {
+  const dueJobs = getEnabledJobs().filter((job) => matchesCronSchedule(job.schedule, now));
+  console.log(
+    `[Scheduler] ${dueJobs.length} enabled jobs due at ${now.toISOString()}`
+  );
+  const results: JobResult[] = [];
+
+  for (const job of dueJobs) {
+    results.push(await runJob(job.name));
+  }
+
+  return results;
 }
 
 /**
@@ -561,6 +638,7 @@ const scheduler = {
   getJobStatus,
   getAllJobStatuses,
   runJob,
+  runScheduledJobs,
   runAllJobs,
   runAllJobsSequential,
   hasRunningJobs,
