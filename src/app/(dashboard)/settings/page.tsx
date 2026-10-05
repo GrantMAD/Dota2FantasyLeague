@@ -191,14 +191,17 @@ function SettingsContent() {
     }
   };
 
-  const renderToggle = (label: string, description: string, enabled: boolean, onToggle: () => void) => (
+  const renderToggle = (label: string, description: string, enabled: boolean, onToggle: () => void, unavailable = false) => (
     <div className="flex items-center justify-between gap-4 rounded-xl border border-slate-800 bg-slate-950/50 p-4">
       <div>
-        <h3 className="font-semibold text-white">{label}</h3>
+        <div className="flex flex-wrap items-center gap-2">
+          <h3 className="font-semibold text-white">{label}</h3>
+          {unavailable && <span className="rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-300">Not available</span>}
+        </div>
         <p className="mt-1 text-sm leading-6 text-slate-400">{description}</p>
       </div>
-      <button type="button" onClick={onToggle} aria-pressed={enabled} className={`relative h-7 w-12 shrink-0 rounded-full transition ${enabled ? 'bg-cyan-500' : 'bg-slate-700'}`}>
-        <span className={`absolute top-1 h-5 w-5 rounded-full bg-white transition ${enabled ? 'left-6' : 'left-1'}`} />
+      <button type="button" onClick={onToggle} aria-pressed={unavailable ? undefined : enabled} disabled={unavailable} aria-label={`${label}${unavailable ? ', not available yet' : ''}`} className={`relative h-7 w-12 shrink-0 rounded-full transition disabled:cursor-not-allowed disabled:opacity-40 ${!unavailable && enabled ? 'bg-cyan-500' : 'bg-slate-700'}`}>
+        <span className={`absolute top-1 h-5 w-5 rounded-full bg-white transition ${!unavailable && enabled ? 'left-6' : 'left-1'}`} />
       </button>
     </div>
   );
@@ -233,7 +236,7 @@ function SettingsContent() {
         </div>
         <div className="rounded-xl border border-amber-500/25 bg-amber-500/5 p-4">
           <p className="text-xs uppercase tracking-[0.18em] text-slate-500">Alerts</p>
-          <p className="mt-2 font-semibold text-amber-200">{formData.pushNotifications || formData.emailNotifications ? 'Enabled' : 'Paused'}</p>
+          <p className="mt-2 font-semibold text-amber-200">In-app alerts available</p>
         </div>
       </section>
 
@@ -258,7 +261,7 @@ function SettingsContent() {
                 {[
                   ['Profile identity', formData.displayName ? 'Configured' : 'Needs attention', formData.displayName],
                   ['Regional settings', formData.countryCode && formData.timezone ? 'Configured' : 'Needs attention', Boolean(formData.countryCode && formData.timezone)],
-                  ['Notification channels', formData.pushNotifications || formData.emailNotifications ? 'At least one channel active' : 'All channels paused', formData.pushNotifications || formData.emailNotifications],
+                  ['Notification channels', 'In-app alerts available; email and push not configured', true],
                   ['Theme preference', `${theme} mode active`, true],
                 ].map(([label, status, complete]) => (
                   <div key={String(label)} className="flex items-center justify-between gap-4 rounded-xl border border-slate-800 bg-slate-950/50 px-4 py-3">
@@ -341,22 +344,24 @@ function SettingsContent() {
           {activeTab === 'notifications' && (
             <div>
               <h2 className="text-xl font-bold text-white">Notification preferences</h2>
-              <p className="mt-2 text-sm leading-6 text-slate-400">Choose the channels you want to keep active for important fantasy updates.</p>
+              <p className="mt-2 text-sm leading-6 text-slate-400">In-app alerts are available in the notification center. Email and device push delivery have not been configured yet.</p>
               <div className="mt-6 space-y-3">
                 {renderToggle(
                   'Push notifications',
-                  'Receive device alerts for deadlines, price changes, and important fantasy actions.',
+                  'Device push delivery is unavailable until a push provider and subscription flow are integrated.',
                   formData.pushNotifications,
-                  () => void handleNotificationToggle('pushNotifications', !formData.pushNotifications)
+                  () => void handleNotificationToggle('pushNotifications', !formData.pushNotifications),
+                  true
                 )}
                 {renderToggle(
                   'Email summaries',
-                  'Receive weekly summaries and important account updates by email.',
+                  'Email delivery is unavailable until an email provider is integrated and configured.',
                   formData.emailNotifications,
-                  () => void handleNotificationToggle('emailNotifications', !formData.emailNotifications)
+                  () => void handleNotificationToggle('emailNotifications', !formData.emailNotifications),
+                  true
                 )}
               </div>
-              <div className="mt-5 rounded-xl border border-emerald-500/25 bg-emerald-500/5 p-4 text-sm leading-6 text-emerald-200">Delivery preferences are saved automatically and synchronized with your account profile.</div>
+              <div className="mt-5 rounded-xl border border-amber-500/25 bg-amber-500/5 p-4 text-sm leading-6 text-amber-100">These channel controls are disabled so they do not imply delivery that is not active. In-app notifications remain available regardless of these saved preference values.</div>
               <Link href="/notifications" className="mt-5 inline-flex text-sm font-semibold text-cyan-300 hover:text-cyan-200">Open notification center →</Link>
             </div>
           )}

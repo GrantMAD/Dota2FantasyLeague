@@ -66,6 +66,7 @@ export default function LineupsPage() {
   }, [toastError]);
 
   const updateSlot = (slot: string, playerId: number) => {
+    if (lineupLocked) return;
     const existingSlot = lineup.find((entry) => entry.player_id === playerId && entry.slot !== slot)?.slot;
     if (existingSlot) {
       toast.error('Cannot Assign Player', `${ownedPlayers.find((player) => player.id === playerId)?.in_game_name || 'This player'} is already assigned to ${existingSlot.replace('_', ' ')}.`);
@@ -83,6 +84,7 @@ export default function LineupsPage() {
   };
 
   const setCaptain = (playerId: number, vice = false) => {
+    if (lineupLocked) return;
     const playerObj = ownedPlayers.find((p) => p.id === playerId);
     const playerName = playerObj?.in_game_name || playerObj?.name || 'Player';
     setLineup((current) => {
@@ -388,6 +390,7 @@ export default function LineupsPage() {
                           </div>
                           <select
                             value={selected?.player_id ?? ''}
+                            disabled={lineupLocked}
                             onChange={(event) => {
                               if (!event.target.value) {
                                 setLineup((current) => current.filter((entry) => entry.slot !== slot));
@@ -395,7 +398,7 @@ export default function LineupsPage() {
                                 updateSlot(slot, Number(event.target.value));
                               }
                             }}
-                            className="w-full rounded border border-slate-600 bg-slate-800 px-3 py-2 text-sm text-white focus:border-amber-500 focus:outline-none"
+                            className="w-full rounded border border-slate-600 bg-slate-800 px-3 py-2 text-sm text-white focus:border-amber-500 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
                           >
                             <option value="">Select player ({displayRole})</option>
                             {eligiblePlayers.map((player) => {
@@ -479,6 +482,7 @@ export default function LineupsPage() {
                           </label>
                           <select
                             value={selected?.player_id ?? ''}
+                            disabled={lineupLocked}
                             onChange={(event) => {
                               if (!event.target.value) {
                                 setLineup((current) => current.filter((entry) => entry.slot !== slot));
@@ -486,7 +490,7 @@ export default function LineupsPage() {
                                 updateSlot(slot, Number(event.target.value));
                               }
                             }}
-                            className="w-full rounded border border-slate-600 bg-slate-800 px-3 py-2 text-sm text-white focus:border-amber-500 focus:outline-none"
+                            className="w-full rounded border border-slate-600 bg-slate-800 px-3 py-2 text-sm text-white focus:border-amber-500 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
                           >
                             <option value="">Select player</option>
                             {ownedPlayers.map((player) => {

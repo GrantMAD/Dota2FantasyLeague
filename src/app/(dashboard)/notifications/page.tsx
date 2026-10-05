@@ -25,21 +25,29 @@ export default function NotificationsPage() {
   const [activeCategory, setActiveCategory] = useState<NotificationCategory>('all');
 
   useEffect(() => {
+    const controller = new AbortController();
+
     async function fetchNotifications() {
+      setLoading(true);
+      setError(null);
       try {
         const params = new URLSearchParams({ category: activeCategory });
-        const res = await fetch(`/api/notifications?${params.toString()}`);
+        const res = await fetch(`/api/notifications?${params.toString()}`, { signal: controller.signal });
         const data = (await res.json()) as { notifications?: Notification[]; error?: string };
         if (!res.ok) throw new Error(data.error || 'Failed to load notifications');
         setNotifications(data.notifications || []);
       } catch (err: unknown) {
-        setError(err instanceof Error ? err.message : 'Failed to load notifications');
+        if (!controller.signal.aborted) {
+          setError(err instanceof Error ? err.message : 'Failed to load notifications');
+        }
       } finally {
-        setLoading(false);
+        if (!controller.signal.aborted) setLoading(false);
       }
     }
 
     void fetchNotifications();
+
+    return () => controller.abort();
   }, [activeCategory]);
 
   const unreadCount = useMemo(() => notifications.filter((notification) => !notification.is_read).length, [notifications]);
@@ -89,6 +97,7 @@ export default function NotificationsPage() {
     switch (type) {
       case 'gameweek_deadline':
       case 'lineup_deadline':
+      case 'deadline_reminder':
       case 'deadline':
         return 'deadline';
       case 'price_change':
@@ -112,6 +121,7 @@ export default function NotificationsPage() {
     switch (type) {
       case 'gameweek_deadline':
       case 'lineup_deadline':
+      case 'deadline_reminder':
       case 'deadline':
         return (
           <div className="flex h-11 w-11 items-center justify-center rounded-full border border-red-500/30 bg-red-500/15 text-red-300">
@@ -170,6 +180,7 @@ export default function NotificationsPage() {
     switch (type) {
       case 'gameweek_deadline':
       case 'lineup_deadline':
+      case 'deadline_reminder':
       case 'deadline':
         return '/lineups';
       case 'price_change':
@@ -193,6 +204,7 @@ export default function NotificationsPage() {
     switch (type) {
       case 'gameweek_deadline':
       case 'lineup_deadline':
+      case 'deadline_reminder':
       case 'deadline':
         return 'Set Lineup Now';
       case 'price_change':
@@ -303,7 +315,7 @@ export default function NotificationsPage() {
               Clear read
             </button>
           )}
-          <Link href="/settings" className="rounded-lg border border-cyan-500/30 bg-cyan-500/10 px-3 py-2 text-sm font-medium text-cyan-300 transition hover:bg-cyan-500/20">
+          <Link href="/settings?section=notifications" className="rounded-lg border border-cyan-500/30 bg-cyan-500/10 px-3 py-2 text-sm font-medium text-cyan-300 transition hover:bg-cyan-500/20">
             Notification preferences
           </Link>
         </div>

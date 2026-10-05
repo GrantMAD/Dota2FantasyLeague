@@ -20,10 +20,6 @@ interface FantasySeasonOwnerRow {
   user_id: string;
 }
 
-interface PushSubscriptionRecord {
-  endpoint: string;
-}
-
 interface DeadlineNotificationInsert {
   user_id: string;
   type: 'deadline_reminder';
@@ -40,16 +36,6 @@ class SendDeadlineNotifications {
       process.env.NEXT_PUBLIC_SUPABASE_URL || '',
       process.env.SUPABASE_SERVICE_ROLE_KEY || '',
     );
-  }
-
-  private async dispatchWebPush(subscription: PushSubscriptionRecord, payload: { title: string; body: string }) {
-    // In a real implementation, you would use the 'web-push' npm package:
-    // webpush.setVapidDetails('mailto:admin@example.com', PUBLIC_VAPID_KEY, PRIVATE_VAPID_KEY);
-    // await webpush.sendNotification(subscription, JSON.stringify(payload));
-    
-    // For now, we simulate the dispatch
-    console.log(`[PUSH NOTIFICATION] Sending to ${subscription.endpoint}: ${payload.title}`);
-    return true;
   }
 
   public async execute(): Promise<JobResult> {
@@ -141,23 +127,6 @@ class SendDeadlineNotifications {
           }
 
           result.notificationsGenerated++;
-
-          // 5. Send Web Push
-          const { data: pushSubs } = await this.supabase
-            .from('user_push_subscriptions')
-            .select('*')
-            .eq('user_id', userId);
-
-          if (pushSubs && pushSubs.length > 0) {
-            for (const sub of pushSubs) {
-              try {
-                await this.dispatchWebPush(sub, { title, body: message });
-                result.pushNotificationsSent++;
-              } catch (pushErr) {
-                result.errors.push(`Push failed for user ${userId}: ${pushErr}`);
-              }
-            }
-          }
         }
       }
     } catch (error: unknown) {

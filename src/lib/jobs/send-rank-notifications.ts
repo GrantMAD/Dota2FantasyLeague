@@ -21,10 +21,6 @@ interface FantasySeasonRankRow {
   total_points: number;
 }
 
-interface PushSubscriptionRecord {
-  endpoint: string;
-}
-
 interface RankNotificationInsert {
   user_id: string;
   type: 'rank_update';
@@ -41,11 +37,6 @@ class SendRankNotifications {
       process.env.NEXT_PUBLIC_SUPABASE_URL || '',
       process.env.SUPABASE_SERVICE_ROLE_KEY || '',
     );
-  }
-
-  private async dispatchWebPush(subscription: PushSubscriptionRecord, payload: { title: string; body: string }) {
-    console.log(`[PUSH NOTIFICATION] Sending to ${subscription.endpoint}: ${payload.title}`);
-    return true;
   }
 
   public async execute(): Promise<JobResult> {
@@ -126,23 +117,6 @@ class SendRankNotifications {
         }
 
         result.notificationsGenerated++;
-
-        // Send push
-        const { data: pushSubs } = await this.supabase
-          .from('user_push_subscriptions')
-          .select('*')
-          .eq('user_id', userId);
-
-        if (pushSubs && pushSubs.length > 0) {
-          for (const sub of pushSubs) {
-            try {
-              await this.dispatchWebPush(sub, { title, body: message });
-              result.pushNotificationsSent++;
-            } catch {
-              // Ignore push failure internally
-            }
-          }
-        }
       }
 
     } catch (error: unknown) {

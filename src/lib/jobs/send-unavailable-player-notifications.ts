@@ -22,10 +22,6 @@ interface OwnerRow {
   } | { fantasy_seasons: { user_id: string | null } | { user_id: string | null }[] | null }[] | null;
 }
 
-interface PushSubscriptionRecord {
-  endpoint: string;
-}
-
 export class SendUnavailablePlayerNotifications {
   private supabase: ReturnType<typeof createClient>;
 
@@ -34,11 +30,6 @@ export class SendUnavailablePlayerNotifications {
       process.env.NEXT_PUBLIC_SUPABASE_URL || '',
       process.env.SUPABASE_SERVICE_ROLE_KEY || '',
     );
-  }
-
-  private async dispatchWebPush(subscription: PushSubscriptionRecord, payload: { title: string; body: string }) {
-    console.log(`[PUSH NOTIFICATION] Sending to ${subscription.endpoint}: ${payload.title}`);
-    return true;
   }
 
   public async execute(): Promise<JobResult> {
@@ -145,23 +136,6 @@ export class SendUnavailablePlayerNotifications {
           }
 
           result.notificationsGenerated++;
-
-          // Dispatch push notification if subscription exists
-          const { data: subscriptions } = await this.supabase
-            .from('push_subscriptions')
-            .select('endpoint')
-            .eq('user_id', userId);
-
-          if (subscriptions && subscriptions.length > 0) {
-            for (const sub of subscriptions as PushSubscriptionRecord[]) {
-              try {
-                await this.dispatchWebPush(sub, { title, body: message });
-                result.pushNotificationsSent++;
-              } catch (pushErr) {
-                console.error(`Push dispatch failed for user ${userId}:`, pushErr);
-              }
-            }
-          }
         }
       }
     } catch (err: unknown) {

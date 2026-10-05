@@ -21,6 +21,7 @@ const matchesCategory = (notification: NotificationRecord, category: Notificatio
   const categoryMap: Record<string, NotificationCategory> = {
     gameweek_deadline: 'deadline',
     lineup_deadline: 'deadline',
+    deadline_reminder: 'deadline',
     deadline: 'deadline',
     price_change: 'market',
     transfer_market: 'market',
