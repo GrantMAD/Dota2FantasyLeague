@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import {
@@ -13,6 +13,7 @@ import {
   BarChart3,
   Swords,
   Users,
+  RefreshCw,
 } from 'lucide-react';
 import { fetchWithAuth } from '@/lib/fetch-with-auth';
 import { useToast } from '@/components/Toast';
@@ -29,6 +30,8 @@ export default function LeaguesPage() {
   const [tab, setTab] = useState<'classic' | 'h2h'>('classic');
   const [leagues, setLeagues] = useState<LeagueRecord[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [lastRecalculatedAt, setLastRecalculatedAt] = useState<string | null>(null);
   const [pageError, setPageError] = useState<string | null>(null);
 
   // modal state
@@ -45,29 +48,42 @@ export default function LeaguesPage() {
   const [selectedFixture, setSelectedFixture] = useState<FixtureEntry | null>(null);
   const [copiedInvite, setCopiedInvite] = useState(false);
 
-  useEffect(() => {
-    async function loadLeagues() {
-      try {
-        setLoading(true);
-        setPageError(null);
-        const res = await fetchWithAuth('/api/leagues');
-        if (!res.ok) {
-          const body = await res.json().catch(() => ({}));
-          throw new Error(body.error || 'Failed to load leagues');
-        }
-        const p = await res.json();
-        setLeagues(p.leagues || p.data || []);
-      } catch (err: unknown) {
-        const msg = err instanceof Error ? err.message : 'Failed to load leagues';
-        setPageError(msg);
-        setLeagues([]);
-        toast.error('Load Error', msg);
-      } finally {
-        setLoading(false);
+  const loadLeagues = useCallback(async (isBackgroundRefresh = false) => {
+    try {
+      if (isBackgroundRefresh) setRefreshing(true);
+      else setLoading(true);
+      setPageError(null);
+      const res = await fetchWithAuth('/api/leagues');
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error || 'Failed to load leagues');
       }
+      const p = await res.json() as {
+        leagues?: LeagueRecord[];
+        data?: LeagueRecord[];
+        lastRecalculatedAt?: string | null;
+      };
+      setLeagues(p.leagues || p.data || []);
+      setLastRecalculatedAt(p.lastRecalculatedAt ?? null);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Failed to load leagues';
+      setPageError(msg);
+      if (!isBackgroundRefresh) setLeagues([]);
+      if (!isBackgroundRefresh) toast.error('Load Error', msg);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
     }
-    void loadLeagues();
-  }, []);
+  }, [toast]);
+
+  useEffect(() => {
+    const initialLoad = window.setTimeout(() => void loadLeagues(), 0);
+    const interval = window.setInterval(() => void loadLeagues(true), 60_000);
+    return () => {
+      window.clearTimeout(initialLoad);
+      window.clearInterval(interval);
+    };
+  }, [loadLeagues]);
 
   const visibleLeagues = leagues.filter((l) => l.type === tab);
   const standings = visibleLeagues.flatMap((l) => l.standings ?? []).sort((a, b) => (a.rank ?? 999) - (b.rank ?? 999));
@@ -179,6 +195,16 @@ export default function LeaguesPage() {
 
         <div className="flex shrink-0 items-center gap-3">
           <button
+            type="button"
+            onClick={() => void loadLeagues(true)}
+            disabled={refreshing}
+            className="inline-flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-900/80 px-3 py-2 text-sm font-medium text-slate-200 transition hover:border-slate-500 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+            title="Refresh league standings"
+          >
+            <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
+            Refresh
+          </button>
+          <button
             data-tour="leagues-join"
             type="button"
             onClick={() => setActionMode('join')}
@@ -205,6 +231,13 @@ export default function LeaguesPage() {
           </Link>
         </div>
       </div>
+      <p className="-mt-5 mb-6 text-xs text-slate-500" aria-live="polite">
+        Standings last recalculated:{' '}
+        {lastRecalculatedAt
+          ? new Date(lastRecalculatedAt).toLocaleString()
+          : 'No completed recalculation recorded'}
+        {' · '}Auto-refreshes every minute
+      </p>
 
       {/* ── Loading Skeleton ──────────────────────────────────────── */}
       {loading ? (

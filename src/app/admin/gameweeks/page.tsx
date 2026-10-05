@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { Gamepad2, RefreshCw, ChevronDown, ChevronUp, Swords, Flag, Database, Clock, Hash } from 'lucide-react';
+import { Gamepad2, RefreshCw, ChevronDown, ChevronUp, Swords, Flag, Database, Clock, Hash, AlertTriangle } from 'lucide-react';
 import { useToast } from '@/components/Toast';
 
 
@@ -82,7 +82,7 @@ const NEXT_DB_STATUS: Record<GameweekRecord['dbStatus'], GameweekRecord['dbStatu
 };
 
 const NEXT_LABEL: Record<GameweekRecord['dbStatus'], string> = {
-  upcoming: 'Set Live',
+  upcoming: 'Activate',
   active: 'Lock',
   locked: 'Close',
   closed: 'Reset to Upcoming',
@@ -94,11 +94,25 @@ function formatDate(val: unknown) {
   return isNaN(d.getTime()) ? String(val) : d.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
 }
 
+function getTransitionLabel(
+  currentStatus: GameweekRecord['dbStatus'],
+  nextStatus: GameweekRecord['dbStatus'],
+) {
+  if (nextStatus === 'active') return 'Activate';
+  if (nextStatus === 'locked') return 'Lock';
+  if (nextStatus === 'closed') return 'Close';
+  return currentStatus === 'closed' ? 'Reset to Upcoming' : 'Update Status';
+}
+
 export default function AdminGameweeksPage() {
   const toast = useToast();
   const [gameweeks, setGameweeks] = useState<GameweekRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [cycling, setCycling] = useState<number | null>(null);
+  const [pendingTransition, setPendingTransition] = useState<{
+    gameweek: GameweekRecord;
+    status: GameweekRecord['dbStatus'];
+  } | null>(null);
   const [expandedId, setExpandedId] = useState<number | null>(null);
   const [detailsCache, setDetailsCache] = useState<Record<number, GameweekDetail>>({});
   const [detailsLoading, setDetailsLoading] = useState<number | null>(null);
@@ -143,11 +157,12 @@ export default function AdminGameweeksPage() {
   // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { void loadGameweeks(); }, [loadGameweeks]);
 
-  const cycleStatus = async (gameweek: GameweekRecord) => {
-    const nextDbStatus = NEXT_DB_STATUS[gameweek.dbStatus];
+  const applyStatusTransition = async () => {
+    if (!pendingTransition) return;
+    const { gameweek, status: nextDbStatus } = pendingTransition;
     setCycling(gameweek.id);
     try {
-      const res = await fetch(`/api/gameweeks/${gameweek.id}`, {
+      const res = await fetch(`/api/admin/gameweeks/${gameweek.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: nextDbStatus }),
@@ -165,7 +180,7 @@ export default function AdminGameweeksPage() {
           `${gameweek.name} is now ${DB_TO_DISPLAY[nextDbStatus]?.toUpperCase()}.`
         );
       } else {
-        const json = await res.json().catch(() => ({}));
+        const json = await res.json();
         console.error('Failed to cycle status', json);
         toast.error('Transition Failed', json.error || `Could not cycle ${gameweek.name} status`);
       }
@@ -174,6 +189,7 @@ export default function AdminGameweeksPage() {
       toast.error('Transition Error', `Network error updating ${gameweek.name}`);
     } finally {
       setCycling(null);
+      setPendingTransition(null);
     }
   };
 
@@ -284,8 +300,22 @@ export default function AdminGameweeksPage() {
                   <span className="hidden w-24 text-right text-xs text-gray-500 lg:block">
                     → {NEXT_DB_STATUS[gameweek.dbStatus]}
                   </span>
+                  {gameweek.dbStatus === 'active' && (
+                    <button
+                      onClick={() => setPendingTransition({ gameweek, status: 'closed' })}
+                      disabled={cycling === gameweek.id}
+                      className="rounded border border-red-500/40 px-4 py-2 font-medium text-red-300 hover:bg-red-500/10 disabled:opacity-50"
+                    >
+                      Close
+                    </button>
+                  )}
                   <button
-                    onClick={() => cycleStatus(gameweek)}
+                    onClick={() =>
+                      setPendingTransition({
+                        gameweek,
+                        status: NEXT_DB_STATUS[gameweek.dbStatus],
+                      })
+                    }
                     disabled={cycling === gameweek.id}
                     className="flex w-44 items-center justify-center gap-2 rounded bg-amber-500/20 px-4 py-2 font-medium text-amber-400 hover:bg-amber-500/30 disabled:opacity-50"
                   >
@@ -425,6 +455,57 @@ export default function AdminGameweeksPage() {
           </div>
         )}
       </div>
+
+      {pendingTransition && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm"
+          role="presentation"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget && cycling === null) setPendingTransition(null);
+          }}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="gameweek-transition-title"
+            className="w-full max-w-md rounded-xl border border-amber-500/30 bg-slate-900 p-6 shadow-2xl"
+          >
+            <div className="flex items-start gap-3">
+              <AlertTriangle className="mt-0.5 h-6 w-6 shrink-0 text-amber-400" />
+              <div>
+                <h2 id="gameweek-transition-title" className="text-lg font-semibold text-white">
+                  Confirm {getTransitionLabel(pendingTransition.gameweek.dbStatus, pendingTransition.status)}
+                </h2>
+                <p className="mt-2 text-sm leading-6 text-slate-300">
+                  Change {pendingTransition.gameweek.name} from{' '}
+                  <span className="font-semibold text-white">{pendingTransition.gameweek.dbStatus}</span> to{' '}
+                  <span className="font-semibold text-amber-300">{pendingTransition.status}</span>?
+                  Gameweek status affects lineup locking and scoring.
+                </p>
+              </div>
+            </div>
+            <div className="mt-6 flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setPendingTransition(null)}
+                disabled={cycling !== null}
+                className="rounded-lg border border-slate-600 px-4 py-2 text-sm font-medium text-slate-300 hover:bg-slate-800 disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => void applyStatusTransition()}
+                disabled={cycling !== null}
+                className="inline-flex items-center gap-2 rounded-lg bg-amber-500 px-4 py-2 text-sm font-semibold text-slate-950 hover:bg-amber-400 disabled:opacity-50"
+              >
+                {cycling !== null && <RefreshCw className="h-4 w-4 animate-spin" />}
+                {cycling !== null ? 'Saving…' : 'Confirm'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

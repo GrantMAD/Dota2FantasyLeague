@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Image from 'next/image';
-import { Medal } from 'lucide-react';
+import { Medal, RefreshCw } from 'lucide-react';
 
 type LeaderboardEntry = {
    id: number;
@@ -42,6 +42,8 @@ export default function LeaderboardPage() {
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [lastRecalculatedAt, setLastRecalculatedAt] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
   const [page, setPage] = useState(1);
   const [countryFilter, setCountryFilter] = useState('');
   const [selectedUser, setSelectedUser] = useState<SelectedManager | null>(null);
@@ -84,25 +86,40 @@ export default function LeaderboardPage() {
     fetchCountries();
   }, []);
 
-  useEffect(() => {
-    async function fetchLeaderboard() {
-      setLoading(true);
-      try {
-        let url = `/api/leaderboard?page=${page}&limit=50`;
-        if (countryFilter) url += `&country=${countryFilter}`;
-        
-        const res = await fetch(url);
-      const data = await res.json() as { leaderboard?: LeaderboardEntry[]; error?: string };
+  const fetchLeaderboard = useCallback(async (isBackgroundRefresh = false) => {
+    if (isBackgroundRefresh) setRefreshing(true);
+    else setLoading(true);
+    try {
+      let url = `/api/leaderboard?page=${page}&limit=50`;
+      if (countryFilter) url += `&country=${countryFilter}`;
+
+      const res = await fetch(url);
+      const data = await res.json() as {
+        leaderboard?: LeaderboardEntry[];
+        error?: string;
+        lastRecalculatedAt?: string | null;
+      };
       if (!res.ok) throw new Error(data.error || 'Failed to load leaderboard');
-        setEntries(data.leaderboard || []);
-         } catch (err: unknown) {
-            setError(err instanceof Error ? err.message : 'Failed to load leaderboard');
-      } finally {
-        setLoading(false);
-      }
+      setEntries(data.leaderboard || []);
+      setLastRecalculatedAt(data.lastRecalculatedAt ?? null);
+      setError(null);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to load leaderboard';
+      setError(message);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
     }
-    fetchLeaderboard();
   }, [page, countryFilter]);
+
+  useEffect(() => {
+    const initialLoad = window.setTimeout(() => void fetchLeaderboard(), 0);
+    const interval = window.setInterval(() => void fetchLeaderboard(true), 60_000);
+    return () => {
+      window.clearTimeout(initialLoad);
+      window.clearInterval(interval);
+    };
+  }, [fetchLeaderboard]);
 
   const renderRankChange = (current: number, previous: number | null) => {
     if (!previous || current === previous) {
@@ -136,7 +153,8 @@ export default function LeaderboardPage() {
           <p className="text-slate-400">See how your squad ranks against the world</p>
         </div>
         
-        <div className="relative bg-slate-800 border border-slate-700 rounded-lg">
+        <div className="flex flex-col items-start gap-2 sm:items-end">
+          <div className="relative rounded-lg border border-slate-700 bg-slate-800">
            <select 
               data-tour="leaderboard-filter"
               value={countryFilter}
@@ -154,8 +172,25 @@ export default function LeaderboardPage() {
                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path>
               </svg>
            </div>
+          </div>
+           <button
+             type="button"
+             onClick={() => void fetchLeaderboard(true)}
+             disabled={refreshing}
+             className="inline-flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-xs font-medium text-slate-300 transition hover:border-slate-500 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+           >
+             <RefreshCw className={`h-3.5 w-3.5 ${refreshing ? 'animate-spin' : ''}`} />
+             Refresh
+           </button>
         </div>
       </div>
+      <p className="-mt-5 mb-6 text-xs text-slate-500" aria-live="polite">
+        Rankings last recalculated:{' '}
+        {lastRecalculatedAt
+          ? new Date(lastRecalculatedAt).toLocaleString()
+          : 'No completed recalculation recorded'}
+        {' · '}Auto-refreshes every minute
+      </p>
 
       {error && (
         <div className="bg-red-900/50 border border-red-500/50 text-red-200 px-4 py-3 rounded-lg mb-8 text-sm">
@@ -240,7 +275,7 @@ export default function LeaderboardPage() {
                                  <div className="flex items-center gap-3">
                                     <div className={`w-10 h-10 rounded-full bg-slate-700 overflow-hidden shrink-0 border ${isCurrentUser ? 'border-teal-400/70 ring-2 ring-teal-400/20' : isTop3 ? 'border-amber-500/50' : 'border-slate-600'}`}>
                                        {profile?.avatar_url ? (
-                                          <Image src={profile.avatar_url} alt="Avatar" width={40} height={40} unoptimized className="w-full h-full object-cover" />
+                                          <Image src={profile.avatar_url} alt={`${managerName} avatar`} width={40} height={40} unoptimized className="w-full h-full object-cover" />
                                        ) : (
                                           <div className={`w-full h-full flex items-center justify-center font-bold ${isCurrentUser ? 'text-teal-300' : 'text-slate-400'}`}>
                                              {team?.name?.substring(0, 1).toUpperCase() || '?'}

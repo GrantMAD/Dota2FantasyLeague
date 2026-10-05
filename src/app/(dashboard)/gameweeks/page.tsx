@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { ActiveGameweekHero } from './components/ActiveGameweekHero';
 import { GameweekCard } from './components/GameweekCard';
+import { GameweekHistoryModal } from './components/GameweekHistoryModal';
 import { GameweekFilters } from './components/GameweekFilters';
 
 import type { GameweekRow } from '@/types/fantasy';
@@ -19,6 +20,7 @@ export default function GameweeksPage() {
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<GameweekTab>('all');
   const [viewMode, setViewMode] = useState<'compact' | 'detailed'>('detailed');
+  const [historyGameweek, setHistoryGameweek] = useState<GameweekRow | null>(null);
 
   useEffect(() => {
     async function fetchGameweeks() {
@@ -131,11 +133,23 @@ export default function GameweeksPage() {
               </div>
             ) : (
               filteredGameweeks.map((gw) => (
-                <GameweekCard key={gw.id} gameweek={gw} compact={viewMode === 'compact'} />
+              <GameweekCard
+                key={gw.id}
+                gameweek={gw}
+                compact={viewMode === 'compact'}
+                onHistoryClick={setHistoryGameweek}
+              />
               ))
             )}
           </div>
         </>
+      )}
+      {historyGameweek && (
+        <GameweekHistoryModal
+          gameweekId={historyGameweek.id}
+          gameweekNumber={historyGameweek.gameweek_number}
+          onClose={() => setHistoryGameweek(null)}
+        />
       )}
     </div>
   );

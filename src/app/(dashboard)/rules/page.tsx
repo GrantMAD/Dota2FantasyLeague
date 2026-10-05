@@ -1,5 +1,11 @@
 import Link from 'next/link';
 import { ArrowLeft, ArrowRight, CalendarClock, Cpu, Crown, Gauge, LineChart, ScrollText, Shield, Sparkles, Users } from 'lucide-react';
+import type { Metadata } from 'next';
+
+export const metadata: Metadata = {
+  title: 'Game Rules & Scoring | Fantasy Dota 2',
+  description: 'Read the Fantasy Dota 2 rules for squad building, captaincy, scoring, chips, transfers, and gameweek deadlines.',
+};
 
 const sections = [
   { id: 'squad', label: 'Squad', icon: Users },

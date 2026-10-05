@@ -17,7 +17,7 @@ export async function GET(request: NextRequest) {
     const limit = Math.min(100, parseInt(searchParams.get('limit') ?? '50', 10));
     const offset = (page - 1) * limit;
     const cacheKey = `leaderboard:${searchParams.toString()}`;
-    const cached = getCached<{ leaderboard: unknown[]; pagination: unknown }>(cacheKey);
+    const cached = getCached<{ leaderboard: unknown[]; pagination: unknown; lastRecalculatedAt: string | null }>(cacheKey);
     if (cached) return NextResponse.json(cached);
 
     const supabase = supabaseServer();
@@ -37,12 +37,29 @@ export async function GET(request: NextRequest) {
     if (seasonId && !gameweekId) query = query.eq('season_id', seasonId);
     if (gameweekId) query = query.eq('gameweek_id', gameweekId);
 
-    const { data, error, count } = await query;
+    const [{ data, error, count }, { data: recalculation, error: recalculationError }] = await Promise.all([
+      query,
+      supabase
+        .from('job_execution_log')
+        .select('completed_at')
+        .eq('job_name', 'calculate-global-rankings')
+        .eq('status', 'completed')
+        .not('completed_at', 'is', null)
+        .order('completed_at', { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+    ]);
 
     if (error) {
       return NextResponse.json(
         { error: 'Failed to fetch leaderboard.', details: error.message },
         { status: 500 }
+      );
+    }
+    if (recalculationError) {
+      return NextResponse.json(
+        { error: 'Failed to load the latest leaderboard update time.', details: recalculationError.message },
+        { status: 500 },
       );
     }
 
@@ -75,6 +92,7 @@ export async function GET(request: NextRequest) {
 
     const response = {
       leaderboard: entries,
+      lastRecalculatedAt: recalculation?.completed_at ?? null,
       pagination: {
         page,
         limit,

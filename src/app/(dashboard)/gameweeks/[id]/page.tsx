@@ -191,7 +191,7 @@ export default function GameweekDetailPage({
       </div>
 
       {/* Hero Header Card */}
-      <div className="relative overflow-hidden rounded-3xl border border-slate-800 bg-gradient-to-br from-slate-900 via-slate-950 to-slate-900 p-6 md:p-8 shadow-2xl">
+      <div className="relative overflow-hidden rounded-3xl border border-slate-800 bg-linear-to-br from-slate-900 via-slate-950 to-slate-900 p-6 md:p-8 shadow-2xl">
         <div className="absolute top-0 right-0 -mt-12 -mr-12 w-64 h-64 bg-amber-500/5 rounded-full blur-3xl pointer-events-none" />
 
         <div className="relative flex flex-col md:flex-row md:items-center justify-between gap-6">
@@ -242,7 +242,7 @@ export default function GameweekDetailPage({
 
           {/* User Score Card if available */}
           {userScore !== null && (
-            <div className="shrink-0 flex flex-col items-center justify-center p-5 rounded-2xl border border-emerald-500/30 bg-emerald-950/20 backdrop-blur-sm min-w-[150px]">
+            <div className="shrink-0 flex flex-col items-center justify-center p-5 rounded-2xl border border-emerald-500/30 bg-emerald-950/20 backdrop-blur-sm min-w-37.5">
               <span className="text-xs uppercase tracking-wider font-semibold text-emerald-400 mb-1">
                 Your Score
               </span>
@@ -475,7 +475,7 @@ export default function GameweekDetailPage({
                         // eslint-disable-next-line @next/next/no-img-element
                         <img
                           src={player.profile_image_url}
-                          alt={player.in_game_name}
+                          alt={player.in_game_name || player.name}
                           className="w-full h-full object-cover"
                         />
                       ) : (

@@ -52,23 +52,34 @@ export async function GET(request: NextRequest) {
       .order('created_at', { ascending: false })
       .limit(limit);
 
-    const { data, error } = await query;
+    const [notificationsResult, unreadCountResult] = await Promise.all([
+      query,
+      supabase
+        .from('user_notifications')
+        .select('id', { count: 'exact', head: true })
+        .eq('user_id', user.userId)
+        .eq('is_read', false),
+    ]);
 
-    if (error) {
+    if (notificationsResult.error || unreadCountResult.error) {
       return NextResponse.json(
-        { error: 'Failed to fetch notifications.', details: error.message },
+        {
+          error: 'Failed to fetch notifications.',
+          details: notificationsResult.error?.message ?? unreadCountResult.error?.message,
+        },
         { status: 500 }
       );
     }
 
-    const notifications = (data ?? []).filter((notification) => {
+    const notifications = (notificationsResult.data ?? []).filter((notification) => {
       if (unreadOnly && notification.is_read) return false;
       return matchesCategory(notification as NotificationRecord, category);
     });
 
-    const unreadCount = (data as NotificationRecord[] ?? []).filter((notification) => !notification.is_read).length;
-
-    const response = NextResponse.json({ notifications, unreadCount });
+    const response = NextResponse.json({
+      notifications,
+      unreadCount: unreadCountResult.count ?? 0,
+    });
     applyRefreshedTokens(response, user);
     return response;
   } catch (error: unknown) {

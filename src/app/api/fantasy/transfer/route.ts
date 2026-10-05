@@ -43,6 +43,17 @@ export async function POST(request: NextRequest) {
 
     // 3. Call the Postgres RPC function
     const supabase = supabaseServer();
+    const { data: activeGameweek, error: gameweekError } = await supabase
+      .from('gameweeks')
+      .select('id')
+      .eq('status', 'active')
+      .order('gameweek_number', { ascending: true })
+      .limit(1)
+      .maybeSingle();
+    if (gameweekError) {
+      throw new Error(`Failed to determine the active gameweek for transfer history: ${gameweekError.message}`);
+    }
+
     const { data, error } = await supabase.rpc('process_fantasy_transfer', {
       p_user_id: userId,
       p_fantasy_season_id: fantasySeasonId,
@@ -71,7 +82,12 @@ export async function POST(request: NextRequest) {
       recordId: fantasySeasonId,
       action: 'TRANSFER',
       changedBy: userId,
-      newValues: { transfers_in: transfersIn, transfers_out: transfersOut },
+      newValues: {
+        transfers_in: transfersIn,
+        transfers_out: transfersOut,
+        gameweek_id: activeGameweek?.id ?? null,
+        penalty_points: typeof data.penalty_points === 'number' ? data.penalty_points : null,
+      },
       reason: 'User completed transfer',
     });
 

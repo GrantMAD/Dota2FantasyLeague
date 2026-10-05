@@ -31,6 +31,8 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useRef, useState, useMemo } from 'react';
 import { ThemeToggle } from './theme/ThemeToggle';
 import { fetchWithAuth } from '@/lib/fetch-with-auth';
+import { supabase } from '@/lib/supabase';
+import { useToast } from '@/components/Toast';
 
 type HeaderProfile = {
   username: string;
@@ -72,6 +74,7 @@ type SearchResultItem = {
 export function Header() {
   const pathname = usePathname();
   const router = useRouter();
+  const { info: showNotificationToast } = useToast();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
@@ -79,6 +82,7 @@ export function Header() {
   const [notificationMenuOpen, setNotificationMenuOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [notifications, setNotifications] = useState<HeaderNotification[]>([]);
+  const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
   const [currentTime, setCurrentTime] = useState(0);
   const [quickStats, setQuickStats] = useState<QuickStats | null>(null);
   const [searchOpen, setSearchOpen] = useState(false);
@@ -125,15 +129,83 @@ export function Header() {
       try {
         const response = await fetchWithAuth('/api/notifications?limit=5');
         if (!response.ok) return;
-        const data = (await response.json()) as { notifications: HeaderNotification[] };
+        const data = (await response.json()) as { notifications: HeaderNotification[]; unreadCount: number };
         setNotifications(data.notifications ?? []);
+        setUnreadNotificationCount(data.unreadCount ?? 0);
       } catch {
         setNotifications([]);
+        setUnreadNotificationCount(0);
       }
     }
 
     void loadNotifications();
   }, []);
+
+  useEffect(() => {
+    let disposed = false;
+    let channel: ReturnType<typeof supabase.channel> | null = null;
+
+    const refreshNotifications = async () => {
+      try {
+        const response = await fetchWithAuth('/api/notifications?limit=5');
+        if (!response.ok) throw new Error(`Notification refresh failed (${response.status}).`);
+        const data = (await response.json()) as { notifications: HeaderNotification[]; unreadCount: number };
+        if (disposed) return;
+        setNotifications(data.notifications ?? []);
+        setUnreadNotificationCount(data.unreadCount ?? 0);
+      } catch (error) {
+        console.error('Failed to refresh notifications after a realtime event:', error);
+      }
+    };
+
+    const setupRealtimeNotifications = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (disposed || !session?.user.id) return;
+
+      channel = supabase
+        .channel(`user-notifications:${session.user.id}`)
+        .on(
+          'postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'user_notifications',
+            filter: `user_id=eq.${session.user.id}`,
+          },
+          (payload) => {
+            const notification = payload.new as HeaderNotification;
+            if (notification.is_read === false) {
+              showNotificationToast(notification.title, notification.message, 7000);
+            }
+            void refreshNotifications();
+          },
+        )
+        .on(
+          'postgres_changes',
+          {
+            event: 'UPDATE',
+            schema: 'public',
+            table: 'user_notifications',
+            filter: `user_id=eq.${session.user.id}`,
+          },
+          () => void refreshNotifications(),
+        )
+        .subscribe((status, error) => {
+          if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+            console.error('Realtime notification subscription failed:', error?.message ?? status);
+          }
+        });
+    };
+
+    void setupRealtimeNotifications().catch((error: unknown) => {
+      console.error('Unable to set up realtime notification subscription:', error);
+    });
+
+    return () => {
+      disposed = true;
+      if (channel) void supabase.removeChannel(channel);
+    };
+  }, [showNotificationToast]);
 
   useEffect(() => {
     async function loadQuickStats() {
@@ -291,7 +363,7 @@ export function Header() {
   };
 
   const initials = (profile?.display_name || profile?.username || 'U').slice(0, 1).toUpperCase();
-  const unreadNotifications = notifications.filter((notification) => !notification.is_read).length;
+  const unreadNotifications = unreadNotificationCount;
   const formatNotificationTime = (createdAt: string) => {
     if (!currentTime) return 'Recently';
     const minutes = Math.max(0, Math.floor((currentTime - new Date(createdAt).getTime()) / 60000));
@@ -357,6 +429,7 @@ export function Header() {
       setNotifications((current) =>
         current.map((item) => (item.id === notification.id ? { ...item, is_read: true } : item))
       );
+      setUnreadNotificationCount((count) => Math.max(0, count - 1));
       try {
         await fetchWithAuth(`/api/notifications/${notification.id}/read`, { method: 'PUT' });
       } catch (err) {
@@ -708,7 +781,7 @@ export function Header() {
                   className="h-9 w-9 overflow-hidden rounded-full border border-slate-600 bg-slate-800 text-sm font-bold text-white hover:border-amber-500 transition-colors flex items-center justify-center ring-2 ring-transparent hover:ring-amber-500/20"
                 >
                   {profile?.avatar_url ? (
-                    <Image src={profile.avatar_url} alt="User avatar" width={36} height={36} unoptimized className="h-full w-full object-cover" />
+                    <Image src={profile.avatar_url} alt={`${profile.display_name || profile.username} avatar`} width={36} height={36} unoptimized className="h-full w-full object-cover" />
                   ) : (
                     initials
                   )}

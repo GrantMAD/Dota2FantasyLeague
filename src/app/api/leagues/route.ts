@@ -94,10 +94,28 @@ export async function GET(request: NextRequest) {
       .order('created_at', { ascending: false });
     if (type && type !== 'all') query = query.in('league_type', type === 'h2h' ? ['h2h', 'head_to_head'] : ['classic']);
     if (privacy && privacy !== 'all') query = query.eq('privacy_level', privacy);
-    const { data, error } = await query;
+    const [{ data, error }, { data: recalculation, error: recalculationError }] = await Promise.all([
+      query,
+      supabase
+        .from('job_execution_log')
+        .select('completed_at')
+        .eq('job_name', 'recalculate-leagues')
+        .eq('status', 'completed')
+        .not('completed_at', 'is', null)
+        .order('completed_at', { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+    ]);
     if (error) return NextResponse.json({ error: 'Failed to load leagues.' }, { status: 500 });
+    if (recalculationError) {
+      return NextResponse.json({ error: 'Failed to load the latest league standings update time.' }, { status: 500 });
+    }
     const leagues = ((data ?? []) as unknown as LeagueRow[]).filter((league) => league.privacy_level !== 'private' || league.league_participants.some((participant) => participant.user_id === user.userId));
-    return NextResponse.json({ leagues: leagues.map(serializeLeague), count: leagues.length });
+    return NextResponse.json({
+      leagues: leagues.map(serializeLeague),
+      count: leagues.length,
+      lastRecalculatedAt: recalculation?.completed_at ?? null,
+    });
   } catch (error: unknown) {
     const status = typeof error === 'object' && error !== null && 'status' in error ? Number((error as { status: number }).status) : 500;
     return NextResponse.json({ error: error instanceof Error ? error.message : 'Unable to load leagues.' }, { status });

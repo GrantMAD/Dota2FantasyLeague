@@ -285,20 +285,27 @@ export async function fetchMatchDetails(): Promise<FetchDetailsResult> {
 
 async function getPendingMatches(): Promise<Match[]> {
   const supabase = getSupabaseServerClient();
+  const pageSize = 1000;
+  const pendingMatches: Match[] = [];
 
-  const { data, error } = await supabase
-    .from('matches')
-    .select('*')
-    .eq('status', 'completed')
-    .is('detailed_stats_fetched_at', null)
-    .limit(50);
+  for (let offset = 0; ; offset += pageSize) {
+    const { data, error } = await supabase
+      .from('matches')
+      .select('*')
+      .eq('status', 'completed')
+      .is('detailed_stats_fetched_at', null)
+      .range(offset, offset + pageSize - 1);
 
-  if (error) {
-    console.warn(`Failed to fetch pending matches: ${error.message}`);
-    return [];
+    if (error) {
+      throw new Error(`Failed to fetch pending matches: ${error.message}`);
+    }
+
+    const page = data ?? [];
+    pendingMatches.push(...page);
+    if (page.length < pageSize) break;
   }
 
-  return data || [];
+  return pendingMatches;
 }
 
 async function getEntityLookupMaps(): Promise<{

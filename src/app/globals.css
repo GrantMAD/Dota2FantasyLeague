@@ -177,6 +177,12 @@ body {
   font-size: 0.8125rem;
 }
 
+.whats-new-gameweek-deadline-note {
+  color: var(--accent-secondary);
+  font-size: 0.8125rem;
+  font-weight: 700;
+}
+
 .whats-new-section-label {
   color: var(--text-muted);
   font-size: 0.6875rem;

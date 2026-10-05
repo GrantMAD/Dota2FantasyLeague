@@ -22,7 +22,7 @@ const comparison = [
 
 export const metadata = {
   title: 'Premium Tools | Fantasy Dota 2',
-  description: 'Explore advanced fantasy analytics and strategy tools.',
+  description: 'Explore planned Fantasy Dota 2 tools for player analytics, points projections, transfer recommendations, squad optimisation, and alerts.',
 };
 
 export default function PremiumPage() {

@@ -55,14 +55,13 @@ export async function GET(request: NextRequest) {
 
     const now = new Date();
     const today = now.toISOString().slice(0, 10);
-    const nowIso = now.toISOString();
     const [
       currentGameweekResult,
       squadResult,
     ] = await Promise.all([
       supabase
         .from('gameweeks')
-        .select('id, gameweek_number, start_date, deadline, status')
+        .select('id, gameweek_number, start_date, end_date, deadline, status')
         .eq('season_id', fantasySeason.season_id)
         .in('status', ['active', 'upcoming'])
         .order('start_date', { ascending: true })
@@ -151,6 +150,7 @@ export async function GET(request: NextRequest) {
     const currentGameweek = currentGameweekResult.data;
     let gameweek = null;
     if (currentGameweek) {
+      const gameweekEndTime = new Date(currentGameweek.end_date).getTime();
       const { data: matches, error: matchesError } = await supabase
         .from('matches')
         .select('status')
@@ -163,6 +163,11 @@ export async function GET(request: NextRequest) {
         number: currentGameweek.gameweek_number,
         status: currentGameweek.status,
         startsAt: currentGameweek.start_date,
+          isCurrent: currentGameweek.status === 'active'
+          || new Date(currentGameweek.start_date).getTime() <= now.getTime(),
+        endsSoon: currentGameweek.status === 'active'
+          && gameweekEndTime > now.getTime()
+          && gameweekEndTime - now.getTime() <= 24 * 60 * 60 * 1000,
         deadline: currentGameweek.deadline,
         matchCount: matches?.length ?? 0,
         matchStatuses: countStatuses(matches ?? []),

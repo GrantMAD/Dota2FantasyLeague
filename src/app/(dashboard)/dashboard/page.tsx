@@ -53,6 +53,8 @@ interface WhatsNewGameweek {
   number: number;
   status: string;
   startsAt: string;
+  isCurrent: boolean;
+  endsSoon: boolean;
   deadline: string;
   matchCount: number;
   matchStatuses: Record<string, number>;
@@ -311,16 +313,19 @@ export default function DashboardPage() {
                 className="whats-new-gameweek group mb-5 flex flex-wrap items-center gap-x-4 gap-y-2 rounded-lg px-4 py-3 transition-colors"
               >
                 <span className="whats-new-gameweek-label">
-                  {whatsNew.gameweek.status === 'active' || Date.parse(whatsNew.gameweek.startsAt) <= Date.now()
-                    ? 'Current'
-                    : 'Next'}
+                  {whatsNew.gameweek.isCurrent ? 'Current' : 'Next'}
                 </span>
                 <span className="whats-new-gameweek-number">GW {whatsNew.gameweek.number}</span>
                 <span className="whats-new-gameweek-detail">{whatsNew.gameweek.matchCount} matches</span>
                 {describeMatchStatuses(whatsNew.gameweek.matchStatuses) && (
                   <span className="whats-new-gameweek-detail">{describeMatchStatuses(whatsNew.gameweek.matchStatuses)}</span>
                 )}
-                <span className="whats-new-gameweek-detail">Deadline: {formatUtcDate(whatsNew.gameweek.deadline)} UTC</span>
+                <span className="whats-new-gameweek-detail">
+                  Deadline: {formatUtcDate(whatsNew.gameweek.deadline)} UTC
+                  {whatsNew.gameweek.endsSoon && (
+                    <span className="whats-new-gameweek-deadline-note"> · Gameweek ends within 24 hours — make your final moves now.</span>
+                  )}
+                </span>
                 <ArrowRight aria-hidden="true" className="ml-auto h-4 w-4 shrink-0 transition-transform group-hover:translate-x-1" />
               </Link>
             )}

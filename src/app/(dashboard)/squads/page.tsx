@@ -4,11 +4,21 @@ import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import { Users } from 'lucide-react';
 import Link from 'next/link';
+import { fetchWithAuth } from '@/lib/fetch-with-auth';
 import type { FantasyPlayer as SquadPlayer, LineupEntry, PlayerPerformanceRecord as PlayerPerformance } from '@/types/fantasy';
 
 type Gameweek = { id: number; gameweek_number: number };
 
 type PlayerDetails = SquadPlayer;
+type SquadTab = 'squad' | 'history';
+
+interface TransferHistoryRecord {
+  id: number;
+  createdAt: string;
+  gameweekNumber: number | null;
+  penaltyPoints: number | null;
+  moves: Array<{ playerOut: string | null; playerIn: string | null }>;
+}
 
 export default function SquadsPage() {
   const [lineup, setLineup] = useState<LineupEntry[]>([]);
@@ -17,6 +27,10 @@ export default function SquadsPage() {
   const [playerLoading, setPlayerLoading] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<SquadTab>('squad');
+  const [transferHistory, setTransferHistory] = useState<TransferHistoryRecord[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyError, setHistoryError] = useState<string | null>(null);
 
   useEffect(() => {
     async function fetchLineup() {
@@ -63,6 +77,22 @@ export default function SquadsPage() {
       setError(detailError instanceof Error ? detailError.message : 'Unable to load player details');
     } finally {
       setPlayerLoading(false);
+    }
+  };
+
+  const openTransferHistory = async () => {
+    setActiveTab('history');
+    setHistoryLoading(true);
+    setHistoryError(null);
+    try {
+      const response = await fetchWithAuth('/api/fantasy/transfer-history');
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Failed to load transfer history.');
+      setTransferHistory(Array.isArray(data.transfers) ? data.transfers : []);
+    } catch (historyLoadError) {
+      setHistoryError(historyLoadError instanceof Error ? historyLoadError.message : 'Failed to load transfer history.');
+    } finally {
+      setHistoryLoading(false);
     }
   };
 
@@ -211,6 +241,70 @@ export default function SquadsPage() {
         </div>
       </div>
 
+      <div className="mb-6 flex gap-2 border-b border-slate-700" role="tablist" aria-label="Squad views">
+        <button
+          type="button"
+          role="tab"
+          aria-selected={activeTab === 'squad'}
+          onClick={() => setActiveTab('squad')}
+          className={`border-b-2 px-4 py-3 text-sm font-semibold transition-colors ${activeTab === 'squad' ? 'border-cyan-400 text-cyan-300' : 'border-transparent text-slate-400 hover:text-white'}`}
+        >
+          My Squad
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={activeTab === 'history'}
+          onClick={openTransferHistory}
+          className={`border-b-2 px-4 py-3 text-sm font-semibold transition-colors ${activeTab === 'history' ? 'border-cyan-400 text-cyan-300' : 'border-transparent text-slate-400 hover:text-white'}`}
+        >
+          Transfer History
+        </button>
+      </div>
+
+      {activeTab === 'history' ? (
+        <section role="tabpanel" aria-label="Transfer history" className="rounded-2xl border border-slate-700 bg-slate-900/50 p-4 sm:p-6">
+          <div className="mb-5">
+            <h2 className="text-xl font-bold text-white">Transfer History</h2>
+            <p className="mt-1 text-sm text-slate-400">Review your completed player changes and any transfer penalties.</p>
+          </div>
+          {historyLoading ? (
+            <p className="py-8 text-center text-sm text-slate-400">Loading transfer history…</p>
+          ) : historyError ? (
+            <p role="alert" className="rounded-xl border border-rose-500/30 bg-rose-500/10 p-4 text-sm text-rose-200">{historyError}</p>
+          ) : transferHistory.length === 0 ? (
+            <p className="rounded-xl border border-dashed border-slate-700 px-4 py-10 text-center text-sm text-slate-400">
+              No transfer history is recorded yet. Completed transfers will appear here.
+            </p>
+          ) : (
+            <ol className="divide-y divide-slate-700">
+              {transferHistory.map((transfer) => (
+                <li key={transfer.id} className="grid gap-3 py-4 sm:grid-cols-[1fr_auto] sm:items-center">
+                  <div>
+                    <p className="text-sm font-semibold text-white">
+                      {transfer.moves.map((move) =>
+                        `${move.playerOut ?? 'Squad addition'} → ${move.playerIn ?? 'Squad removal'}`
+                      ).join(' · ')}
+                    </p>
+                    <p className="mt-1 text-xs text-slate-400">
+                      {new Date(transfer.createdAt).toLocaleString()}
+                      {transfer.gameweekNumber !== null ? ` · GW ${transfer.gameweekNumber}` : ''}
+                    </p>
+                  </div>
+                  <span className={`text-sm font-semibold ${transfer.penaltyPoints === null ? 'text-slate-400' : transfer.penaltyPoints > 0 ? 'text-rose-300' : 'text-emerald-300'}`}>
+                    {transfer.penaltyPoints === null
+                      ? 'Penalty not recorded'
+                      : transfer.penaltyPoints > 0
+                        ? `-${transfer.penaltyPoints} pts`
+                        : 'Free'}
+                  </span>
+                </li>
+              ))}
+            </ol>
+          )}
+        </section>
+      ) : (
+      <>
       {error && (
         <div className="bg-red-900/50 border border-red-500/50 text-red-200 px-4 py-3 rounded-lg mb-8 text-sm">
           {error}
@@ -250,6 +344,8 @@ export default function SquadsPage() {
           {renderSlot('bench_3', 'Bench 3', false)}
         </div>
       </div>
+      </>
+      )}
 
       {playerLoading && (
         <div className="fixed inset-0 z-100 flex items-center justify-center bg-slate-950/70 p-4" role="status">

@@ -577,7 +577,7 @@ export default function PlayersPage() {
                               <span className="mr-2 flex h-5 w-5 items-center justify-center rounded-sm">
                                 <Image
                                   src={player.professional_teams.logo_url}
-                                  alt="team"
+                                  alt={`${player.professional_teams.name} logo`}
                                   width={20}
                                   height={20}
                                   unoptimized

@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Image from 'next/image';
-import { BarChart3 } from 'lucide-react';
+import { BarChart3, RefreshCw } from 'lucide-react';
 
 
 interface ProfessionalTeam {
@@ -37,6 +37,7 @@ export default function AdminMatchesPage() {
   const [statusFilter, setStatusFilter] = useState('');
   const [refreshVersion, setRefreshVersion] = useState(0);
   const [syncingMatchId, setSyncingMatchId] = useState<number | null>(null);
+  const [syncingAllPending, setSyncingAllPending] = useState(false);
   const [syncMessage, setSyncMessage] = useState<string | null>(null);
 
   const limit = 25;
@@ -81,6 +82,43 @@ export default function AdminMatchesPage() {
     }
   };
 
+  const handleSyncAllPending = async () => {
+    setSyncingAllPending(true);
+    setSyncMessage(null);
+
+    try {
+      const response = await fetch('/api/admin/jobs/run', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ jobName: 'fetch-match-details' }),
+      });
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to start the match details job.');
+      }
+
+      if (data.result?.status !== 'completed') {
+        throw new Error(data.result?.error || 'The match details job did not complete successfully.');
+      }
+
+      const result = data.result.result as { fetched?: number; errors?: string[] } | undefined;
+      const fetched = result?.fetched ?? 0;
+      const errorCount = result?.errors?.length ?? 0;
+      setSyncMessage(
+        errorCount > 0
+          ? `Synced ${fetched} pending match${fetched === 1 ? '' : 'es'}; ${errorCount} failed. Check the job logs for details.`
+          : `Synced ${fetched} pending match${fetched === 1 ? '' : 'es'}.`,
+      );
+      setRefreshVersion((version) => version + 1);
+    } catch (error) {
+      setSyncMessage(error instanceof Error ? error.message : 'Failed to sync pending matches.');
+    } finally {
+      setSyncingAllPending(false);
+      setTimeout(() => setSyncMessage(null), 6000);
+    }
+  };
+
   const totalPages = Math.ceil(total / limit);
 
   const getStatusBadge = (status: string, detailedStatsFetchedAt: string | null) => {
@@ -115,6 +153,15 @@ export default function AdminMatchesPage() {
       <div className="bg-slate-800/50 border border-slate-700 rounded-lg overflow-hidden">
         {/* Filters */}
         <div className="p-4 border-b border-slate-700 bg-slate-800/80 flex flex-wrap gap-4 items-center">
+          <button
+            type="button"
+            onClick={() => void handleSyncAllPending()}
+            disabled={syncingAllPending || syncingMatchId !== null}
+            className="inline-flex items-center gap-2 px-4 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 font-semibold rounded-lg text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <RefreshCw className={`h-4 w-4 ${syncingAllPending ? 'animate-spin' : ''}`} />
+            {syncingAllPending ? 'Syncing Pending Matches...' : 'Sync All Pending'}
+          </button>
           <select
             value={statusFilter}
             onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}
@@ -163,10 +210,10 @@ export default function AdminMatchesPage() {
                       <div className="flex items-center gap-2">
                         <div className="flex flex-col items-center w-5">
                           {match.team_a?.logo_url
-                            ? <Image src={match.team_a.logo_url} width={16} height={16} unoptimized className="w-4 h-4 object-contain" alt="" />
+                            ? <Image src={match.team_a.logo_url} width={16} height={16} unoptimized className="w-4 h-4 object-contain" alt={`${match.team_a.name} logo`} />
                             : <div className="w-4 h-4 bg-slate-700 rounded-sm" />}
                           {match.team_b?.logo_url
-                            ? <Image src={match.team_b.logo_url} width={16} height={16} unoptimized className="w-4 h-4 object-contain mt-1" alt="" />
+                            ? <Image src={match.team_b.logo_url} width={16} height={16} unoptimized className="w-4 h-4 object-contain mt-1" alt={`${match.team_b.name} logo`} />
                             : <div className="w-4 h-4 bg-slate-700 rounded-sm mt-1" />}
                         </div>
                         <div className="flex flex-col text-sm">
@@ -185,10 +232,15 @@ export default function AdminMatchesPage() {
                       {match.status === 'completed' && (
                         <button
                           onClick={() => handleSync(match.id)}
-                          disabled={syncingMatchId === match.id}
-                          className="px-3 py-1.5 text-xs font-medium border border-amber-500/40 text-amber-400 hover:bg-amber-500/10 rounded transition-colors disabled:opacity-50"
+                          disabled={Boolean(match.detailed_stats_fetched_at) || syncingMatchId === match.id || syncingAllPending}
+                          title={match.detailed_stats_fetched_at ? 'Match details have already been synced.' : undefined}
+                          className="px-3 py-1.5 text-xs font-medium border border-amber-500/40 text-amber-400 hover:bg-amber-500/10 rounded transition-colors disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent"
                         >
-                          {syncingMatchId === match.id ? 'Syncing...' : 'Sync Now'}
+                          {syncingMatchId === match.id
+                            ? 'Syncing...'
+                            : match.detailed_stats_fetched_at
+                              ? 'Synced'
+                              : 'Sync Now'}
                         </button>
                       )}
                     </td>

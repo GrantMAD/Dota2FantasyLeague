@@ -6,9 +6,10 @@ import { formatGameweekDate, formatGameweekDeadline } from '../gameweeks-utils';
 interface GameweekCardProps {
   gameweek: GameweekRow;
   compact?: boolean;
+  onHistoryClick?: (gameweek: GameweekRow) => void;
 }
 
-export function GameweekCard({ gameweek, compact = false }: GameweekCardProps) {
+export function GameweekCard({ gameweek, compact = false, onHistoryClick }: GameweekCardProps) {
   const statusLabel =
     gameweek.status === 'active'
       ? 'Active'
@@ -127,9 +128,18 @@ export function GameweekCard({ gameweek, compact = false }: GameweekCardProps) {
               Review Transfers →
             </Link>
           ) : (
-            <Link href={`/gameweeks/${gameweek.id}`} className="gameweeks-closed-results text-sm font-medium text-slate-300 hover:text-white">
-              View Results →
-            </Link>
+            <>
+              <button
+                type="button"
+                onClick={() => onHistoryClick?.(gameweek)}
+                className="gameweeks-closed-results text-sm font-medium text-amber-300 hover:text-amber-200"
+              >
+                Your History →
+              </button>
+              <Link href={`/gameweeks/${gameweek.id}`} className="text-xs text-slate-400 hover:text-white">
+                Match Results
+              </Link>
+            </>
           )}
 
           {(gameweek.status === 'active' || gameweek.status === 'upcoming') && (
