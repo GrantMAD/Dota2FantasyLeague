@@ -20,12 +20,12 @@
 }
 
 :root[data-theme='light'] {
-  --background: #eef3f8;
+  --background: #e5ebf2;
   --foreground: #132238;
-  --surface: #ffffff;
-  --surface-raised: #f7fafc;
-  --surface-muted: #e3ebf3;
-  --border: #c4d1df;
+  --surface: #f1f5f9;
+  --surface-raised: #e9eff6;
+  --surface-muted: #dce5ee;
+  --border: #c1cedb;
   --text-primary: #132238;
   --text-secondary: #456078;
   --text-muted: #6f8497;
@@ -240,6 +240,20 @@ body {
   background-color: var(--surface) !important;
 }
 
+[data-theme='light'] .bg-white:not(.absolute) {
+  background-color: var(--surface) !important;
+}
+
+[data-theme='light'] .bg-gray-50,
+[data-theme='light'] .bg-slate-50 {
+  background-color: var(--surface-raised) !important;
+}
+
+[data-theme='light'] .bg-gray-100,
+[data-theme='light'] .bg-slate-100 {
+  background-color: var(--surface-muted) !important;
+}
+
 [data-theme='light'] .bg-slate-800\/50,
 [data-theme='light'] .bg-slate-800\/40,
 [data-theme='light'] .bg-slate-800\/30,
@@ -249,12 +263,12 @@ body {
 
 [data-theme='light'] .profile-card {
   background-image: none !important;
-  background-color: #e4edf4 !important;
+  background-color: var(--surface-raised) !important;
 }
 
 /* Rules page sticky nav — light mode */
 [data-theme='light'] .rules-nav {
-  background-color: #ffffff !important;
+  background-color: var(--surface) !important;
   background-image: none !important;
   border-color: var(--border) !important;
   box-shadow: 0 2px 8px rgb(0 0 0 / 0.08) !important;
@@ -326,7 +340,7 @@ body {
 
 /* Dashboard Header & HUD Light Mode Overrides */
 [data-theme='light'] .dashboard-header {
-  background-color: rgba(255, 255, 255, 0.95) !important;
+  background-color: var(--surface) !important;
   border-bottom-color: var(--border) !important;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
 }
@@ -456,7 +470,7 @@ body {
   text-shadow: 0 0 10px rgb(34 211 238 / 0.2);
 }
 
-/* User-facing page light palette. The dashboard keeps its existing tuned light treatment. */
+/* Shared light palette for user-facing pages. */
 :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) {
     background-color: var(--background);
 }
@@ -555,11 +569,11 @@ body {
 
   :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) .bg-cyan-500\/10,
   :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) .bg-teal-500\/10 {
-    background-color: #e0f2f1 !important;
+    background-color: color-mix(in srgb, var(--accent-primary) 9%, var(--surface)) !important;
   }
 
   :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) .bg-amber-500\/10 {
-    background-color: #fff8e8 !important;
+    background-color: #f7f0df !important;
   }
 
   :root[data-theme='light'] .dashboard-main .player-avatar-initials {
@@ -757,8 +771,8 @@ body {
 
   /* Squads Page Light Mode Enhancements */
   :root[data-theme='light'] .squad-hero-card {
-    background: radial-gradient(circle at top left, rgba(20, 184, 166, 0.12), transparent 45%), linear-gradient(135deg, #ffffff, #f1f6fb) !important;
-    border-color: #99f6e4 !important;
+    background: radial-gradient(circle at top left, rgba(20, 184, 166, 0.12), transparent 45%), linear-gradient(135deg, var(--surface), var(--surface-raised)) !important;
+    border-color: color-mix(in srgb, var(--accent-primary) 30%, var(--border)) !important;
     box-shadow: 0 10px 25px -5px rgba(20, 184, 166, 0.08), 0 8px 10px -6px rgba(0, 0, 0, 0.04) !important;
   }
 
