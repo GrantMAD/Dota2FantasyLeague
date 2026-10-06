@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
-import { Suspense } from "react";
+import { Suspense, type ReactNode } from "react";
 import { ThemeProvider } from "@/components/theme/ThemeProvider";
 import { SessionProvider } from "@/components/SessionProvider";
 import { PageTour } from "@/components/PageTour";
@@ -27,7 +27,7 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
+export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html
       lang="en"
