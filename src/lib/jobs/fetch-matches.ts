@@ -9,6 +9,7 @@
 
 import { getSupabaseServerClient } from '@/lib/db/supabase-server';
 import type { Match, Tournament } from '@/types/database';
+import { findGameweekForMatch } from './match-gameweek-routing';
 
 interface FetchResult {
   fetched: number;
@@ -23,10 +24,14 @@ interface FetchResult {
 interface GameweekReference {
   id: number;
   season_id: number;
+  gameweek_number: number;
+  start_date: string;
+  end_date: string;
 }
 
 interface SeriesReference {
   id: number;
+  gameweek_id: number;
 }
 
 interface TeamReference {
@@ -64,53 +69,29 @@ export async function fetchMatches(): Promise<FetchResult> {
         console.log('[fetchMatches] No active or eligible tournaments found to sync');
       }
 
-      // 2. Resolve active gameweek (or default to GW 1 if none is active)
-      const { data: activeGameweekData } = await supabase.from('gameweeks')
-        .select('id, season_id')
-        .eq('status', 'active')
-        .order('gameweek_number', { ascending: true })
-        .limit(1)
-        .maybeSingle();
-      let currentGameweek = activeGameweekData as GameweekReference | null;
-
-      if (!currentGameweek) {
-        const { data: latestGameweekData } = await supabase.from('gameweeks')
-          .select('id, season_id')
-          .order('id', { ascending: true })
-          .limit(1)
-          .maybeSingle();
-        currentGameweek = latestGameweekData as GameweekReference | null;
-      }
-
-      // Fallback gameweek creation if table is completely empty
-      if (!currentGameweek) {
-        let seasonId = 1;
-        const { data: defaultSeason } = await supabase
-          .from('seasons')
-          .select('id')
-          .order('created_at', { ascending: false })
-          .limit(1)
-          .maybeSingle();
-        if (defaultSeason) seasonId = defaultSeason.id;
-
-        const { data: newGameweekData } = await supabase
+      // Assign each provider match by its scheduled date, not by whichever
+      // gameweek happens to be Active when this job runs.
+      const seasonIds = [...new Set(activeTournaments.map((tournament) => tournament.season_id))];
+      const gameweeksBySeason = new Map<number, GameweekReference[]>();
+      if (seasonIds.length > 0) {
+        const { data: gameweekRows, error: gameweekError } = await supabase
           .from('gameweeks')
-          .insert({
-            season_id: seasonId,
-            gameweek_number: 1,
-            status: 'active',
-            start_date: new Date().toISOString(),
-            end_date: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(),
-            deadline: new Date().toISOString(),
-          })
-          .select('id, season_id')
-          .single();
-        currentGameweek = newGameweekData as GameweekReference | null;
+          .select('id, season_id, gameweek_number, start_date, end_date')
+          .in('season_id', seasonIds)
+          .order('gameweek_number', { ascending: true });
+
+        if (gameweekError) {
+          throw new Error(`Failed to load gameweek date ranges for match assignment: ${gameweekError.message}`);
+        }
+
+        for (const gameweek of (gameweekRows ?? []) as GameweekReference[]) {
+          const seasonGameweeks = gameweeksBySeason.get(gameweek.season_id) ?? [];
+          seasonGameweeks.push(gameweek);
+          gameweeksBySeason.set(gameweek.season_id, seasonGameweeks);
+        }
       }
 
-      const gameweekId = currentGameweek?.id || 1;
-
-      // 3. Pre-load professional teams map (by data_provider_id and id)
+      // 2. Pre-load professional teams map (by data_provider_id and id)
       //    Also build a name-map so we can detect stale placeholder names.
       const { data: dbTeams } = await supabase
         .from('professional_teams')
@@ -125,6 +106,14 @@ export async function fetchMatches(): Promise<FetchResult> {
 
       for (const tournament of activeTournaments) {
         try {
+          const tournamentGameweeks = gameweeksBySeason.get(tournament.season_id) ?? [];
+          if (tournamentGameweeks.length === 0) {
+            result.errors.push(
+              `No configured gameweeks found for tournament ${tournament.id} in season ${tournament.season_id}`
+            );
+            continue;
+          }
+
           // Extract provider league id from slug if present (e.g. "20145-res-unchained" -> "20145")
           const leagueExternalId = tournament.slug ? tournament.slug.split('-')[0] : tournament.id.toString();
 
@@ -142,44 +131,38 @@ export async function fetchMatches(): Promise<FetchResult> {
             continue;
           }
 
-          // Ensure a tournament_series record exists for this tournament & gameweek
-          const { data: seriesData } = await supabase.from('tournament_series')
-            .select('id')
-            .eq('tournament_id', tournament.id)
-            .eq('gameweek_id', gameweekId)
-            .limit(1)
-            .maybeSingle();
-          let seriesRecord = seriesData as SeriesReference | null;
-
-          if (!seriesRecord) {
-            const { data: newSeries, error: seriesError } = await supabase
-              .from('tournament_series')
-              .insert({
-                tournament_id: tournament.id,
-                gameweek_id: gameweekId,
-                series_number: 1,
-                best_of: 3,
-              })
-              .select('id')
-              .single();
-
-            if (seriesError) {
-              console.warn(`[fetchMatches] Failed to create tournament_series: ${seriesError.message}`);
-              continue;
-            }
-            seriesRecord = newSeries;
-          }
-
-          const seriesId = seriesRecord?.id;
-          if (!seriesId) continue;
-
-          // Preload existing matches for this series / external IDs
-          const existingMatches = await getExistingMatches(seriesId);
+          const { existingMatches, seriesByGameweek } = await getTournamentMatchState(supabase, tournament.id);
+          const routedMatchIds = new Set<string>();
 
           // Process matches
           for (const match of matches) {
             try {
-              const existing = existingMatches.get(match.id);
+              const scheduledTime = match.scheduledAt
+                ? new Date(match.scheduledAt).toISOString()
+                : null;
+              if (!scheduledTime) {
+                result.errors.push(
+                  `Skipped match ${match.id} for tournament ${tournament.id}: provider did not supply a scheduled time`
+                );
+                continue;
+              }
+
+              const targetGameweek = findGameweekForMatch(scheduledTime, tournamentGameweeks);
+              if (!targetGameweek) {
+                result.errors.push(
+                  `Skipped match ${match.id} for tournament ${tournament.id}: scheduled time ${scheduledTime} does not fall in exactly one configured gameweek`
+                );
+                continue;
+              }
+
+              const existingMatchesForId = existingMatches.get(match.id) ?? [];
+              if (existingMatchesForId.length > 1) {
+                result.errors.push(
+                  `Skipped match ${match.id} for tournament ${tournament.id}: multiple database rows already use this external match ID`
+                );
+                continue;
+              }
+              const existing = existingMatchesForId[0];
 
               // Resolve Team A
               const teamAId = await resolveOrCreateTeam(match.team1Id, teamIdMap, teamNameMap, provider);
@@ -192,42 +175,88 @@ export async function fetchMatches(): Promise<FetchResult> {
                 continue;
               }
 
+              let seriesRecord = seriesByGameweek.get(targetGameweek.id);
+              if (!seriesRecord) {
+                const { data: newSeries, error: seriesError } = await supabase
+                  .from('tournament_series')
+                  .insert({
+                    tournament_id: tournament.id,
+                    gameweek_id: targetGameweek.id,
+                    series_number: 1,
+                    best_of: 3,
+                  })
+                  .select('id, gameweek_id')
+                  .single();
+
+                if (seriesError) {
+                  throw new Error(`Failed to create tournament series: ${seriesError.message}`);
+                }
+                seriesRecord = newSeries as SeriesReference;
+                seriesByGameweek.set(targetGameweek.id, seriesRecord);
+              }
+
               const status = match.status === 'concluded' ? 'completed' : 'scheduled';
-              const scheduledTime = match.scheduledAt ? new Date(match.scheduledAt).toISOString() : new Date().toISOString();
 
               if (existing) {
-                // Update existing match — also correct team IDs in case they were
-                // originally stored as placeholder / bad values (e.g. both sides = 124).
-                await supabase
+                const oldGameweekId = existing.gameweek_id;
+                if (oldGameweekId !== targetGameweek.id) {
+                  const { error: performanceError } = await supabase
+                    .from('player_performances')
+                    .update({ gameweek_id: targetGameweek.id })
+                    .eq('match_id', existing.id);
+                  if (performanceError) {
+                    throw new Error(
+                      `Failed to reassign player performances for match ${existing.id}: ${performanceError.message}`
+                    );
+                  }
+                }
+
+                const { error: updateError } = await supabase
                   .from('matches')
                   .update({
+                    series_id: seriesRecord.id,
+                    gameweek_id: targetGameweek.id,
                     status,
                     team_a_id: teamAId,
                     team_b_id: teamBId,
+                    scheduled_time: scheduledTime,
                     last_synced_at: new Date().toISOString(),
                   })
                   .eq('id', existing.id);
+                if (updateError) {
+                  throw new Error(`Failed to update match ${existing.id}: ${updateError.message}`);
+                }
+
+                existing.series_id = seriesRecord.id;
+                existing.gameweek_id = targetGameweek.id;
+                existing.scheduled_time = scheduledTime;
                 result.updated++;
               } else {
                 // Insert new match into database
-                const { error } = await supabase
+                const { data: insertedMatch, error } = await supabase
                   .from('matches')
                   .insert({
-                    series_id: seriesId,
-                    gameweek_id: gameweekId,
+                    series_id: seriesRecord.id,
+                    gameweek_id: targetGameweek.id,
                     team_a_id: teamAId,
                     team_b_id: teamBId,
                     status,
                     scheduled_time: scheduledTime,
                     external_match_id: match.id.toString(),
                     last_synced_at: new Date().toISOString(),
-                  });
+                  })
+                  .select('*')
+                  .single();
 
                 if (error) {
                   throw error;
                 }
+                const matchesForId = existingMatches.get(match.id) ?? [];
+                matchesForId.push(insertedMatch as Match);
+                existingMatches.set(match.id, matchesForId);
                 result.fetched++;
               }
+              routedMatchIds.add(match.id);
             } catch (error) {
               result.errors.push(
                 `Failed to process match ${match.id}: ${(error as Error).message}`
@@ -236,7 +265,9 @@ export async function fetchMatches(): Promise<FetchResult> {
           }
 
           // Concluded matches queue for detailed fantasy breakdown
-          const concludedMatches = matches.filter(m => m.status === 'concluded');
+          const concludedMatches = matches.filter(
+            (match) => match.status === 'concluded' && routedMatchIds.has(match.id),
+          );
           for (const match of concludedMatches) {
             try {
               const hasDetails = await checkMatchDetails(match.id);
@@ -307,27 +338,53 @@ async function getActiveTournaments(): Promise<Tournament[]> {
   return data || [];
 }
 
-async function getExistingMatches(seriesId: number): Promise<Map<string, Match>> {
-  const supabase = getSupabaseServerClient();
+async function getTournamentMatchState(
+  supabase: ReturnType<typeof getSupabaseServerClient>,
+  tournamentId: number,
+): Promise<{
+  existingMatches: Map<string, Match[]>;
+  seriesByGameweek: Map<number, SeriesReference>;
+}> {
+  const { data: rawSeriesRows, error: seriesError } = await supabase
+    .from('tournament_series')
+    .select('id, gameweek_id')
+    .eq('tournament_id', tournamentId);
 
-  const { data, error } = await supabase
-    .from('matches')
-    .select('*')
-    .eq('series_id', seriesId);
-
-  if (error) {
-    console.warn(`Failed to fetch existing matches: ${error.message}`);
-    return new Map();
+  if (seriesError) {
+    throw new Error(`Failed to fetch series for tournament ${tournamentId}: ${seriesError.message}`);
   }
 
-  const matchMap = new Map<string, Match>();
-  for (const match of data || []) {
-    if (match.external_match_id) {
-      matchMap.set(match.external_match_id, match);
+  const seriesRows = (rawSeriesRows ?? []) as SeriesReference[];
+  const seriesByGameweek = new Map<number, SeriesReference>();
+  for (const series of seriesRows) {
+    if (!seriesByGameweek.has(series.gameweek_id)) {
+      seriesByGameweek.set(series.gameweek_id, series);
     }
   }
 
-  return matchMap;
+  const seriesIds = seriesRows.map((series) => series.id);
+  const existingMatches = new Map<string, Match[]>();
+  if (seriesIds.length === 0) {
+    return { existingMatches, seriesByGameweek };
+  }
+
+  const { data: matchRows, error: matchesError } = await supabase
+    .from('matches')
+    .select('*')
+    .in('series_id', seriesIds);
+
+  if (matchesError) {
+    throw new Error(`Failed to fetch matches for tournament ${tournamentId}: ${matchesError.message}`);
+  }
+
+  for (const match of (matchRows ?? []) as Match[]) {
+    if (!match.external_match_id) continue;
+    const rows = existingMatches.get(match.external_match_id) ?? [];
+    rows.push(match);
+    existingMatches.set(match.external_match_id, rows);
+  }
+
+  return { existingMatches, seriesByGameweek };
 }
 
 async function checkMatchDetails(matchId: string): Promise<boolean> {

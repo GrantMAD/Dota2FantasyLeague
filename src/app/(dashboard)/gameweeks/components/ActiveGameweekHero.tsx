@@ -38,7 +38,7 @@ export function ActiveGameweekHero({ gameweek }: ActiveGameweekHeroProps) {
         <div>
           <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-amber-500/40 bg-amber-500/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.22em] text-amber-300">
             <AlarmClockCheck className="h-3.5 w-3.5" />
-            Active Gameweek
+            {gameweek.status === 'active' ? 'Active Gameweek' : 'Next Gameweek'}
           </div>
           <h2 className="gameweeks-hero-heading text-3xl font-black tracking-tight text-white">Gameweek {gameweek.gameweek_number}</h2>
           <p className="gameweeks-hero-dates mt-1 text-sm text-slate-300">
