@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase';
 import { verifyAdminAuth, createErrorResponse } from '@/lib/auth-utils';
+import { logAuditAction } from '@/lib/audit-logger';
 
 interface AdminGameweekRow {
   id: number;
@@ -64,7 +65,7 @@ export async function GET(request: NextRequest) {
  */
 export async function PUT(request: NextRequest) {
   try {
-    await verifyAdminAuth(request);
+    const adminId = await verifyAdminAuth(request);
     const supabase = supabaseServer();
     const body = await request.json();
     const { type, id, status, deadline_date, is_international_break, ...extraFields } = body;
@@ -104,6 +105,18 @@ export async function PUT(request: NextRequest) {
         return NextResponse.json({ error: 'No valid update fields provided for season' }, { status: 400 });
       }
 
+      const auditFields = ['status', 'starting_budget', 'max_players_per_team', 'squad_size', 'starters_required', 'bench_size'];
+      const changedFields = auditFields.filter((field) => updates[field] !== undefined);
+      const { data: oldData, error: oldDataError } = await supabase
+        .from('seasons')
+        .select(auditFields.join(', '))
+        .eq('id', id)
+        .maybeSingle();
+      if (oldDataError || !oldData) {
+        return NextResponse.json({ error: 'Failed to load season before update' }, { status: oldDataError ? 500 : 404 });
+      }
+      const oldValues = Object.fromEntries(changedFields.map((field) => [field, (oldData as unknown as Record<string, unknown>)[field]]));
+
       updates.updated_at = new Date().toISOString();
 
       const { data, error } = await supabase
@@ -116,6 +129,16 @@ export async function PUT(request: NextRequest) {
       if (error) {
         return NextResponse.json({ error: 'Failed to update season', details: error.message }, { status: 500 });
       }
+
+      await logAuditAction({
+        tableName: 'seasons',
+        recordId: data.id,
+        action: 'UPDATE',
+        changedBy: adminId,
+        oldValues,
+        newValues: Object.fromEntries(changedFields.map((field) => [field, (data as unknown as Record<string, unknown>)[field]])),
+        reason: 'Admin updated season settings',
+      });
 
       return NextResponse.json({ success: true, data });
     }
@@ -134,6 +157,18 @@ export async function PUT(request: NextRequest) {
         return NextResponse.json({ error: 'No valid update fields provided for gameweek' }, { status: 400 });
       }
 
+      const auditFields = ['deadline', 'is_international_break'];
+      const changedFields = auditFields.filter((field) => updates[field] !== undefined);
+      const { data: oldData, error: oldDataError } = await supabase
+        .from('gameweeks')
+        .select(auditFields.join(', '))
+        .eq('id', id)
+        .maybeSingle();
+      if (oldDataError || !oldData) {
+        return NextResponse.json({ error: 'Failed to load gameweek before update' }, { status: oldDataError ? 500 : 404 });
+      }
+      const oldValues = Object.fromEntries(changedFields.map((field) => [field, (oldData as unknown as Record<string, unknown>)[field]]));
+
       updates.updated_at = new Date().toISOString();
 
       const { data, error } = await supabase
@@ -146,6 +181,16 @@ export async function PUT(request: NextRequest) {
       if (error) {
         return NextResponse.json({ error: 'Failed to update gameweek', details: error.message }, { status: 500 });
       }
+
+      await logAuditAction({
+        tableName: 'gameweeks',
+        recordId: data.id,
+        action: 'UPDATE',
+        changedBy: adminId,
+        oldValues,
+        newValues: Object.fromEntries(changedFields.map((field) => [field, (data as unknown as Record<string, unknown>)[field]])),
+        reason: 'Admin updated gameweek settings',
+      });
 
       return NextResponse.json({ success: true, data });
     }

@@ -13,6 +13,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase';
 import { verifyAdminAuth } from '@/lib/auth-utils';
+import { logAuditAction } from '@/lib/audit-logger';
 
 const OPENDOTA_API = process.env.OPENDOTA_API_URL || 'https://api.opendota.com/api';
 // Throttle individual team requests to stay well within OpenDota rate limits
@@ -38,8 +39,9 @@ async function fetchOpenDotaTeamLogo(teamId: string): Promise<string | null> {
 }
 
 export async function POST(request: NextRequest) {
+  let adminId: string;
   try {
-    await verifyAdminAuth(request);
+    adminId = await verifyAdminAuth(request);
   } catch (error: unknown) {
     const status = typeof error === 'object' && error !== null && 'status' in error
       ? Number(error.status)
@@ -95,6 +97,17 @@ export async function POST(request: NextRequest) {
         skipped++;
         console.log(`[backfill-team-logos] — ${team.name} → no logo on OpenDota`);
       }
+    }
+
+    if (updated > 0) {
+      await logAuditAction({
+        tableName: 'professional_teams',
+        action: 'CORRECTION',
+        changedBy: adminId,
+        oldValues: { logo_url: null, candidate_count: teams.length },
+        newValues: { updated_count: updated, skipped_count: skipped, error_count: errors, source: 'OpenDota' },
+        reason: 'Admin backfilled professional team logos',
+      });
     }
 
     console.log(`[backfill-team-logos] Batch ${Math.floor(i / BATCH_SIZE) + 1} done (${i + batch.length}/${teams.length})`);

@@ -1,76 +1,70 @@
-import { test, expect } from '@playwright/test';
+import { expect, test } from '@playwright/test';
 
-test.describe('Dota 2 Fantasy League - Core Flow', () => {
-  test('Complete user journey from signup to checking points', async ({ page }) => {
-    // 1. Mock Authentication
-    await test.step('Login with mocked user state', async () => {
-      // In a real E2E environment with Supabase, we would seed a test user in the db,
-      // bypass the email confirmation requirement, and login via UI or API.
-      // For this test execution, we will navigate to the dashboard assuming
-      // we have mocked the session in global setup, or we'll assert the elements
-      // on the login page as a proxy for the 'auth' step passing.
-      
-      await page.goto('/login');
-      await expect(page.getByRole('heading', { name: 'Welcome Back' })).toBeVisible();
-      // await page.fill('input[name="email"]', 'test@test.com');
-      // await page.fill('input[name="password"]', 'Password123!');
-      // await page.click('button[type="submit"]');
-      
-      // Assume logged in and proceed to next steps in a full suite
+const manager = {
+  id: 'e2e-manager',
+  email: 'e2e-manager@example.test',
+};
+
+test.describe('manager sign-in core flow', () => {
+  test('signs in and reviews the manager dashboard points and squad value', async ({ page }) => {
+    await page.route('**/api/**', async (route) => {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: '{}' });
     });
 
-    // 2. Create fantasy team & 3. Select squad & Set captain
-    // NOTE: The exact selectors depend on the UI implementation. 
-    // This is a placeholder for the flow.
-    await test.step('Create fantasy team and select squad', async () => {
-      // Navigate to team creation or squad selection
-      // await page.click('text="Create Team"');
-      // Select players for different roles (Core, Mid, Support, etc.)
-      // Set one as captain
-      // Save lineup
-    });
-
-    // 4. Join league
-    await test.step('Join or create a league', async () => {
-      // Navigate to leagues page
-      await page.goto('/leagues');
-      // Create a mock league or join one
-      // await page.click('text="Create League"');
-    });
-
-    // 5. Make transfer
-    await test.step('Make a player transfer', async () => {
-      // Navigate to transfer market
-      await page.goto('/transfers');
-      // Swap out a player
-    });
-
-    // 6. Trigger Jobs (Admin)
-    // In a real E2E test against a dedicated environment, we would use the request context
-    // to trigger the admin API to simulate time passing or matches completing.
-    /*
-    await test.step('Simulate match completion via Admin API', async () => {
-      const response = await request.post('/api/admin/jobs/run', {
-        data: { jobName: 'fetch-match-details' },
-        headers: {
-          'Authorization': `Bearer ${process.env.ADMIN_TOKEN}` // Requires setup
-        }
+    await page.route('**/api/auth/signin', async (route) => {
+      const requestBody = route.request().postDataJSON() as { email?: string; password?: string };
+      expect(requestBody.email).toBe(manager.email);
+      expect(requestBody.password).toBe('E2E-only-password');
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        headers: { 'set-cookie': 'sb-auth-token=e2e-mock-token; Path=/; HttpOnly; SameSite=Lax' },
+        body: JSON.stringify({
+          message: 'Signed in successfully',
+          user: manager,
+          session: null,
+        }),
       });
-      expect(response.ok()).toBeTruthy();
     });
-    */
 
-    // 7. Verify Points & Leagues
-    await test.step('Verify points and league updates', async () => {
-      await page.goto('/dashboard');
-      // Assert that points are visible
-      // await expect(page.locator('.points-display')).toBeVisible();
+    await page.route('**/api/dashboard/stats', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          fantasySeasonId: 1,
+          activeSquadCount: 1,
+          squadValue: 43,
+          bankBalance: 57,
+          totalPoints: 4271.05,
+          globalRank: 1,
+          freeTransfers: 2,
+          gameweek: { gameweek_number: 2, deadline: '2026-10-06T12:00:00Z', status: 'active' },
+          captain: null,
+          viceCaptain: null,
+          starters: [],
+          leagueStandings: [],
+        }),
+      });
     });
-    
-    // 8. Verify Price Changes
-    await test.step('Verify player price changes', async () => {
-      await page.goto('/transfers');
-      // Assert price changes
+
+    await page.route('**/api/dashboard/whats-new', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ events: [], gameweek: null, updates: [] }),
+      });
     });
+
+    await page.goto('/login');
+    await page.getByLabel('Email').fill(manager.email);
+    await page.getByRole('textbox', { name: 'Password' }).fill('E2E-only-password');
+    await page.getByRole('button', { name: 'Sign In' }).click();
+
+    await expect(page).toHaveURL(/\/dashboard$/);
+    await expect(page.getByText('Total Points', { exact: true })).toBeVisible();
+    await expect(page.getByText('4271.05', { exact: true })).toBeVisible();
+    await expect(page.getByText('43.0M', { exact: true })).toBeVisible();
+    await expect(page.getByText('57.0M', { exact: true })).toBeVisible();
   });
 });

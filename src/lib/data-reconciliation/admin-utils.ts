@@ -10,6 +10,21 @@
 
 import { getSupabaseServerClient } from '@/lib/db/supabase-server';
 import { verifyAdminAuth as verifyAdminAuthCentral } from '@/lib/auth-utils';
+import { logAuditAction } from '@/lib/audit-logger';
+
+const SAFE_CONFLICT_AUDIT_FIELDS = new Set([
+  'name', 'country', 'tier', 'status', 'team_id', 'season_id', 'gameweek_id',
+  'series_id', 'tournament_id', 'winner_id', 'score', 'scheduled_time',
+  'is_enabled', 'value', 'starting_budget', 'max_players_per_team', 'squad_size',
+  'starters_required', 'bench_size', 'is_international_break',
+]);
+
+function safeConflictAuditValue(fieldName: string, value: unknown): unknown {
+  if (!SAFE_CONFLICT_AUDIT_FIELDS.has(fieldName)) return undefined;
+  if (typeof value === 'string') return value.length <= 100 ? value : value.slice(0, 100);
+  if (typeof value === 'number' || typeof value === 'boolean' || value === null) return value;
+  return undefined;
+}
 
 export async function verifyAdminAuth(request: Request): Promise<string | null> {
   try {
@@ -149,6 +164,8 @@ export async function resolveConflict(
     return { success: false, error: error.message };
   }
 
+  let appliedEntityValues: { oldValue?: unknown; newValue?: unknown } | null = null;
+  let entityWasApplied = false;
   // If requested and status is resolved, also update the entity table directly
   if (applyToEntity && status === 'resolved' && conflict.entity_type && conflict.entity_id && conflict.field_name) {
     const tableMap: Record<string, string> = {
@@ -160,17 +177,93 @@ export async function resolveConflict(
     const tableName = tableMap[conflict.entity_type];
     if (tableName) {
       try {
-        await supabase
+        let oldValue: unknown;
+        if (SAFE_CONFLICT_AUDIT_FIELDS.has(conflict.field_name)) {
+          const { data: entity } = await supabase
+            .from(tableName)
+            .select(conflict.field_name)
+            .eq('id', conflict.entity_id)
+            .maybeSingle();
+          oldValue = entity?.[conflict.field_name];
+        }
+
+        const { data: updatedEntity, error: applyError } = await supabase
           .from(tableName)
           .update({
             [conflict.field_name]: resolvedValue,
             updated_at: new Date().toISOString(),
           })
-          .eq('id', conflict.entity_id);
+          .eq('id', conflict.entity_id)
+          .select(conflict.field_name)
+          .maybeSingle();
+        if (applyError) throw applyError;
+        if (updatedEntity) {
+          entityWasApplied = true;
+          appliedEntityValues = {
+            oldValue: safeConflictAuditValue(conflict.field_name, oldValue),
+            newValue: safeConflictAuditValue(conflict.field_name, updatedEntity[conflict.field_name] ?? resolvedValue),
+          };
+        }
       } catch (applyErr) {
         console.warn(`[resolveConflict] Failed to apply resolution to ${tableName}.${conflict.field_name}:`, applyErr);
       }
     }
+  }
+
+  const conflictRecordId = Number.isInteger(Number(conflictId)) ? Number(conflictId) : undefined;
+  const safeResolvedValue = status === 'resolved'
+    ? safeConflictAuditValue(conflict.field_name, resolvedValue)
+    : undefined;
+  const safeOldResolvedValue = safeConflictAuditValue(conflict.field_name, conflict.resolved_value);
+  await logAuditAction({
+    tableName: 'data_conflicts',
+    recordId: conflictRecordId,
+    action: status === 'resolved' ? 'CORRECTION' : 'UPDATE',
+    changedBy: adminUserId,
+    oldValues: {
+      conflict_id: conflictId,
+      status: conflict.status,
+      resolved_provider: conflict.resolved_provider,
+      ...(safeOldResolvedValue !== undefined ? { resolved_value: safeOldResolvedValue } : {}),
+    },
+    newValues: {
+      conflict_id: conflictId,
+      entity_type: conflict.entity_type,
+      entity_id: conflict.entity_id,
+      field_name: conflict.field_name,
+      status,
+      resolved_provider: status === 'resolved' ? resolvedProvider : conflict.resolved_provider,
+      apply_to_entity: entityWasApplied,
+      ...(safeResolvedValue !== undefined ? { resolved_value: safeResolvedValue } : {}),
+    },
+    reason: status === 'resolved' ? 'Admin resolved a data conflict' : 'Admin ignored a data conflict',
+  });
+
+  if (appliedEntityValues) {
+    const entityId = String(conflict.entity_id);
+    const numericEntityId = Number(entityId);
+    await logAuditAction({
+      tableName: conflict.entity_type === 'player'
+        ? 'professional_players'
+        : conflict.entity_type === 'team'
+          ? 'professional_teams'
+          : conflict.entity_type === 'tournament'
+            ? 'tournaments'
+            : 'matches',
+      recordId: Number.isInteger(numericEntityId) ? numericEntityId : undefined,
+      action: 'CORRECTION',
+      changedBy: adminUserId,
+      oldValues: {
+        ...(appliedEntityValues.oldValue !== undefined ? { [conflict.field_name]: appliedEntityValues.oldValue } : {}),
+        ...(Number.isInteger(numericEntityId) ? {} : { entity_id: entityId }),
+      },
+      newValues: {
+        ...(appliedEntityValues.newValue !== undefined ? { [conflict.field_name]: appliedEntityValues.newValue } : {}),
+        ...(Number.isInteger(numericEntityId) ? {} : { entity_id: entityId }),
+        conflict_id: conflictId,
+      },
+      reason: 'Admin applied a data conflict resolution to its entity',
+    });
   }
 
   return { success: true };
@@ -202,6 +295,15 @@ export async function ignoreAllConflicts(
   if (error) {
     return { success: false, error: error.message };
   }
+
+  await logAuditAction({
+    tableName: 'data_conflicts',
+    action: 'UPDATE',
+    changedBy: adminUserId,
+    oldValues: { status: 'unresolved', entity_type: entityType ?? 'all' },
+    newValues: { status: 'ignored', entity_type: entityType ?? 'all', count: data?.length ?? 0 },
+    reason: 'Admin ignored unresolved data conflicts in bulk',
+  });
 
   return { success: true, count: data?.length ?? 0 };
 }

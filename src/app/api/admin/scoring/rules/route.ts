@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase';
 import { verifyAdminAuth } from '@/lib/auth-utils';
+import { logAuditAction } from '@/lib/audit-logger';
 
 interface ScoringRule {
   id: number;
@@ -77,7 +78,7 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    await verifyAdminAuth(request);
+    const adminId = await verifyAdminAuth(request);
 
     const body = await request.json();
     const { seasonId = 1 } = body;
@@ -124,11 +125,34 @@ export async function POST(request: NextRequest) {
         effective_from_gameweek_id: null
       }));
 
-      const { error: insertError } = await supabase
+      const { data: insertedRules, error: insertError } = await supabase
         .from('scoring_rules')
-        .insert(newRules);
+        .insert(newRules)
+        .select('id, rule_key, value, is_enabled');
 
       if (insertError) throw insertError;
+
+      await logAuditAction({
+        tableName: 'scoring_rules',
+        action: 'INSERT',
+        changedBy: adminId,
+        oldValues: { season_id: seasonId, previous_version: currentVersion },
+        newValues: {
+          season_id: seasonId,
+          version: newVersion,
+          cloned_rule_count: insertedRules?.length ?? 0,
+        },
+        reason: 'Admin created a scoring rules draft version',
+      });
+    } else {
+      await logAuditAction({
+        tableName: 'scoring_rules',
+        action: 'INSERT',
+        changedBy: adminId,
+        oldValues: { season_id: seasonId, previous_version: currentVersion },
+        newValues: { season_id: seasonId, version: newVersion, cloned_rule_count: 0 },
+        reason: 'Admin created an empty scoring rules draft version',
+      });
     }
 
     return NextResponse.json({ message: 'New version created', version: newVersion });

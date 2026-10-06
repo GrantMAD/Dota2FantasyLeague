@@ -2,13 +2,14 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase';
 import { verifyAdminAuth, createErrorResponse } from '@/lib/auth-utils';
 import { runJob } from '@/lib/jobs/scheduler';
+import { logAuditAction } from '@/lib/audit-logger';
 
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    await verifyAdminAuth(request);
+    const adminId = await verifyAdminAuth(request);
 
     const { id } = await params;
     const matchId = parseInt(id);
@@ -22,7 +23,7 @@ export async function POST(
     // Verify match exists
     const { data: match, error: matchError } = await supabase
       .from('matches')
-      .select('id, status, external_match_id')
+      .select('id, status, external_match_id, detailed_stats_fetched_at')
       .eq('id', matchId)
       .single();
 
@@ -48,6 +49,16 @@ export async function POST(
 
     if (updateError) {
       console.warn(`Failed to clear stats flag for match ${matchId}:`, updateError.message);
+    } else {
+      await logAuditAction({
+        tableName: 'matches',
+        recordId: matchId,
+        action: 'UPDATE',
+        changedBy: adminId,
+        oldValues: { detailed_stats_fetched_at: match.detailed_stats_fetched_at },
+        newValues: { detailed_stats_fetched_at: null, queued_job: 'fetch-match-details' },
+        reason: 'Admin queued a completed match for detail re-sync',
+      });
     }
 
     // Trigger the job in background (don't await)

@@ -30,6 +30,7 @@ import {
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useRef, useState, useMemo } from 'react';
 import { ThemeToggle } from './theme/ThemeToggle';
+import { useAccessibleDialog } from './use-accessible-dialog';
 import { fetchWithAuth } from '@/lib/fetch-with-auth';
 import { supabase } from '@/lib/supabase';
 import { useToast } from '@/components/Toast';
@@ -91,6 +92,11 @@ export function Header() {
   const [isSearchingPlayers, setIsSearchingPlayers] = useState(false);
   const userMenuRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const commandPaletteRef = useAccessibleDialog<HTMLDivElement>({
+    open: searchOpen,
+    onClose: () => setSearchOpen(false),
+    initialFocusRef: searchInputRef,
+  });
   const mobileDrawerRef = useRef<HTMLDivElement>(null);
   const touchStartXRef = useRef<number>(0);
   const touchStartYRef = useRef<number>(0);
@@ -683,6 +689,8 @@ export function Header() {
             <div className="hidden lg:flex flex-1 max-w-xs xl:max-w-md mx-2">
               <button
                 type="button"
+                aria-haspopup="dialog"
+                aria-expanded={searchOpen}
                 onClick={() => setSearchOpen(true)}
                 className="w-full flex items-center justify-between px-3 py-1.5 rounded-lg border border-slate-700 bg-slate-800/60 hover:bg-slate-800 text-slate-400 hover:text-slate-200 transition-all text-xs group shadow-inner"
               >
@@ -703,6 +711,8 @@ export function Header() {
               <button
                 type="button"
                 aria-label="Open search"
+                aria-haspopup="dialog"
+                aria-expanded={searchOpen}
                 onClick={() => setSearchOpen(true)}
                 className="lg:hidden p-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
               >
@@ -813,13 +823,22 @@ export function Header() {
       {/* Command Palette Modal (Ctrl+K / Cmd+K) */}
       {searchOpen && (
           <div className="fixed inset-0 z-50 flex items-start justify-center pt-20 px-4 bg-slate-950/70 backdrop-blur-xs animate-in fade-in duration-150">
-            <div className="w-full max-w-xl rounded-xl border border-slate-700 bg-slate-900 shadow-2xl overflow-hidden">
+            <div
+              ref={commandPaletteRef}
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="command-palette-title"
+              tabIndex={-1}
+              className="w-full max-w-xl rounded-xl border border-slate-700 bg-slate-900 shadow-2xl overflow-hidden"
+            >
+              <h2 id="command-palette-title" className="sr-only">Command palette</h2>
               {/* Search Bar Input */}
               <div className="flex items-center px-4 border-b border-slate-700/80 bg-slate-800/40">
                 <Search className="h-5 w-5 text-slate-400 shrink-0" />
                 <input
                   ref={searchInputRef}
                   type="text"
+                  aria-label="Search players, pages, and rules"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Search pro players, pages, rules... (Esc to close)"
@@ -828,6 +847,7 @@ export function Header() {
                 {searchQuery ? (
                   <button
                     type="button"
+                    aria-label="Clear search"
                     onClick={() => setSearchQuery('')}
                     className="p-1 rounded text-slate-400 hover:text-white"
                   >

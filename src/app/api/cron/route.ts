@@ -30,12 +30,13 @@ export async function GET(request: NextRequest) {
       });
     }
 
+    const success = results.every((result) => result.status !== 'failed');
     return NextResponse.json({
-      success: results.every((result) => result.status !== 'failed'),
+      success,
       message: `Processed ${results.length} scheduled jobs`,
       results,
       timestamp: now,
-    });
+    }, { status: success ? 200 : 500 });
   } catch (error) {
     console.error('[Cron] Error executing scheduled jobs:', error);
     return NextResponse.json(
@@ -62,12 +63,13 @@ export async function POST(request: NextRequest) {
 
   try {
     const results = await runAllJobs();
+    const success = results.every((result) => result.status !== 'failed');
     return NextResponse.json({
-      success: true,
-      message: 'All jobs executed',
+      success,
+      message: success ? 'All jobs completed successfully' : 'One or more jobs failed',
       results,
       timestamp: new Date(),
-    });
+    }, { status: success ? 200 : 500 });
   } catch (error) {
     return NextResponse.json(
       {

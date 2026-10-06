@@ -10,6 +10,7 @@
 import { getSupabaseServerClient } from '@/lib/db/supabase-server';
 import type { Match, MatchPlayerStats } from '@/types/database';
 import { getRoleByHeroName } from '@/lib/constants/dota-heroes';
+import type { JobRunOptions } from './scheduler';
 
 interface FetchDetailsResult {
   fetched: number;
@@ -24,7 +25,7 @@ type MatchPlayerStatsInsert = Omit<MatchPlayerStats, 'id' | 'created_at' | 'upda
   hero_id: number;
 };
 
-export async function fetchMatchDetails(): Promise<FetchDetailsResult> {
+export async function fetchMatchDetails(options?: JobRunOptions): Promise<FetchDetailsResult> {
   const startedAt = new Date();
   const result: FetchDetailsResult = {
     fetched: 0,
@@ -45,7 +46,7 @@ export async function fetchMatchDetails(): Promise<FetchDetailsResult> {
 
     try {
       // Get pending matches (concluded but no details yet)
-      const pendingMatches = await getPendingMatches();
+      const pendingMatches = await getPendingMatches(options?.matchId);
       console.log(`[fetchMatchDetails] Found ${pendingMatches.length} matches pending details`);
 
       // Preload player and team maps for resolving IDs
@@ -258,13 +259,18 @@ export async function fetchMatchDetails(): Promise<FetchDetailsResult> {
         }
       }
 
-      await logJobExecution('fetch-match-details', 'completed', {
+      await logJobExecution('fetch-match-details', result.errors.length > 0 ? 'failed' : 'completed', {
         fetched: result.fetched,
         scored: result.scored,
         errors: result.errors.length,
+        error_details: result.errors,
       }, jobExecutionId);
 
-      console.log('[fetchMatchDetails] Completed successfully');
+      if (result.errors.length > 0) {
+        console.error('[fetchMatchDetails] Completed with errors:', result.errors);
+      } else {
+        console.log('[fetchMatchDetails] Completed successfully');
+      }
     } catch (error) {
       await logJobExecution('fetch-match-details', 'failed', {
         error: (error as Error).message,
@@ -283,18 +289,21 @@ export async function fetchMatchDetails(): Promise<FetchDetailsResult> {
   return result;
 }
 
-async function getPendingMatches(): Promise<Match[]> {
+async function getPendingMatches(matchId?: number): Promise<Match[]> {
   const supabase = getSupabaseServerClient();
   const pageSize = 1000;
   const pendingMatches: Match[] = [];
 
   for (let offset = 0; ; offset += pageSize) {
-    const { data, error } = await supabase
+    let query = supabase
       .from('matches')
       .select('*')
       .eq('status', 'completed')
-      .is('detailed_stats_fetched_at', null)
-      .range(offset, offset + pageSize - 1);
+      .is('detailed_stats_fetched_at', null);
+    if (matchId !== undefined) {
+      query = query.eq('id', matchId);
+    }
+    const { data, error } = await query.range(offset, offset + pageSize - 1);
 
     if (error) {
       throw new Error(`Failed to fetch pending matches: ${error.message}`);
@@ -302,6 +311,7 @@ async function getPendingMatches(): Promise<Match[]> {
 
     const page = data ?? [];
     pendingMatches.push(...page);
+    if (matchId !== undefined) break;
     if (page.length < pageSize) break;
   }
 

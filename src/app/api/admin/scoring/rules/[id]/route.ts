@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase';
 import { verifyAdminAuth } from '@/lib/auth-utils';
+import { logAuditAction } from '@/lib/audit-logger';
 
 export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    await verifyAdminAuth(request);
+    const adminId = await verifyAdminAuth(request);
 
     const { id } = await params;
     const ruleId = parseInt(id, 10);
@@ -23,7 +24,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     // 1. Verify the rule is not published yet
     const { data: rule, error: fetchError } = await supabase
       .from('scoring_rules')
-      .select('is_published')
+      .select('id, season_id, version, rule_key, value, is_enabled, is_published')
       .eq('id', ruleId)
       .single();
 
@@ -48,6 +49,24 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       .eq('id', ruleId);
 
     if (updateError) throw updateError;
+
+    await logAuditAction({
+      tableName: 'scoring_rules',
+      recordId: ruleId,
+      action: 'UPDATE',
+      changedBy: adminId,
+      oldValues: {
+        rule_key: rule.rule_key,
+        ...(value !== undefined ? { value: rule.value } : {}),
+        ...(is_enabled !== undefined ? { is_enabled: rule.is_enabled } : {}),
+      },
+      newValues: {
+        rule_key: rule.rule_key,
+        ...(value !== undefined ? { value } : {}),
+        ...(is_enabled !== undefined ? { is_enabled } : {}),
+      },
+      reason: `Admin updated scoring rule in season ${rule.season_id}, version ${rule.version}`,
+    });
 
     return NextResponse.json({ message: 'Rule updated successfully' });
   } catch (error: unknown) {

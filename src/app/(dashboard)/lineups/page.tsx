@@ -317,12 +317,13 @@ export default function LineupsPage() {
                   <div data-guide="lineup-captain-controls" data-tour="lineup-captain-controls" className="mb-4 grid grid-cols-1 gap-3 rounded-lg border border-slate-700 bg-slate-900/60 p-4 md:grid-cols-2">
                     <div>
                       <div className="flex items-center justify-between mb-2">
-                        <label className="block text-xs font-bold uppercase tracking-wider text-amber-400">Captain · 2x points</label>
+                        <label htmlFor="lineup-captain" className="block text-xs font-bold uppercase tracking-wider text-amber-400">Captain · 2x points</label>
                         {startingPlayerDetails.length === 0 && (
                           <span className="text-[11px] text-amber-400/70 italic">Pick starting 5 first</span>
                         )}
                       </div>
                       <select
+                        id="lineup-captain"
                         value={lineup.find((entry) => entry.is_captain)?.player_id ?? ''}
                         onChange={(event) => event.target.value && setCaptain(Number(event.target.value), false)}
                         disabled={lineupLocked || startingPlayerDetails.length === 0}
@@ -343,12 +344,13 @@ export default function LineupsPage() {
                     </div>
                     <div>
                       <div className="flex items-center justify-between mb-2">
-                        <label className="block text-xs font-bold uppercase tracking-wider text-slate-300">Vice-Captain · backup</label>
+                        <label htmlFor="lineup-vice-captain" className="block text-xs font-bold uppercase tracking-wider text-slate-300">Vice-Captain · backup</label>
                         {startingPlayerDetails.length === 0 && (
                           <span className="text-[11px] text-slate-400 italic">Pick starting 5 first</span>
                         )}
                       </div>
                       <select
+                        id="lineup-vice-captain"
                         value={lineup.find((entry) => entry.is_vice_captain)?.player_id ?? ''}
                         onChange={(event) => event.target.value && setCaptain(Number(event.target.value), true)}
                         disabled={lineupLocked || startingPlayerDetails.length === 0}
@@ -381,7 +383,7 @@ export default function LineupsPage() {
                           className="rounded-lg border border-slate-700 bg-slate-900/40 p-4 transition-colors"
                         >
                           <div className="flex items-center justify-between mb-2">
-                            <label className="block text-xs font-bold uppercase tracking-wider text-slate-300">
+                            <label htmlFor={`lineup-${slot}`} className="block text-xs font-bold uppercase tracking-wider text-slate-300">
                               {displayRole}
                             </label>
                             {eligiblePlayers.length === 0 && (
@@ -389,6 +391,7 @@ export default function LineupsPage() {
                             )}
                           </div>
                           <select
+                            id={`lineup-${slot}`}
                             value={selected?.player_id ?? ''}
                             disabled={lineupLocked}
                             onChange={(event) => {
@@ -477,10 +480,11 @@ export default function LineupsPage() {
                           data-guide={index === 0 ? 'lineup-first-bench' : undefined}
                           className="rounded-lg border border-slate-700 bg-slate-900/40 p-4"
                         >
-                          <label className="mb-2 block text-xs font-bold uppercase tracking-wider text-slate-400">
+                          <label htmlFor={`lineup-${slot}`} className="mb-2 block text-xs font-bold uppercase tracking-wider text-slate-400">
                             {slot.replace('_', ' ')}
                           </label>
                           <select
+                            id={`lineup-${slot}`}
                             value={selected?.player_id ?? ''}
                             disabled={lineupLocked}
                             onChange={(event) => {

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase';
 import { createErrorResponse, verifyAdminAuth } from '@/lib/auth-utils';
+import { logAuditAction } from '@/lib/audit-logger';
 
 type GameweekStatus = 'upcoming' | 'active' | 'locked' | 'closed';
 
@@ -16,7 +17,7 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    await verifyAdminAuth(request);
+    const adminId = await verifyAdminAuth(request);
     const { id } = await params;
     const gameweekId = Number(id);
     if (!Number.isInteger(gameweekId) || gameweekId <= 0) {
@@ -80,6 +81,16 @@ export async function PATCH(
         { status: 409 },
       );
     }
+
+    await logAuditAction({
+      tableName: 'gameweeks',
+      recordId: gameweekId,
+      action: 'UPDATE',
+      changedBy: adminId,
+      oldValues: { status: currentStatus },
+      newValues: { status: targetStatus },
+      reason: 'Admin changed gameweek status',
+    });
 
     return NextResponse.json({ success: true, data });
   } catch (error) {

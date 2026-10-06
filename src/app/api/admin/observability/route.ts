@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyAdminAuth } from '@/lib/auth-utils';
-import { getAllJobStatuses, getJobs, healthCheck } from '@/lib/jobs/scheduler';
+import { getJobs } from '@/lib/jobs/scheduler';
+import { buildDurableJobHealth, type DurableJobRun } from '@/lib/jobs/durable-job-health';
 import { getCacheStats } from '@/lib/response-cache';
 import { supabaseServer } from '@/lib/supabase';
 
@@ -17,16 +18,32 @@ export async function GET(request: NextRequest) {
   try {
     await verifyAdminAuth(request);
     const supabase = supabaseServer();
-    const [{ data: recentRuns, error: runError }, health] = await Promise.all([
+    const jobs = getJobs();
+    const [recentResult, latestResults] = await Promise.all([
       supabase.from('job_execution_log')
         .select('job_name, status, started_at, completed_at, error_message, metadata')
         .order('started_at', { ascending: false })
         .limit(100),
-      healthCheck(),
+      Promise.all(jobs.map((job) => supabase.from('job_execution_log')
+        .select('job_name, status, started_at, completed_at, error_message')
+        .eq('job_name', job.name)
+        .order('started_at', { ascending: false })
+        .limit(1)
+        .maybeSingle())),
     ]);
 
-    if (runError) return NextResponse.json({ error: 'Failed to load observability data.' }, { status: 500 });
-    const runs = (recentRuns ?? []) as JobRunRow[];
+    const failedLatestQuery = latestResults.find((result) => result.error);
+    if (recentResult.error || failedLatestQuery?.error) {
+      return NextResponse.json({ error: 'Failed to load durable observability data.' }, { status: 500 });
+    }
+    const runs = (recentResult.data ?? []) as JobRunRow[];
+    const latestRuns = latestResults
+      .map((result) => result.data)
+      .filter((run): run is NonNullable<typeof run> => run !== null) as DurableJobRun[];
+    const health = buildDurableJobHealth(
+      jobs.map(({ name, schedule, enabled }) => ({ name, schedule, enabled })),
+      latestRuns,
+    );
     const durations: number[] = runs
       .map((run) => Number(run.metadata?.duration_ms ?? 0))
       .filter((duration: number) => duration > 0);
@@ -36,8 +53,9 @@ export async function GET(request: NextRequest) {
       generatedAt: new Date().toISOString(),
       health,
       summary: {
-        configuredJobs: getJobs().length,
-        runningJobs: getAllJobStatuses().filter((job) => job.status === 'running').length,
+        configuredJobs: jobs.length,
+        enabledJobs: jobs.filter((job) => job.enabled).length,
+        runningJobs: health.runningJobs.length,
         recentRuns: runs.length,
         recentFailures: failures,
         averageDurationMs: durations.length ? Math.round(durations.reduce((sum, duration) => sum + duration, 0) / durations.length) : 0,

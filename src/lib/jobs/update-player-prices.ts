@@ -47,6 +47,11 @@ interface PlayerPriceRow {
   price_change: number | null;
 }
 
+interface ProfessionalPlayerPriceRow {
+  id: number;
+  current_price: number | null;
+}
+
 // ---------------------------------------------------------------------------
 // Main job class
 // ---------------------------------------------------------------------------
@@ -70,7 +75,7 @@ class UpdatePlayerPrices {
     let offset = 0;
 
     while (true) {
-      const { data, error } = await (this.supabase.from('player_performances') as any)
+      const { data, error } = await this.supabase.from('player_performances')
         .select('player_id, fantasy_points_breakdown(total_points)')
         .eq('gameweek_id', gameweekId)
         .in('player_id', playerIds)
@@ -154,7 +159,7 @@ class UpdatePlayerPrices {
     seasonId: number,
     gameweekId: number,
   ): Promise<Map<number, number>> {
-    const currentGameweekResult = await (this.supabase.from('player_prices') as any)
+    const currentGameweekResult = await this.supabase.from('player_prices')
       .select('player_id, gameweek_id, price, price_change')
       .eq('season_id', seasonId)
       .eq('gameweek_id', gameweekId)
@@ -171,7 +176,7 @@ class UpdatePlayerPrices {
     let offset = 0;
 
     while (previousPrices.size < playerIds.length) {
-      const { data, error } = await (this.supabase.from('player_prices') as any)
+      const { data, error } = await this.supabase.from('player_prices')
         .select('player_id, gameweek_id, price')
         .eq('season_id', seasonId)
         .in('player_id', playerIds)
@@ -291,15 +296,13 @@ class UpdatePlayerPrices {
           throw new Error(`Failed to fetch players at offset ${offset}: ${playersError.message}`);
         }
 
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const players = (Array.isArray(playerData) ? playerData : []) as any[];
+        const players = (Array.isArray(playerData) ? playerData : []) as ProfessionalPlayerPriceRow[];
         if (players.length === 0) {
           hasMore = false;
           break;
         }
 
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const playerIds = players.map((player: { id: number }) => Number(player.id));
+        const playerIds = players.map((player) => Number(player.id));
 
         // -------------------------------------------------------------------
         // 5. Build gameweek fantasy points, ownership, and stable base prices.
@@ -358,6 +361,8 @@ class UpdatePlayerPrices {
           }
           result.pricesUpdated += upsertRows.length;
           const playerPriceUpdates = await Promise.all(upsertRows.map((row) =>
+            // The generated Supabase client types this update payload as `never`.
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             (this.supabase.from('professional_players') as any)
               .update({ current_price: row.price })
               .eq('id', row.player_id),

@@ -1,8 +1,9 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Award, X } from 'lucide-react';
 import { fetchWithAuth } from '@/lib/fetch-with-auth';
+import { useAccessibleDialog } from '@/components/use-accessible-dialog';
 
 interface HistoryPlayer {
   id: number;
@@ -60,6 +61,8 @@ export function GameweekHistoryModal({ gameweekId, gameweekNumber, onClose }: Ga
   const [history, setHistory] = useState<GameweekHistory | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const dialogRef = useAccessibleDialog({ open: true, onClose, initialFocusRef: closeButtonRef });
 
   useEffect(() => {
     let cancelled = false;
@@ -84,14 +87,6 @@ export function GameweekHistoryModal({ gameweekId, gameweekNumber, onClose }: Ga
     };
   }, [gameweekId]);
 
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onClose();
-    };
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, [onClose]);
-
   return (
     <div
       className="fixed inset-0 z-80 flex items-center justify-center bg-slate-950/75 p-4 backdrop-blur-sm"
@@ -100,9 +95,11 @@ export function GameweekHistoryModal({ gameweekId, gameweekNumber, onClose }: Ga
       }}
     >
       <section
+        ref={dialogRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby="gameweek-history-title"
+        tabIndex={-1}
         className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-slate-700 bg-slate-900 p-5 shadow-2xl sm:p-7"
       >
         <header className="mb-5 flex items-start justify-between gap-4">
@@ -113,7 +110,7 @@ export function GameweekHistoryModal({ gameweekId, gameweekNumber, onClose }: Ga
             </div>
             <h2 id="gameweek-history-title" className="text-2xl font-bold text-white">Gameweek {gameweekNumber} History</h2>
           </div>
-          <button type="button" onClick={onClose} aria-label="Close gameweek history" className="rounded-lg p-2 text-slate-400 hover:bg-slate-800 hover:text-white">
+          <button ref={closeButtonRef} type="button" onClick={onClose} aria-label="Close gameweek history" className="rounded-lg p-2 text-slate-400 hover:bg-slate-800 hover:text-white">
             <X className="h-5 w-5" />
           </button>
         </header>

@@ -33,6 +33,7 @@ import { backfillTeamLogos } from './backfill-team-logos';
 import { purgeInactiveData } from './purge-inactive-data';
 import { autoResolveConflicts } from './auto-resolve-conflicts';
 import { matchesCronSchedule } from './job-schedule';
+import { getHandlerFailure } from './job-result';
 import {
   acquireDistributedJobLock,
   releaseDistributedJobLock,
@@ -65,9 +66,13 @@ type JobName =
 interface JobDefinition {
   name: JobName;
   schedule: string; // Cron-like format
-  handler: () => Promise<unknown>;
+  handler: (options?: JobRunOptions) => Promise<unknown>;
   enabled: boolean;
   timeout: number; // milliseconds
+}
+
+export interface JobRunOptions {
+  matchId?: number;
 }
 
 interface JobResult {
@@ -273,7 +278,7 @@ async function maybeDispatchAlert(result: JobResult): Promise<void> {
   }
 
   try {
-    await fetch(webhookUrl, {
+    const response = await fetch(webhookUrl, {
       method: 'POST',
       headers: {
         'content-type': 'application/json',
@@ -287,6 +292,9 @@ async function maybeDispatchAlert(result: JobResult): Promise<void> {
         error: result.error,
       }),
     });
+    if (!response.ok) {
+      console.warn(`[Scheduler] Alert webhook returned HTTP ${response.status} for ${result.jobName}`);
+    }
   } catch (error) {
     console.warn(`[Scheduler] Failed to dispatch alert for ${result.jobName}:`, error);
   }
@@ -332,11 +340,18 @@ export function getAllJobStatuses(): JobResult[] {
  * Run a specific job by name
  * Returns a promise that resolves when job completes
  */
-export async function runJob(jobName: JobName): Promise<JobResult> {
+export async function runJob(jobName: JobName, options?: JobRunOptions): Promise<JobResult> {
   const jobDef = JOBS.find(j => j.name === jobName);
 
   if (!jobDef) {
     throw new Error(`Unknown job: ${jobName}`);
+  }
+  if (options && (
+    jobName !== 'fetch-match-details' ||
+    !Number.isSafeInteger(options.matchId) ||
+    (options.matchId ?? 0) <= 0
+  )) {
+    throw new Error('Only fetch-match-details accepts a positive integer matchId option');
   }
 
   // Check if already running
@@ -401,7 +416,7 @@ export async function runJob(jobName: JobName): Promise<JobResult> {
 
   const stopLockHeartbeat = () => clearInterval(lockHeartbeat);
   let timeoutHandle: ReturnType<typeof setTimeout> | undefined;
-  const handlerPromise = Promise.resolve().then(jobDef.handler);
+  const handlerPromise = Promise.resolve().then(() => jobDef.handler(options));
   const settledHandler = handlerPromise.then(
     (value) => ({ status: 'completed' as const, value }),
     (error: unknown) => ({ status: 'failed' as const, error })
@@ -445,8 +460,15 @@ export async function runJob(jobName: JobName): Promise<JobResult> {
     console.error(`[Scheduler] Job ${jobName} failed:`, outcome.error);
   } else {
     result.result = outcome.value;
-    result.status = 'completed';
-    console.log(`[Scheduler] Job ${jobName} completed successfully`);
+    const handlerFailure = getHandlerFailure(outcome.value);
+    if (handlerFailure) {
+      result.status = 'failed';
+      result.error = handlerFailure;
+      console.error(`[Scheduler] Job ${jobName} reported a failed result:`, handlerFailure);
+    } else {
+      result.status = 'completed';
+      console.log(`[Scheduler] Job ${jobName} completed successfully`);
+    }
   }
 
   result.completedAt = new Date();
