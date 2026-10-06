@@ -47,3 +47,20 @@ export async function releaseDistributedJobLock(
     throw new Error(`Distributed lock for ${jobName} was not owned by execution ${executionId}`);
   }
 }
+
+export async function renewDistributedJobLock(
+  jobName: string,
+  executionId: string
+): Promise<boolean> {
+  const { data, error } = await getJobLockRpcClient().rpc('renew_job_execution_lock', {
+    p_job_name: jobName,
+    p_execution_id: executionId,
+    p_lease_seconds: JOB_LOCK_LEASE_SECONDS,
+  });
+
+  if (error) {
+    throw new Error(`Failed to renew distributed lock for ${jobName}: ${error.message}`);
+  }
+
+  return data === true;
+}

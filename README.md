@@ -33,7 +33,8 @@ A Next.js fantasy esports application for building Dota 2 squads, tracking playe
 - npm run dev
 - npm run build
 - npm run lint
-- npm test
+- npm test (runs the complete Jest unit and security suite)
+- npm run test:e2e (runs the separate Playwright end-to-end suite)
 
 ## Environment Variables
 

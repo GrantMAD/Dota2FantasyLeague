@@ -1,8 +1,11 @@
 module.exports = {
-  displayName: 'security',
   testEnvironment: 'node',
-  roots: ['<rootDir>/src/app/api'],
-  testMatch: ['**/*.security.spec.ts'],
+  roots: ['<rootDir>/src'],
+  testMatch: [
+    '**/*.test.ts',
+    '**/*.security.spec.ts',
+  ],
+  testPathIgnorePatterns: ['/node_modules/', '/.next/'],
   transform: {
     '^.+\\.tsx?$': ['ts-jest', {
       tsconfig: {

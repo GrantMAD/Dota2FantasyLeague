@@ -10,19 +10,27 @@ jest.mock('@supabase/supabase-js', () => ({
 
 describe('Calculate Global Rankings Job', () => {
   let mockSupabase: Record<string, jest.Mock>;
+  let queryResults: unknown[];
 
   beforeEach(() => {
+    queryResults = [];
     mockSupabase = {
-      from: jest.fn().mockReturnThis(),
-      select: jest.fn().mockReturnThis(),
-      eq: jest.fn().mockReturnThis(),
-      order: jest.fn().mockReturnThis(),
-      limit: jest.fn().mockReturnThis(),
-      is: jest.fn().mockReturnThis(),
-      update: jest.fn().mockReturnThis(),
-      upsert: jest.fn().mockReturnThis(),
-      single: jest.fn().mockReturnThis(),
+      from: jest.fn(),
+      select: jest.fn(),
+      eq: jest.fn(),
+      order: jest.fn(),
+      limit: jest.fn(),
+      is: jest.fn(),
+      update: jest.fn(),
+      upsert: jest.fn(),
+      single: jest.fn(),
+      maybeSingle: jest.fn(),
+      then: jest.fn((resolve: (result: unknown) => unknown, reject: (error: unknown) => unknown) =>
+        Promise.resolve(queryResults.shift()).then(resolve, reject)),
     };
+    Object.values(mockSupabase).forEach((method) => method.mockReturnValue(mockSupabase));
+    mockSupabase.then.mockImplementation((resolve, reject) =>
+      Promise.resolve(queryResults.shift()).then(resolve, reject));
     (createClient as jest.Mock).mockReturnValue(mockSupabase);
   });
 
@@ -31,7 +39,7 @@ describe('Calculate Global Rankings Job', () => {
   });
 
   it('should handle no active season', async () => {
-    mockSupabase.single.mockResolvedValueOnce({ data: null, error: null }); // active season
+    queryResults.push({ data: null, error: null }); // active season
 
     const result = await calculateGlobalRankings();
 
@@ -40,30 +48,19 @@ describe('Calculate Global Rankings Job', () => {
   });
 
   it('should successfully rank managers', async () => {
-    // 1. active season
-    mockSupabase.single.mockResolvedValueOnce({ data: { id: 1 }, error: null }); 
-    
-    // 2. global rankings fetch
-    mockSupabase.order.mockResolvedValueOnce({
-      data: [
-        { id: 10, total_points: 150 },
-        { id: 11, total_points: 150 }, // Tie
-        { id: 12, total_points: 140 }
-      ],
-      error: null
-    });
-    
-    // 3. latest gameweek
-    mockSupabase.single.mockResolvedValueOnce({ data: { id: 5 }, error: null });
-    
-    // 4. squad count for ownership
-    mockSupabase.select.mockResolvedValueOnce({ count: 10, error: null });
-    
-    // 5. squad members for ownership
-    mockSupabase.is.mockResolvedValueOnce({ data: [], error: null });
-    
-    // 6. current gameweek for ownership
-    mockSupabase.single.mockResolvedValueOnce({ data: { id: 6 }, error: null });
+    queryResults.push(
+      { data: { id: 1 }, error: null },
+      {
+        data: [
+          { id: 10, total_points: 150 },
+          { id: 11, total_points: 150 },
+          { id: 12, total_points: 140 },
+        ],
+        error: null,
+      },
+      { data: null, error: null },
+      { count: 0, error: null },
+    );
 
     const result = await calculateGlobalRankings();
 

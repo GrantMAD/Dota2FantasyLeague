@@ -8,6 +8,7 @@
 import { DataProvider } from './provider-interface';
 import { StratzProvider } from './stratz-provider';
 import { OpenDotaProvider } from './opendota-provider';
+import { ResilientDataProvider } from './resilient-provider';
 
 type ProviderType = 'stratz' | 'opendota';
 
@@ -35,51 +36,69 @@ let providerHealthy = true;
  * - OPENDOTA_API_URL: OpenDota API endpoint (default: https://api.opendota.com/api)
  */
 export async function getDataProvider(): Promise<DataProvider> {
-  // Return cached provider if available and healthy
+  // Keep the resilient wrapper cached so request failures can trigger runtime fallback.
   if (cachedProvider && providerHealthy) {
     return cachedProvider;
   }
 
   const config = buildProviderConfig();
-
+  let primaryProvider: DataProvider | undefined;
+  let fallbackProvider: DataProvider | undefined;
+  let primaryInitializationError: unknown;
+  let fallbackInitializationError: unknown;
   try {
-    const provider = createProvider(config.primary, config);
-    
-    // Verify provider is accessible
-    const isHealthy = await provider.healthCheck();
-    if (isHealthy) {
-      cachedProvider = provider;
-      providerHealthy = true;
-      return provider;
-    } else {
-      throw new Error(`${config.primary} provider health check failed`);
-    }
+    primaryProvider = createProvider(config.primary, config);
   } catch (error) {
+    primaryInitializationError = error;
     console.error(`Failed to initialize primary provider (${config.primary}):`, error);
+  }
 
-    if (config.fallback) {
-      console.log(`Falling back to ${config.fallback} provider`);
-      try {
-        const fallbackProvider = createProvider(config.fallback, config);
-        const isHealthy = await fallbackProvider.healthCheck();
-        
-        if (isHealthy) {
-          cachedProvider = fallbackProvider;
-          providerHealthy = true;
-          return fallbackProvider;
-        } else {
-          throw new Error(`${config.fallback} provider health check failed`);
-        }
-      } catch (fallbackError) {
-        console.error(`Failed to initialize fallback provider (${config.fallback}):`, fallbackError);
-        throw new Error(
-          `All data providers failed. Primary: ${error}, Fallback: ${fallbackError}`
-        );
-      }
-    } else {
-      throw error;
+  if (config.fallback) {
+    try {
+      fallbackProvider = createProvider(config.fallback, config);
+    } catch (error) {
+      fallbackInitializationError = error;
+      console.error(`Failed to initialize fallback provider (${config.fallback}):`, error);
     }
   }
+
+  const [primaryHealthy, fallbackHealthy] = await Promise.all([
+    primaryProvider ? primaryProvider.healthCheck().catch((error) => {
+      console.warn(`Primary provider (${config.primary}) health check failed:`, error);
+      return false;
+    }) : Promise.resolve(false),
+    fallbackProvider ? fallbackProvider.healthCheck().catch((error) => {
+      console.warn(`Fallback provider (${config.fallback}) health check failed:`, error);
+      return false;
+    }) : Promise.resolve(false),
+  ]);
+
+  if (!primaryHealthy && !fallbackHealthy) {
+    throw new Error(
+      `All data providers failed. Primary (${config.primary}): ` +
+      `${primaryInitializationError instanceof Error ? primaryInitializationError.message : primaryHealthy ? 'unavailable' : 'health check failed'}; ` +
+      `Fallback (${config.fallback ?? 'not configured'}): ` +
+      `${fallbackInitializationError instanceof Error ? fallbackInitializationError.message : config.fallback ? 'health check failed' : 'not configured'}`
+    );
+  }
+
+  if (primaryProvider && primaryHealthy) {
+    if (fallbackProvider && !fallbackHealthy) {
+      console.warn(`Fallback provider ${fallbackProvider.name} is currently unhealthy; it will be rechecked during failover`);
+    }
+    cachedProvider = new ResilientDataProvider(primaryProvider, fallbackProvider, true);
+  } else if (primaryProvider && fallbackProvider && fallbackHealthy) {
+    console.warn(`Primary provider ${primaryProvider.name} is unhealthy; runtime fallback is active`);
+    cachedProvider = new ResilientDataProvider(primaryProvider, fallbackProvider, false);
+  } else if (fallbackProvider && fallbackHealthy) {
+    console.warn(`Using fallback provider ${fallbackProvider.name}; primary is unavailable`);
+    cachedProvider = fallbackProvider;
+  } else {
+    throw new Error('Provider initialization reached an invalid state');
+  }
+
+  providerHealthy = true;
+  return cachedProvider;
 }
 
 /**

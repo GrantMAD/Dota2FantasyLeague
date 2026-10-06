@@ -33,7 +33,11 @@ import { backfillTeamLogos } from './backfill-team-logos';
 import { purgeInactiveData } from './purge-inactive-data';
 import { autoResolveConflicts } from './auto-resolve-conflicts';
 import { matchesCronSchedule } from './job-schedule';
-import { acquireDistributedJobLock, releaseDistributedJobLock } from './job-lock';
+import {
+  acquireDistributedJobLock,
+  releaseDistributedJobLock,
+  renewDistributedJobLock,
+} from './job-lock';
 
 type JobName =
   | 'sync-players'
@@ -379,6 +383,23 @@ export async function runJob(jobName: JobName): Promise<JobResult> {
     return result;
   }
 
+  let lockHeartbeatInFlight = false;
+  const lockHeartbeat = setInterval(async () => {
+    if (lockHeartbeatInFlight) return;
+    lockHeartbeatInFlight = true;
+    try {
+      const renewed = await renewDistributedJobLock(jobName, executionId);
+      if (!renewed) {
+        console.error(`[Scheduler] Lost distributed lock ownership for ${jobName}`);
+      }
+    } catch (error) {
+      console.error(`[Scheduler] Failed to renew distributed lock for ${jobName}:`, error);
+    } finally {
+      lockHeartbeatInFlight = false;
+    }
+  }, 30_000);
+
+  const stopLockHeartbeat = () => clearInterval(lockHeartbeat);
   let timeoutHandle: ReturnType<typeof setTimeout> | undefined;
   const handlerPromise = Promise.resolve().then(jobDef.handler);
   const settledHandler = handlerPromise.then(
@@ -406,6 +427,7 @@ export async function runJob(jobName: JobName): Promise<JobResult> {
 
     void settledHandler.then(async (lateOutcome) => {
       console.warn(`[Scheduler] Timed-out job ${jobName} settled later with status ${lateOutcome.status}`);
+      stopLockHeartbeat();
       try {
         await releaseDistributedJobLock(jobName, executionId);
       } catch (error) {
@@ -416,6 +438,7 @@ export async function runJob(jobName: JobName): Promise<JobResult> {
   }
 
   if (timeoutHandle) clearTimeout(timeoutHandle);
+  stopLockHeartbeat();
   if (outcome.status === 'failed') {
     result.status = 'failed';
     result.error = outcome.error instanceof Error ? outcome.error.message : String(outcome.error);

@@ -129,8 +129,19 @@ export class OpenDotaProvider extends DataProviderBase implements DataProvider {
   }
 
   async healthCheck(): Promise<boolean> {
-    // OpenDota doesn't require API keys or auth; always treat as available
-    return true;
+    try {
+      const response = await fetch(`${this.apiUrl}/health`, {
+        headers: {
+          'User-Agent': 'FantasyDota/1.0',
+          Accept: 'application/json',
+        },
+        signal: AbortSignal.timeout(5000),
+      });
+      return response.ok;
+    } catch (error) {
+      this.log('warn', 'OpenDota health check failed', error);
+      return false;
+    }
   }
 
   async fetchPlayers(filters?: DataProviderFilters, rawData?: OpenDotaProPlayer[]): Promise<PlayerData[]> {

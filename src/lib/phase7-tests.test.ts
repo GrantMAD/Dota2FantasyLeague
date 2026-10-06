@@ -1,6 +1,3 @@
-import test from 'node:test';
-import assert from 'node:assert/strict';
-
 import { calculateFantasyScore } from '@/lib/scoring';
 import { resolveCaptainAssignment } from '@/lib/captain-system';
 import {
@@ -11,7 +8,8 @@ import {
   validateLeagueMembership,
 } from '@/lib/fantasy-gameplay';
 
-test('calculateFantasyScore totals positive performance correctly', () => {
+describe('fantasy gameplay utilities', () => {
+it('calculateFantasyScore totals positive performance correctly', () => {
   const score = calculateFantasyScore({
     kills: 10,
     deaths: 3,
@@ -30,9 +28,9 @@ test('calculateFantasyScore totals positive performance correctly', () => {
     hasWin: true,
   });
 
-  assert.ok(score.total > 0);
-  assert.equal(score.win, 5);
-  assert.equal(score.series, 3);
+  expect(score.total).toBeGreaterThan(0);
+  expect(score.win).toBe(5);
+  expect(score.series).toBe(3);
 });
 
 test('captain assignment uses the active captain when available', () => {
@@ -45,8 +43,8 @@ test('captain assignment uses the active captain when available', () => {
     2,
   );
 
-  assert.equal(result.captain.name, 'Aegis');
-  assert.equal(result.captainMultiplier, 2);
+  expect(result.captain.name).toBe('Aegis');
+  expect(result.captainMultiplier).toBe(2);
 });
 
 test('bench substitution swaps inactive starters with available matching bench players', () => {
@@ -61,22 +59,22 @@ test('bench substitution swaps inactive starters with available matching bench p
     ],
   );
 
-  assert.equal(result[0].wasSubstituted, true);
-  assert.equal(result[0].replacement, 'Dusk');
+  expect(result[0].wasSubstituted).toBe(true);
+  expect(result[0].replacement).toBe('Dusk');
 });
 
 test('price dynamics update a player valuation based on recent output', () => {
   const result = simulatePriceDynamics(1, 'Aegis', 100, 12);
 
-  assert.equal(result.trend, 'up');
-  assert.ok(result.currentPrice > result.previousPrice);
+  expect(result.trend).toBe('up');
+  expect(result.currentPrice).toBeGreaterThan(result.previousPrice);
 });
 
 test('head to head simulation returns the proper winner and summary', () => {
   const result = simulateHeadToHead('Storm', 'Nova', 88, 76);
 
-  assert.equal(result.winner, 'Storm');
-  assert.ok(result.summary.includes('Storm'));
+  expect(result.winner).toBe('Storm');
+  expect(result.summary).toContain('Storm');
 });
 
 test('league drafts can be created with invite codes and respect membership caps', () => {
@@ -88,8 +86,9 @@ test('league drafts can be created with invite codes and respect membership caps
     description: 'Weekly classic challenge',
   });
 
-  assert.equal(draft.name, 'Night Raid League');
-  assert.match(draft.inviteCode, /^[A-Z0-9-]+$/);
-  assert.equal(validateLeagueMembership(8, 12), true);
-  assert.equal(validateLeagueMembership(13, 12), false);
+  expect(draft.name).toBe('Night Raid League');
+  expect(draft.inviteCode).toMatch(/^[A-Z0-9-]+$/);
+  expect(validateLeagueMembership(8, 12)).toBe(true);
+  expect(validateLeagueMembership(13, 12)).toBe(false);
+});
 });

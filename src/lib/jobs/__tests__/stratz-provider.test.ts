@@ -62,4 +62,27 @@ describe('STRATZ pro player identifiers', () => {
 
     await expect(provider.fetchPlayers()).rejects.toThrow('valid steamAccountId');
   });
+
+  it('rejects a successful GraphQL response missing the queried player collection', async () => {
+    process.env.ENABLE_PROVIDER_FALLBACK = 'false';
+    jest.spyOn(global, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify({ data: {} }), { status: 200 })
+    );
+    const provider = new StratzProvider({ apiUrl: 'https://stratz.example/graphql', apiKey: 'test-key' });
+
+    await expect(provider.fetchPlayers()).rejects.toThrow('proSteamAccounts response is missing or invalid');
+  });
+
+  it('uses a bounded health probe against the configured GraphQL API', async () => {
+    const fetchSpy = jest.spyOn(global, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify({ data: { constants: { gameVersions: [] } } }), { status: 200 })
+    );
+    const provider = new StratzProvider({ apiUrl: 'https://stratz.example/graphql', apiKey: 'test-key' });
+
+    await expect(provider.healthCheck()).resolves.toBe(true);
+    expect(fetchSpy).toHaveBeenCalledWith(
+      'https://stratz.example/graphql',
+      expect.objectContaining({ signal: expect.any(AbortSignal) })
+    );
+  });
 });

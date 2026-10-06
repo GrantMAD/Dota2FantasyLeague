@@ -10,18 +10,25 @@ jest.mock('@supabase/supabase-js', () => ({
 
 describe('Recalculate Leagues Job', () => {
   let mockSupabase: Record<string, jest.Mock>;
+  let queryResults: unknown[];
 
   beforeEach(() => {
+    queryResults = [];
     mockSupabase = {
-      from: jest.fn().mockReturnThis(),
-      select: jest.fn().mockReturnThis(),
-      eq: jest.fn().mockReturnThis(),
-      in: jest.fn().mockReturnThis(),
-      is: jest.fn().mockReturnThis(),
-      update: jest.fn().mockReturnThis(),
-      insert: jest.fn().mockReturnThis(),
-      single: jest.fn().mockReturnThis(),
+      from: jest.fn(),
+      select: jest.fn(),
+      eq: jest.fn(),
+      in: jest.fn(),
+      is: jest.fn(),
+      update: jest.fn(),
+      insert: jest.fn(),
+      single: jest.fn(),
+      then: jest.fn((resolve: (result: unknown) => unknown, reject: (error: unknown) => unknown) =>
+        Promise.resolve(queryResults.shift()).then(resolve, reject)),
     };
+    Object.values(mockSupabase).forEach((method) => method.mockReturnValue(mockSupabase));
+    mockSupabase.then.mockImplementation((resolve, reject) =>
+      Promise.resolve(queryResults.shift()).then(resolve, reject));
     (createClient as jest.Mock).mockReturnValue(mockSupabase);
   });
 
@@ -30,8 +37,10 @@ describe('Recalculate Leagues Job', () => {
   });
 
   it('should successfully execute when no active leagues exist', async () => {
-    mockSupabase.eq.mockResolvedValueOnce({ data: [], error: null }); // leagues
-    mockSupabase.in.mockResolvedValueOnce({ data: [], error: null }); // gameweeks
+    queryResults.push(
+      { data: [], error: null },
+      { data: [], error: null },
+    );
 
     const result = await recalculateLeagues();
 
@@ -41,22 +50,19 @@ describe('Recalculate Leagues Job', () => {
   });
 
   it('should process classic leagues', async () => {
-    mockSupabase.eq.mockResolvedValueOnce({ 
-      data: [{ id: 1, scoring_type: 'total_points' }], 
-      error: null 
-    }); // leagues
-    
-    mockSupabase.in.mockResolvedValueOnce({ data: [], error: null }); // gameweeks
-    
-    mockSupabase.eq.mockResolvedValueOnce({
-      data: [
-        { id: 101, fantasy_seasons: { total_points: 50 } },
-        { id: 102, fantasy_seasons: { total_points: 100 } }
-      ],
-      error: null
-    }); // league_participants
-
-    mockSupabase.eq.mockResolvedValue({ data: null, error: null }); // updates
+    queryResults.push(
+      { data: [{ id: 1, scoring_type: 'total_points' }], error: null },
+      { data: [], error: null },
+      {
+        data: [
+          { id: 101, fantasy_seasons: { total_points: 50 } },
+          { id: 102, fantasy_seasons: { total_points: 100 } },
+        ],
+        error: null,
+      },
+      { data: null, error: null },
+      { data: null, error: null },
+    );
 
     const result = await recalculateLeagues();
 
@@ -69,24 +75,13 @@ describe('Recalculate Leagues Job', () => {
   });
 
   it('should generate H2H fixtures', async () => {
-    mockSupabase.eq.mockResolvedValueOnce({ 
-      data: [{ id: 2, scoring_type: 'weekly_wins' }], 
-      error: null 
-    }); // leagues
-    
-    mockSupabase.in.mockResolvedValueOnce({ 
-      data: [{ id: 5, status: 'active' }], 
-      error: null 
-    }); // gameweeks
-
-    // Mock count check for existing fixtures
-    mockSupabase.eq.mockResolvedValueOnce({ count: 0, error: null }); 
-
-    // Mock participant fetch
-    mockSupabase.eq.mockResolvedValueOnce({
-      data: [{ id: 201 }, { id: 202 }, { id: 203 }],
-      error: null
-    });
+    queryResults.push(
+      { data: [{ id: 2, scoring_type: 'weekly_wins' }], error: null },
+      { data: [{ id: 5, status: 'active' }], error: null },
+      { data: [], error: null },
+      { data: [{ id: 201 }, { id: 202 }, { id: 203 }], error: null },
+      { data: null, error: null },
+    );
 
     const result = await recalculateLeagues();
 
@@ -94,5 +89,34 @@ describe('Recalculate Leagues Job', () => {
     expect(result.leaguesProcessed).toBe(1);
     expect(result.h2hFixturesGenerated).toBeGreaterThan(0);
     expect(mockSupabase.insert).toHaveBeenCalled();
+  });
+
+  it('resumes fixture creation for participants not assigned before an interrupted run', async () => {
+    queryResults.push(
+      { data: [{ id: 2, scoring_type: 'weekly_wins' }], error: null },
+      { data: [{ id: 5, status: 'active' }], error: null },
+      {
+        data: [{ participant_a_id: 201, participant_b_id: 202 }],
+        error: null,
+      },
+      { data: [{ id: 201 }, { id: 202 }, { id: 203 }, { id: 204 }], error: null },
+      { data: null, error: null },
+    );
+
+    const result = await recalculateLeagues();
+
+    expect(result.success).toBe(true);
+    expect(result.h2hFixturesGenerated).toBe(1);
+    expect(mockSupabase.insert).toHaveBeenCalledWith([
+      expect.objectContaining({
+        league_id: 2,
+        gameweek_id: 5,
+        participant_a_id: expect.any(Number),
+        participant_b_id: expect.any(Number),
+        is_bye: false,
+      }),
+    ]);
+    const insertedFixture = mockSupabase.insert.mock.calls[0][0][0];
+    expect([insertedFixture.participant_a_id, insertedFixture.participant_b_id].sort()).toEqual([203, 204]);
   });
 });

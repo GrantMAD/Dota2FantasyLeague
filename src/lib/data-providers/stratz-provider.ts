@@ -167,9 +167,22 @@ export class StratzProvider extends DataProviderBase implements DataProvider {
 
   async healthCheck(): Promise<boolean> {
     try {
-      const query = `query { constants { gameVersions { id name } } }`;
-      const response = await this.graphqlRequest<{ constants?: { gameVersions?: unknown[] } }>(query);
-      return !!response?.data?.constants;
+      const response = await fetch(this.config.apiUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'User-Agent': 'STRATZ_API',
+          Authorization: `Bearer ${this.config.apiKey}`,
+        },
+        body: JSON.stringify({ query: 'query { constants { gameVersions { id name } } }' }),
+        signal: AbortSignal.timeout(5000),
+      });
+      if (!response.ok) return false;
+
+      const payload = await response.json() as GraphQLResponse<{
+        constants?: { gameVersions?: unknown[] };
+      }>;
+      return Boolean(payload.data?.constants && !payload.errors?.length);
     } catch (error) {
       this.log('error', 'STRATZ health check failed', error);
       return false;
@@ -203,7 +216,10 @@ export class StratzProvider extends DataProviderBase implements DataProvider {
       `;
 
       const response = await this.graphqlRequest<{ proSteamAccounts?: StratzProSteamAccountRecord[] }>(query);
-      const accounts = response.data?.proSteamAccounts || [];
+      const accounts = response.data?.proSteamAccounts;
+      if (!Array.isArray(accounts)) {
+        throw new Error('STRATZ proSteamAccounts response is missing or invalid');
+      }
 
       for (const account of accounts) {
         const steamAccountId = String(account.steamAccountId ?? '').trim();
@@ -243,13 +259,6 @@ export class StratzProvider extends DataProviderBase implements DataProvider {
         lastUpdated: new Date(),
       }));
     } catch (error) {
-      if (process.env.ENABLE_PROVIDER_FALLBACK !== 'false') {
-        this.log('warn', `STRATZ player fetch failed (${(error as Error).message}), falling back to OpenDota`);
-        const { OpenDotaProvider } = await import('./opendota-provider');
-        const fallback = new OpenDotaProvider();
-        return fallback.fetchPlayers(filters);
-      }
-
       throw this.createError(
         'STRATZ_PLAYERS_FETCH_FAILED',
         `Failed to fetch players from STRATZ: ${(error as Error).message}`,
@@ -352,7 +361,10 @@ export class StratzProvider extends DataProviderBase implements DataProvider {
       `;
 
       const response = await this.graphqlRequest<{ team?: StratzTeamRecord[] }>(query);
-      const teams = response.data?.team || [];
+      const teams = response.data?.team;
+      if (!Array.isArray(teams)) {
+        throw new Error('STRATZ team response is missing or invalid');
+      }
 
       return teams.map((t) => ({
         id: String(t.id),
@@ -371,13 +383,6 @@ export class StratzProvider extends DataProviderBase implements DataProvider {
         lastUpdated: new Date(),
       }));
     } catch (error) {
-      if (process.env.ENABLE_PROVIDER_FALLBACK !== 'false') {
-        this.log('warn', `STRATZ teams fetch failed (${(error as Error).message}), falling back to OpenDota`);
-        const { OpenDotaProvider } = await import('./opendota-provider');
-        const fallback = new OpenDotaProvider();
-        return fallback.fetchTeams(filters);
-      }
-
       throw this.createError(
         'STRATZ_TEAMS_FETCH_FAILED',
         `Failed to fetch teams from STRATZ: ${(error as Error).message}`,
@@ -438,15 +443,7 @@ export class StratzProvider extends DataProviderBase implements DataProvider {
         lastUpdated: new Date(),
       };
     } catch (error) {
-      if ((error as DataProviderError).code === 'STRATZ_TEAM_NOT_FOUND') {
-        throw error;
-      }
-      if (process.env.ENABLE_PROVIDER_FALLBACK !== 'false') {
-        this.log('warn', `STRATZ team fetch failed for ${teamId} (${(error as Error).message}), falling back to OpenDota`);
-        const { OpenDotaProvider } = await import('./opendota-provider');
-        const fallback = new OpenDotaProvider();
-        return fallback.fetchTeam(teamId);
-      }
+      if ((error as DataProviderError).code === 'STRATZ_TEAM_NOT_FOUND') throw error;
       throw this.createError(
         'STRATZ_TEAM_FETCH_FAILED',
         `Failed to fetch team ${teamId} from STRATZ: ${(error as Error).message}`,
@@ -484,7 +481,10 @@ export class StratzProvider extends DataProviderBase implements DataProvider {
       `;
 
       const response = await this.graphqlRequest<{ league?: StratzLeagueRecord[] }>(query);
-      const leagues = response.data?.league || [];
+      const leagues = response.data?.league;
+      if (!Array.isArray(leagues)) {
+        throw new Error('STRATZ league response is missing or invalid');
+      }
 
       return leagues.map((l) => ({
         id: String(l.id),
@@ -501,13 +501,6 @@ export class StratzProvider extends DataProviderBase implements DataProvider {
         lastUpdated: new Date(),
       }));
     } catch (error) {
-      if (process.env.ENABLE_PROVIDER_FALLBACK !== 'false') {
-        this.log('warn', `STRATZ tournaments fetch failed (${(error as Error).message}), falling back to OpenDota`);
-        const { OpenDotaProvider } = await import('./opendota-provider');
-        const fallback = new OpenDotaProvider();
-        return fallback.fetchTournaments(filters);
-      }
-
       throw this.createError(
         'STRATZ_TOURNAMENTS_FETCH_FAILED',
         `Failed to fetch tournaments from STRATZ: ${(error as Error).message}`,
@@ -546,7 +539,10 @@ export class StratzProvider extends DataProviderBase implements DataProvider {
       `;
 
       const response = await this.graphqlRequest<{ match?: StratzMatchRecord[] }>(query);
-      const matches = response.data?.match || [];
+      const matches = response.data?.match;
+      if (!Array.isArray(matches)) {
+        throw new Error('STRATZ match response is missing or invalid');
+      }
 
       return matches.map((m) => ({
         id: String(m.id),
@@ -566,13 +562,6 @@ export class StratzProvider extends DataProviderBase implements DataProvider {
         lastUpdated: new Date(),
       }));
     } catch (error) {
-      if (process.env.ENABLE_PROVIDER_FALLBACK !== 'false') {
-        this.log('warn', `STRATZ matches fetch failed (${(error as Error).message}), falling back to OpenDota`);
-        const { OpenDotaProvider } = await import('./opendota-provider');
-        const fallback = new OpenDotaProvider();
-        return fallback.fetchMatches(tournamentId, filters);
-      }
-
       throw this.createError(
         'STRATZ_MATCHES_FETCH_FAILED',
         `Failed to fetch matches from STRATZ: ${(error as Error).message}`,
@@ -689,22 +678,7 @@ export class StratzProvider extends DataProviderBase implements DataProvider {
         lastUpdated: new Date(),
       };
     } catch (error) {
-      if ((error as DataProviderError).code === 'STRATZ_MATCH_NOT_FOUND') {
-        // Even if not found on Stratz, OpenDota might have it
-        if (process.env.ENABLE_PROVIDER_FALLBACK !== 'false') {
-          this.log('warn', `STRATZ match ${matchId} not found, trying OpenDota fallback`);
-          const { OpenDotaProvider } = await import('./opendota-provider');
-          const fallback = new OpenDotaProvider();
-          return fallback.fetchMatchDetails(matchId);
-        }
-        throw error;
-      }
-      if (process.env.ENABLE_PROVIDER_FALLBACK !== 'false') {
-        this.log('warn', `STRATZ match details fetch failed for ${matchId} (${(error as Error).message}), falling back to OpenDota`);
-        const { OpenDotaProvider } = await import('./opendota-provider');
-        const fallback = new OpenDotaProvider();
-        return fallback.fetchMatchDetails(matchId);
-      }
+      if ((error as DataProviderError).code === 'STRATZ_MATCH_NOT_FOUND') throw error;
       throw this.createError(
         'STRATZ_MATCH_DETAILS_FETCH_FAILED',
         `Failed to fetch match ${matchId} details from STRATZ: ${(error as Error).message}`,
@@ -751,13 +725,6 @@ export class StratzProvider extends DataProviderBase implements DataProvider {
           role: undefined,
         }));
     } catch (error) {
-      if (process.env.ENABLE_PROVIDER_FALLBACK !== 'false') {
-        this.log('warn', `STRATZ roster history fetch failed for player ${playerId} (${(error as Error).message}), falling back to OpenDota`);
-        const { OpenDotaProvider } = await import('./opendota-provider');
-        const fallback = new OpenDotaProvider();
-        return fallback.fetchRosterHistory(playerId, dateRange);
-      }
-
       throw this.createError(
         'STRATZ_ROSTER_HISTORY_FETCH_FAILED',
         `Failed to fetch roster history for player ${playerId} from STRATZ: ${(error as Error).message}`,

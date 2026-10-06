@@ -1,7 +1,11 @@
 /// <reference types="jest" />
 
 import { getSupabaseServerClient } from '@/lib/db/supabase-server';
-import { acquireDistributedJobLock, releaseDistributedJobLock } from '../job-lock';
+import {
+  acquireDistributedJobLock,
+  releaseDistributedJobLock,
+  renewDistributedJobLock,
+} from '../job-lock';
 
 jest.mock('@/lib/db/supabase-server', () => ({
   getSupabaseServerClient: jest.fn(),
@@ -41,5 +45,29 @@ describe('distributed job locks', () => {
       p_job_name: 'sync-players',
       p_execution_id: 'execution-1',
     });
+  });
+
+  it('renews only the lock owned by the execution', async () => {
+    rpc.mockResolvedValue({ data: true, error: null });
+
+    await expect(renewDistributedJobLock('sync-players', 'execution-1')).resolves.toBe(true);
+    expect(rpc).toHaveBeenCalledWith('renew_job_execution_lock', {
+      p_job_name: 'sync-players',
+      p_execution_id: 'execution-1',
+      p_lease_seconds: 7200,
+    });
+  });
+
+  it('reports when a lock renewal no longer has ownership', async () => {
+    rpc.mockResolvedValue({ data: false, error: null });
+
+    await expect(renewDistributedJobLock('sync-players', 'execution-1')).resolves.toBe(false);
+  });
+
+  it('surfaces database errors during lock renewal', async () => {
+    rpc.mockResolvedValue({ data: null, error: { message: 'RPC unavailable' } });
+
+    await expect(renewDistributedJobLock('sync-players', 'execution-1'))
+      .rejects.toThrow('Failed to renew distributed lock');
   });
 });

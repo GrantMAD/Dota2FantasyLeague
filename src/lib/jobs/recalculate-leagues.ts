@@ -118,21 +118,24 @@ class RecalculateLeagues {
    */
   private async generateH2HFixtures(leagueId: number, gameweekId: number): Promise<number> {
     try {
-      // Check if fixtures already exist for this gameweek and league
-      const { count, error: countError } = await this.supabase
+      const { data: existingFixtures, error: existingFixturesError } = await this.supabase
         .from('head_to_head_matchups')
-        .select('*', { count: 'exact', head: true })
+        .select('participant_a_id, participant_b_id')
         .eq('league_id', leagueId)
         .eq('gameweek_id', gameweekId);
 
-      if (countError) {
-        console.error(`Error checking existing H2H fixtures for league ${leagueId}:`, countError);
-        return 0;
+      if (existingFixturesError) {
+        throw new Error(`Failed to fetch existing fixtures: ${existingFixturesError.message}`);
       }
 
-      if (count && count > 0) {
-        // Fixtures already generated
-        return 0;
+      const assignedParticipantIds = new Set<number>();
+      const existingFixtureRows = (existingFixtures ?? []) as Array<{
+        participant_a_id: number;
+        participant_b_id: number;
+      }>;
+      for (const fixture of existingFixtureRows) {
+        assignedParticipantIds.add(fixture.participant_a_id);
+        assignedParticipantIds.add(fixture.participant_b_id);
       }
 
       // Fetch participants
@@ -140,49 +143,54 @@ class RecalculateLeagues {
         .from('league_participants')
         .select('id')
         .eq('league_id', leagueId);
-      const participants = (participantData ?? []) as ParticipantIdRow[];
 
-      if (fetchError || !participants || participants.length === 0) {
+      if (fetchError) {
+        throw new Error(`Failed to fetch league participants: ${fetchError.message}`);
+      }
+
+      const participants = ((participantData ?? []) as ParticipantIdRow[])
+        .filter((participant) => !assignedParticipantIds.has(participant.id));
+      if (participants.length === 0) {
         return 0;
       }
 
-      // Shuffle participants for random pairing
+      // Keep existing assignments and pair only participants not yet scheduled.
       const shuffled = [...participants].sort(() => Math.random() - 0.5);
-      let fixturesGenerated = 0;
-      
+      const fixturesToInsert: Record<string, unknown>[] = [];
+
       // Pair participants
       for (let i = 0; i < shuffled.length; i += 2) {
         const participantA = shuffled[i];
         const participantB = shuffled[i + 1];
 
         if (participantB) {
-          // Standard matchup
-          await this.table('head_to_head_matchups').insert({
+          fixturesToInsert.push({
             league_id: leagueId,
             gameweek_id: gameweekId,
             participant_a_id: participantA.id,
             participant_b_id: participantB.id,
-            is_bye: false
+            is_bye: false,
           });
-          fixturesGenerated++;
         } else {
-          // BYE week for the odd participant out
-          await this.table('head_to_head_matchups').insert({
+          fixturesToInsert.push({
             league_id: leagueId,
             gameweek_id: gameweekId,
             participant_a_id: participantA.id,
-            participant_b_id: participantA.id, // Self-reference or NULL, assuming self for BYE
+            participant_b_id: participantA.id,
             is_bye: true,
-            winner_id: participantA.id // Automatically win BYE week
+            winner_id: participantA.id,
           });
-          fixturesGenerated++;
         }
       }
 
-      return fixturesGenerated;
+      const { error: insertError } = await this.table('head_to_head_matchups').insert(fixturesToInsert);
+      if (insertError) {
+        throw new Error(`Failed to insert H2H fixtures: ${insertError.message}`);
+      }
+
+      return fixturesToInsert.length;
     } catch (err: unknown) {
-      console.error(`Error generating H2H fixtures for league ${leagueId}:`, err);
-      return 0;
+      throw new Error(`Error generating H2H fixtures for league ${leagueId}: ${errorMessage(err)}`);
     }
   }
 
@@ -412,7 +420,7 @@ class RecalculateLeagues {
       }
 
 
-      result.success = true;
+      result.success = result.errors.length === 0;
     } catch (err: unknown) {
       result.errors.push(`Fatal error in recalculate leagues job: ${errorMessage(err)}`);
       console.error('Recalculate leagues job failed:', err);
