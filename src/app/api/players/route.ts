@@ -3,7 +3,12 @@ import { supabaseServer } from '@/lib/supabase';
 import { getCached, setCached } from '@/lib/response-cache';
 import { createErrorResponse, verifyAdminAuth } from '@/lib/auth-utils';
 
-type PriceRow = { player_id: number; price: number | null; gameweek_id: number };
+type PriceRow = {
+  player_id: number;
+  price: number | null;
+  price_change: number | null;
+  gameweek_id: number;
+};
 type ScoreRow = { player_id: number; total_points: number | null; gameweek_id: number };
 
 type DynamicPlayerQuery<T> = {
@@ -99,35 +104,61 @@ export async function GET(request: NextRequest) {
     const playerRows = data ?? [];
     const playerIds = playerRows.map((player) => player.id);
     // These tables are not included in the generated local schema typings.
-    const [{ data: prices }, { data: scores }] = await Promise.all([
+    const [
+      { data: prices, error: pricesError },
+      { data: scores, error: scoresError },
+    ] = await Promise.all([
       playerIds.length > 0
         ? (supabase.from('player_prices') as unknown as DynamicPlayerQuery<{ data: PriceRow[] | null; error: { message: string } | null }>)
-            .select('player_id, price, gameweek_id')
+            .select('player_id, price, price_change, gameweek_id')
             .in('player_id', playerIds)
             .order('gameweek_id', { ascending: false })
-        : Promise.resolve({ data: [] }),
+        : Promise.resolve({ data: [], error: null }),
       playerIds.length > 0
         ? (supabase.from('gameweek_scores') as unknown as DynamicPlayerQuery<{ data: ScoreRow[] | null; error: { message: string } | null }>)
             .select('player_id, total_points, gameweek_id')
             .in('player_id', playerIds)
             .order('gameweek_id', { ascending: false })
-        : Promise.resolve({ data: [] }),
+        : Promise.resolve({ data: [], error: null }),
     ]);
-    const latestPrices = new Map<number, number>();
-    for (const price of prices ?? []) {
-      if (!latestPrices.has(price.player_id)) latestPrices.set(price.player_id, Number(price.price ?? 0));
+    if (pricesError || scoresError) {
+      const details = pricesError?.message ?? scoresError?.message;
+      return NextResponse.json(
+        { error: 'Failed to fetch player comparison data', details },
+        { status: 500 }
+      );
     }
-    const recentScores = new Map<number, number[]>();
+
+    const latestPrices = new Map<number, number>();
+    const latestPriceChanges = new Map<number, number | null>();
+    for (const price of prices ?? []) {
+      if (!latestPrices.has(price.player_id)) {
+        latestPrices.set(price.player_id, Number(price.price ?? 0));
+        latestPriceChanges.set(
+          price.player_id,
+          price.price_change == null ? null : Number(price.price_change),
+        );
+      }
+    }
+    const recentScoresByGameweek = new Map<number, Map<number, number>>();
     for (const score of scores ?? []) {
-      const playerScores = recentScores.get(score.player_id) ?? [];
-      if (playerScores.length < 5) playerScores.push(Number(score.total_points ?? 0));
-      recentScores.set(score.player_id, playerScores);
+      const playerScores = recentScoresByGameweek.get(score.player_id) ?? new Map<number, number>();
+      if (!playerScores.has(score.gameweek_id)) {
+        playerScores.set(score.gameweek_id, Number(score.total_points ?? 0));
+      }
+      recentScoresByGameweek.set(score.player_id, playerScores);
     }
     const enrichedData = playerRows.map((player) => {
-      const playerScores = recentScores.get(player.id) ?? [];
+      const playerScores = [...(recentScoresByGameweek.get(player.id)?.entries() ?? [])]
+        .sort(([gameweekA], [gameweekB]) => gameweekB - gameweekA)
+        .slice(0, 5)
+        .map(([, points]) => points);
       return {
         ...player,
-        current_price: latestPrices.get(player.id) ?? Number(player.current_price ?? 0),
+        current_price: latestPrices.get(player.id) ?? (
+          player.current_price == null ? null : Number(player.current_price)
+        ),
+        price_change: latestPriceChanges.get(player.id) ?? null,
         gameweek_points: playerScores[0] ?? 0,
         recent_points: playerScores.length ? Number((playerScores.reduce((sum, score) => sum + score, 0) / playerScores.length).toFixed(2)) : 0,
       };

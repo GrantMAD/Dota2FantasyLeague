@@ -101,8 +101,12 @@ export interface ScoreBreakdown {
   combat: number;
   economy: number;
   objective: number;
+  teamfight: number;
   win: number;
+  series: number;
   performance: number;
+  consistency: number;
+  penalty: number;
   total: number;
 }
 

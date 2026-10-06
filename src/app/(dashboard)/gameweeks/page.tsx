@@ -71,6 +71,18 @@ export default function GameweeksPage() {
 
         <div className="flex items-center gap-3">
           <Link
+            href="/gameweeks/planner"
+            className="inline-flex items-center gap-2 rounded-xl border border-cyan-500/40 bg-cyan-500/10 px-3 py-2 text-sm font-medium text-cyan-200 transition hover:border-cyan-400 hover:bg-cyan-500/15"
+          >
+            My Squad Planner
+          </Link>
+          <Link
+            href="/season-recap"
+            className="inline-flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-900/80 px-3 py-2 text-sm font-medium text-slate-200 transition hover:border-slate-500 hover:text-white"
+          >
+            Season Recap
+          </Link>
+          <Link
             href="/lineups"
             className="inline-flex items-center gap-2 rounded-xl border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm font-medium text-amber-300 transition hover:border-amber-400 hover:bg-amber-500/15"
           >

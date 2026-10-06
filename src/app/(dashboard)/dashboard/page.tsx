@@ -25,6 +25,7 @@ import { fetchWithAuth } from '@/lib/fetch-with-auth';
 import { useToast } from '@/components/Toast';
 import type { DashboardData, DashboardStarter, LeagueStanding } from '@/types/fantasy';
 import { PlayerDetailModal, type PlayerDetails } from '@/app/(dashboard)/squads/components/PlayerDetailModal';
+import { TotalPointsModal } from './components/TotalPointsModal';
 
 interface StatCard {
   icon: React.ReactNode;
@@ -85,6 +86,7 @@ export default function DashboardPage() {
   const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
   const [selectedPlayer, setSelectedPlayer] = useState<PlayerDetails | null>(null);
   const [playerLoading, setPlayerLoading] = useState(false);
+  const [showPointsBreakdown, setShowPointsBreakdown] = useState(false);
   const [whatsNew, setWhatsNew] = useState<WhatsNewData | null>(null);
   const [whatsNewError, setWhatsNewError] = useState<string | null>(null);
 
@@ -271,21 +273,40 @@ export default function DashboardPage() {
           ) : (
             <div data-guide="dashboard-stats" data-tour="dashboard-stats" className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
               {stats.map((stat, idx) => (
-                <div
-                  key={idx}
-                  className="bg-slate-800/50 border border-slate-700 rounded-lg p-4 hover:border-slate-600 transition-all group"
-                >
-                  <div className="flex items-start justify-between mb-3">
-                    <div className="p-2.5 rounded-lg bg-slate-900/60 border border-slate-700/60 flex items-center justify-center group-hover:border-slate-600 transition-colors">
-                      {stat.icon}
+                stat.label === 'Total Points' ? (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => setShowPointsBreakdown(true)}
+                    aria-haspopup="dialog"
+                    aria-expanded={showPointsBreakdown}
+                    className="w-full cursor-pointer rounded-lg border border-slate-700 bg-slate-800/50 p-4 text-left transition-all group hover:border-amber-500/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400"
+                  >
+                    <div className="mb-3 flex items-start justify-between">
+                      <div className="flex items-center justify-center rounded-lg border border-slate-700/60 bg-slate-900/60 p-2.5 transition-colors group-hover:border-amber-500/40">
+                        {stat.icon}
+                      </div>
+                      <Info aria-hidden="true" className="h-4 w-4 text-slate-500 transition-colors group-hover:text-amber-300" />
                     </div>
+                    <p className="mb-1 text-sm text-slate-400">{stat.label}</p>
+                    <p className="mb-2 text-2xl font-bold text-white">{stat.value}</p>
+                    {stat.trend && <p className={`text-xs ${stat.trendColor}`}>{stat.trend} · View breakdown</p>}
+                  </button>
+                ) : (
+                  <div
+                    key={idx}
+                    className="group rounded-lg border border-slate-700 bg-slate-800/50 p-4 transition-all hover:border-slate-600"
+                  >
+                    <div className="mb-3 flex items-start justify-between">
+                      <div className="flex items-center justify-center rounded-lg border border-slate-700/60 bg-slate-900/60 p-2.5 transition-colors group-hover:border-slate-600">
+                        {stat.icon}
+                      </div>
+                    </div>
+                    <p className="mb-1 text-sm text-slate-400">{stat.label}</p>
+                    <p className="mb-2 text-2xl font-bold text-white">{stat.value}</p>
+                    {stat.trend && <p className={`text-xs ${stat.trendColor}`}>{stat.trend}</p>}
                   </div>
-                  <p className="text-slate-400 text-sm mb-1">{stat.label}</p>
-                  <p className="text-2xl font-bold text-white mb-2">{stat.value}</p>
-                  {stat.trend && (
-                    <p className={`text-xs ${stat.trendColor}`}>{stat.trend}</p>
-                  )}
-                </div>
+                )
               ))}
             </div>
           )}
@@ -649,8 +670,8 @@ export default function DashboardPage() {
                                 {player.gw_points != null ? (
                                   <span className="font-mono text-sm font-black" style={{ color: 'var(--accent-primary)' }}>
                                     {player.is_captain
-                                      ? (player.gw_points * 2).toFixed(1)
-                                      : player.gw_points.toFixed(1)}
+                                      ? (player.gw_points * 2).toFixed(2)
+                                      : player.gw_points.toFixed(2)}
                                     {player.is_captain && (
                                       <span className="ml-0.5 text-[9px] font-bold opacity-60">&times;2</span>
                                     )}
@@ -682,14 +703,18 @@ export default function DashboardPage() {
                                       ['\u2694\uFE0F Combat',    player.score_breakdown.combat],
                                       ['\uD83D\uDCB0 Economy',   player.score_breakdown.economy],
                                       ['\uD83C\uDFC6 Objective', player.score_breakdown.objective],
+                                      ['Teamfight',              player.score_breakdown.teamfight],
                                       ['\uD83C\uDFC5 Win',       player.score_breakdown.win],
+                                      ['Series',                 player.score_breakdown.series],
                                       ['\uD83D\uDCCA Perf.',     player.score_breakdown.performance],
+                                      ['Consistency',            player.score_breakdown.consistency],
+                                      ['Penalty',                player.score_breakdown.penalty],
                                     ] as [string, number][]).map(([label, val]) => (
                                       <div key={label} className="flex items-center justify-between py-0.75 text-[11px]">
                                         <span style={{ color: 'var(--text-secondary)' }}>{label}</span>
                                         <span className="font-mono font-semibold"
                                           style={{ color: val >= 0 ? 'var(--text-primary)' : 'var(--danger)' }}>
-                                          {val >= 0 ? '+' : ''}{val.toFixed(1)}
+                                          {val >= 0 ? '+' : ''}{val.toFixed(2)}
                                         </span>
                                       </div>
                                     ))}
@@ -697,7 +722,7 @@ export default function DashboardPage() {
                                       style={{ borderColor: 'var(--border)' }}>
                                       <span className="font-semibold" style={{ color: 'var(--text-secondary)' }}>Total</span>
                                       <span className="font-mono font-black" style={{ color: 'var(--accent-primary)' }}>
-                                        {player.score_breakdown.total.toFixed(1)} pts
+                                        {player.score_breakdown.total.toFixed(2)} pts
                                       </span>
                                     </div>
                                   </>
@@ -820,6 +845,7 @@ export default function DashboardPage() {
         loading={playerLoading}
         onClose={() => setSelectedPlayer(null)}
       />
+      {showPointsBreakdown && <TotalPointsModal onClose={() => setShowPointsBreakdown(false)} />}
     </div>
   );
 }

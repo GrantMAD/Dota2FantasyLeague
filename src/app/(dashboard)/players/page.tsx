@@ -3,7 +3,9 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
+import { useRouter } from 'next/navigation';
 import {
+  ArrowLeftRight,
   Users,
   CheckCircle2,
   ShieldCheck,
@@ -31,6 +33,7 @@ interface Player {
   in_game_name: string | null;
   primary_role: string;
   current_price: number;
+  price_change?: number | null;
   professional_teams?: { name: string; logo_url: string | null };
   availability_status: string;
 }
@@ -171,6 +174,7 @@ function TeamDropdown({ teams, selectedId, onChange, brokenTeamLogos, onTeamLogo
 // Main page
 // ──────────────────────────────────────────────────────────────────────────────
 export default function PlayersPage() {
+  const router = useRouter();
   const [players, setPlayers] = useState<Player[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -194,6 +198,7 @@ export default function PlayersPage() {
   const [roleFilter, setRoleFilter] = useState('');
   const [teamIdFilter, setTeamIdFilter] = useState<number | null>(null);
   const [pinOwnedFirst, setPinOwnedFirst] = useState(true);
+  const [comparePlayerIds, setComparePlayerIds] = useState<number[]>([]);
 
   // Squad context
   const [ownedPlayerIds, setOwnedPlayerIds] = useState<number[]>([]);
@@ -340,6 +345,23 @@ export default function PlayersPage() {
     setPage(1);
   };
 
+  const toggleComparePlayer = (playerId: number) => {
+    if (comparePlayerIds.includes(playerId)) {
+      setComparePlayerIds(comparePlayerIds.filter((id) => id !== playerId));
+      return;
+    }
+    if (comparePlayerIds.length >= 4) {
+      toast.info('Comparison limit', 'Choose up to four players to compare.');
+      return;
+    }
+    setComparePlayerIds([...comparePlayerIds, playerId]);
+  };
+
+  const openComparison = () => {
+    if (comparePlayerIds.length < 2) return;
+    router.push(`/players/compare?ids=${comparePlayerIds.join(',')}`);
+  };
+
   return (
     <div className="max-w-7xl mx-auto px-4 py-12">
       <h1 className="text-3xl font-bold text-white mb-2 flex items-center gap-3">
@@ -347,6 +369,40 @@ export default function PlayersPage() {
         <span>Professional Players</span>
       </h1>
       <p className="text-slate-400 mb-8">Browse and scout all professional Dota 2 players to build your squad.</p>
+
+      {comparePlayerIds.length > 0 && (
+        <section
+          aria-label="Player comparison selection"
+          className="mb-5 flex flex-col gap-3 rounded-xl border border-cyan-500/30 bg-cyan-950/20 p-4 sm:flex-row sm:items-center sm:justify-between"
+        >
+          <div>
+            <p className="text-sm font-semibold text-white">
+              {comparePlayerIds.length} of 4 players selected
+            </p>
+            <p className="mt-1 text-xs text-slate-400">
+              Select at least two players to compare their form, value, availability, and upcoming matches.
+            </p>
+          </div>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => setComparePlayerIds([])}
+              className="rounded-lg border border-slate-600 px-3 py-2 text-sm text-slate-300 transition-colors hover:bg-slate-800"
+            >
+              Clear
+            </button>
+            <button
+              type="button"
+              onClick={openComparison}
+              disabled={comparePlayerIds.length < 2}
+              className="inline-flex items-center justify-center gap-2 rounded-lg bg-cyan-500 px-4 py-2 text-sm font-semibold text-slate-950 transition-colors hover:bg-cyan-400 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <ArrowLeftRight className="h-4 w-4" />
+              Compare players
+            </button>
+          </div>
+        </section>
+      )}
 
       <div className="bg-slate-800/50 border border-slate-700 rounded-xl overflow-hidden">
 
@@ -490,6 +546,7 @@ export default function PlayersPage() {
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-slate-800/50 border-b border-slate-700 text-slate-400 text-sm">
+                <th className="px-4 py-4 font-medium whitespace-nowrap">Compare</th>
                 <th className="px-6 py-4 font-medium whitespace-nowrap">Player</th>
                 <th className="px-6 py-4 font-medium whitespace-nowrap">Team</th>
                 <th className="px-6 py-4 font-medium whitespace-nowrap">Role</th>
@@ -501,13 +558,13 @@ export default function PlayersPage() {
             <tbody className="divide-y divide-slate-700/50">
               {loading && displayedPlayers.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-6 py-24 text-center">
+                  <td colSpan={7} className="px-6 py-24 text-center">
                     <div className="inline-block animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-amber-500" />
                   </td>
                 </tr>
               ) : error ? (
                 <tr>
-                  <td colSpan={6} className="px-6 py-16 text-center">
+                  <td colSpan={7} className="px-6 py-16 text-center">
                     <div className="flex flex-col items-center gap-2 text-rose-400">
                       <p className="font-semibold text-sm">{error}</p>
                       <button
@@ -522,7 +579,7 @@ export default function PlayersPage() {
                 </tr>
               ) : displayedPlayers.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-6 py-16 text-center">
+                  <td colSpan={7} className="px-6 py-16 text-center">
                     <div className="flex flex-col items-center gap-3 text-slate-400">
                       <Users className="w-8 h-8 text-slate-600" />
                       <p className="text-sm">No players found matching your filters.</p>
@@ -551,6 +608,15 @@ export default function PlayersPage() {
                           : 'hover:bg-slate-700/30'
                       }`}
                     >
+                      <td className="px-4 py-4 text-center">
+                        <input
+                          type="checkbox"
+                          checked={comparePlayerIds.includes(player.id)}
+                          onChange={() => toggleComparePlayer(player.id)}
+                          aria-label={`Add ${player.in_game_name || player.name} to player comparison`}
+                          className="h-4 w-4 cursor-pointer rounded border-slate-500 bg-slate-900 text-cyan-500 accent-cyan-500 focus:ring-cyan-500"
+                        />
+                      </td>
                       {/* Player name */}
                       <td className="px-6 py-4 whitespace-nowrap">
                         <Link href={`/players/${player.id}`} className="flex flex-col group">

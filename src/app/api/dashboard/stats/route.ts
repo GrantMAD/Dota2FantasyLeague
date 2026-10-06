@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase';
 import { verifyAuth, applyRefreshedTokens, AuthError } from '@/lib/auth-utils';
 import { getOrCreateFantasySeason } from '@/lib/fantasy-season';
+import { aggregatePlayerGameweekBreakdowns } from '@/lib/player-gameweek-breakdown';
 
 export async function GET(request: NextRequest) {
   try {
@@ -182,7 +183,8 @@ export async function GET(request: NextRequest) {
               gw_points: null as number | null,
               score_breakdown: null as {
                 combat: number; economy: number; objective: number;
-                win: number; performance: number; total: number;
+                teamfight: number; win: number; series: number; performance: number;
+                consistency: number; penalty: number; total: number;
               } | null,
             };
           })
@@ -197,38 +199,43 @@ export async function GET(request: NextRequest) {
           combat_points: number | null;
           economy_points: number | null;
           objective_points: number | null;
+          teamfight_points: number | null;
           win_points: number | null;
+          series_points: number | null;
           performance_index_points: number | null;
+          consistency_points: number | null;
+          penalty_points: number | null;
           total_points: number | null;
         } | null;
       };
       const starterPlayerIds = starterObjects.map((s) => s!.id);
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: perfRows } = await (supabase.from('player_performances') as any)
-        .select('player_id, fantasy_points_breakdown(combat_points, economy_points, objective_points, win_points, performance_index_points, total_points)')
+      const { data: perfRows, error: perfError } = await (supabase.from('player_performances') as any)
+        .select('player_id, fantasy_points_breakdown(combat_points, economy_points, objective_points, teamfight_points, win_points, series_points, performance_index_points, consistency_points, penalty_points, total_points)')
         .eq('gameweek_id', gameweek.id)
         .in('player_id', starterPlayerIds);
 
+      if (perfError) throw new Error(`Failed to fetch gameweek player scores: ${perfError.message}`);
+
       if (perfRows && Array.isArray(perfRows)) {
-        const breakdownMap = new Map<number, BreakdownRow['fantasy_points_breakdown']>();
-        (perfRows as BreakdownRow[]).forEach((row) => {
-          if (row.fantasy_points_breakdown) {
-            breakdownMap.set(row.player_id, row.fantasy_points_breakdown);
-          }
-        });
+        const breakdownMap = aggregatePlayerGameweekBreakdowns(perfRows as BreakdownRow[]);
 
         starterObjects.forEach((starter) => {
           if (!starter) return;
           const bd = breakdownMap.get(starter.id);
           if (bd) {
-            starter.gw_points = Number(bd.total_points ?? 0);
+            starter.gw_points = bd.total;
             starter.score_breakdown = {
-              combat: Number(bd.combat_points ?? 0),
-              economy: Number(bd.economy_points ?? 0),
-              objective: Number(bd.objective_points ?? 0),
-              win: Number(bd.win_points ?? 0),
-              performance: Number(bd.performance_index_points ?? 0),
-              total: Number(bd.total_points ?? 0),
+              combat: bd.combat,
+              economy: bd.economy,
+              objective: bd.objective,
+              teamfight: bd.teamfight,
+              win: bd.win,
+              series: bd.series,
+              performance: bd.performance,
+              consistency: bd.consistency,
+              penalty: bd.penalty,
+              total: bd.total,
             };
           }
         });

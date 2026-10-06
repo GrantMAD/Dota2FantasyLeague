@@ -52,6 +52,7 @@ export async function GET(request: NextRequest) {
     const tournamentId = searchParams.get('tournamentId');
     const teamId = searchParams.get('teamId');
     const status = searchParams.get('status');
+    const ascending = searchParams.get('order') === 'asc';
     const limit = parseInt(searchParams.get('limit') ?? '50', 10);
 
     const supabase = supabaseServer();
@@ -89,7 +90,7 @@ export async function GET(request: NextRequest) {
         team_b_id,
         winner_team_id
       `)
-      .order('scheduled_time', { ascending: false })
+      .order('scheduled_time', { ascending })
       .limit(limit);
 
     if (gameweekId) query = query.eq('gameweek_id', gameweekId);
