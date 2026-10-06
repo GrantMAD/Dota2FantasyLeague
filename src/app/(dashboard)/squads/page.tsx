@@ -5,7 +5,7 @@ import Image from 'next/image';
 import { Users } from 'lucide-react';
 import Link from 'next/link';
 import { fetchWithAuth } from '@/lib/fetch-with-auth';
-import type { FantasyPlayer as SquadPlayer, LineupEntry, PlayerPerformanceRecord as PlayerPerformance } from '@/types/fantasy';
+import type { FantasyPlayer as SquadPlayer, LineupEntry } from '@/types/fantasy';
 
 type Gameweek = { id: number; gameweek_number: number };
 

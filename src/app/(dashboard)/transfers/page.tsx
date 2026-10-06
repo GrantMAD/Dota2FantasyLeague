@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { ArrowLeftRight, CheckCircle2, Minus, Plus } from 'lucide-react';
 import { fetchWithAuth } from '@/lib/fetch-with-auth';
 import { useToast } from '@/components/Toast';
-import type { FantasyPlayer as TransferPlayer, PlayerPerformanceRecord as TransferPerformance } from '@/types/fantasy';
+import type { FantasyPlayer as TransferPlayer } from '@/types/fantasy';
 
 // 5 starters + 3 bench = 8 player squad
 const SQUAD_MAX_SIZE = 8;
@@ -913,4 +913,3 @@ export default function TransfersPage() {
     </div>
   );
 }
-

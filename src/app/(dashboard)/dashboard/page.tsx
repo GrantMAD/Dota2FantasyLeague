@@ -15,7 +15,6 @@ import {
   Zap,
   Megaphone,
   ArrowRight,
-  CalendarClock,
   AlertTriangle,
   TrendingUp,
   Shield,
@@ -23,7 +22,7 @@ import {
 } from 'lucide-react';
 import { fetchWithAuth } from '@/lib/fetch-with-auth';
 import { useToast } from '@/components/Toast';
-import type { DashboardData, DashboardStarter, LeagueStanding } from '@/types/fantasy';
+import type { DashboardData } from '@/types/fantasy';
 import { PlayerDetailModal, type PlayerDetails } from '@/app/(dashboard)/squads/components/PlayerDetailModal';
 import { TotalPointsModal } from './components/TotalPointsModal';
 
