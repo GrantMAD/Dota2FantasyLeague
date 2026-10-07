@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import { deliverPushNotifications, type PushNotificationCandidate } from '@/lib/push-notifications';
 
 interface JobResult {
   success: boolean;
@@ -48,6 +49,7 @@ class SendDeadlineNotifications {
       errors: [],
       duration: 0,
     };
+    const pushCandidates: PushNotificationCandidate[] = [];
 
     try {
       // 1. Find upcoming gameweeks within 24 hours of deadline
@@ -127,8 +129,18 @@ class SendDeadlineNotifications {
           }
 
           result.notificationsGenerated++;
+          pushCandidates.push({
+            userId,
+            type: 'deadline_reminder',
+            metadata: { gameweek_id: gw.id, gameweek_number: gw.gameweek_number },
+          });
         }
       }
+
+      const delivery = await deliverPushNotifications(this.supabase, pushCandidates);
+      result.pushNotificationsSent = delivery.accepted;
+      result.errors.push(...delivery.errors);
+      if (delivery.errors.length > 0) result.success = false;
     } catch (error: unknown) {
       result.success = false;
       result.errors.push(error instanceof Error ? error.message : String(error));

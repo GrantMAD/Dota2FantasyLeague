@@ -1,4 +1,8 @@
 import { createClient } from '@supabase/supabase-js';
+import {
+  deliverPushNotifications,
+  type PushNotificationCandidate,
+} from '@/lib/push-notifications';
 
 interface JobResult {
   success: boolean;
@@ -55,6 +59,7 @@ function errorMessage(error: unknown): string {
 
 class RecalculateLeagues {
   private supabase: ReturnType<typeof createClient>;
+  private pushCandidates: PushNotificationCandidate[] = [];
 
   constructor() {
     this.supabase = createClient(
@@ -284,11 +289,13 @@ class RecalculateLeagues {
         // Dispatch notifications to both managers
         try {
           const notifTable = this.supabase.from('user_notifications') as unknown as {
-            insert: (data: Record<string, unknown>[]) => PromiseLike<unknown>;
+            insert: (data: Record<string, unknown>[]) => PromiseLike<{ error: { message: string } | null }>;
           };
           const notifs: Record<string, unknown>[] = [];
+          const pushCandidates: PushNotificationCandidate[] = [];
 
           if (userIdA) {
+            const metadata = { gameweek_id: gameweekId, league_id: matchup.league_id, matchup_id: matchup.id };
             const titleA = isDraw ? 'H2H Matchup Tied!' : winnerId === matchup.participant_a_id ? 'You Won Your H2H Matchup!' : 'H2H Matchup Defeat';
             const msgA = isDraw
               ? `You drew your H2H fixture with ${pointsA.toFixed(1)} points.`
@@ -300,11 +307,13 @@ class RecalculateLeagues {
               type: 'system',
               title: titleA,
               message: msgA,
-              metadata: { gameweek_id: gameweekId, league_id: matchup.league_id, matchup_id: matchup.id },
+              metadata,
             });
+            pushCandidates.push({ userId: userIdA, type: 'system', metadata });
           }
 
           if (userIdB) {
+            const metadata = { gameweek_id: gameweekId, league_id: matchup.league_id, matchup_id: matchup.id };
             const titleB = isDraw ? 'H2H Matchup Tied!' : winnerId === matchup.participant_b_id ? 'You Won Your H2H Matchup!' : 'H2H Matchup Defeat';
             const msgB = isDraw
               ? `You drew your H2H fixture with ${pointsB.toFixed(1)} points.`
@@ -316,12 +325,15 @@ class RecalculateLeagues {
               type: 'system',
               title: titleB,
               message: msgB,
-              metadata: { gameweek_id: gameweekId, league_id: matchup.league_id, matchup_id: matchup.id },
+              metadata,
             });
+            pushCandidates.push({ userId: userIdB, type: 'system', metadata });
           }
 
           if (notifs.length > 0) {
-            await notifTable.insert(notifs);
+            const { error } = await notifTable.insert(notifs);
+            if (error) throw new Error(error.message);
+            this.pushCandidates.push(...pushCandidates);
           }
         } catch (notifErr) {
           console.warn('Failed to insert H2H matchup notifications:', notifErr);
@@ -359,6 +371,7 @@ class RecalculateLeagues {
 
   async execute(): Promise<JobResult> {
     const startTime = Date.now();
+    this.pushCandidates = [];
     const result: JobResult = {
       success: false,
       leaguesProcessed: 0,
@@ -419,6 +432,14 @@ class RecalculateLeagues {
           result.h2hResultsCalculated += calculated;
       }
 
+      if (this.pushCandidates.length > 0) {
+        try {
+          const delivery = await deliverPushNotifications(this.supabase, this.pushCandidates);
+          result.errors.push(...delivery.errors);
+        } catch (pushError: unknown) {
+          result.errors.push(`Unable to deliver H2H push notifications: ${errorMessage(pushError)}`);
+        }
+      }
 
       result.success = result.errors.length === 0;
     } catch (err: unknown) {

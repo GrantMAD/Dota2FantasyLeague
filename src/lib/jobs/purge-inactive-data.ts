@@ -13,6 +13,10 @@
  */
 
 import { getSupabaseServerClient } from '@/lib/db/supabase-server';
+import {
+  deliverPushNotifications,
+  type PushNotificationCandidate,
+} from '@/lib/push-notifications';
 import { getTeamsSafeToDelete } from './team-purge-safety';
 
 export interface PurgeResult {
@@ -97,6 +101,7 @@ function firstRelation<T>(value: T | T[] | null | undefined): T | undefined {
 
 export async function purgeInactiveData(): Promise<PurgeResult> {
   const startedAt = new Date();
+  const pushCandidates: PushNotificationCandidate[] = [];
   const result: PurgeResult = {
     playersDeleted: 0,
     teamsDeleted: 0,
@@ -221,20 +226,26 @@ export async function purgeInactiveData(): Promise<PurgeResult> {
             // Notify user
             if (userId) {
               const notificationTable = supabase.from('user_notifications') as unknown as {
-                insert(values: PlayerRemovedNotification): PromiseLike<unknown>;
+                insert(values: PlayerRemovedNotification): PromiseLike<{ error: { message: string } | null }>;
               };
-              await notificationTable.insert({
+              const metadata = {
+                player_id: row.player_id,
+                player_name: playerName,
+                refund_amount: refundAmount,
+                squad_id: squadId,
+              };
+              const { error: notificationError } = await notificationTable.insert({
                 user_id: userId,
                 type: 'player_removed',
                 title: `Player Removed: ${playerName}`,
                 message: `${playerName} is no longer active in competitive play and has been removed from your squad. $${refundAmount.toFixed(2)}M has been returned to your budget.`,
-                metadata: {
-                  player_id: row.player_id,
-                  player_name: playerName,
-                  refund_amount: refundAmount,
-                  squad_id: squadId,
-                },
+                metadata,
               });
+              if (notificationError) {
+                result.errors.push(`Failed to create player-removal notification for squad slot ${row.id}: ${notificationError.message}`);
+              } else {
+                pushCandidates.push({ userId, type: 'player_removed', metadata });
+              }
             }
           } catch (compError) {
             console.warn(`[purgeInactiveData] Error compensating squad member ${row.id}:`, compError);
@@ -471,6 +482,19 @@ export async function purgeInactiveData(): Promise<PurgeResult> {
     const errorMsg = (error as Error).message;
     console.error('[purgeInactiveData] Error occurred:', errorMsg);
     result.errors.push(errorMsg);
+  }
+
+  if (pushCandidates.length > 0) {
+    try {
+      const delivery = await deliverPushNotifications(supabase, pushCandidates);
+      result.errors.push(...delivery.errors);
+    } catch (pushError: unknown) {
+      result.errors.push(
+        `Unable to deliver player-removal push notifications: ${
+          pushError instanceof Error ? pushError.message : String(pushError)
+        }`,
+      );
+    }
   }
 
   result.completedAt = new Date();

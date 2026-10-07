@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import { deliverPushNotifications, type PushNotificationCandidate } from '@/lib/push-notifications';
 
 interface JobResult {
   success: boolean;
@@ -55,6 +56,7 @@ class SendPriceChangeNotifications {
       errors: [],
       duration: 0,
     };
+    const pushCandidates: PushNotificationCandidate[] = [];
 
     try {
       // 1. Get the current active/upcoming gameweek ID (assuming prices update for upcoming)
@@ -151,8 +153,18 @@ class SendPriceChangeNotifications {
           }
 
           result.notificationsGenerated++;
+          pushCandidates.push({
+            userId,
+            type: 'price_change',
+            metadata: { player_id: pc.player_id, gameweek_id: gameweek.id, price_change: pc.price_change },
+          });
         }
       }
+
+      const delivery = await deliverPushNotifications(this.supabase, pushCandidates);
+      result.pushNotificationsSent = delivery.accepted;
+      result.errors.push(...delivery.errors);
+      if (delivery.errors.length > 0) result.success = false;
     } catch (error: unknown) {
       result.success = false;
       result.errors.push(error instanceof Error ? error.message : String(error));

@@ -27,6 +27,7 @@ import { sendDeadlineNotifications } from './send-deadline-notifications';
 import { sendPriceChangeNotifications } from './send-price-change-notifications';
 import { sendRankNotifications } from './send-rank-notifications';
 import { sendUnavailablePlayerNotifications } from './send-unavailable-player-notifications';
+import { processPushReceipts } from './process-push-receipts';
 import { transitionGameweeks } from './transition-gameweeks';
 import { backfillPlaceholderPlayers } from './backfill-placeholder-players';
 import { backfillTeamLogos } from './backfill-team-logos';
@@ -57,6 +58,7 @@ type JobName =
   | 'send-price-change-notifications'
   | 'send-rank-notifications'
   | 'send-unavailable-player-notifications'
+  | 'process-push-receipts'
   | 'transition-gameweeks'
   | 'backfill-placeholder-players'
   | 'backfill-team-logos'
@@ -195,6 +197,13 @@ const JOBS: JobDefinition[] = [
     name: 'send-unavailable-player-notifications',
     schedule: '*/30 * * * *', // Check for unavailable players every 30 minutes
     handler: sendUnavailablePlayerNotifications,
+    enabled: process.env.ENABLE_NOTIFICATIONS !== 'false',
+    timeout: 5 * 60 * 1000,
+  },
+  {
+    name: 'process-push-receipts',
+    schedule: '*/15 * * * *', // Remove device tokens Expo reports as permanently invalid
+    handler: processPushReceipts,
     enabled: process.env.ENABLE_NOTIFICATIONS !== 'false',
     timeout: 5 * 60 * 1000,
   },

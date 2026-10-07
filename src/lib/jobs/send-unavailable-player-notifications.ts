@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import { deliverPushNotifications, type PushNotificationCandidate } from '@/lib/push-notifications';
 
 export interface JobResult {
   success: boolean;
@@ -42,6 +43,7 @@ export class SendUnavailablePlayerNotifications {
       errors: [],
       duration: 0,
     };
+    const pushCandidates: PushNotificationCandidate[] = [];
 
     try {
       // 1. Get active gameweek to contextualize the alert
@@ -136,8 +138,24 @@ export class SendUnavailablePlayerNotifications {
           }
 
           result.notificationsGenerated++;
+          pushCandidates.push({
+            userId,
+            type: 'system',
+            metadata: {
+              player_id: player.id,
+              player_name: playerName,
+              status: statusLabel,
+              gameweek_id: currentGwId,
+              action: 'swap_required',
+            },
+          });
         }
       }
+
+      const delivery = await deliverPushNotifications(this.supabase, pushCandidates);
+      result.pushNotificationsSent = delivery.accepted;
+      result.errors.push(...delivery.errors);
+      if (delivery.errors.length > 0) result.success = false;
     } catch (err: unknown) {
       result.success = false;
       result.errors.push(err instanceof Error ? err.message : 'Unknown error');

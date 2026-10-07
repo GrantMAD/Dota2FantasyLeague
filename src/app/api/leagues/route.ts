@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyAuth } from '@/lib/auth-utils';
 import { supabaseServer } from '@/lib/supabase';
+import { deliverPushNotifications } from '@/lib/push-notifications';
 
 interface LeagueRow {
   id: number;
@@ -151,8 +152,8 @@ export async function POST(request: NextRequest) {
         const joinerName = joiningUser?.display_name || joiningUser?.username || 'A player';
         const teamName = fantasySeason.team_name ? ` with team "${fantasySeason.team_name}"` : '';
 
-        await (supabase.from('user_notifications') as unknown as {
-          insert: (val: Record<string, unknown>) => PromiseLike<unknown>;
+        const { error: notificationError } = await (supabase.from('user_notifications') as unknown as {
+          insert: (val: Record<string, unknown>) => PromiseLike<{ error: { message: string } | null }>;
         }).insert({
           user_id: league.creator_id,
           type: 'league_invite',
@@ -160,6 +161,26 @@ export async function POST(request: NextRequest) {
           message: `${joinerName} has joined ${league.name}${teamName}!`,
           metadata: { league_id: league.id, joined_by: user.userId },
         });
+
+        if (notificationError) {
+          console.error('Unable to save a league activity notification:', notificationError.message);
+        } else {
+          try {
+            const delivery = await deliverPushNotifications(supabase, [{
+              userId: league.creator_id,
+              type: 'league_invite',
+              metadata: { league_id: league.id },
+            }]);
+            if (delivery.errors.length > 0) {
+              console.error('League activity push delivery reported an issue:', delivery.errors.join('; '));
+            }
+          } catch (error: unknown) {
+            console.error(
+              'Unable to deliver a league activity push notification:',
+              error instanceof Error ? error.message : String(error),
+            );
+          }
+        }
       }
 
       return NextResponse.json({ data: { ...league, type: league.league_type === 'head_to_head' ? 'h2h' : 'classic', privacyLevel: league.privacy_level, maxParticipants: league.max_participants, currentParticipants: league.current_participants + 1, inviteCode: league.invite_code, standings: [], fixtures: [] }, message: `Joined ${league.name} successfully.` });

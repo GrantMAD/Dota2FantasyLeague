@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import { deliverPushNotifications, type PushNotificationCandidate } from '@/lib/push-notifications';
 
 interface JobResult {
   success: boolean;
@@ -49,6 +50,7 @@ class SendRankNotifications {
       errors: [],
       duration: 0,
     };
+    const pushCandidates: PushNotificationCandidate[] = [];
 
     try {
       // 1. Get recently closed gameweeks (we only send rank notifications after a GW is fully closed and rankings are updated)
@@ -117,7 +119,17 @@ class SendRankNotifications {
         }
 
         result.notificationsGenerated++;
+        pushCandidates.push({
+          userId,
+          type: 'rank_update',
+          metadata: { gameweek_id: gw.id, rank: season.global_rank },
+        });
       }
+
+      const delivery = await deliverPushNotifications(this.supabase, pushCandidates);
+      result.pushNotificationsSent = delivery.accepted;
+      result.errors.push(...delivery.errors);
+      if (delivery.errors.length > 0) result.success = false;
 
     } catch (error: unknown) {
       result.success = false;
