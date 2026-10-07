@@ -29,6 +29,7 @@ const matchesCategory = (notification: NotificationRecord, category: Notificatio
     score_posted: 'scoring',
     gameweek_result: 'scoring',
     rank_movement: 'scoring',
+    league_invite: 'league',
     league_activity: 'league',
     league_result: 'league',
     h2h_result: 'league',
