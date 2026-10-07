@@ -45,8 +45,39 @@ export default function AdminDashboardPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-12">
-        <div className="text-gray-400">Loading dashboard...</div>
+      <div className="space-y-8" aria-busy="true" aria-label="Loading dashboard">
+        <div>
+          <div className="h-9 w-56 animate-pulse rounded bg-gray-700/60" />
+          <div className="mt-2 h-4 w-72 max-w-full animate-pulse rounded bg-gray-700/40" />
+        </div>
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
+          {Array.from({ length: 4 }).map((_, index) => (
+            <div key={index} className="rounded-lg border border-gray-700 bg-gray-800/50 p-6">
+              <div className="h-4 w-28 animate-pulse rounded bg-gray-700/60" />
+              <div className="mt-4 h-8 w-16 animate-pulse rounded bg-gray-700/50" />
+            </div>
+          ))}
+        </div>
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          {Array.from({ length: 2 }).map((_, index) => (
+            <div key={index} className="rounded-lg border border-gray-700 bg-gray-800/50 p-6">
+              <div className="h-4 w-24 animate-pulse rounded bg-gray-700/60" />
+              <div className="mt-3 h-6 w-40 animate-pulse rounded bg-gray-700/50" />
+              <div className="mt-5 h-9 w-28 animate-pulse rounded bg-gray-700/40" />
+            </div>
+          ))}
+        </div>
+        <section className="space-y-4">
+          <div className="h-6 w-32 animate-pulse rounded bg-gray-700/60" />
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+            {Array.from({ length: 3 }).map((_, index) => (
+              <div key={index} className="rounded-lg border border-gray-700 bg-gray-800/50 p-4">
+                <div className="h-5 w-36 animate-pulse rounded bg-gray-700/60" />
+                <div className="mt-2 h-4 w-full max-w-48 animate-pulse rounded bg-gray-700/40" />
+              </div>
+            ))}
+          </div>
+        </section>
       </div>
     );
   }

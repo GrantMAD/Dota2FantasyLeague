@@ -194,11 +194,21 @@ export default function AdminMatchesPage() {
             </thead>
             <tbody className="divide-y divide-slate-700/50">
               {loading && matches.length === 0 ? (
-                <tr>
-                  <td colSpan={6} className="px-6 py-24 text-center">
-                    <div className="inline-block animate-spin rounded-full h-8 w-8 border-t-2 border-amber-500"></div>
-                  </td>
-                </tr>
+                Array.from({ length: 6 }).map((_, index) => (
+                  <tr key={`match-skeleton-${index}`} className="animate-pulse">
+                    <td className="px-4 py-4">
+                      <div className="flex items-center gap-2">
+                        <div className="flex flex-col gap-1"><div className="h-4 w-4 rounded-sm bg-slate-700/60" /><div className="h-4 w-4 rounded-sm bg-slate-700/60" /></div>
+                        <div className="space-y-2"><div className="h-3 w-24 rounded bg-slate-700/60" /><div className="h-3 w-20 rounded bg-slate-700/50" /></div>
+                      </div>
+                    </td>
+                    <td className="px-4 py-4"><div className="h-4 w-28 rounded bg-slate-700/50" /></td>
+                    <td className="px-4 py-4"><div className="h-4 w-36 rounded bg-slate-700/50" /></td>
+                    <td className="px-4 py-4"><div className="h-5 w-20 rounded bg-slate-700/50" /></td>
+                    <td className="px-4 py-4"><div className="h-4 w-32 rounded bg-slate-700/50" /></td>
+                    <td className="px-4 py-4"><div className="ml-auto h-8 w-20 rounded bg-slate-700/50" /></td>
+                  </tr>
+                ))
               ) : matches.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="px-6 py-12 text-center text-slate-400">No matches found.</td>

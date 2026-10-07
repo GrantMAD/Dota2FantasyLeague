@@ -67,9 +67,45 @@ function formatMatchDate(value: string): string {
   });
 }
 
+function PlayerComparisonSkeleton() {
+  return (
+    <div className="mx-auto max-w-7xl px-4 py-10 animate-pulse" role="status" aria-label="Loading player comparison">
+      <div className="mb-6 h-4 w-36 rounded bg-slate-800" />
+      <div className="mb-8 space-y-3">
+        <div className="h-9 w-64 rounded bg-slate-800" />
+        <div className="h-4 w-full max-w-2xl rounded bg-slate-800" />
+      </div>
+      <div className="overflow-x-auto rounded-xl border border-slate-700 bg-slate-800/40">
+        <div className="min-w-[640px]">
+          <div className="grid grid-cols-[minmax(8rem,0.8fr)_repeat(3,minmax(0,1fr))] border-b border-slate-700">
+            <div className="p-4"><div className="h-4 w-24 rounded bg-slate-800" /></div>
+            {[1, 2, 3].map((column) => (
+              <div key={column} className="border-l border-slate-700 p-4">
+                <div className="h-5 w-28 rounded bg-slate-700" />
+                <div className="mt-2 h-3 w-20 rounded bg-slate-800" />
+                <div className="mt-3 h-3 w-16 rounded bg-slate-800" />
+              </div>
+            ))}
+          </div>
+          {['Professional team', 'Current price', 'Latest price movement', 'Latest gameweek points', 'Average recent points', 'Availability', 'Upcoming fixtures'].map((label) => (
+            <div key={label} className="grid grid-cols-[minmax(8rem,0.8fr)_repeat(3,minmax(0,1fr))] border-b border-slate-700/70 last:border-0">
+              <div className="p-4"><div className="h-4 w-24 max-w-full rounded bg-slate-800" /></div>
+              {[1, 2, 3].map((column) => (
+                <div key={column} className="border-l border-slate-700/70 p-4">
+                  <div className="h-4 w-28 max-w-full rounded bg-slate-800" />
+                </div>
+              ))}
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function PlayerComparisonPage() {
   return (
-    <Suspense fallback={<div className="mx-auto max-w-7xl px-4 py-12 text-slate-300">Loading comparison...</div>}>
+    <Suspense fallback={<PlayerComparisonSkeleton />}>
       <PlayerComparisonContent />
     </Suspense>
   );
@@ -156,11 +192,7 @@ function PlayerComparisonContent() {
   };
 
   if (loading) {
-    return (
-      <div className="mx-auto max-w-7xl px-4 py-12" role="status">
-        <p className="animate-pulse text-slate-300">Loading player comparison...</p>
-      </div>
-    );
+    return <PlayerComparisonSkeleton />;
   }
 
   if (error) {

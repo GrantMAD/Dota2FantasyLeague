@@ -557,11 +557,25 @@ export default function PlayersPage() {
             </thead>
             <tbody className="divide-y divide-slate-700/50">
               {loading && displayedPlayers.length === 0 ? (
-                <tr>
-                  <td colSpan={7} className="px-6 py-24 text-center">
-                    <div className="inline-block animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-amber-500" />
-                  </td>
-                </tr>
+                [1, 2, 3, 4, 5, 6].map((row) => (
+                  <tr key={`player-skeleton-${row}`} className="animate-pulse">
+                    <td className="px-4 py-4 text-center"><div className="mx-auto h-4 w-4 rounded bg-slate-700" /></td>
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-3">
+                        <div className="h-10 w-10 shrink-0 rounded-full bg-slate-700" />
+                        <div className="space-y-2">
+                          <div className="h-4 w-32 max-w-[30vw] rounded bg-slate-700" />
+                          <div className="h-3 w-20 rounded bg-slate-800" />
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4"><div className="h-4 w-24 max-w-[20vw] rounded bg-slate-700" /></td>
+                    <td className="px-6 py-4"><div className="h-6 w-16 rounded-full bg-slate-700" /></td>
+                    <td className="px-6 py-4"><div className="ml-auto h-4 w-14 rounded bg-slate-700" /></td>
+                    <td className="px-6 py-4 text-center"><div className="mx-auto h-6 w-16 rounded-full bg-slate-700" /></td>
+                    <td className="px-6 py-4"><div className="ml-auto h-8 w-20 rounded-lg bg-slate-700" /></td>
+                  </tr>
+                ))
               ) : error ? (
                 <tr>
                   <td colSpan={7} className="px-6 py-16 text-center">

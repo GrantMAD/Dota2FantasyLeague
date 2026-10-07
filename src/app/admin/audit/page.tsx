@@ -127,11 +127,16 @@ export default function AdminAuditPage() {
             </thead>
             <tbody className="divide-y divide-slate-700/50">
               {loading && logs.length === 0 ? (
-                <tr>
-                  <td colSpan={6} className="px-6 py-24 text-center">
-                    <div className="inline-block animate-spin rounded-full h-8 w-8 border-t-2 border-amber-500"></div>
-                  </td>
-                </tr>
+                Array.from({ length: 6 }).map((_, index) => (
+                  <tr key={`audit-skeleton-${index}`} className="animate-pulse">
+                    <td className="px-4 py-4"><div className="h-4 w-32 rounded bg-slate-700/60" /></td>
+                    <td className="px-4 py-4"><div className="h-5 w-20 rounded bg-slate-700/50" /></td>
+                    <td className="px-4 py-4"><div className="h-4 w-28 rounded bg-slate-700/60" /></td>
+                    <td className="px-4 py-4"><div className="h-4 w-20 rounded bg-slate-700/50" /></td>
+                    <td className="px-4 py-4"><div className="h-4 w-24 rounded bg-slate-700/50" /></td>
+                    <td className="px-4 py-4"><div className="ml-auto h-4 w-12 rounded bg-slate-700/50" /></td>
+                  </tr>
+                ))
               ) : logs.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="px-6 py-12 text-center text-slate-400">

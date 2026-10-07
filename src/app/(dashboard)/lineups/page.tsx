@@ -560,7 +560,10 @@ export default function LineupsPage() {
               <span className="text-xl">🌟</span>
             </h3>
             {loading ? (
-              <p className="text-xs text-slate-400">Loading...</p>
+              <div className="animate-pulse space-y-3" role="status" aria-label="Loading Triple Captain status">
+                <div className="h-3 w-40 rounded bg-purple-900/60" />
+                <div className="h-9 w-full rounded border border-purple-700/30 bg-purple-900/40" />
+              </div>
             ) : tcStatus?.tripleCaptainUsed ? (
               <div>
                 <p className="text-xs text-slate-400 mb-2">Already played this season.</p>
@@ -592,7 +595,10 @@ export default function LineupsPage() {
               <span className="text-xl">⚡</span>
             </h3>
             {loading ? (
-              <p className="text-xs text-slate-400">Loading...</p>
+              <div className="animate-pulse space-y-3" role="status" aria-label="Loading Bench Boost status">
+                <div className="h-3 w-40 rounded bg-emerald-900/60" />
+                <div className="h-9 w-full rounded border border-emerald-700/30 bg-emerald-900/40" />
+              </div>
             ) : bbStatus?.benchBoostUsed ? (
               <div>
                 <p className="text-xs text-slate-400 mb-2">Already played this season.</p>

@@ -332,8 +332,24 @@ export default function AdminSeasonsPage() {
 
       {/* Content */}
       {loading ? (
-        <div className="py-16 text-center text-slate-400 flex items-center justify-center gap-2">
-          <Loader2 className="w-5 h-5 animate-spin" /> Loading seasons…
+        <div className="space-y-3" aria-busy="true" aria-label="Loading seasons">
+          {Array.from({ length: 4 }).map((_, index) => (
+            <div key={index} className="rounded-xl border border-slate-700 bg-slate-800/50 p-5">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex-1 space-y-3">
+                  <div className="flex flex-wrap items-center gap-3">
+                    <div className="h-6 w-40 animate-pulse rounded bg-slate-700/60" />
+                    <div className="h-5 w-20 animate-pulse rounded-full bg-slate-700/50" />
+                  </div>
+                  <div className="h-4 w-full max-w-md animate-pulse rounded bg-slate-700/40" />
+                </div>
+                <div className="flex gap-2">
+                  <div className="h-9 w-24 animate-pulse rounded bg-slate-700/50" />
+                  <div className="h-9 w-28 animate-pulse rounded bg-slate-700/50" />
+                </div>
+              </div>
+            </div>
+          ))}
         </div>
       ) : error ? (
         <div className="py-12 text-center text-red-400 bg-red-500/10 border border-red-500/20 rounded-xl">

@@ -405,10 +405,7 @@ export default function AdminLeaguesPage() {
 
         {/* Table */}
         <div className="overflow-x-auto">
-          {loading ? (
-            <div className="py-16 text-center text-slate-400 text-sm">Loading leagues…</div>
-          ) : (
-            <table className="w-full text-left border-collapse">
+          <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="bg-slate-800/50 border-b border-slate-700 text-slate-400 text-sm">
                   <th className="px-4 py-3 font-medium">League</th>
@@ -423,7 +420,21 @@ export default function AdminLeaguesPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-700/50">
-                {filtered.length === 0 ? (
+                {loading ? (
+                  Array.from({ length: 6 }).map((_, index) => (
+                    <tr key={`league-skeleton-${index}`} className="animate-pulse">
+                      <td className="px-4 py-3"><div className="flex items-center gap-3"><div className="h-8 w-8 rounded-lg bg-slate-700/50" /><div className="h-4 w-28 rounded bg-slate-700/50" /></div></td>
+                      <td className="px-4 py-3"><div className="h-5 w-16 rounded bg-slate-700/50" /></td>
+                      <td className="px-4 py-3"><div className="h-4 w-16 rounded bg-slate-700/50" /></td>
+                      <td className="px-4 py-3"><div className="h-4 w-24 rounded bg-slate-700/50" /></td>
+                      <td className="px-4 py-3"><div className="ml-auto h-4 w-12 rounded bg-slate-700/50" /></td>
+                      <td className="px-4 py-3"><div className="ml-auto h-4 w-14 rounded bg-slate-700/50" /></td>
+                      <td className="px-4 py-3"><div className="h-5 w-20 rounded bg-slate-700/50" /></td>
+                      <td className="px-4 py-3"><div className="h-4 w-28 rounded bg-slate-700/50" /></td>
+                      <td className="px-4 py-3"><div className="h-4 w-4 rounded bg-slate-700/50" /></td>
+                    </tr>
+                  ))
+                ) : filtered.length === 0 ? (
                   <tr>
                     <td colSpan={9} className="px-6 py-12 text-center text-slate-400">
                       No leagues found.
@@ -484,8 +495,7 @@ export default function AdminLeaguesPage() {
                   ))
                 )}
               </tbody>
-            </table>
-          )}
+          </table>
         </div>
       </div>
 

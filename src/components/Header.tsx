@@ -483,24 +483,49 @@ export function Header() {
 
   const isActive = (path: string) => pathname === path || pathname.startsWith(path + '/');
 
-  const primaryNavLinks = [
-    { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-    { href: '/squads', label: 'Squad', icon: Users },
-    { href: '/lineups', label: 'Lineups', icon: UserCheck },
-    { href: '/transfers', label: 'Transfers', icon: ArrowLeftRight },
-    { href: '/players', label: 'Players', icon: UserRound },
-    { href: '/leagues', label: 'Leagues', icon: Trophy },
-    { href: '/leaderboard', label: 'Leaderboard', icon: Medal },
-    { href: '/gameweeks', label: 'Gameweeks', icon: Calendar },
-    { href: '/gameweeks/planner', label: 'Squad Planner', icon: Calendar },
-    { href: '/season-recap', label: 'Season Recap', icon: Trophy },
-    { href: '/tournaments', label: 'Tournaments', icon: Swords },
-    { href: '/matches', label: 'Matches', icon: Gamepad2 },
-    { href: '/analytics', label: 'Analytics', icon: BarChart3 },
+  const navSections = [
+    {
+      label: 'Overview',
+      links: [
+        { href: '/dashboard', label: 'Dashboard', description: 'Your points, rank, and updates', icon: LayoutDashboard },
+      ],
+    },
+    {
+      label: 'My Fantasy Team',
+      links: [
+        { href: '/squads', label: 'Squad', description: 'Manage your players and budget', icon: Users },
+        { href: '/lineups', label: 'Lineups', description: 'Set starters and captain picks', icon: UserCheck },
+        { href: '/transfers', label: 'Transfers', description: 'Browse players and make transfers', icon: ArrowLeftRight },
+        { href: '/gameweeks/planner', label: 'Squad Planner', description: 'Check availability and fixtures', icon: Calendar },
+      ],
+    },
+    {
+      label: 'Competitions',
+      links: [
+        { href: '/leagues', label: 'Leagues', description: 'Create or follow league standings', icon: Trophy },
+        { href: '/leaderboard', label: 'Leaderboard', description: 'Compare global manager ranks', icon: Medal },
+        { href: '/gameweeks', label: 'Gameweeks', description: 'View schedules and deadlines', icon: Calendar },
+        { href: '/season-recap', label: 'Season Recap', description: 'Review a finished season', icon: Trophy },
+      ],
+    },
+    {
+      label: 'Dota Esports',
+      links: [
+        { href: '/players', label: 'Players', description: 'Explore pro player stats', icon: UserRound },
+        { href: '/tournaments', label: 'Tournaments', description: 'Follow tournament results', icon: Swords },
+        { href: '/matches', label: 'Matches', description: 'Browse match schedules and results', icon: Gamepad2 },
+      ],
+    },
+    {
+      label: 'Insights',
+      links: [
+        { href: '/analytics', label: 'Analytics', description: 'Explore fantasy performance data', icon: BarChart3 },
+      ],
+    },
   ];
 
   const bottomNavLinks = [
-    { href: '/learn', label: 'Learn', icon: BookOpen },
+    { href: '/learn', label: 'Learn', description: 'Rules, guides, and fantasy basics', icon: BookOpen },
   ];
 
   // Breadcrumb label map
@@ -593,32 +618,57 @@ export function Header() {
             <ChevronRight className="h-5 w-5" />
           </button>
         )}
-        <nav className="flex flex-1 flex-col justify-between overflow-y-auto overflow-x-hidden">
-          <div className="space-y-1">
-            {primaryNavLinks.map((link) => {
-              const Icon = link.icon;
-              const active = isActive(link.href);
-              return (
-                <Link
-                  key={link.href}
-                  href={link.href}
-                  title={sidebarCollapsed ? link.label : undefined}
-                  className={`flex items-center rounded-lg text-sm font-medium transition-colors ${
-                    sidebarCollapsed ? 'justify-center p-2.5' : 'gap-3 px-3 py-2.5'
-                  } ${
-                    active
-                      ? 'bg-amber-500/20 text-amber-500'
-                      : 'text-slate-400 hover:bg-slate-800 hover:text-white'
-                  }`}
-                >
-                  <Icon className={`h-5 w-5 shrink-0 ${active ? 'text-amber-500' : 'text-slate-400'}`} />
-                  {!sidebarCollapsed && <span className="truncate">{link.label}</span>}
-                </Link>
-              );
-            })}
+        <nav className="no-scrollbar flex flex-1 flex-col overflow-y-auto overflow-x-hidden">
+          <div className="space-y-4">
+            {navSections.map((section) => (
+              <section key={section.label} aria-label={section.label}>
+                {!sidebarCollapsed && (
+                  <h2 className="mb-1 px-3 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">
+                    {section.label}
+                  </h2>
+                )}
+                <div className="space-y-1">
+                  {section.links.map((link) => {
+                    const Icon = link.icon;
+                    const active = isActive(link.href);
+                    return (
+                      <Link
+                        key={link.href}
+                        href={link.href}
+                        title={sidebarCollapsed ? `${link.label}: ${link.description}` : undefined}
+                        aria-current={active ? 'page' : undefined}
+                        className={`flex items-center rounded-lg text-sm transition-colors ${
+                          sidebarCollapsed ? 'justify-center p-2.5' : 'items-start gap-3 px-3 py-2'
+                        } ${
+                          active
+                            ? 'bg-amber-500/20 text-amber-500'
+                            : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+                        }`}
+                      >
+                        <Icon className={`mt-0.5 h-5 w-5 shrink-0 ${active ? 'text-amber-500' : 'text-slate-400'}`} />
+                        {!sidebarCollapsed && (
+                          <span className="min-w-0">
+                            <span className="block truncate font-medium">{link.label}</span>
+                            <span className={`mt-0.5 block text-[10px] leading-tight ${active ? 'text-amber-200/70' : 'text-slate-500'}`}>
+                              {link.description}
+                            </span>
+                          </span>
+                        )}
+                      </Link>
+                    );
+                  })}
+                </div>
+              </section>
+            ))}
           </div>
 
-          <div className="mt-auto border-t border-slate-800/80 pt-3 space-y-1">
+          <div className="mt-auto border-t border-slate-800/80 pt-3">
+            {!sidebarCollapsed && (
+              <h2 className="mb-1 px-3 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">
+                Resources
+              </h2>
+            )}
+            <div className="space-y-1">
             {bottomNavLinks.map((link) => {
               const Icon = link.icon;
               const active = isActive(link.href);
@@ -626,8 +676,9 @@ export function Header() {
                 <Link
                   key={link.href}
                   href={link.href}
-                  title={sidebarCollapsed ? link.label : undefined}
-                  className={`flex items-center rounded-lg text-sm font-medium transition-colors ${
+                  title={sidebarCollapsed ? `${link.label}: ${link.description}` : undefined}
+                  aria-current={active ? 'page' : undefined}
+                  className={`flex items-center rounded-lg text-sm transition-colors ${
                     sidebarCollapsed ? 'justify-center p-2.5' : 'gap-3 px-3 py-2.5'
                   } ${
                     active
@@ -636,14 +687,20 @@ export function Header() {
                   }`}
                 >
                   <Icon className={`h-5 w-5 shrink-0 ${active ? 'text-amber-500' : 'text-slate-400'}`} />
-                  {!sidebarCollapsed && <span className="truncate">{link.label}</span>}
+                  {!sidebarCollapsed && (
+                    <span className="min-w-0">
+                      <span className="block truncate font-medium">{link.label}</span>
+                      <span className="mt-0.5 block truncate text-[10px] leading-tight text-slate-500">{link.description}</span>
+                    </span>
+                  )}
                 </Link>
               );
             })}
             {profile?.role === 'admin' && (
               <Link
                 href="/admin/dashboard"
-                title={sidebarCollapsed ? 'Admin Console' : undefined}
+                title={sidebarCollapsed ? 'Admin Console: Manage app operations' : undefined}
+                aria-current={pathname.startsWith('/admin') ? 'page' : undefined}
                 className={`flex items-center rounded-lg text-sm font-medium transition-colors ${
                   sidebarCollapsed ? 'justify-center p-2.5' : 'gap-3 px-3 py-2.5'
                 } ${
@@ -653,9 +710,15 @@ export function Header() {
                 }`}
               >
                 <Shield className="h-5 w-5 shrink-0 text-amber-400" />
-                {!sidebarCollapsed && <span className="truncate">Admin Console</span>}
+                {!sidebarCollapsed && (
+                  <span className="min-w-0">
+                    <span className="block truncate">Admin Console</span>
+                    <span className="mt-0.5 block text-[10px] leading-tight text-amber-400/60">Manage app operations</span>
+                  </span>
+                )}
               </Link>
             )}
+            </div>
           </div>
         </nav>
       </aside>
@@ -863,9 +926,16 @@ export function Header() {
               {/* Results List */}
               <div className="max-h-80 overflow-y-auto p-2 space-y-1">
                 {isSearchingPlayers && (
-                  <div className="p-4 text-center text-xs text-slate-400 flex items-center justify-center gap-2">
-                    <span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-amber-500 border-t-transparent" />
-                    Searching players...
+                  <div role="status" aria-label="Searching players" className="space-y-1.5 p-1">
+                    {[1, 2, 3].map((item) => (
+                      <div key={item} className="flex items-center gap-3 rounded-lg p-2.5">
+                        <div className="h-8 w-8 shrink-0 animate-pulse rounded-md bg-slate-800" />
+                        <div className="min-w-0 flex-1 space-y-2">
+                          <div className="h-3 w-2/5 animate-pulse rounded bg-slate-700" />
+                          <div className="h-2.5 w-3/5 animate-pulse rounded bg-slate-800" />
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 )}
 
@@ -966,58 +1036,90 @@ export function Header() {
         </p>
 
         {/* Nav Links */}
-        <nav className="flex-1 overflow-y-auto px-3 py-2 space-y-0.5">
-          {primaryNavLinks.map((link) => {
-            const Icon = link.icon;
-            return (
-              <Link
-                key={link.href}
-                href={link.href}
-                className={`flex items-center gap-3 px-3 py-2.5 rounded-lg font-medium transition-colors ${
-                  isActive(link.href)
-                    ? 'bg-amber-500/20 text-amber-500'
-                    : 'text-slate-400 hover:text-white hover:bg-slate-800'
-                }`}
-                onClick={() => setMobileMenuOpen(false)}
-              >
-                <Icon className="h-5 w-5 shrink-0" />
-                <span>{link.label}</span>
-              </Link>
-            );
-          })}
-          <div className="border-t border-slate-700/80 pt-2 mt-2 space-y-0.5">
+        <nav className="no-scrollbar flex-1 overflow-y-auto px-3 py-2">
+          <div className="space-y-4">
+            {navSections.map((section) => (
+              <section key={section.label} aria-label={section.label}>
+                <h2 className="mb-1 px-3 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">
+                  {section.label}
+                </h2>
+                <div className="space-y-0.5">
+                  {section.links.map((link) => {
+                    const Icon = link.icon;
+                    const active = isActive(link.href);
+                    return (
+                      <Link
+                        key={link.href}
+                        href={link.href}
+                        aria-current={active ? 'page' : undefined}
+                        className={`flex items-start gap-3 rounded-lg px-3 py-2.5 transition-colors ${
+                          active
+                            ? 'bg-amber-500/20 text-amber-500'
+                            : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+                        }`}
+                        onClick={() => setMobileMenuOpen(false)}
+                      >
+                        <Icon className={`mt-0.5 h-5 w-5 shrink-0 ${active ? 'text-amber-500' : 'text-slate-400'}`} />
+                        <span className="min-w-0">
+                          <span className="block font-medium">{link.label}</span>
+                          <span className={`mt-0.5 block text-xs leading-tight ${active ? 'text-amber-200/70' : 'text-slate-500'}`}>
+                            {link.description}
+                          </span>
+                        </span>
+                      </Link>
+                    );
+                  })}
+                </div>
+              </section>
+            ))}
+          </div>
+          <div className="mt-3 border-t border-slate-700/80 pt-2">
+            <h2 className="mb-1 px-3 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">
+              Resources
+            </h2>
+            <div className="space-y-0.5">
             {bottomNavLinks.map((link) => {
               const Icon = link.icon;
+              const active = isActive(link.href);
               return (
                 <Link
                   key={link.href}
                   href={link.href}
-                  className={`flex items-center gap-3 px-3 py-2.5 rounded-lg font-medium transition-colors ${
-                    isActive(link.href)
+                  aria-current={active ? 'page' : undefined}
+                  className={`flex items-start gap-3 rounded-lg px-3 py-2.5 transition-colors ${
+                    active
                       ? 'bg-amber-500/20 text-amber-500'
                       : 'text-slate-400 hover:text-white hover:bg-slate-800'
                   }`}
                   onClick={() => setMobileMenuOpen(false)}
                 >
-                  <Icon className="h-5 w-5 shrink-0" />
-                  <span>{link.label}</span>
+                  <Icon className={`mt-0.5 h-5 w-5 shrink-0 ${active ? 'text-amber-500' : 'text-slate-400'}`} />
+                  <span className="min-w-0">
+                    <span className="block font-medium">{link.label}</span>
+                    <span className="mt-0.5 block text-xs leading-tight text-slate-500">{link.description}</span>
+                  </span>
                 </Link>
               );
             })}
             {profile?.role === 'admin' && (
               <Link
                 href="/admin/dashboard"
-                className={`flex items-center gap-3 px-3 py-2.5 rounded-lg font-medium transition-colors ${
+                aria-current={pathname.startsWith('/admin') ? 'page' : undefined}
+                className={`flex items-start gap-3 rounded-lg px-3 py-2.5 font-medium transition-colors ${
                   pathname.startsWith('/admin')
                     ? 'bg-amber-500/20 text-amber-400 font-semibold'
                     : 'text-amber-400/80 hover:bg-amber-500/10 hover:text-amber-300'
                 }`}
                 onClick={() => setMobileMenuOpen(false)}
               >
-                <Shield className="h-5 w-5 shrink-0 text-amber-400" />
-                <span>Admin Console</span>
+                <Shield className="mt-0.5 h-5 w-5 shrink-0 text-amber-400" />
+                <span className="min-w-0">
+                  <span className="block">Admin Console</span>
+                  <span className="mt-0.5 block text-xs leading-tight text-amber-400/60">Manage app operations</span>
+                </span>
               </Link>
             )}
+            </div>
           </div>
         </nav>
 

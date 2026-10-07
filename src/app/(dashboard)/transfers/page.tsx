@@ -610,9 +610,24 @@ export default function TransfersPage() {
                 </thead>
                 <tbody className="divide-y divide-slate-700/50">
                   {loading ? (
-                    <tr>
-                      <td colSpan={6} className="px-4 py-8 text-center text-slate-400">Loading transfer candidates...</td>
-                    </tr>
+                    [1, 2, 3, 4, 5, 6].map((row) => (
+                      <tr key={`transfer-skeleton-${row}`} className="animate-pulse">
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-3">
+                            <div className="h-10 w-10 shrink-0 rounded-full bg-slate-700" />
+                            <div className="space-y-2">
+                              <div className="h-4 w-32 max-w-[30vw] rounded bg-slate-700" />
+                              <div className="h-3 w-20 rounded bg-slate-800" />
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3"><div className="mx-auto h-6 w-16 rounded-full bg-slate-700" /></td>
+                        <td className="px-4 py-3"><div className="ml-auto h-4 w-14 rounded bg-slate-700" /></td>
+                        <td className="px-4 py-3"><div className="ml-auto h-4 w-12 rounded bg-slate-700" /></td>
+                        <td className="px-4 py-3"><div className="ml-auto h-4 w-12 rounded bg-slate-700" /></td>
+                        <td className="px-4 py-3"><div className="mx-auto h-8 w-20 rounded-lg bg-slate-700" /></td>
+                      </tr>
+                    ))
                   ) : displayedPlayers.length === 0 ? (
                     <tr>
                       <td colSpan={6} className="px-4 py-8 text-center text-slate-400">No players found matching your criteria.</td>
@@ -856,8 +871,17 @@ export default function TransfersPage() {
                   <span>⚔️</span> Recent Match History & Scoring Breakdown
                 </h4>
                 {modalLoading ? (
-                  <div className="p-6 text-center text-sm text-slate-400 border border-slate-800 rounded-lg">
-                    Loading performance details...
+                  <div className="overflow-hidden rounded-xl border border-slate-800 animate-pulse" role="status" aria-label="Loading performance details">
+                    <div className="grid grid-cols-5 gap-3 bg-slate-950 px-3 py-2.5">
+                      {[1, 2, 3, 4, 5].map((header) => <div key={header} className="h-3 rounded bg-slate-800" />)}
+                    </div>
+                    <div className="divide-y divide-slate-800/80 bg-slate-900/50">
+                      {[1, 2, 3].map((row) => (
+                        <div key={row} className="grid grid-cols-5 gap-3 px-3 py-3">
+                          {[1, 2, 3, 4, 5].map((cell) => <div key={cell} className="h-4 rounded bg-slate-800" />)}
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 ) : (!modalPlayer.performances || modalPlayer.performances.length === 0) ? (
                   <div className="p-4 text-center text-xs text-slate-400 border border-slate-800 rounded-lg bg-slate-950/40">

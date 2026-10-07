@@ -212,12 +212,23 @@ export default function LeaderboardPage() {
                </thead>
                <tbody className="divide-y divide-slate-700/50">
                   {loading ? (
-                     <tr>
-                        <td colSpan={5} className="px-6 py-12 text-center">
-                           <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-amber-500"></div>
-                           <p className="text-slate-400 mt-4">Loading rankings...</p>
-                        </td>
-                     </tr>
+                     [1, 2, 3, 4, 5, 6].map((row) => (
+                        <tr key={`ranking-skeleton-${row}`} className="animate-pulse">
+                           <td className="px-6 py-4 text-center"><div className="mx-auto h-8 w-8 rounded-full bg-slate-700" /></td>
+                           <td className="px-2 py-4"><div className="mx-auto h-4 w-8 rounded bg-slate-700" /></td>
+                           <td className="px-6 py-4">
+                              <div className="flex items-center gap-3">
+                                 <div className="h-10 w-10 shrink-0 rounded-full border border-slate-700 bg-slate-700" />
+                                 <div className="space-y-2">
+                                    <div className="h-4 w-36 max-w-[35vw] rounded bg-slate-700" />
+                                    <div className="h-3 w-24 rounded bg-slate-800" />
+                                 </div>
+                              </div>
+                           </td>
+                           <td className="px-6 py-4"><div className="ml-auto h-4 w-12 rounded bg-slate-700" /></td>
+                           <td className="px-6 py-4"><div className="ml-auto h-5 w-16 rounded bg-slate-700" /></td>
+                        </tr>
+                     ))
                   ) : entries.length === 0 ? (
                      <tr>
                         <td colSpan={5} className="px-6 py-12 text-center text-slate-400">

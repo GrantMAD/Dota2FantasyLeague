@@ -1,12 +1,20 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Activity } from 'lucide-react';
+import { Activity, CircleCheck, CircleHelp, Clock3, TriangleAlert, XCircle } from 'lucide-react';
 
+type JobHealthStatus = 'healthy' | 'degraded' | 'unknown';
 
 interface ObservabilityData {
   summary: { configuredJobs: number; runningJobs: number; recentRuns: number; recentFailures: number; averageDurationMs: number };
-  health: { healthy: boolean; issues?: string[] };
+  health: {
+    status: JobHealthStatus;
+    healthy: boolean | null;
+    failedJobs: string[];
+    runningJobs: string[];
+    staleJobs: string[];
+    unknownJobs: string[];
+  };
   recentRuns: Array<{ job_name: string; status: string; started_at: string; error_message?: string }>;
   cache: { entries: number };
 }
@@ -37,7 +45,39 @@ export default function AdminObservabilityPage() {
   }, []);
 
   if (error) return <div className="rounded border border-red-700 bg-red-900/20 p-6 text-red-300">{error}</div>;
-  if (!data) return <div className="py-12 text-center text-gray-400">Loading observability...</div>;
+  if (!data) {
+    return (
+      <div className="space-y-8" aria-busy="true" aria-label="Loading observability">
+        <div className="flex items-center justify-between gap-4">
+          <div className="space-y-2">
+            <div className="h-9 w-64 animate-pulse rounded bg-gray-700/60" />
+            <div className="h-4 w-80 max-w-full animate-pulse rounded bg-gray-700/40" />
+          </div>
+          <div className="h-10 w-24 animate-pulse rounded bg-gray-700/50" />
+        </div>
+        <div className="h-16 animate-pulse rounded border border-gray-700 bg-gray-800/50 p-4" />
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-5">
+          {Array.from({ length: 5 }).map((_, index) => (
+            <div key={index} className="rounded-lg border border-gray-700 bg-gray-800/50 p-5">
+              <div className="h-4 w-28 animate-pulse rounded bg-gray-700/60" />
+              <div className="mt-3 h-7 w-20 animate-pulse rounded bg-gray-700/50" />
+            </div>
+          ))}
+        </div>
+        <div className="rounded-lg border border-gray-700 bg-gray-800/50 p-6">
+          <div className="mb-5 h-6 w-40 animate-pulse rounded bg-gray-700/60" />
+          <div className="space-y-3">
+            {Array.from({ length: 5 }).map((_, index) => (
+              <div key={index} className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-700 py-3">
+                <div className="h-4 w-40 animate-pulse rounded bg-gray-700/50" />
+                <div className="h-4 w-48 max-w-full animate-pulse rounded bg-gray-700/40" />
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const cards = [
     ['Configured Jobs', data.summary.configuredJobs],
@@ -46,6 +86,53 @@ export default function AdminObservabilityPage() {
     ['Average Duration', `${data.summary.averageDurationMs} ms`],
     ['Cached Responses', data.cache.entries],
   ];
+  const healthPresentation = {
+    healthy: {
+      label: 'Healthy',
+      description: 'All enabled scheduled jobs are within their expected health windows.',
+      className: 'border-emerald-700 bg-emerald-900/20 text-emerald-300',
+      Icon: CircleCheck,
+    },
+    degraded: {
+      label: 'Degraded',
+      description: 'One or more enabled jobs failed or fell outside their expected schedule window.',
+      className: 'border-red-700 bg-red-900/20 text-red-300',
+      Icon: TriangleAlert,
+    },
+    unknown: {
+      label: 'Unknown',
+      description: 'Health cannot be confirmed because one or more enabled jobs lack a recognized durable run record.',
+      className: 'border-amber-700 bg-amber-900/20 text-amber-200',
+      Icon: CircleHelp,
+    },
+  } satisfies Record<JobHealthStatus, {
+    label: string;
+    description: string;
+    className: string;
+    Icon: typeof CircleCheck;
+  }>;
+  const health = healthPresentation[data.health.status];
+  const staleJobs = new Set(data.health.staleJobs);
+  const healthGroups = [
+    {
+      label: 'Failed latest runs',
+      jobs: data.health.failedJobs,
+      description: 'The latest recorded execution failed.',
+      Icon: XCircle,
+    },
+    {
+      label: 'Overdue jobs',
+      jobs: data.health.staleJobs,
+      description: 'No recent successful completion was recorded within the expected schedule window.',
+      Icon: Clock3,
+    },
+    {
+      label: 'Unconfirmed jobs',
+      jobs: data.health.unknownJobs,
+      description: 'No latest execution record with a recognized status is available.',
+      Icon: CircleHelp,
+    },
+  ].filter((group) => group.jobs.length > 0);
 
   return (
     <div className="space-y-8">
@@ -53,15 +140,50 @@ export default function AdminObservabilityPage() {
         <div><h1 className="flex items-center gap-3 text-3xl font-bold text-white"><Activity className="h-8 w-8 text-amber-400" />Live Observability</h1><p className="mt-1 text-gray-400">Background job health, failures, latency, and response cache status.</p></div>
         <button onClick={load} className="rounded bg-amber-500/20 px-4 py-2 text-amber-400 hover:bg-amber-500/30">Refresh</button>
       </div>
-      <div
-        className={`rounded border p-4 font-medium transition-colors ${
-          data.health.healthy
-            ? 'border-emerald-700 bg-emerald-900/20 text-emerald-300'
-            : 'border-red-700 bg-red-900/20 text-red-300'
-        }`}
-      >
-        <span className="font-semibold">System health:</span> {data.health.healthy ? 'Healthy' : 'Needs attention'}
-        {data.health.issues?.length ? ` - ${data.health.issues.join(', ')}` : ''}
+      <div className={`rounded border p-4 transition-colors ${health.className}`} aria-live="polite">
+        <div className="flex items-center gap-2 font-medium">
+          <health.Icon className="h-5 w-5 shrink-0" aria-hidden="true" />
+          <p><span className="font-semibold">System health:</span> {health.label}</p>
+        </div>
+        <p className="mt-2 text-sm opacity-90">{health.description}</p>
+        {healthGroups.length > 0 && (
+          <div className="mt-4 grid gap-3 md:grid-cols-2">
+            {healthGroups.map(({ label, jobs, description, Icon }) => (
+              <section key={label} className="rounded border border-current/20 bg-black/10 p-3">
+                <h2 className="flex items-center gap-2 text-sm font-semibold">
+                  <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
+                  {label} ({jobs.length})
+                </h2>
+                <ul className="mt-2 space-y-2 text-sm">
+                  {jobs.map((jobName) => (
+                    <li key={jobName}>
+                      <span className="font-medium">{jobName}</span>
+                      <span className="block text-xs opacity-80">
+                        {label === 'Overdue jobs' && data.health.runningJobs.includes(jobName)
+                          ? 'This execution has been running for more than 30 minutes.'
+                          : description}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            ))}
+            {data.health.runningJobs.filter((jobName) => !staleJobs.has(jobName)).length > 0 && (
+              <section className="rounded border border-current/20 bg-black/10 p-3">
+                <h2 className="flex items-center gap-2 text-sm font-semibold">
+                  <Clock3 className="h-4 w-4 shrink-0" aria-hidden="true" />
+                  Currently running ({data.health.runningJobs.filter((jobName) => !staleJobs.has(jobName)).length})
+                </h2>
+                <p className="mt-2 text-xs opacity-80">These jobs are in progress and have not exceeded the running threshold.</p>
+                <ul className="mt-2 space-y-1 text-sm">
+                  {data.health.runningJobs.filter((jobName) => !staleJobs.has(jobName)).map((jobName) => (
+                    <li key={jobName} className="font-medium">{jobName}</li>
+                  ))}
+                </ul>
+              </section>
+            )}
+          </div>
+        )}
       </div>
       <div className="grid grid-cols-1 gap-4 md:grid-cols-5">
         {cards.map(([label, value]) => <div key={label} className="rounded-lg border border-gray-700 bg-gray-800/50 p-5"><div className="text-sm text-gray-400">{label}</div><div className="mt-2 text-2xl font-semibold text-white">{value}</div></div>)}

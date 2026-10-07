@@ -173,8 +173,49 @@ export default function SquadPlannerPage() {
 
   if (loading) {
     return (
-      <div className="mx-auto max-w-7xl px-4 py-12" role="status">
-        <p className="animate-pulse text-slate-300">Loading your gameweek planner...</p>
+      <div className="mx-auto max-w-7xl px-4 py-10 animate-pulse" role="status" aria-label="Loading your gameweek planner">
+        <div className="mb-6 h-4 w-36 rounded bg-slate-800" />
+        <header className="mb-8 space-y-3">
+          <div className="h-9 w-72 max-w-full rounded bg-slate-800" />
+          <div className="h-4 w-full max-w-xl rounded bg-slate-800" />
+        </header>
+        <section className="mb-8 grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
+          <div className="rounded-2xl border border-slate-800 bg-slate-900/70 p-6">
+            <div className="mb-3 h-3 w-24 rounded bg-slate-800" />
+            <div className="h-7 w-48 rounded bg-slate-800" />
+            <div className="mt-4 h-4 w-56 max-w-full rounded bg-slate-800" />
+            <div className="mt-6 flex flex-wrap gap-3">
+              <div className="h-10 w-28 rounded-lg bg-slate-800" />
+              <div className="h-10 w-36 rounded-lg bg-slate-800" />
+            </div>
+          </div>
+          <div className="rounded-2xl border border-slate-800 bg-slate-800/50 p-6">
+            <div className="mb-4 h-3 w-24 rounded bg-slate-800" />
+            <div className="h-9 w-36 rounded bg-slate-800" />
+            <div className="mt-3 h-4 w-48 max-w-full rounded bg-slate-800" />
+            <div className="mt-5 h-3 w-full rounded bg-slate-800" />
+          </div>
+        </section>
+        <div className="grid gap-6 xl:grid-cols-[1fr_0.9fr]">
+          {[1, 2].map((section) => (
+            <section key={section} className="overflow-hidden rounded-2xl border border-slate-800 bg-slate-800/40">
+              <div className="border-b border-slate-800 p-5">
+                <div className="h-5 w-48 rounded bg-slate-800" />
+                <div className="mt-2 h-4 w-64 max-w-full rounded bg-slate-800" />
+              </div>
+              {[1, 2, 3, 4].map((row) => (
+                <div key={row} className="flex items-center gap-3 border-b border-slate-800/70 p-4 sm:p-5">
+                  <div className="h-10 w-10 shrink-0 rounded-full bg-slate-800" />
+                  <div className="min-w-0 flex-1 space-y-2">
+                    <div className="h-4 w-36 max-w-full rounded bg-slate-800" />
+                    <div className="h-3 w-24 rounded bg-slate-800" />
+                  </div>
+                  <div className="h-6 w-20 rounded-full bg-slate-800" />
+                </div>
+              ))}
+            </section>
+          ))}
+        </div>
       </div>
     );
   }

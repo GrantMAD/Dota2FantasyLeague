@@ -252,7 +252,14 @@ export default function AdminTeamDetailModal({ teamId, onClose }: AdminTeamDetai
               </div>
               <div className="flex items-center gap-2 mt-1 text-sm text-slate-500 dark:text-slate-400">
                 <Users className="w-4 h-4" />
-                <span>Manager: <strong className="text-slate-700 dark:text-slate-200">{data?.manager.display_name || data?.manager.username || 'Loading...'}</strong></span>
+                <span className="flex items-center gap-1.5">
+                  Manager:{' '}
+                  {loading ? (
+                    <span role="status" aria-label="Loading manager" className="inline-block h-4 w-28 animate-pulse rounded bg-slate-300 dark:bg-slate-700" />
+                  ) : (
+                    <strong className="text-slate-700 dark:text-slate-200">{data?.manager.display_name || data?.manager.username}</strong>
+                  )}
+                </span>
                 {data?.manager.email && <span className="text-xs">({data.manager.email})</span>}
               </div>
             </div>
@@ -268,9 +275,27 @@ export default function AdminTeamDetailModal({ teamId, onClose }: AdminTeamDetai
 
         {/* Content Body */}
         {loading ? (
-          <div className="flex-1 p-12 flex flex-col items-center justify-center space-y-4">
-            <div className="w-10 h-10 border-4 border-amber-500 border-t-transparent rounded-full animate-spin"></div>
-            <p className="text-sm text-slate-400 font-medium">Loading fantasy team details...</p>
+          <div role="status" aria-label="Loading fantasy team details" className="flex-1 overflow-y-auto">
+            <div className="grid grid-cols-2 gap-4 border-b border-slate-200 bg-slate-100/60 p-5 dark:border-slate-800 dark:bg-slate-800/40 sm:grid-cols-4">
+              {[1, 2, 3, 4].map((item) => (
+                <div key={item} className="animate-pulse rounded-xl border border-slate-200 bg-white p-3 dark:border-slate-700/60 dark:bg-slate-800">
+                  <div className="mb-3 h-3 w-3/4 rounded bg-slate-200 dark:bg-slate-700" />
+                  <div className="h-6 w-1/2 rounded bg-slate-200 dark:bg-slate-700" />
+                </div>
+              ))}
+            </div>
+            <div className="space-y-3 p-5">
+              {[1, 2, 3, 4, 5].map((item) => (
+                <div key={item} className="flex animate-pulse items-center gap-3 rounded-xl border border-slate-200 p-3 dark:border-slate-700">
+                  <div className="h-10 w-10 shrink-0 rounded-full bg-slate-200 dark:bg-slate-700" />
+                  <div className="min-w-0 flex-1 space-y-2">
+                    <div className="h-3 w-2/5 rounded bg-slate-200 dark:bg-slate-700" />
+                    <div className="h-2.5 w-1/4 rounded bg-slate-200 dark:bg-slate-700" />
+                  </div>
+                  <div className="h-5 w-12 rounded bg-slate-200 dark:bg-slate-700" />
+                </div>
+              ))}
+            </div>
           </div>
         ) : error ? (
           <div className="flex-1 p-12 flex flex-col items-center justify-center space-y-3 text-center">

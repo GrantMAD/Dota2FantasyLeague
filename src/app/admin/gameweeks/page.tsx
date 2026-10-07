@@ -240,10 +240,26 @@ export default function AdminGameweeksPage() {
         <StatCard label="Closed" value={gameweeks.filter((g) => g.status === 'closed').length} />
       </div>
 
-      {loading && <p className="text-center text-gray-400">Loading gameweeks…</p>}
-
       <div className="space-y-3">
-        {gameweeks.map((gameweek) => {
+        {loading ? (
+          <div className="space-y-3" aria-busy="true" aria-label="Loading gameweeks">
+            {Array.from({ length: 4 }).map((_, index) => (
+              <div key={index} className="rounded-lg border border-gray-700 bg-gray-800/50 p-5">
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                  <div className="flex-1 space-y-3">
+                    <div className="flex items-center gap-3"><div className="h-6 w-36 animate-pulse rounded bg-gray-700/60" /><div className="h-5 w-20 animate-pulse rounded bg-gray-700/50" /></div>
+                    <div className="h-4 w-full max-w-md animate-pulse rounded bg-gray-700/40" />
+                    <div className="h-3 w-64 max-w-full animate-pulse rounded bg-gray-700/40" />
+                  </div>
+                  <div className="flex flex-wrap gap-3">
+                    <div className="h-9 w-32 animate-pulse rounded bg-gray-700/50" />
+                    <div className="h-9 w-36 animate-pulse rounded bg-gray-700/50" />
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : gameweeks.map((gameweek) => {
           const isExpanded = expandedId === gameweek.id;
           const isLoadingDetails = detailsLoading === gameweek.id;
           const detail = detailsCache[gameweek.id];
@@ -332,7 +348,31 @@ export default function AdminGameweeksPage() {
                   style={{ borderColor: 'var(--border)', background: 'var(--surface-muted)' }}
                 >
                   {isLoadingDetails && (
-                    <p className="text-center text-sm" style={{ color: 'var(--text-muted)' }}>Loading details…</p>
+                    <div className="space-y-6 animate-pulse" aria-busy="true" aria-label="Loading gameweek details">
+                      <section>
+                        <div className="mb-3 h-4 w-32 rounded bg-gray-500/20" />
+                        <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4">
+                          {Array.from({ length: 8 }).map((_, index) => (
+                            <div key={index} className="space-y-2">
+                              <div className="h-3 w-20 rounded bg-gray-500/20" />
+                              <div className="h-4 w-full rounded bg-gray-500/15" />
+                            </div>
+                          ))}
+                        </div>
+                      </section>
+                      <section>
+                        <div className="mb-3 h-4 w-28 rounded bg-gray-500/20" />
+                        <div className="space-y-2">
+                          {Array.from({ length: 2 }).map((_, index) => (
+                            <div key={index} className="h-12 rounded bg-gray-500/15" />
+                          ))}
+                        </div>
+                      </section>
+                      <section>
+                        <div className="mb-3 h-4 w-24 rounded bg-gray-500/20" />
+                        <div className="flex gap-2"><div className="h-8 w-28 rounded bg-gray-500/15" /><div className="h-8 w-24 rounded bg-gray-500/15" /></div>
+                      </section>
+                    </div>
                   )}
 
                   {detail && (

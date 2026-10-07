@@ -73,9 +73,50 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
 
   if (loading) {
     return (
-      <div className="mx-auto max-w-6xl px-4 py-20 text-center">
-        <div className="w-12 h-12 border-4 border-amber-500/20 border-t-amber-500 rounded-full animate-spin mx-auto mb-4" />
-        <p className="text-slate-400 text-sm">Loading tournament hub...</p>
+      <div className="tournament-detail-page mx-auto max-w-7xl px-4 py-10 space-y-8 animate-pulse" role="status" aria-label="Loading tournament hub">
+        <div className="flex items-center justify-between gap-4">
+          <div className="h-4 w-48 rounded bg-slate-800" />
+          <div className="h-4 w-40 rounded bg-slate-800" />
+        </div>
+        <section className="rounded-3xl border border-slate-800 bg-slate-900/80 p-8 sm:p-10">
+          <div className="flex flex-col items-start justify-between gap-6 md:flex-row md:items-center">
+            <div className="w-full space-y-4">
+              <div className="flex gap-2">
+                <div className="h-6 w-24 rounded-full bg-slate-800" />
+                <div className="h-6 w-32 rounded-full bg-slate-800" />
+              </div>
+              <div className="h-10 w-3/4 max-w-xl rounded bg-slate-800" />
+              <div className="h-4 w-52 rounded bg-slate-800" />
+            </div>
+            <div className="grid w-full grid-cols-3 gap-2 rounded-2xl border border-slate-800 bg-slate-950/70 p-4 md:w-auto">
+              {[1, 2, 3].map((item) => (
+                <div key={item} className="space-y-2 border-r border-slate-800 px-3 text-center last:border-0">
+                  <div className="mx-auto h-6 w-10 rounded bg-slate-800" />
+                  <div className="mx-auto h-3 w-14 rounded bg-slate-800" />
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+        <div className="flex gap-3 border-b border-slate-800 pb-4">
+          <div className="h-9 w-36 rounded-xl bg-slate-800" />
+          <div className="h-9 w-36 rounded-xl bg-slate-800" />
+        </div>
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
+          {[1, 2, 3, 4, 5, 6].map((item) => (
+            <div key={item} className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5">
+              <div className="mb-5 flex justify-between">
+                <div className="h-4 w-24 rounded bg-slate-800" />
+                <div className="h-6 w-16 rounded-full bg-slate-800" />
+              </div>
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2"><div className="h-9 w-9 rounded-full bg-slate-800" /><div className="h-4 w-20 rounded bg-slate-800" /></div>
+                <div className="h-4 w-6 rounded bg-slate-800" />
+                <div className="flex items-center gap-2"><div className="h-9 w-9 rounded-full bg-slate-800" /><div className="h-4 w-20 rounded bg-slate-800" /></div>
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
     );
   }

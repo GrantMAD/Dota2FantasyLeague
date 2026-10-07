@@ -192,9 +192,21 @@ export default function AdminPlayerDetailModal({ playerId, onClose, onNavigate }
 
         {/* Modal Body */}
         {loading ? (
-          <div className="p-12 flex flex-col items-center justify-center space-y-3">
-            <div className="w-8 h-8 border-4 border-amber-500 border-t-transparent rounded-full animate-spin"></div>
-            <p className="text-sm text-slate-400">Loading player statistics...</p>
+          <div role="status" aria-label="Loading player statistics" className="flex-1 overflow-y-auto p-6">
+            <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
+              {[1, 2, 3, 4].map((item) => (
+                <div key={item} className="animate-pulse rounded-xl border border-slate-700 bg-slate-800/60 p-3.5">
+                  <div className="mb-3 h-3 w-3/4 rounded bg-slate-700" />
+                  <div className="h-6 w-1/2 rounded bg-slate-700" />
+                </div>
+              ))}
+            </div>
+            <div className="mb-6 h-48 animate-pulse rounded-xl border border-slate-700 bg-slate-800/50" />
+            <div className="space-y-3">
+              {[1, 2, 3].map((item) => (
+                <div key={item} className="h-12 animate-pulse rounded-lg border border-slate-700 bg-slate-800/40" />
+              ))}
+            </div>
           </div>
         ) : error ? (
           <div className="p-8 flex flex-col items-center justify-center text-center space-y-2">

@@ -210,11 +210,31 @@ export default function AdminTeamsPage() {
         />
       </div>
 
-      {loading && <p className="text-center text-gray-400">Loading teams…</p>}
-
       {/* Team list */}
       <div className="space-y-3">
-        {filteredTeams.map((team) => (
+        {loading ? (
+          <div className="space-y-3" aria-busy="true" aria-label="Loading teams">
+            {Array.from({ length: 5 }).map((_, index) => (
+              <div key={index} className="rounded-lg border border-gray-700 bg-gray-800/50 p-5">
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                  <div className="flex items-center gap-4">
+                    <div className="h-12 w-12 shrink-0 animate-pulse rounded-md bg-gray-700/60" />
+                    <div className="space-y-3">
+                      <div className="flex flex-wrap gap-2"><div className="h-6 w-36 animate-pulse rounded bg-gray-700/60" /><div className="h-5 w-16 animate-pulse rounded bg-gray-700/50" /><div className="h-5 w-20 animate-pulse rounded bg-gray-700/50" /></div>
+                      <div className="h-4 w-48 animate-pulse rounded bg-gray-700/40" />
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap gap-6">
+                    {Array.from({ length: 3 }).map((__, metricIndex) => (
+                      <div key={metricIndex} className="space-y-2"><div className="h-3 w-16 animate-pulse rounded bg-gray-700/40" /><div className="h-5 w-12 animate-pulse rounded bg-gray-700/50" /></div>
+                    ))}
+                    <div className="h-9 w-24 animate-pulse rounded bg-gray-700/50" />
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : filteredTeams.map((team) => (
           <div
             key={team.id}
             className="overflow-hidden rounded-lg border border-gray-700 bg-gray-800/50"

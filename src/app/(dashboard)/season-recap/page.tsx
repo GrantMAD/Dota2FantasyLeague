@@ -94,7 +94,45 @@ export default function SeasonRecapPage() {
         </p>
       </header>
 
-      {loading && <p className="animate-pulse text-slate-300" role="status">Loading season recaps...</p>}
+      {loading && (
+        <div className="space-y-6 animate-pulse" role="status" aria-label="Loading season recaps">
+          {[1, 2, 3].map((recap) => (
+            <article key={recap} className="overflow-hidden rounded-2xl border border-slate-700 bg-slate-800/40">
+              <div className="flex flex-wrap items-start justify-between gap-4 border-b border-slate-700 p-5 sm:p-6">
+                <div className="space-y-3">
+                  <div className="h-3 w-24 rounded bg-slate-700" />
+                  <div className="h-7 w-48 rounded bg-slate-700" />
+                  <div className="h-4 w-36 rounded bg-slate-800" />
+                </div>
+                <div className="flex gap-2">
+                  <div className="h-9 w-28 rounded-lg bg-slate-700" />
+                  <div className="h-9 w-28 rounded-lg bg-slate-700" />
+                </div>
+              </div>
+              <div className="grid gap-4 p-5 sm:grid-cols-2 lg:grid-cols-4 sm:p-6">
+                {[1, 2, 3, 4].map((metric) => (
+                  <div key={metric} className="rounded-xl border border-slate-700/80 bg-slate-900/50 p-4">
+                    <div className="h-3 w-24 rounded bg-slate-800" />
+                    <div className="mt-3 h-7 w-16 rounded bg-slate-700" />
+                  </div>
+                ))}
+              </div>
+              <div className="space-y-3 px-5 pb-5 sm:px-6 sm:pb-6">
+                {[1, 2, 3].map((row) => (
+                  <div key={row} className="flex items-center gap-3 rounded-lg border border-slate-700/70 p-3">
+                    <div className="h-9 w-9 rounded-full bg-slate-700" />
+                    <div className="flex-1 space-y-2">
+                      <div className="h-4 w-32 rounded bg-slate-700" />
+                      <div className="h-3 w-24 rounded bg-slate-800" />
+                    </div>
+                    <div className="h-4 w-12 rounded bg-slate-700" />
+                  </div>
+                ))}
+              </div>
+            </article>
+          ))}
+        </div>
+      )}
       {error && (
         <div role="alert" className="rounded-xl border border-rose-500/30 bg-rose-950/30 p-5 text-rose-200">
           {error}

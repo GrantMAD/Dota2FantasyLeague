@@ -364,7 +364,22 @@ export default function AdminScoringPage() {
             </div>
             <button onClick={fetchBalanceReport} className="bg-blue-600 hover:bg-blue-500 text-white text-sm px-4 py-2 rounded">Refresh</button>
           </div>
-          {balanceLoading ? <div className="text-center p-12 text-slate-400">Loading analytics...</div> : balanceReport && (
+          {balanceLoading ? (
+            <div className="overflow-x-auto rounded-lg border border-slate-700 bg-slate-900" aria-busy="true" aria-label="Loading role balance analytics">
+              <table className="min-w-full divide-y divide-slate-800">
+                <thead className="bg-slate-800/50"><tr>{['Role', 'Samples', 'Average', 'Median', 'Bottom 10%', 'Top 10%', 'Avg Price', 'Ownership', 'Price / Point', 'Captain Impact'].map((heading) => <th key={heading} className="px-4 py-3 text-left text-xs font-medium text-slate-400 uppercase">{heading}</th>)}</tr></thead>
+                <tbody className="divide-y divide-slate-800">
+                  {Array.from({ length: 5 }).map((_, rowIndex) => (
+                    <tr key={rowIndex} className="animate-pulse">
+                      {Array.from({ length: 10 }).map((__, columnIndex) => (
+                        <td key={columnIndex} className="px-4 py-4"><div className={`h-4 rounded bg-slate-700/50 ${columnIndex === 0 ? 'w-24' : 'w-14'}`} /></td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : balanceReport && (
             <div className="bg-slate-900 rounded-lg border border-slate-700 overflow-x-auto">
               <table className="min-w-full divide-y divide-slate-800">
                 <thead className="bg-slate-800/50"><tr>{['Role', 'Samples', 'Average', 'Median', 'Bottom 10%', 'Top 10%', 'Avg Price', 'Ownership', 'Price / Point', 'Captain Impact'].map((heading) => <th key={heading} className="px-4 py-3 text-left text-xs font-medium text-slate-400 uppercase">{heading}</th>)}</tr></thead>
@@ -461,7 +476,24 @@ export default function AdminScoringPage() {
 
           {/* Rules Table */}
           {loading ? (
-            <div className="text-center p-12 text-slate-400">Loading rules...</div>
+            <div className="overflow-x-auto rounded-lg border border-slate-700 bg-slate-900" aria-busy="true" aria-label="Loading scoring rules">
+              <table className="min-w-full divide-y divide-slate-800">
+                <thead className="bg-slate-800/50">
+                  <tr>
+                    {['Rule', 'Value', 'Status'].map((heading) => <th key={heading} className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-slate-400">{heading}</th>)}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-800 bg-slate-900/50">
+                  {Array.from({ length: 6 }).map((_, index) => (
+                    <tr key={index} className="animate-pulse">
+                      <td className="px-6 py-4"><div className="h-4 w-40 rounded bg-slate-700/50" /><div className="mt-2 h-3 w-28 rounded bg-slate-700/40" /></td>
+                      <td className="px-6 py-4"><div className="h-8 w-24 rounded bg-slate-700/50" /></td>
+                      <td className="px-6 py-4"><div className="h-6 w-20 rounded-full bg-slate-700/50" /></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           ) : ruleVersions.length === 0 ? (
             <div className="text-center p-12 text-slate-500 bg-slate-800/30 border border-slate-700 rounded-lg">
               No scoring rule versions found. Create a draft to get started.

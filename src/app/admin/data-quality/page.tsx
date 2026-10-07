@@ -20,6 +20,7 @@ import {
   Swords,
   ExternalLink,
   CheckCheck,
+  ChevronDown,
 } from 'lucide-react';
 import { fetchWithAuth } from '@/lib/fetch-with-auth';
 
@@ -133,6 +134,7 @@ function getConflictGuidance(conflict: DataConflict): {
 
 export default function DataQualityPage() {
   const [conflicts, setConflicts] = useState<DataConflict[]>([]);
+  const [expandedConflicts, setExpandedConflicts] = useState<Record<string, boolean>>({});
   const [metrics, setMetrics] = useState<QualityMetrics | null>(null);
   const [completedRequest, setCompletedRequest] = useState<{ filterKey: string; refreshVersion: number } | null>(null);
   const [refreshing, setRefreshing] = useState(false);
@@ -504,11 +506,48 @@ export default function DataQualityPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-20">
-        <div className="flex items-center gap-3 text-gray-400">
-          <Loader2 className="h-6 w-6 animate-spin text-amber-400" />
-          <span>Loading data quality dashboard...</span>
+      <div className="space-y-8" aria-busy="true" aria-label="Loading data quality dashboard">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="space-y-2">
+            <div className="h-9 w-72 animate-pulse rounded bg-gray-700/60" />
+            <div className="h-4 w-full max-w-2xl animate-pulse rounded bg-gray-700/40" />
+          </div>
+          <div className="flex gap-2">
+            <div className="h-10 w-32 animate-pulse rounded-lg bg-gray-700/50" />
+            <div className="h-10 w-24 animate-pulse rounded-lg bg-gray-700/50" />
+          </div>
         </div>
+        <section className="rounded-xl border border-gray-700/80 bg-gray-850 p-6">
+          <div className="mb-6 h-6 w-48 animate-pulse rounded bg-gray-700/60" />
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-5">
+            {Array.from({ length: 5 }).map((_, index) => (
+              <div key={index} className="rounded-lg border border-gray-700 bg-gray-800/50 p-4">
+                <div className="h-4 w-24 animate-pulse rounded bg-gray-700/50" />
+                <div className="mt-3 h-7 w-16 animate-pulse rounded bg-gray-700/40" />
+                <div className="mt-3 h-2 w-full animate-pulse rounded bg-gray-700/40" />
+              </div>
+            ))}
+          </div>
+        </section>
+        <section className="space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="space-y-2">
+              <div className="h-6 w-40 animate-pulse rounded bg-gray-700/60" />
+              <div className="h-3 w-72 max-w-full animate-pulse rounded bg-gray-700/40" />
+            </div>
+            <div className="h-8 w-72 max-w-full animate-pulse rounded bg-gray-700/50" />
+          </div>
+          {Array.from({ length: 3 }).map((_, index) => (
+            <div key={index} className="rounded-xl border border-gray-700 bg-gray-800/50 p-5">
+              <div className="h-5 w-48 animate-pulse rounded bg-gray-700/60" />
+              <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">
+                <div className="h-16 animate-pulse rounded bg-gray-700/40" />
+                <div className="h-16 animate-pulse rounded bg-gray-700/40" />
+              </div>
+              <div className="mt-4 h-8 w-28 animate-pulse rounded bg-gray-700/40" />
+            </div>
+          ))}
+        </section>
       </div>
     );
   }
@@ -699,6 +738,7 @@ export default function DataQualityPage() {
             {conflicts.map((conflict) => {
               const isResolved = conflict.status === 'resolved';
               const isIgnored = conflict.status === 'ignored';
+              const isExpanded = expandedConflicts[conflict.id] ?? !isResolved;
               const isActionLoading = actionLoadingId === conflict.id;
 
               const provider1Name = conflict.provider_1 || 'Provider 1';
@@ -727,7 +767,16 @@ export default function DataQualityPage() {
                   }`}
                 >
                   {/* Top Bar */}
-                  <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-700/60 pb-3">
+                  <button
+                    type="button"
+                    aria-expanded={isExpanded}
+                    aria-controls={`conflict-details-${conflict.id}`}
+                    onClick={() => setExpandedConflicts((current) => ({
+                      ...current,
+                      [conflict.id]: !isExpanded,
+                    }))}
+                    className="flex w-full flex-wrap items-center justify-between gap-3 border-b border-gray-700/60 pb-3 text-left"
+                  >
                     <div className="flex items-center gap-3">
                       {isResolved ? (
                         <CheckCircle className="h-5 w-5 text-green-400 shrink-0" />
@@ -773,9 +822,14 @@ export default function DataQualityPage() {
                           {new Date(conflict.created_at).toLocaleDateString()}
                         </span>
                       )}
+                      <ChevronDown
+                        className={`h-4 w-4 text-gray-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
+                        aria-hidden="true"
+                      />
                     </div>
-                  </div>
+                  </button>
 
+                  <div id={`conflict-details-${conflict.id}`} hidden={!isExpanded} className="pt-1">
                   {/* Contextual Guidance & Human Explanation */}
                   <div className="mt-3 rounded-lg border border-amber-500/20 bg-amber-500/5 p-3.5">
                     <div className="flex items-start gap-2.5">
@@ -1002,6 +1056,7 @@ export default function DataQualityPage() {
                       {isResolved ? 'Re-resolve / Edit' : 'Custom Resolution & Notes'}
                     </button>
                   </div>
+                </div>
                 </div>
               );
             })}
