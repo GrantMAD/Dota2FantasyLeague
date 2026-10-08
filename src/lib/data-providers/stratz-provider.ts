@@ -62,11 +62,17 @@ interface StratzPlayerRecord {
 }
 
 interface StratzProSteamAccountRecord {
-  steamAccountId: number | string | null;
+  id: number | string | null;
   name?: string | null;
   isPro?: boolean;
   fantasyRole?: number | null;
-  team?: { id: number | string; name: string; tag?: string | null } | null;
+  team?: {
+    id: number | string;
+    name: string;
+    tag?: string | null;
+    countryCode?: string | null;
+    logo?: string | null;
+  } | null;
   countries?: string | string[] | null;
   steam?: { avatar?: string | null; profileUrl?: string | null } | null;
 }
@@ -78,14 +84,18 @@ interface StratzRosterTeam {
   leftDate?: string | null;
 }
 
-interface StratzTeamRecord {
+interface StratzTeamMember {
+  steamAccountId: number | string;
+  firstMatchDateTime?: number | string | null;
+}
+
+interface StratzTeamDetailRecord {
   id: number | string;
   name: string;
   tag?: string | null;
   countryCode?: string | null;
-  founded?: string | null;
   logo?: string | null;
-  players?: Array<{ id: number | string; joinedDate?: string | null }> | null;
+  members?: StratzTeamMember[] | null;
 }
 
 interface StratzLeagueRecord {
@@ -192,12 +202,12 @@ export class StratzProvider extends DataProviderBase implements DataProvider {
   async fetchPlayers(filters?: DataProviderFilters): Promise<PlayerData[]> {
     try {
       // STRATZ API v2 schema: bulk pro player data is via proSteamAccounts.
-      // The old player(request: { isLive: true }) query was removed; player()
-      // now requires steamAccountId for single-player lookups only.
+      // The account identifier is `id`; player() requires steamAccountId for
+      // single-player lookups only.
       const query = `
         query GetProPlayers {
           proSteamAccounts {
-            steamAccountId
+            id
             name
             isPro
             fantasyRole
@@ -222,7 +232,7 @@ export class StratzProvider extends DataProviderBase implements DataProvider {
       }
 
       for (const account of accounts) {
-        const steamAccountId = String(account.steamAccountId ?? '').trim();
+        const steamAccountId = String(account.id ?? '').trim();
         if (!/^\d+$/.test(steamAccountId) || !Number.isSafeInteger(Number(steamAccountId)) || Number(steamAccountId) <= 0) {
           throw new Error('STRATZ pro player record is missing a valid steamAccountId');
         }
@@ -244,8 +254,8 @@ export class StratzProvider extends DataProviderBase implements DataProvider {
       const limit = filters?.limit || activePlayers.length;
 
       return activePlayers.slice(offset, offset + limit).map((a) => ({
-        id: String(a.steamAccountId),
-        steamId: String(a.steamAccountId),
+        id: String(a.id),
+        steamId: String(a.id),
         name: a.name ?? '',
         tag: a.team?.tag ?? undefined,
         country: Array.isArray(a.countries) ? a.countries[0] : (a.countries ?? undefined),
@@ -338,50 +348,61 @@ export class StratzProvider extends DataProviderBase implements DataProvider {
   async fetchTeams(filters?: DataProviderFilters): Promise<TeamData[]> {
     try {
       const query = `
-        query {
-          team(request: {
-            skip: ${filters?.offset || 0}
-            take: ${Math.min(filters?.limit || 500, 500)}
-            isLive: ${filters?.activeOnly !== false}
-          }) {
+        query GetProTeams {
+          proSteamAccounts {
             id
             name
-            tag
-            countryCode
-            founded
-            logo
-            players {
+            isPro
+            team {
               id
-              steamId
               name
-              joinedDate
+              tag
+              countryCode
+              logo
             }
           }
         }
       `;
 
-      const response = await this.graphqlRequest<{ team?: StratzTeamRecord[] }>(query);
-      const teams = response.data?.team;
-      if (!Array.isArray(teams)) {
-        throw new Error('STRATZ team response is missing or invalid');
+      const response = await this.graphqlRequest<{ proSteamAccounts?: StratzProSteamAccountRecord[] }>(query);
+      const accounts = response.data?.proSteamAccounts;
+      if (!Array.isArray(accounts)) {
+        throw new Error('STRATZ proSteamAccounts response is missing or invalid');
       }
 
-      return teams.map((t) => ({
-        id: String(t.id),
-        name: t.name || `Team ${t.id}`,
-        tag: t.tag || t.name?.slice(0, 4) || 'D2',
-        region: t.countryCode || undefined,
-        country: t.countryCode || undefined,
-        foundedDate: t.founded ? new Date(t.founded) : undefined,
-        logoUrl: t.logo || undefined,
-        roster: (t.players || []).map((p) => ({
-          playerId: String(p.id),
-          joinedDate: p.joinedDate ? new Date(p.joinedDate) : new Date(),
-          position: undefined,
-        })),
-        isActive: true,
-        lastUpdated: new Date(),
-      }));
+      const teamsById = new Map<string, TeamData>();
+      for (const account of accounts) {
+        const team = account.team;
+        if (!account.isPro || !team?.id || !team.name) continue;
+
+        const id = String(team.id);
+        if (!/^\d+$/.test(id)) continue;
+        let mappedTeam = teamsById.get(id);
+        if (!mappedTeam) {
+          mappedTeam = {
+            id,
+            name: team.name,
+            tag: team.tag || team.name.slice(0, 4).toUpperCase(),
+            region: team.countryCode || undefined,
+            country: team.countryCode || undefined,
+            logoUrl: team.logo || undefined,
+            roster: [],
+            isActive: true,
+            lastUpdated: new Date(),
+          };
+          teamsById.set(id, mappedTeam);
+        }
+
+        const playerId = String(account.id ?? '').trim();
+        if (/^\d+$/.test(playerId) && !mappedTeam.roster.some((player) => player.playerId === playerId)) {
+          mappedTeam.roster.push({ playerId, joinedDate: new Date() });
+        }
+      }
+
+      const teams = [...teamsById.values()];
+      const offset = Math.max(0, filters?.offset ?? 0);
+      const limit = Math.min(Math.max(0, filters?.limit ?? teams.length), 500);
+      return teams.slice(offset, offset + limit);
     } catch (error) {
       throw this.createError(
         'STRATZ_TEAMS_FETCH_FAILED',
@@ -395,27 +416,35 @@ export class StratzProvider extends DataProviderBase implements DataProvider {
 
   async fetchTeam(teamId: string): Promise<TeamData> {
     try {
+      const numericTeamId = Number(teamId);
+      if (!/^[1-9]\d*$/.test(teamId) || !Number.isSafeInteger(numericTeamId)) {
+        throw this.createError(
+          'STRATZ_TEAM_NOT_FOUND',
+          `Team ${teamId} not found`,
+          404,
+          false
+        );
+      }
       const query = `
-        query {
-          team(request: { id: ${teamId} }) {
+        query GetTeam($teamId: Int!) {
+          team(teamId: $teamId) {
             id
             name
             tag
             countryCode
-            founded
             logo
-            players {
-              id
-              steamId
-              name
-              joinedDate
+            members {
+              steamAccountId
+              firstMatchDateTime
             }
           }
         }
       `;
 
-      const response = await this.graphqlRequest<{ team?: StratzTeamRecord[] }>(query);
-      const t = response.data?.team?.[0];
+      const response = await this.graphqlRequest<{ team?: StratzTeamDetailRecord }>(query, {
+        teamId: numericTeamId,
+      });
+      const t = response.data?.team;
 
       if (!t) {
         throw this.createError(
@@ -432,11 +461,12 @@ export class StratzProvider extends DataProviderBase implements DataProvider {
         tag: t.tag || t.name?.slice(0, 4) || 'D2',
         region: t.countryCode || undefined,
         country: t.countryCode || undefined,
-        foundedDate: t.founded ? new Date(t.founded) : undefined,
         logoUrl: t.logo || undefined,
-        roster: (t.players || []).map((p) => ({
-          playerId: String(p.id),
-          joinedDate: p.joinedDate ? new Date(p.joinedDate) : new Date(),
+        roster: (t.members || []).map((member) => ({
+          playerId: String(member.steamAccountId),
+          joinedDate: member.firstMatchDateTime
+            ? new Date(Number(member.firstMatchDateTime) * 1000)
+            : new Date(),
           position: undefined,
         })),
         isActive: true,

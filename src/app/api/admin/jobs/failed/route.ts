@@ -12,9 +12,15 @@ interface FailedJobRecord {
   started_at: string;
 }
 
+interface LatestJobExecution {
+  id: number;
+  status: string;
+}
+
 /**
  * GET /api/admin/jobs/failed
- * Returns failed and dead-letter job entries from job_execution_log.
+ * Returns only jobs whose latest execution is still failed. Older failures
+ * remain in job_execution_log as history but are no longer active alerts.
  */
 export async function GET(request: Request) {
   try {
@@ -36,7 +42,40 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: 'Failed to fetch failed jobs.' }, { status: 500 });
     }
 
-    return NextResponse.json({ failedJobs: (data || []) as FailedJobRecord[] });
+    const failedJobs = (data || []) as FailedJobRecord[];
+    const jobNames = [...new Set(failedJobs.map((job) => job.job_name))];
+    const latestExecutions = await Promise.all(jobNames.map(async (jobName) => {
+      const { data: latestExecution, error: latestExecutionError } = await supabase
+        .from('job_execution_log')
+        .select('id, status')
+        .eq('job_name', jobName)
+        .order('started_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (latestExecutionError) {
+        console.error(`Error fetching latest execution for ${jobName}:`, latestExecutionError);
+      }
+
+      return {
+        jobName,
+        execution: latestExecution as LatestJobExecution | null,
+        error: latestExecutionError,
+      };
+    }));
+
+    if (latestExecutions.some(({ error }) => error)) {
+      return NextResponse.json({ error: 'Failed to check the latest job execution status.' }, { status: 500 });
+    }
+
+    const latestFailedIds = new Set(
+      latestExecutions
+        .map(({ execution }) => execution?.status === 'failed' ? execution.id : null)
+        .filter((id): id is number => id !== null)
+    );
+    const activeFailures = failedJobs.filter((job) => latestFailedIds.has(job.id));
+
+    return NextResponse.json({ failedJobs: activeFailures });
   } catch (error: unknown) {
     return createErrorResponse(error as Error);
   }

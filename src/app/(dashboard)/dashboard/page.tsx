@@ -357,7 +357,7 @@ export default function DashboardPage() {
                   {whatsNew.events.map((event) => (
                     <Link
                       href={event.href}
-                      key={event.id}
+                      key={`tournament-${event.id}`}
                       className="whats-new-update-row whats-new-tournament-row group flex flex-wrap items-center gap-x-3 gap-y-2 py-3 transition-colors"
                     >
                       <Trophy aria-hidden="true" className="whats-new-update-icon h-4 w-4 shrink-0" />
@@ -380,7 +380,7 @@ export default function DashboardPage() {
                     return (
                       <Link
                         href={update.href}
-                        key={update.id}
+                        key={`${update.kind}-${update.id}`}
                         className="whats-new-update-row group flex flex-wrap items-center gap-x-3 gap-y-1 py-3 transition-colors"
                       >
                         <UpdateIcon aria-hidden="true" className={`whats-new-update-icon h-4 w-4 shrink-0 ${update.kind === 'availability' ? 'whats-new-availability-icon' : 'whats-new-price-icon'}`} />
@@ -575,7 +575,7 @@ export default function DashboardPage() {
 
                       return (
                         <div
-                          key={player.id}
+                          key={`${player.slot}-${player.id}`}
                           onClick={() => openPlayerDetails(player.id)}
                           role="button"
                           tabIndex={0}

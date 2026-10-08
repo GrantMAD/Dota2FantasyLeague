@@ -349,6 +349,7 @@ export default function DataJobsPage() {
       if (response.ok) {
         toast.success('Job Complete', `Job ${jobName} finished successfully.`);
         await fetchJobStatus(true);
+        await fetchFailedJobs();
       } else {
         const errData = await response.json().catch(() => ({}));
         toast.error('Job Failed', errData.error || `Job ${jobName} execution returned an error.`);
