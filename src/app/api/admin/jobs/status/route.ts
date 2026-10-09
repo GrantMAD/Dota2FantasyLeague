@@ -14,6 +14,8 @@ import { getJobs, getAllJobStatuses, healthCheck } from '@/lib/jobs/scheduler';
 import { verifyAdminAuth, createErrorResponse } from '@/lib/auth-utils';
 import { getSupabaseServerClient } from '@/lib/db/supabase-server';
 import { getNextCronDate } from '@/lib/jobs/cron-utils';
+import { withApiTelemetry } from '@/lib/api-telemetry';
+
 
 interface JobExecutionLog {
   job_name: string;
@@ -24,7 +26,7 @@ interface JobExecutionLog {
   error_message: string | null;
 }
 
-export async function GET(request: Request) {
+async function getHandler(request: Request) {
   try {
     // Check authentication and admin role
     await verifyAdminAuth(request);
@@ -98,3 +100,5 @@ export async function GET(request: Request) {
   }
 }
 
+
+export const GET = withApiTelemetry('GET', '/api/admin/jobs/status', getHandler);

@@ -1,13 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { AuthError, verifyAuth } from '@/lib/auth-utils';
 import { supabaseServer } from '@/lib/supabase';
+import { withApiTelemetry } from '@/lib/api-telemetry';
+
 
 /**
  * GET /api/squads - Fetch the authenticated user's fantasy squads.
  * Query params:
  *   - season_id: Optional season filter.
  */
-export async function GET(request: NextRequest) {
+async function getHandler(request: NextRequest) {
   try {
     const { userId } = await verifyAuth(request);
     const seasonIdParam = request.nextUrl.searchParams.get('season_id');
@@ -55,7 +57,7 @@ export async function GET(request: NextRequest) {
 /**
  * POST /api/squads - Create a fantasy squad for a season owned by the caller.
  */
-export async function POST(request: NextRequest) {
+async function postHandler(request: NextRequest) {
   try {
     const { userId } = await verifyAuth(request);
     let body: unknown;
@@ -122,3 +124,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Internal server error.' }, { status: 500 });
   }
 }
+
+export const GET = withApiTelemetry('GET', '/api/squads', getHandler);
+export const POST = withApiTelemetry('POST', '/api/squads', postHandler);

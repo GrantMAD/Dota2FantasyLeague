@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyAdminAuth } from '@/lib/auth-utils';
 import { FantasyScoreCalculator } from '@/lib/jobs/calculate-fantasy-scores';
+import { withApiTelemetry } from '@/lib/api-telemetry';
 
-export async function POST(request: NextRequest) {
+
+async function postHandler(request: NextRequest) {
   try {
     await verifyAdminAuth(request);
 
@@ -54,3 +56,5 @@ export async function POST(request: NextRequest) {
     );
   }
 }
+
+export const POST = withApiTelemetry('POST', '/api/admin/scoring/simulate', postHandler);

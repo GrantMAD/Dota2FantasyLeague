@@ -32,6 +32,7 @@ const adminMenuSections = [
     links: [
       { href: '/admin/data-jobs', label: 'Data Jobs', description: 'Run and monitor background jobs', icon: Zap },
       { href: '/admin/observability', label: 'Observability', description: 'Inspect job health and failures', icon: Activity },
+      { href: '/admin/telemetry', label: 'Telemetry', description: 'Search API and data-access activity', icon: BarChart3 },
       { href: '/admin/data-quality', label: 'Data Quality', description: 'Review provider conflicts and metrics', icon: AlertCircle },
       { href: '/admin/audit', label: 'Audit Log', description: 'Review administrative changes', icon: Database },
     ],

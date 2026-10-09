@@ -3,8 +3,10 @@ import { supabaseServer } from '@/lib/supabase';
 import { verifyAuth, applyRefreshedTokens, AuthError } from '@/lib/auth-utils';
 import { getOrCreateFantasySeason } from '@/lib/fantasy-season';
 import { aggregatePlayerGameweekBreakdowns } from '@/lib/player-gameweek-breakdown';
+import { withApiTelemetry } from '@/lib/api-telemetry';
 
-export async function GET(request: NextRequest) {
+
+async function getHandler(request: NextRequest) {
   try {
     const user = await verifyAuth(request);
     const supabase = supabaseServer();
@@ -270,3 +272,5 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'An unexpected error occurred.' }, { status: 500 });
   }
 }
+
+export const GET = withApiTelemetry('GET', '/api/dashboard/stats', getHandler);

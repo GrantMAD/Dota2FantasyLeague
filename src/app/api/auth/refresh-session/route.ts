@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { withApiTelemetry } from '@/lib/api-telemetry';
+
 
 /**
  * POST /api/auth/refresh-session
@@ -9,7 +11,7 @@ import { NextRequest, NextResponse } from 'next/server';
  *
  * Body: { access_token: string, refresh_token: string }
  */
-export async function POST(request: NextRequest) {
+async function postHandler(request: NextRequest) {
   try {
     const { access_token, refresh_token } = await request.json();
 
@@ -35,3 +37,5 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
+
+export const POST = withApiTelemetry('POST', '/api/auth/refresh-session', postHandler);

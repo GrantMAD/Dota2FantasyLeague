@@ -14,6 +14,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase';
 import { verifyAdminAuth } from '@/lib/auth-utils';
 import { logAuditAction } from '@/lib/audit-logger';
+import { withApiTelemetry } from '@/lib/api-telemetry';
+
 
 const OPENDOTA_API = process.env.OPENDOTA_API_URL || 'https://api.opendota.com/api';
 // Throttle individual team requests to stay well within OpenDota rate limits
@@ -38,7 +40,7 @@ async function fetchOpenDotaTeamLogo(teamId: string): Promise<string | null> {
   }
 }
 
-export async function POST(request: NextRequest) {
+async function postHandler(request: NextRequest) {
   let adminId: string;
   try {
     adminId = await verifyAdminAuth(request);
@@ -122,3 +124,5 @@ export async function POST(request: NextRequest) {
     updated_teams: updatedNames,
   });
 }
+
+export const POST = withApiTelemetry('POST', '/api/admin/data/backfill-team-logos', postHandler);

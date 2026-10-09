@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyAuth } from '@/lib/auth-utils';
 import { supabaseServer } from '@/lib/supabase';
+import { withApiTelemetry } from '@/lib/api-telemetry';
 
-export async function GET(request: NextRequest) {
+
+async function getHandler(request: NextRequest) {
   try {
     const { userId } = await verifyAuth(request);
     const { data, error } = await supabaseServer().from('users')
@@ -18,7 +20,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
-export async function PUT(request: NextRequest) {
+async function putHandler(request: NextRequest) {
   try {
     const { userId } = await verifyAuth(request);
     const body = await request.json();
@@ -35,3 +37,6 @@ export async function PUT(request: NextRequest) {
     return NextResponse.json({ error: 'Unable to save theme preference.' }, { status });
   }
 }
+
+export const GET = withApiTelemetry('GET', '/api/user/theme', getHandler);
+export const PUT = withApiTelemetry('PUT', '/api/user/theme', putHandler);

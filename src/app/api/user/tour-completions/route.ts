@@ -1,10 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyAuth } from '@/lib/auth-utils';
 import { supabaseServer } from '@/lib/supabase';
+import { withApiTelemetry } from '@/lib/api-telemetry';
+
 
 // GET /api/user/tour-completions
 // Returns completed page keys and dismissed page keys separately.
-export async function GET(request: NextRequest) {
+async function getHandler(request: NextRequest) {
   try {
     const { userId } = await verifyAuth(request);
     const { data, error } = await supabaseServer()
@@ -34,7 +36,7 @@ export async function GET(request: NextRequest) {
 // POST /api/user/tour-completions
 // Body: { pageKey: string }
 // Marks a tour as completed for the authenticated user. Idempotent (upsert).
-export async function POST(request: NextRequest) {
+async function postHandler(request: NextRequest) {
   try {
     const { userId } = await verifyAuth(request);
     const body = await request.json();
@@ -68,7 +70,7 @@ export async function POST(request: NextRequest) {
 // PATCH /api/user/tour-completions
 // Body: { pageKey: string }
 // Marks the replay button as dismissed (hidden) for this page.
-export async function PATCH(request: NextRequest) {
+async function patchHandler(request: NextRequest) {
   try {
     const { userId } = await verifyAuth(request);
     const body = await request.json();
@@ -101,7 +103,7 @@ export async function PATCH(request: NextRequest) {
 // DELETE /api/user/tour-completions
 // Body: { pageKey: string }
 // Resets a tour for a user (lets them replay from fresh state).
-export async function DELETE(request: NextRequest) {
+async function deleteHandler(request: NextRequest) {
   try {
     const { userId } = await verifyAuth(request);
     const body = await request.json();
@@ -130,3 +132,8 @@ export async function DELETE(request: NextRequest) {
     return NextResponse.json({ error: 'Unable to reset tour completion.' }, { status });
   }
 }
+
+export const GET = withApiTelemetry('GET', '/api/user/tour-completions', getHandler);
+export const POST = withApiTelemetry('POST', '/api/user/tour-completions', postHandler);
+export const PATCH = withApiTelemetry('PATCH', '/api/user/tour-completions', patchHandler);
+export const DELETE = withApiTelemetry('DELETE', '/api/user/tour-completions', deleteHandler);

@@ -2,8 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verifyAuth } from '@/lib/auth-utils';
 import { canUsePremiumFeature } from '@/lib/premium';
 import { supabaseServer } from '@/lib/supabase';
+import { withApiTelemetry } from '@/lib/api-telemetry';
 
-export async function GET(request: NextRequest) {
+
+async function getHandler(request: NextRequest) {
   try {
     const auth = await verifyAuth(request);
     const supabase = supabaseServer();
@@ -17,3 +19,5 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: error instanceof Error ? error.message : 'Unable to load recommendations.' }, { status });
   }
 }
+
+export const GET = withApiTelemetry('GET', '/api/players/recommendations', getHandler);

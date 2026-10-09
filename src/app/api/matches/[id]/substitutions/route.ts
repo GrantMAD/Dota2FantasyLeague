@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase';
 import { createErrorResponse, verifyAdminAuth } from '@/lib/auth-utils';
+import { withApiTelemetry } from '@/lib/api-telemetry';
+
 
 interface RouteContext {
   params: Promise<{ id: string }>;
@@ -10,7 +12,7 @@ interface RouteContext {
  * GET /api/matches/[id]/substitutions
  * Returns all substitutions for a given match.
  */
-export async function GET(request: NextRequest, context: RouteContext) {
+async function getHandler(request: NextRequest, context: RouteContext) {
   try {
     const params = await context.params;
     const matchId = parseInt(params.id, 10);
@@ -50,7 +52,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
  * Admin only. Registers a stand-in for a rostered player in a specific match.
  * Body: { rosteredPlayerId: number, standInPlayerId: number }
  */
-export async function POST(request: NextRequest, context: RouteContext) {
+async function postHandler(request: NextRequest, context: RouteContext) {
   try {
     await verifyAdminAuth(request);
 
@@ -102,7 +104,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
  * Admin only. Removes a substitution mapping.
  * Body: { id: number } (The primary key of the match_player_substitutions table)
  */
-export async function DELETE(request: NextRequest, context: RouteContext) {
+async function deleteHandler(request: NextRequest, context: RouteContext) {
   try {
     await verifyAdminAuth(request);
 
@@ -140,3 +142,7 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
     return createErrorResponse(error as Error);
   }
 }
+
+export const GET = withApiTelemetry('GET', '/api/matches/:id/substitutions', getHandler);
+export const POST = withApiTelemetry('POST', '/api/matches/:id/substitutions', postHandler);
+export const DELETE = withApiTelemetry('DELETE', '/api/matches/:id/substitutions', deleteHandler);

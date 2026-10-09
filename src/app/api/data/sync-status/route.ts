@@ -11,8 +11,10 @@ import {
   getMonitoringSummary,
   healthCheck,
 } from '@/lib/jobs/scheduler';
+import { withApiTelemetry } from '@/lib/api-telemetry';
 
-export async function GET() {
+
+async function getHandler() {
   try {
     const statuses = getAllJobStatuses();
     const health = await healthCheck();
@@ -37,3 +39,5 @@ export async function GET() {
     );
   }
 }
+
+export const GET = withApiTelemetry('GET', '/api/data/sync-status', getHandler);

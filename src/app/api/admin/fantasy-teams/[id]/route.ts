@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase';
 import { verifyAdminAuth, createErrorResponse } from '@/lib/auth-utils';
+import { withApiTelemetry } from '@/lib/api-telemetry';
+
 
 const slots = ['carry', 'mid', 'offlane', 'support', 'hard_support', 'bench_1', 'bench_2', 'bench_3'] as const;
 type Slot = (typeof slots)[number];
@@ -100,7 +102,7 @@ function getSlotId(row: Record<string, unknown>, slot: Slot): number | null {
  * - Joined leagues & standings
  * - Chip usage status
  */
-export async function GET(
+async function getHandler(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -407,3 +409,5 @@ export async function GET(
     return createErrorResponse(error instanceof Error ? error : new Error(String(error)));
   }
 }
+
+export const GET = withApiTelemetry('GET', '/api/admin/fantasy-teams/:id', getHandler);

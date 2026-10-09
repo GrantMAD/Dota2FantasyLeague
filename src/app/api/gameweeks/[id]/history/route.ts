@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyAuth } from '@/lib/auth-utils';
 import { supabaseServer } from '@/lib/supabase';
+import { withApiTelemetry } from '@/lib/api-telemetry';
+
 
 interface LineupRow {
   fantasy_season_id: number;
@@ -54,7 +56,7 @@ const STARTER_SLOTS = [
   ['Hard Support', 'hard_support_id'],
 ] as const;
 
-export async function GET(request: NextRequest, context: RouteContext) {
+async function getHandler(request: NextRequest, context: RouteContext) {
   try {
     const { userId } = await verifyAuth(request);
     const { id } = await context.params;
@@ -212,3 +214,5 @@ export async function GET(request: NextRequest, context: RouteContext) {
     return NextResponse.json({ error: message }, { status: Number.isInteger(status) ? status : 500 });
   }
 }
+
+export const GET = withApiTelemetry('GET', '/api/gameweeks/:id/history', getHandler);

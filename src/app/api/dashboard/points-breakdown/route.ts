@@ -10,6 +10,8 @@ import {
   type PointsPerformance,
   type PointsPlayer,
 } from '@/lib/dashboard-points';
+import { withApiTelemetry } from '@/lib/api-telemetry';
+
 
 interface BreakdownRecord {
   combat_points: number | null;
@@ -41,7 +43,7 @@ const toCategories = (record: BreakdownRecord | null): PlayerPointCategories => 
   penalty: -Number(record?.penalty_points ?? 0),
 });
 
-export async function GET(request: NextRequest) {
+async function getHandler(request: NextRequest) {
   try {
     const user = await verifyAuth(request);
     const supabase = supabaseServer();
@@ -171,3 +173,5 @@ export async function GET(request: NextRequest) {
     );
   }
 }
+
+export const GET = withApiTelemetry('GET', '/api/dashboard/points-breakdown', getHandler);

@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase';
 import { verifyAuth, AuthError } from '@/lib/auth-utils';
 import { logAuditAction } from '@/lib/audit-logger';
+import { withApiTelemetry } from '@/lib/api-telemetry';
+
 
 interface ChipActivationResult {
   success?: boolean;
@@ -9,7 +11,7 @@ interface ChipActivationResult {
   gameweek_id?: number | null;
 }
 
-export async function POST(request: NextRequest) {
+async function postHandler(request: NextRequest) {
   try {
     // 1. Authenticate user
     const { userId } = await verifyAuth(request);
@@ -77,3 +79,5 @@ export async function POST(request: NextRequest) {
     );
   }
 }
+
+export const POST = withApiTelemetry('POST', '/api/fantasy/triple-captain', postHandler);

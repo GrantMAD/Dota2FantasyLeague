@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase';
 import { getCached, setCached } from '@/lib/response-cache';
+import { withApiTelemetry } from '@/lib/api-telemetry';
+
 
 interface TournamentRecord {
   [column: string]: unknown;
@@ -34,7 +36,7 @@ interface TeamSummary {
  * Returns tournaments, optionally filtered by seasonId and/or status.
  * Query params: seasonId, status (eligible|excluded|provisional|archived)
  */
-export async function GET(request: NextRequest) {
+async function getHandler(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const seasonId = searchParams.get('seasonId');
@@ -116,3 +118,5 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'An unexpected error occurred.' }, { status: 500 });
   }
 }
+
+export const GET = withApiTelemetry('GET', '/api/tournaments', getHandler);

@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase';
 import { createErrorResponse, verifyAdminAuth } from '@/lib/auth-utils';
+import { withApiTelemetry } from '@/lib/api-telemetry';
+
 
 /**
  * GET /api/teams - Fetch all professional teams
@@ -8,7 +10,7 @@ import { createErrorResponse, verifyAdminAuth } from '@/lib/auth-utils';
  *   - limit: Limit results (default: 100)
  *   - offset: Pagination offset (default: 0)
  */
-export async function GET(request: NextRequest) {
+async function getHandler(request: NextRequest) {
   try {
     const supabase = supabaseServer();
     const searchParams = request.nextUrl.searchParams;
@@ -40,7 +42,7 @@ export async function GET(request: NextRequest) {
 /**
  * POST /api/teams - Create a new professional team (admin only)
  */
-export async function POST(request: NextRequest) {
+async function postHandler(request: NextRequest) {
   try {
     await verifyAdminAuth(request);
     const body: unknown = await request.json();
@@ -79,3 +81,6 @@ export async function POST(request: NextRequest) {
     return createErrorResponse(error as Error);
   }
 }
+
+export const GET = withApiTelemetry('GET', '/api/teams', getHandler);
+export const POST = withApiTelemetry('POST', '/api/teams', postHandler);

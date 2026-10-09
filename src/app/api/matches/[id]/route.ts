@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase';
+import { withApiTelemetry } from '@/lib/api-telemetry';
+
 
 interface RouteContext {
   params: Promise<{ id: string }>;
@@ -67,7 +69,7 @@ interface PerformanceRecord {
  * GET /api/matches/[id]
  * Returns a single match with full per-player stats and substitutions.
  */
-export async function GET(request: NextRequest, context: RouteContext) {
+async function getHandler(request: NextRequest, context: RouteContext) {
   try {
     const params = await context.params;
     const matchId = parseInt(params.id, 10);
@@ -188,3 +190,5 @@ export async function GET(request: NextRequest, context: RouteContext) {
     return NextResponse.json({ error: 'An unexpected error occurred.' }, { status: 500 });
   }
 }
+
+export const GET = withApiTelemetry('GET', '/api/matches/:id', getHandler);

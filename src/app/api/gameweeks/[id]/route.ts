@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase';
 import { createErrorResponse, verifyAdminAuth } from '@/lib/auth-utils';
 import { getRoleByHeroName } from '@/lib/constants/dota-heroes';
+import { withApiTelemetry } from '@/lib/api-telemetry';
+
 
 interface RouteContext {
   params: Promise<{ id: string }>;
@@ -70,7 +72,7 @@ interface LineupPointsRow {
  * GET /api/gameweeks/[id]
  * Returns a single gameweek with its matches and double/blank team flags.
  */
-export async function GET(request: NextRequest, context: RouteContext) {
+async function getHandler(request: NextRequest, context: RouteContext) {
   try {
     const params = await context.params;
     const gameweekId = parseInt(params.id, 10);
@@ -294,7 +296,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
  * PATCH /api/gameweeks/[id]
  * Updates mutable fields on a gameweek (status, deadline, start_date, end_date).
  */
-export async function PATCH(request: NextRequest, context: RouteContext) {
+async function patchHandler(request: NextRequest, context: RouteContext) {
   try {
     await verifyAdminAuth(request);
     const params = await context.params;
@@ -345,3 +347,6 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     return createErrorResponse(error as Error);
   }
 }
+
+export const GET = withApiTelemetry('GET', '/api/gameweeks/:id', getHandler);
+export const PATCH = withApiTelemetry('PATCH', '/api/gameweeks/:id', patchHandler);

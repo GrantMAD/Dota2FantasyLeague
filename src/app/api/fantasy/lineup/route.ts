@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verifyAuth, type AuthError } from '@/lib/auth-utils';
 import { supabaseServer } from '@/lib/supabase';
 import { logAuditAction } from '@/lib/audit-logger';
+import { withApiTelemetry } from '@/lib/api-telemetry';
+
 
 const slots = ['carry', 'mid', 'offlane', 'support', 'hard_support', 'bench_1', 'bench_2', 'bench_3'] as const;
 type Slot = (typeof slots)[number];
@@ -23,7 +25,7 @@ function getSlotId(row: Record<string, unknown>, slot: Slot): number | null {
   return typeof value === 'number' ? value : value ? Number(value) : null;
 }
 
-export async function GET(request: NextRequest) {
+async function getHandler(request: NextRequest) {
   try {
     const user = await verifyAuth(request);
     const gameweekId = request.nextUrl.searchParams.get('gameweekId');
@@ -71,7 +73,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
-export async function PUT(request: NextRequest) {
+async function putHandler(request: NextRequest) {
   try {
     const user = await verifyAuth(request);
     const body = await request.json();
@@ -197,3 +199,6 @@ export async function PUT(request: NextRequest) {
     return NextResponse.json({ error: authError.status ? authError.message : 'Unable to save lineup.' }, { status: authError.status || 500 });
   }
 }
+
+export const GET = withApiTelemetry('GET', '/api/fantasy/lineup', getHandler);
+export const PUT = withApiTelemetry('PUT', '/api/fantasy/lineup', putHandler);

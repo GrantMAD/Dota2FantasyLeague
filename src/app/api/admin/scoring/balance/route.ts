@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verifyAdminAuth } from '@/lib/auth-utils';
 import { buildRoleBalanceReport, type ScoringSample } from '@/lib/scoring-analytics';
 import { supabaseServer } from '@/lib/supabase';
+import { withApiTelemetry } from '@/lib/api-telemetry';
+
 
 interface PerformanceRow {
   id: number;
@@ -25,7 +27,7 @@ interface PlayerPriceRow {
   ownership_percentage: number | null;
 }
 
-export async function GET(request: NextRequest) {
+async function getHandler(request: NextRequest) {
   try {
     await verifyAdminAuth(request);
     const seasonId = Number(request.nextUrl.searchParams.get('seasonId') ?? 1);
@@ -77,3 +79,5 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: error instanceof Error ? error.message : 'Unable to load scoring balance data.' }, { status });
   }
 }
+
+export const GET = withApiTelemetry('GET', '/api/admin/scoring/balance', getHandler);

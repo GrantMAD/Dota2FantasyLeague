@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase';
 import { verifyAdminAuth, createErrorResponse } from '@/lib/auth-utils';
 import { logAuditAction } from '@/lib/audit-logger';
+import { withApiTelemetry } from '@/lib/api-telemetry';
+
 
 interface AdminGameweekRow {
   id: number;
@@ -18,7 +20,7 @@ interface AdminGameweekRow {
  * GET /api/admin/settings
  * Returns active season + upcoming gameweeks for admin management.
  */
-export async function GET(request: NextRequest) {
+async function getHandler(request: NextRequest) {
   try {
     await verifyAdminAuth(request);
     const supabase = supabaseServer();
@@ -63,7 +65,7 @@ export async function GET(request: NextRequest) {
  * - season: { type: 'season', id: number, status?: string, starting_budget?: number, max_players_per_team?: number, squad_size?: number, starters_required?: number, bench_size?: number }
  * - gameweek: { type: 'gameweek', id: number, deadline_date?: string, is_international_break?: boolean }
  */
-export async function PUT(request: NextRequest) {
+async function putHandler(request: NextRequest) {
   try {
     const adminId = await verifyAdminAuth(request);
     const supabase = supabaseServer();
@@ -200,3 +202,6 @@ export async function PUT(request: NextRequest) {
     return createErrorResponse(error as Error);
   }
 }
+
+export const GET = withApiTelemetry('GET', '/api/admin/settings', getHandler);
+export const PUT = withApiTelemetry('PUT', '/api/admin/settings', putHandler);

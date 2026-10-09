@@ -9,6 +9,7 @@ import {
   Coins,
   Zap,
   Activity,
+  BarChart3,
   Database,
   CheckCircle2,
   AlertTriangle,
@@ -287,6 +288,12 @@ export default function AdminSettingsPage() {
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs font-medium text-slate-300 transition-colors"
           >
             <Activity className="w-3.5 h-3.5 text-emerald-400" /> Observability
+          </Link>
+          <Link
+            href="/admin/telemetry"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs font-medium text-slate-300 transition-colors"
+          >
+            <BarChart3 className="w-3.5 h-3.5 text-cyan-400" /> Telemetry
           </Link>
           <Link
             href="/admin/data-jobs"

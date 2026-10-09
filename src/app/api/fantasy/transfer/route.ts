@@ -3,8 +3,10 @@ import { supabaseServer } from '@/lib/supabase';
 import { verifyAuth, AuthError } from '@/lib/auth-utils';
 import { logAuditAction } from '@/lib/audit-logger';
 import { getFriendlyError } from '@/lib/error-messages';
+import { withApiTelemetry } from '@/lib/api-telemetry';
 
-export async function POST(request: NextRequest) {
+
+async function postHandler(request: NextRequest) {
   try {
     // 1. Authenticate user
     const { userId } = await verifyAuth(request);
@@ -100,3 +102,5 @@ export async function POST(request: NextRequest) {
     );
   }
 }
+
+export const POST = withApiTelemetry('POST', '/api/fantasy/transfer', postHandler);

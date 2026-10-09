@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { AuthError, verifyAuth } from '@/lib/auth-utils';
 import { getOrCreateFantasySeason } from '@/lib/fantasy-season';
 import { supabaseServer } from '@/lib/supabase';
+import { withApiTelemetry } from '@/lib/api-telemetry';
+
 
 interface AnnouncementEvent {
   kind: 'tournament';
@@ -43,7 +45,7 @@ function countStatuses(statuses: Array<{ status: string | null }>) {
   }, {});
 }
 
-export async function GET(request: NextRequest) {
+async function getHandler(request: NextRequest) {
   try {
     const { userId } = await verifyAuth(request);
     const supabase = supabaseServer();
@@ -244,3 +246,5 @@ export async function GET(request: NextRequest) {
     );
   }
 }
+
+export const GET = withApiTelemetry('GET', '/api/dashboard/whats-new', getHandler);

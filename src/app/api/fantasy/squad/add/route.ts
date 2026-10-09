@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase';
 import { verifyAuth, AuthError } from '@/lib/auth-utils';
+import { withApiTelemetry } from '@/lib/api-telemetry';
+
 
 // 5 starters (carry, mid, offlane, support, hard_support) + 3 bench
 const SQUAD_MAX_SIZE = 8;
@@ -25,7 +27,7 @@ interface PlayerPriceRow {
   price: number | null;
 }
 
-export async function POST(request: NextRequest) {
+async function postHandler(request: NextRequest) {
   try {
     const { userId } = await verifyAuth(request);
     const supabase = supabaseServer();
@@ -181,3 +183,5 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'An unexpected error occurred.' }, { status: 500 });
   }
 }
+
+export const POST = withApiTelemetry('POST', '/api/fantasy/squad/add', postHandler);

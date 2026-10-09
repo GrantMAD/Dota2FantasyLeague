@@ -3,10 +3,12 @@ import { verifyAuth } from '@/lib/auth-utils';
 import { canUsePremiumFeature } from '@/lib/premium';
 import { buildPlayerAnalytics } from '@/lib/player-analytics';
 import { supabaseServer } from '@/lib/supabase';
+import { withApiTelemetry } from '@/lib/api-telemetry';
+
 
 interface RouteContext { params: Promise<{ id: string }> }
 
-export async function GET(request: NextRequest, context: RouteContext) {
+async function getHandler(request: NextRequest, context: RouteContext) {
   try {
     const auth = await verifyAuth(request);
     const { id } = await context.params;
@@ -28,3 +30,5 @@ export async function GET(request: NextRequest, context: RouteContext) {
     return NextResponse.json({ error: error instanceof Error ? error.message : 'Unable to load player analytics.' }, { status });
   }
 }
+
+export const GET = withApiTelemetry('GET', '/api/players/:id/analytics', getHandler);

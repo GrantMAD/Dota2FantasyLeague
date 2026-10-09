@@ -6,6 +6,7 @@ import { SessionProvider } from "@/components/SessionProvider";
 import { PageTour } from "@/components/PageTour";
 import { PageGuideModal } from "@/components/PageGuideModal";
 import { TourTriggerButton } from "@/components/TourTriggerButton";
+import { TelemetryPageTracker } from "@/components/TelemetryPageTracker";
 import { TourProvider } from "@/context/TourContext";
 import "./globals.css";
 
@@ -40,6 +41,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
             <TourProvider>
               {children}
               <Suspense fallback={null}>
+                <TelemetryPageTracker />
                 <PageTour />
                 <PageGuideModal />
                 <TourTriggerButton />

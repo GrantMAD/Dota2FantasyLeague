@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyAuth } from '@/lib/auth-utils';
 import { supabaseServer } from '@/lib/supabase';
+import { withApiTelemetry } from '@/lib/api-telemetry';
+
 
 type FantasySeasonRow = {
   id: number;
@@ -71,7 +73,7 @@ function countTransferMoves(value: unknown): number {
     : 0;
 }
 
-export async function GET(request: NextRequest) {
+async function getHandler(request: NextRequest) {
   try {
     const { userId } = await verifyAuth(request);
     const supabase = supabaseServer();
@@ -294,3 +296,5 @@ export async function GET(request: NextRequest) {
     return errorResponse(message, Number.isInteger(status) ? status : 500);
   }
 }
+
+export const GET = withApiTelemetry('GET', '/api/season-recap', getHandler);

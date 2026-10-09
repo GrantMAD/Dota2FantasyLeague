@@ -19,8 +19,10 @@
 import { runJob, runAllJobs, runAllJobsSequential } from '@/lib/jobs/scheduler';
 import { verifyAdminAuth, createErrorResponse } from '@/lib/auth-utils';
 import { logAuditAction } from '@/lib/audit-logger';
+import { withApiTelemetry } from '@/lib/api-telemetry';
 
-export async function POST(request: Request) {
+
+async function postHandler(request: Request) {
   try {
     // Check authentication and admin role
     const adminId = await verifyAdminAuth(request);
@@ -76,3 +78,5 @@ export async function POST(request: Request) {
     return createErrorResponse(error as Error);
   }
 }
+
+export const POST = withApiTelemetry('POST', '/api/admin/jobs/run', postHandler);

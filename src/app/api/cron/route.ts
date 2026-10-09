@@ -5,13 +5,15 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { runAllJobs, runScheduledJobs } from '@/lib/jobs/scheduler';
+import { withApiTelemetry } from '@/lib/api-telemetry';
+
 
 function isAuthorizedCronRequest(request: NextRequest): boolean {
   const cronSecret = process.env.CRON_SECRET;
   return Boolean(cronSecret && request.headers.get('authorization') === `Bearer ${cronSecret}`);
 }
 
-export async function GET(request: NextRequest) {
+async function getHandler(request: NextRequest) {
   if (!isAuthorizedCronRequest(request)) {
     return NextResponse.json(
       { error: 'Unauthorized: Invalid or missing CRON_SECRET' },
@@ -53,7 +55,7 @@ export async function GET(request: NextRequest) {
 /**
  * Alternative authenticated trigger for external job runners and testing.
  */
-export async function POST(request: NextRequest) {
+async function postHandler(request: NextRequest) {
   if (!isAuthorizedCronRequest(request)) {
     return NextResponse.json(
       { error: 'Unauthorized: Invalid or missing CRON_SECRET' },
@@ -81,3 +83,6 @@ export async function POST(request: NextRequest) {
     );
   }
 }
+
+export const GET = withApiTelemetry('GET', '/api/cron', getHandler);
+export const POST = withApiTelemetry('POST', '/api/cron', postHandler);

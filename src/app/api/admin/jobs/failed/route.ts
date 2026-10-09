@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { createErrorResponse, verifyAdminAuth } from '@/lib/auth-utils';
+import { withApiTelemetry } from '@/lib/api-telemetry';
+
 
 interface FailedJobRecord {
   id: number;
@@ -22,7 +24,7 @@ interface LatestJobExecution {
  * Returns only jobs whose latest execution is still failed. Older failures
  * remain in job_execution_log as history but are no longer active alerts.
  */
-export async function GET(request: Request) {
+async function getHandler(request: Request) {
   try {
     await verifyAdminAuth(request);
     const supabase = createClient(
@@ -80,3 +82,5 @@ export async function GET(request: Request) {
     return createErrorResponse(error as Error);
   }
 }
+
+export const GET = withApiTelemetry('GET', '/api/admin/jobs/failed', getHandler);

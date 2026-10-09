@@ -4,6 +4,8 @@ import { FantasyScoreCalculator } from '@/lib/jobs/calculate-fantasy-scores';
 import { buildSimulationReport, type ScoringSample } from '@/lib/scoring-analytics';
 import { supabaseServer } from '@/lib/supabase';
 import type { PlayerPerformance } from '@/types/database';
+import { withApiTelemetry } from '@/lib/api-telemetry';
+
 
 const MAX_PERFORMANCES = 500;
 
@@ -25,7 +27,7 @@ interface HistoricalMatchStat {
   team_id: number;
 }
 
-export async function POST(request: NextRequest) {
+async function postHandler(request: NextRequest) {
   try {
     await verifyAdminAuth(request);
     const body = await request.json().catch(() => ({}));
@@ -99,3 +101,5 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: error instanceof Error ? error.message : 'Unable to run historical scoring simulation.' }, { status });
   }
 }
+
+export const POST = withApiTelemetry('POST', '/api/admin/scoring/historical-simulation', postHandler);

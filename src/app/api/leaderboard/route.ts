@@ -1,13 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase';
 import { getCached, setCached } from '@/lib/response-cache';
+import { withApiTelemetry } from '@/lib/api-telemetry';
+
 
 /**
  * GET /api/leaderboard
  * Returns paginated global leaderboard from the latest ranking snapshots.
  * Query params: seasonId, gameweekId, country, page (default 1), limit (default 50)
  */
-export async function GET(request: NextRequest) {
+async function getHandler(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const seasonId = searchParams.get('seasonId');
@@ -105,3 +107,5 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'An unexpected error occurred.' }, { status: 500 });
   }
 }
+
+export const GET = withApiTelemetry('GET', '/api/leaderboard', getHandler);

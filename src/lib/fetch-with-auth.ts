@@ -23,6 +23,7 @@ export async function fetchWithAuth(
   input: RequestInfo | URL,
   init: RequestInit = {}
 ): Promise<Response> {
+  const traceId = crypto.randomUUID();
   const doRequest = async (retried = false): Promise<Response> => {
     // getSession() automatically refreshes an expired access token when a valid
     // refresh token is stored locally (Supabase JS v2 behaviour).
@@ -48,6 +49,7 @@ export async function fetchWithAuth(
 
     const headers = new Headers(init.headers);
     if (token) headers.set('Authorization', `Bearer ${token}`);
+    headers.set('x-request-id', traceId);
     if (!headers.has('Content-Type') && !(init.body instanceof FormData)) {
       headers.set('Content-Type', 'application/json');
     }

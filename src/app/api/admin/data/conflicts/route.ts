@@ -10,8 +10,10 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getDataConflicts, verifyAdminAuth } from '@/lib/data-reconciliation/admin-utils';
+import { withApiTelemetry } from '@/lib/api-telemetry';
 
-export async function GET(request: NextRequest) {
+
+async function getHandler(request: NextRequest) {
   const adminId = await verifyAdminAuth(request);
   if (!adminId) {
     return NextResponse.json(
@@ -45,3 +47,5 @@ export async function GET(request: NextRequest) {
     );
   }
 }
+
+export const GET = withApiTelemetry('GET', '/api/admin/data/conflicts', getHandler);

@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
+import { withApiTelemetry } from '@/lib/api-telemetry';
+
 
 /**
  * POST /api/auth/signin - Sign in a user
@@ -7,7 +9,7 @@ import { supabase } from '@/lib/supabase';
  *   - email: User email
  *   - password: User password
  */
-export async function POST(request: NextRequest) {
+async function postHandler(request: NextRequest) {
   try {
     const body = await request.json();
     const { email, password } = body;
@@ -66,3 +68,5 @@ export async function POST(request: NextRequest) {
     );
   }
 }
+
+export const POST = withApiTelemetry('POST', '/api/auth/signin', postHandler);

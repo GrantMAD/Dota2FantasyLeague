@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase';
 import { getCached, setCached } from '@/lib/response-cache';
 import { createErrorResponse, verifyAdminAuth } from '@/lib/auth-utils';
+import { withApiTelemetry } from '@/lib/api-telemetry';
+
 
 type PriceRow = {
   player_id: number;
@@ -27,7 +29,7 @@ type DynamicPlayerQuery<T> = {
  *   - limit: Limit results (default: 100)
  *   - offset: Pagination offset (default: 0)
  */
-export async function GET(request: NextRequest) {
+async function getHandler(request: NextRequest) {
   try {
     const supabase = supabaseServer();
     const searchParams = request.nextUrl.searchParams;
@@ -178,7 +180,7 @@ export async function GET(request: NextRequest) {
 /**
  * POST /api/players - Create a new professional player (admin only)
  */
-export async function POST(request: NextRequest) {
+async function postHandler(request: NextRequest) {
   try {
     await verifyAdminAuth(request);
     const body: unknown = await request.json();
@@ -223,3 +225,6 @@ export async function POST(request: NextRequest) {
     return createErrorResponse(error as Error);
   }
 }
+
+export const GET = withApiTelemetry('GET', '/api/players', getHandler);
+export const POST = withApiTelemetry('POST', '/api/players', postHandler);

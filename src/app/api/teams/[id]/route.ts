@@ -1,12 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase';
 import { createErrorResponse, verifyAdminAuth } from '@/lib/auth-utils';
+import { withApiTelemetry } from '@/lib/api-telemetry';
+
 
 /**
  * PATCH /api/teams/[id] - Update a professional team (admin only)
  * Accepts: { name, region, tag, slug, logo_url }
  */
-export async function PATCH(
+async function patchHandler(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -54,3 +56,5 @@ export async function PATCH(
     return createErrorResponse(error as Error);
   }
 }
+
+export const PATCH = withApiTelemetry('PATCH', '/api/teams/:id', patchHandler);

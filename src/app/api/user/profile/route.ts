@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyAuth, applyRefreshedTokens } from '@/lib/auth-utils';
 import { supabaseServer } from '@/lib/supabase';
+import { withApiTelemetry } from '@/lib/api-telemetry';
+
 
 type UserProfileRecord = {
   id: string;
@@ -37,7 +39,7 @@ type FantasySeasonQuery = {
   maybeSingle: () => Promise<{ data: FantasySeasonRecord | null; error: { message: string } | null }>;
 };
 
-export async function GET(request: NextRequest) {
+async function getHandler(request: NextRequest) {
   try {
     const auth = await verifyAuth(request);
     const { userId } = auth;
@@ -92,7 +94,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
-export async function PUT(request: NextRequest) {
+async function putHandler(request: NextRequest) {
   try {
     const auth = await verifyAuth(request);
     const { userId } = auth;
@@ -165,3 +167,6 @@ export async function PUT(request: NextRequest) {
     return NextResponse.json({ error: 'Unable to save profile.' }, { status });
   }
 }
+
+export const GET = withApiTelemetry('GET', '/api/user/profile', getHandler);
+export const PUT = withApiTelemetry('PUT', '/api/user/profile', putHandler);

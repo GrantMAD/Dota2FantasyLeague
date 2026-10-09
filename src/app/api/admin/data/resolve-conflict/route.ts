@@ -12,8 +12,10 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { resolveConflict, verifyAdminAuth } from '@/lib/data-reconciliation/admin-utils';
+import { withApiTelemetry } from '@/lib/api-telemetry';
 
-export async function POST(request: NextRequest) {
+
+async function postHandler(request: NextRequest) {
   const adminId = await verifyAdminAuth(request);
   if (!adminId) {
     return NextResponse.json(
@@ -76,3 +78,5 @@ export async function POST(request: NextRequest) {
     );
   }
 }
+
+export const POST = withApiTelemetry('POST', '/api/admin/data/resolve-conflict', postHandler);

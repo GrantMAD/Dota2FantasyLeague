@@ -33,6 +33,7 @@ import { backfillPlaceholderPlayers } from './backfill-placeholder-players';
 import { backfillTeamLogos } from './backfill-team-logos';
 import { purgeInactiveData } from './purge-inactive-data';
 import { autoResolveConflicts } from './auto-resolve-conflicts';
+import { purgeInteractionTelemetry } from './purge-interaction-telemetry';
 import { matchesCronSchedule } from './job-schedule';
 import { getHandlerFailure } from './job-result';
 import {
@@ -63,6 +64,7 @@ type JobName =
   | 'backfill-placeholder-players'
   | 'backfill-team-logos'
   | 'purge-inactive-data'
+  | 'purge-interaction-telemetry'
   | 'auto-resolve-conflicts';
 
 interface JobDefinition {
@@ -234,6 +236,13 @@ const JOBS: JobDefinition[] = [
     handler: purgeInactiveData,
     enabled: process.env.ENABLE_DATA_PURGE !== 'false',
     timeout: 15 * 60 * 1000, // 15 minutes
+  },
+  {
+    name: 'purge-interaction-telemetry',
+    schedule: '15 4 * * 0', // Weekly Sunday at 4:15 AM UTC
+    handler: purgeInteractionTelemetry,
+    enabled: process.env.ENABLE_TELEMETRY !== 'false',
+    timeout: 5 * 60 * 1000,
   },
   {
     name: 'auto-resolve-conflicts',

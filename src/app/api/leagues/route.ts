@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verifyAuth } from '@/lib/auth-utils';
 import { supabaseServer } from '@/lib/supabase';
 import { deliverPushNotifications } from '@/lib/push-notifications';
+import { withApiTelemetry } from '@/lib/api-telemetry';
+
 
 interface LeagueRow {
   id: number;
@@ -83,7 +85,7 @@ function serializeLeague(league: LeagueRow) {
   };
 }
 
-export async function GET(request: NextRequest) {
+async function getHandler(request: NextRequest) {
   try {
     const user = await verifyAuth(request);
     const type = request.nextUrl.searchParams.get('type');
@@ -123,7 +125,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
-export async function POST(request: NextRequest) {
+async function postHandler(request: NextRequest) {
   try {
     const user = await verifyAuth(request);
     const body = await request.json() as Record<string, unknown>;
@@ -203,3 +205,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: error instanceof Error ? error.message : 'Failed to process league request.' }, { status });
   }
 }
+
+export const GET = withApiTelemetry('GET', '/api/leagues', getHandler);
+export const POST = withApiTelemetry('POST', '/api/leagues', postHandler);

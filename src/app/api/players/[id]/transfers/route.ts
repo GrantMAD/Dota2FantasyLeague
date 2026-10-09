@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase';
+import { withApiTelemetry } from '@/lib/api-telemetry';
+
 
 interface RouteContext {
   params: Promise<{ id: string }>;
@@ -31,7 +33,7 @@ interface PlayerTeamContext {
  * Returns a player's full professional team transfer history.
  * Joins with professional_teams to include readable team names.
  */
-export async function GET(request: NextRequest, context: RouteContext) {
+async function getHandler(request: NextRequest, context: RouteContext) {
   try {
     const params = await context.params;
     const playerId = parseInt(params.id, 10);
@@ -91,3 +93,5 @@ export async function GET(request: NextRequest, context: RouteContext) {
     );
   }
 }
+
+export const GET = withApiTelemetry('GET', '/api/players/:id/transfers', getHandler);

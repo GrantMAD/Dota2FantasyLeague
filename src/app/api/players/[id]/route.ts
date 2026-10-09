@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase';
+import { withApiTelemetry } from '@/lib/api-telemetry';
+
 
 interface RouteContext {
   params: Promise<{ id: string }>;
@@ -20,7 +22,7 @@ interface PerformanceSumRow {
 
 type PlayerPerformanceRow = Record<string, unknown>;
 
-export async function GET(request: NextRequest, context: RouteContext) {
+async function getHandler(request: NextRequest, context: RouteContext) {
   try {
     const params = await context.params;
     const playerId = parseInt(params.id, 10);
@@ -140,3 +142,5 @@ export async function GET(request: NextRequest, context: RouteContext) {
     );
   }
 }
+
+export const GET = withApiTelemetry('GET', '/api/players/:id', getHandler);

@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase';
 import { verifyAuth, AuthError } from '@/lib/auth-utils';
+import { withApiTelemetry } from '@/lib/api-telemetry';
+
 
 interface RouteContext {
   params: Promise<{ id: string }>;
@@ -10,7 +12,7 @@ interface RouteContext {
  * PUT /api/notifications/[id]/read
  * Marks a single notification as read for the authenticated user.
  */
-export async function PUT(request: NextRequest, context: RouteContext) {
+async function putHandler(request: NextRequest, context: RouteContext) {
   try {
     const user = await verifyAuth(request);
 
@@ -54,3 +56,5 @@ export async function PUT(request: NextRequest, context: RouteContext) {
     return NextResponse.json({ error: 'An unexpected error occurred.' }, { status: 500 });
   }
 }
+
+export const PUT = withApiTelemetry('PUT', '/api/notifications/:id/read', putHandler);

@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyAuth } from '@/lib/auth-utils';
 import { supabaseServer } from '@/lib/supabase';
+import { withApiTelemetry } from '@/lib/api-telemetry';
+
 
 interface TransferAuditRow {
   id: number;
@@ -29,7 +31,7 @@ function getPlayerIds(value: unknown): number[] {
   return value.filter((id): id is number => Number.isInteger(id) && Number(id) > 0);
 }
 
-export async function GET(request: NextRequest) {
+async function getHandler(request: NextRequest) {
   try {
     const { userId } = await verifyAuth(request);
     const supabase = supabaseServer();
@@ -110,3 +112,5 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: message }, { status: Number.isInteger(status) ? status : 500 });
   }
 }
+
+export const GET = withApiTelemetry('GET', '/api/fantasy/transfer-history', getHandler);

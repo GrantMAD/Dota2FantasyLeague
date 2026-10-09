@@ -2,8 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verifyAdminAuth } from '@/lib/auth-utils';
 import { supabaseServer } from '@/lib/supabase';
 import { logAuditAction } from '@/lib/audit-logger';
+import { withApiTelemetry } from '@/lib/api-telemetry';
 
-export async function POST(request: NextRequest) {
+
+async function postHandler(request: NextRequest) {
   try {
     const adminId = await verifyAdminAuth(request);
     const body = await request.json().catch(() => ({}));
@@ -30,3 +32,5 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: error instanceof Error ? error.message : 'Unable to apply job log retention.' }, { status });
   }
 }
+
+export const POST = withApiTelemetry('POST', '/api/admin/jobs/retention', postHandler);

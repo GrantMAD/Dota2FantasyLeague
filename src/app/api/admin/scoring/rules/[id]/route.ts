@@ -2,8 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase';
 import { verifyAdminAuth } from '@/lib/auth-utils';
 import { logAuditAction } from '@/lib/audit-logger';
+import { withApiTelemetry } from '@/lib/api-telemetry';
 
-export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+
+async function patchHandler(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const adminId = await verifyAdminAuth(request);
 
@@ -80,3 +82,5 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     );
   }
 }
+
+export const PATCH = withApiTelemetry('PATCH', '/api/admin/scoring/rules/:id', patchHandler);

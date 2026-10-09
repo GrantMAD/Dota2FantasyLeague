@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyAuth } from '@/lib/auth-utils';
 import { supabaseServer } from '@/lib/supabase';
+import { withApiTelemetry } from '@/lib/api-telemetry';
+
 
 interface FantasyBreakdownRow {
   total_points: number | null;
@@ -25,7 +27,7 @@ function firstRelation<T>(value: T | T[] | null | undefined): T | undefined {
   return Array.isArray(value) ? value[0] : value ?? undefined;
 }
 
-export async function GET(request: NextRequest) {
+async function getHandler(request: NextRequest) {
   try {
     const user = await verifyAuth(request);
     const supabase = supabaseServer();
@@ -332,3 +334,5 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Unable to load analytics.' }, { status });
   }
 }
+
+export const GET = withApiTelemetry('GET', '/api/analytics', getHandler);

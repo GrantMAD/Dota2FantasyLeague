@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase';
 import { createErrorResponse, verifyAdminAuth } from '@/lib/auth-utils';
+import { withApiTelemetry } from '@/lib/api-telemetry';
+
 
 interface RouteContext {
   params: Promise<{ id: string }>;
@@ -11,7 +13,7 @@ interface RouteContext {
  * Returns all double/blank team flags for a specific gameweek.
  * Used by the frontend to warn users which teams have special gameweek status.
  */
-export async function GET(request: NextRequest, context: RouteContext) {
+async function getHandler(request: NextRequest, context: RouteContext) {
   try {
     const params = await context.params;
     const gameweekId = parseInt(params.id, 10);
@@ -52,7 +54,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
  * Admin only. Adds a double or blank flag for a team in a gameweek.
  * Body: { teamId: number, flag: 'double' | 'blank' }
  */
-export async function POST(request: NextRequest, context: RouteContext) {
+async function postHandler(request: NextRequest, context: RouteContext) {
   try {
     await verifyAdminAuth(request);
 
@@ -104,7 +106,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
  * Admin only. Removes a double or blank flag for a team in a gameweek.
  * Body: { teamId: number }
  */
-export async function DELETE(request: NextRequest, context: RouteContext) {
+async function deleteHandler(request: NextRequest, context: RouteContext) {
   try {
     await verifyAdminAuth(request);
 
@@ -140,3 +142,7 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
     return createErrorResponse(error as Error);
   }
 }
+
+export const GET = withApiTelemetry('GET', '/api/gameweeks/:id/flags', getHandler);
+export const POST = withApiTelemetry('POST', '/api/gameweeks/:id/flags', postHandler);
+export const DELETE = withApiTelemetry('DELETE', '/api/gameweeks/:id/flags', deleteHandler);

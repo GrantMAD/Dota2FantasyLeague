@@ -2,13 +2,15 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase';
 import { getCached, setCached } from '@/lib/response-cache';
 import { verifyAuth, AuthError } from '@/lib/auth-utils';
+import { withApiTelemetry } from '@/lib/api-telemetry';
+
 
 /**
  * GET /api/gameweeks
  * Returns all gameweeks, optionally filtered by season and/or status.
  * Query params: seasonId, status (upcoming|active|closed)
  */
-export async function GET(request: NextRequest) {
+async function getHandler(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const seasonId = searchParams.get('seasonId');
@@ -225,3 +227,5 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'An unexpected error occurred.' }, { status: 500 });
   }
 }
+
+export const GET = withApiTelemetry('GET', '/api/gameweeks', getHandler);

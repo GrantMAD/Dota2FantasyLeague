@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase';
 import { verifyAuth, applyRefreshedTokens, AuthError } from '@/lib/auth-utils';
+import { withApiTelemetry } from '@/lib/api-telemetry';
+
 
 interface NotificationRecord {
   id: number;
@@ -38,7 +40,7 @@ const matchesCategory = (notification: NotificationRecord, category: Notificatio
   return categoryMap[notification.type] === category;
 };
 
-export async function GET(request: NextRequest) {
+async function getHandler(request: NextRequest) {
   try {
     const user = await verifyAuth(request);
     const { searchParams } = new URL(request.url);
@@ -93,7 +95,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
-export async function PUT(request: NextRequest) {
+async function putHandler(request: NextRequest) {
   try {
     const user = await verifyAuth(request);
     const { error } = await supabaseServer()
@@ -119,7 +121,7 @@ export async function PUT(request: NextRequest) {
   }
 }
 
-export async function DELETE(request: NextRequest) {
+async function deleteHandler(request: NextRequest) {
   try {
     const user = await verifyAuth(request);
     const { error } = await supabaseServer()
@@ -144,3 +146,7 @@ export async function DELETE(request: NextRequest) {
     return NextResponse.json({ error: 'An unexpected error occurred.' }, { status: 500 });
   }
 }
+
+export const GET = withApiTelemetry('GET', '/api/notifications', getHandler);
+export const PUT = withApiTelemetry('PUT', '/api/notifications', putHandler);
+export const DELETE = withApiTelemetry('DELETE', '/api/notifications', deleteHandler);

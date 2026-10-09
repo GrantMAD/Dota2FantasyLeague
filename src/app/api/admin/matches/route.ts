@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase';
 import { verifyAdminAuth, createErrorResponse } from '@/lib/auth-utils';
+import { withApiTelemetry } from '@/lib/api-telemetry';
+
 
 interface MatchRecord {
   [column: string]: unknown;
@@ -26,7 +28,7 @@ interface TournamentRecord {
   tier: string | null;
 }
 
-export async function GET(request: NextRequest) {
+async function getHandler(request: NextRequest) {
   try {
     await verifyAdminAuth(request);
 
@@ -95,3 +97,5 @@ export async function GET(request: NextRequest) {
     return createErrorResponse(error as Error);
   }
 }
+
+export const GET = withApiTelemetry('GET', '/api/admin/matches', getHandler);

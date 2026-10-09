@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase';
+import { withApiTelemetry } from '@/lib/api-telemetry';
+
 
 interface RouteContext {
   params: Promise<{ id: string }>;
@@ -47,7 +49,7 @@ interface TeamRecord {
  * GET /api/tournaments/[id]
  * Returns a single tournament with its series, matches, and competing teams.
  */
-export async function GET(request: NextRequest, context: RouteContext) {
+async function getHandler(request: NextRequest, context: RouteContext) {
   try {
     const params = await context.params;
     const tournamentId = parseInt(params.id, 10);
@@ -173,3 +175,5 @@ export async function GET(request: NextRequest, context: RouteContext) {
     return NextResponse.json({ error: 'An unexpected error occurred.' }, { status: 500 });
   }
 }
+
+export const GET = withApiTelemetry('GET', '/api/tournaments/:id', getHandler);

@@ -1,8 +1,10 @@
 import { NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase';
 import { getCached, setCached } from '@/lib/response-cache';
+import { withApiTelemetry } from '@/lib/api-telemetry';
 
-export async function GET() {
+
+async function getHandler() {
   try {
     const cacheKey = 'leaderboard:countries';
     const cached = getCached<{ countries: { code: string; name: string }[] }>(cacheKey);
@@ -60,3 +62,5 @@ export async function GET() {
     );
   }
 }
+
+export const GET = withApiTelemetry('GET', '/api/leaderboard/countries', getHandler);

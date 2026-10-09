@@ -3,8 +3,10 @@ import { supabaseServer } from '@/lib/supabase';
 import { verifyAdminAuth, createErrorResponse } from '@/lib/auth-utils';
 import { runJob } from '@/lib/jobs/scheduler';
 import { logAuditAction } from '@/lib/audit-logger';
+import { withApiTelemetry } from '@/lib/api-telemetry';
 
-export async function POST(
+
+async function postHandler(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -74,3 +76,5 @@ export async function POST(
     return createErrorResponse(error as Error);
   }
 }
+
+export const POST = withApiTelemetry('POST', '/api/admin/matches/:id/sync', postHandler);

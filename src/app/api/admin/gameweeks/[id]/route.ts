@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase';
 import { createErrorResponse, verifyAdminAuth } from '@/lib/auth-utils';
 import { logAuditAction } from '@/lib/audit-logger';
+import { withApiTelemetry } from '@/lib/api-telemetry';
+
 
 type GameweekStatus = 'upcoming' | 'active' | 'locked' | 'closed';
 
@@ -12,7 +14,7 @@ const VALID_TRANSITIONS: Record<GameweekStatus, GameweekStatus[]> = {
   closed: ['upcoming'],
 };
 
-export async function PATCH(
+async function patchHandler(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
@@ -97,3 +99,5 @@ export async function PATCH(
     return createErrorResponse(error as Error);
   }
 }
+
+export const PATCH = withApiTelemetry('PATCH', '/api/admin/gameweeks/:id', patchHandler);

@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verifyAuth } from '@/lib/auth-utils';
 import { supabaseServer } from '@/lib/supabase';
 import { isExpoPushToken } from '@/lib/push-notifications';
+import { withApiTelemetry } from '@/lib/api-telemetry';
+
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -13,7 +15,7 @@ function errorStatus(error: unknown, fallback: number): number {
     : fallback;
 }
 
-export async function POST(request: NextRequest) {
+async function postHandler(request: NextRequest) {
   try {
     const { userId } = await verifyAuth(request);
     let body: unknown;
@@ -98,7 +100,7 @@ export async function POST(request: NextRequest) {
   }
 }
 
-export async function DELETE(request: NextRequest) {
+async function deleteHandler(request: NextRequest) {
   try {
     const { userId } = await verifyAuth(request);
     let body: unknown;
@@ -130,3 +132,6 @@ export async function DELETE(request: NextRequest) {
     );
   }
 }
+
+export const POST = withApiTelemetry('POST', '/api/user/push-token', postHandler);
+export const DELETE = withApiTelemetry('DELETE', '/api/user/push-token', deleteHandler);

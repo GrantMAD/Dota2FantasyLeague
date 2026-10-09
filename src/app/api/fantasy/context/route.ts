@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verifyAuth, type AuthError } from '@/lib/auth-utils';
 import { supabaseServer } from '@/lib/supabase';
 import { getOrCreateFantasySeason } from '@/lib/fantasy-season';
+import { withApiTelemetry } from '@/lib/api-telemetry';
+
 
 const slots = ['carry', 'mid', 'offlane', 'support', 'hard_support', 'bench_1', 'bench_2', 'bench_3'] as const;
 type Slot = (typeof slots)[number];
@@ -58,7 +60,7 @@ function getSlotId(row: Record<string, unknown>, slot: Slot): number | null {
   return typeof value === 'number' ? value : value ? Number(value) : null;
 }
 
-export async function GET(request: NextRequest) {
+async function getHandler(request: NextRequest) {
   try {
     const user = await verifyAuth(request);
     const supabase = supabaseServer();
@@ -297,3 +299,5 @@ export async function GET(request: NextRequest) {
     );
   }
 }
+
+export const GET = withApiTelemetry('GET', '/api/fantasy/context', getHandler);

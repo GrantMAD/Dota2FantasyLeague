@@ -4,6 +4,8 @@ import { getJobs } from '@/lib/jobs/scheduler';
 import { buildDurableJobHealth, type DurableJobRun } from '@/lib/jobs/durable-job-health';
 import { getCacheStats } from '@/lib/response-cache';
 import { supabaseServer } from '@/lib/supabase';
+import { withApiTelemetry } from '@/lib/api-telemetry';
+
 
 interface JobRunRow {
   job_name: string;
@@ -14,7 +16,7 @@ interface JobRunRow {
   metadata: { duration_ms?: number } | null;
 }
 
-export async function GET(request: NextRequest) {
+async function getHandler(request: NextRequest) {
   try {
     await verifyAdminAuth(request);
     const supabase = supabaseServer();
@@ -68,3 +70,5 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: error instanceof Error ? error.message : 'Unable to load observability data.' }, { status });
   }
 }
+
+export const GET = withApiTelemetry('GET', '/api/admin/observability', getHandler);

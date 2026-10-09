@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase';
 import { createErrorResponse, verifyAdminAuth } from '@/lib/auth-utils';
+import { withApiTelemetry } from '@/lib/api-telemetry';
+
 
 interface RouteContext {
   params: Promise<{ id: string }>;
@@ -11,7 +13,7 @@ interface RouteContext {
  * Admin only. Updates a player's availability status and reason.
  * Body: { status: string, reason: string | null }
  */
-export async function PUT(request: NextRequest, context: RouteContext) {
+async function putHandler(request: NextRequest, context: RouteContext) {
   try {
     await verifyAdminAuth(request);
 
@@ -60,3 +62,5 @@ export async function PUT(request: NextRequest, context: RouteContext) {
     return createErrorResponse(error as Error);
   }
 }
+
+export const PUT = withApiTelemetry('PUT', '/api/players/:id/availability', putHandler);

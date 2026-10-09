@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
+import { withApiTelemetry } from '@/lib/api-telemetry';
 
-export async function POST() {
+
+async function postHandler() {
   const response = NextResponse.json({ message: 'Signed out successfully' });
 
   response.cookies.set('sb-auth-token', '', {
@@ -20,3 +22,5 @@ export async function POST() {
 
   return response;
 }
+
+export const POST = withApiTelemetry('POST', '/api/auth/signout', postHandler);

@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase';
 import { getCached, setCached } from '@/lib/response-cache';
+import { withApiTelemetry } from '@/lib/api-telemetry';
+
 
 interface MatchRecord {
   [column: string]: unknown;
@@ -42,7 +44,7 @@ interface TournamentRecord {
  * Returns matches, optionally filtered by gameweekId, tournamentId, teamId, or status.
  * Query params: gameweekId, tournamentId, teamId, status, limit (default 50)
  */
-export async function GET(request: NextRequest) {
+async function getHandler(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const cacheKey = `matches:${searchParams.toString()}`;
@@ -183,3 +185,5 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'An unexpected error occurred.' }, { status: 500 });
   }
 }
+
+export const GET = withApiTelemetry('GET', '/api/matches', getHandler);

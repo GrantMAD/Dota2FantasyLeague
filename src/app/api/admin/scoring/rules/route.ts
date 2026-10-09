@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase';
 import { verifyAdminAuth } from '@/lib/auth-utils';
 import { logAuditAction } from '@/lib/audit-logger';
+import { withApiTelemetry } from '@/lib/api-telemetry';
+
 
 interface ScoringRule {
   id: number;
@@ -25,7 +27,7 @@ interface ScoringRuleVersion {
   rules: ScoringRule[];
 }
 
-export async function GET(request: NextRequest) {
+async function getHandler(request: NextRequest) {
   try {
     await verifyAdminAuth(request);
 
@@ -76,7 +78,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
-export async function POST(request: NextRequest) {
+async function postHandler(request: NextRequest) {
   try {
     const adminId = await verifyAdminAuth(request);
 
@@ -167,3 +169,6 @@ export async function POST(request: NextRequest) {
     );
   }
 }
+
+export const GET = withApiTelemetry('GET', '/api/admin/scoring/rules', getHandler);
+export const POST = withApiTelemetry('POST', '/api/admin/scoring/rules', postHandler);

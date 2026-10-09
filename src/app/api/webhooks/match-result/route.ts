@@ -1,6 +1,8 @@
 import { after, NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase';
 import { runJob } from '@/lib/jobs/scheduler';
+import { withApiTelemetry } from '@/lib/api-telemetry';
+
 
 const WEBHOOK_SECRET = process.env.WEBHOOK_SECRET;
 const FINAL_MATCH_STATUSES = new Set(['completed', 'finished', 'ended', 'concluded']);
@@ -12,7 +14,7 @@ const FINAL_MATCH_STATUSES = new Set(['completed', 'finished', 'ended', 'conclud
  * Expected headers: x-webhook-secret: <secret>
  * Expected body: { matchId: number, status: string }
  */
-export async function POST(request: NextRequest) {
+async function postHandler(request: NextRequest) {
   const providedSecret = request.headers.get('x-webhook-secret');
   if (!WEBHOOK_SECRET || providedSecret !== WEBHOOK_SECRET) {
     return NextResponse.json({ error: 'Unauthorized.' }, { status: 401 });
@@ -78,3 +80,5 @@ export async function POST(request: NextRequest) {
 
   return NextResponse.json({ received: true, queued: true, matchId: match.id }, { status: 202 });
 }
+
+export const POST = withApiTelemetry('POST', '/api/webhooks/match-result', postHandler);
