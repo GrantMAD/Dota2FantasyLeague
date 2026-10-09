@@ -672,14 +672,14 @@ export default function AdminScoringPage() {
                 </div>
                 <div className="flex justify-between border-b border-slate-700 pb-2 mb-2">
                   <span>Penalties</span>
-                  <span className={(simResult.penalty ?? 0) < 0 ? 'text-red-400' : ''}>{(simResult.penalty ?? 0).toFixed(2)}</span>
+                  <span className={(simResult.penalty ?? 0) > 0 ? 'text-red-400' : ''}>{(-Math.abs(simResult.penalty ?? 0)).toFixed(2)}</span>
                 </div>
                 
                 <div className="flex justify-between text-lg font-bold text-white pt-2">
                   <span>TOTAL</span>
                   <span className="text-blue-400">
                     {((simResult.combat ?? 0) + (simResult.economy ?? 0) + (simResult.objective ?? 0) + (simResult.teamfight ?? 0) +
-                      (simResult.win ?? 0) + (simResult.series ?? 0) + (simResult.performance ?? 0) + (simResult.consistency ?? 0) + (simResult.penalty ?? 0)).toFixed(2)}
+                      (simResult.win ?? 0) + (simResult.series ?? 0) + (simResult.performance ?? 0) + (simResult.consistency ?? 0) - Math.abs(simResult.penalty ?? 0)).toFixed(2)}
                   </span>
                 </div>
               </div>

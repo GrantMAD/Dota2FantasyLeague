@@ -272,7 +272,24 @@ export default function DashboardPage() {
           ) : (
             <div data-guide="dashboard-stats" data-tour="dashboard-stats" className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
               {stats.map((stat, idx) => (
-                stat.label === 'Total Points' ? (
+                stat.label === 'Squad Value' ? (
+                  <Link
+                    key={idx}
+                    href="/squads"
+                    aria-label={`Squad Value: ${stat.value}. Go to squads`}
+                    className="group w-full rounded-lg border border-slate-700 bg-slate-800/50 p-4 text-left transition-all hover:border-emerald-500/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400"
+                  >
+                    <div className="mb-3 flex items-start justify-between">
+                      <div className="flex items-center justify-center rounded-lg border border-slate-700/60 bg-slate-900/60 p-2.5 transition-colors group-hover:border-emerald-500/40">
+                        {stat.icon}
+                      </div>
+                      <ArrowRight aria-hidden="true" className="h-4 w-4 text-slate-500 transition-all group-hover:translate-x-1 group-hover:text-emerald-300" />
+                    </div>
+                    <p className="mb-1 text-sm text-slate-400">{stat.label}</p>
+                    <p className="mb-2 text-2xl font-bold text-white">{stat.value}</p>
+                    {stat.trend && <p className={`text-xs ${stat.trendColor}`}>{stat.trend} · View squads</p>}
+                  </Link>
+                ) : stat.label === 'Total Points' ? (
                   <button
                     key={idx}
                     type="button"

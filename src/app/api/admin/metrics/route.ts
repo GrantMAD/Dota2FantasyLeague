@@ -25,7 +25,7 @@ async function getHandler(request: NextRequest) {
       failedJobsResult,
     ] = await Promise.all([
       supabase.from('users').select('*', { count: 'exact', head: true }),
-      supabase.from('fantasy_teams').select('*', { count: 'exact', head: true }),
+      supabase.from('fantasy_squads').select('*', { count: 'exact', head: true }),
       supabase.from('leagues').select('*', { count: 'exact', head: true }),
       supabase.from('seasons').select('id, name, status').eq('status', 'active').maybeSingle(),
       supabase.from('gameweeks')

@@ -20,7 +20,7 @@ const sections = [
 const scoringRows = [
   ['Kill', '+1.5', 'Combat'],
   ['Assist', '+0.75', 'Combat'],
-  ['Death', '-1.0', 'Combat'],
+  ['Death', '-1.0 each', 'Penalty'],
   ['KDA bonus (KDA ≥5.0)', '+2.0', 'Combat'],
   ['KDA bonus (KDA ≥3.0)', '+1.0', 'Combat'],
   ['GPM (role-adjusted)', 'Up to +7.5', 'Economy'],
@@ -33,10 +33,13 @@ const scoringRows = [
   ['Wards Placed', '+0.5 each', 'Objective'],
   ['Wards Destroyed', '+0.3 each', 'Objective'],
   ['Roshan Kill', '+2.0 each', 'Objective'],
+  ['Teamfight proxy', 'Damage ×0.0004 + healing ×0.0015 + tower damage ×0.0008', 'Teamfight'],
   ['Game win', '+5.0', 'Match result'],
+  ['Series win', '+3.0 on clinching game', 'Series'],
   ['Performance index (≥90)', '+5.0', 'Role execution'],
   ['Performance index (≥80)', '+3.0', 'Role execution'],
   ['Performance index (≥70)', '+1.0', 'Role execution'],
+  ['Consistency', '+1.0 after 3 consecutive appearances with index ≥80', 'Consistency'],
 ];
 
 const chips = [
@@ -88,23 +91,23 @@ export default function RulesPage() {
         {/* 1. Points Engine */}
         <div className="mb-8">
           <h3 className="mb-1 flex items-center gap-2 text-lg font-bold text-white"><span>🧮</span> Points Engine</h3>
-          <p className="mb-4 text-sm text-slate-400">Every player&apos;s performance is broken into 13 tracked stats, then grouped into 8 score categories:</p>
+          <p className="mb-4 text-sm text-slate-400">Every player&apos;s performance is broken into 13 tracked stats, then grouped into 9 score categories:</p>
           <div className="mb-5 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
             {[['Kills','Combat contribution'],['Deaths','Penalty'],['Assists','Supporting kills'],['GPM','Gold efficiency'],['XPM','Level efficiency'],['Last Hits','Creep farm'],['Denies','Enemy XP denied'],['Hero Damage','Damage to heroes'],['Tower Damage','Objective push'],['Healing','Support output'],['Wards Placed','Vision'],['Wards Destroyed','Counter-vision'],['Roshan Kills','Major objective']].map(([stat, desc]) => (
               <div key={stat} className="rounded-lg border border-slate-800 bg-slate-950/50 px-3 py-2"><p className="text-xs font-bold text-white">{stat}</p><p className="text-[11px] text-slate-500">{desc}</p></div>
             ))}
           </div>
-          <p className="mb-3 text-sm text-slate-400">The 8 score categories those stats feed into:</p>
+          <p className="mb-3 text-sm text-slate-400">The 9 score categories those stats feed into:</p>
           <div className="mb-5 space-y-2">
             {[
               ['Combat','text-red-300','Kills ×1.5 + Assists ×0.75 − Deaths ×1.0. KDA efficiency bonus: ≥5.0 = +2 pts, ≥3.0 = +1 pt.'],
               ['Economy','text-amber-300','GPM & XPM normalized against role benchmarks. Carry expects 550 GPM; Hard Support only 200 GPM — so every role is rewarded fairly.'],
               ['Objective','text-cyan-300','Hero damage, tower damage, healing, wards placed/destroyed, and Roshan kills.'],
-              ['Teamfight','text-purple-300','Tracked as a scoring category; the current automated scoring job assigns 0 points.'],
+              ['Teamfight','text-purple-300','Proxy from match stats: hero damage ×0.0004 + healing ×0.0015 + tower damage ×0.0008.'],
               ['Win','text-emerald-300','Flat +5.0 pts awarded for winning the match.'],
-              ['Series','text-emerald-300','Tracked as a scoring category; the current automated scoring job assigns 0 points.'],
-              ['Performance','text-violet-300','The calculated performance index sets the bonus: ≥90 = +5 pts, ≥80 = +3 pts, ≥70 = +1 pt. This is not a gameweek percentile ranking.'],
-              ['Consistency','text-violet-300','Tracked as a scoring category; the current automated scoring job assigns 0 points.'],
+              ['Series','text-emerald-300','The winning team earns the configured series bonus (default +3) in the clinching game of a best-of series.'],
+              ['Performance','text-violet-300','Index = (Combat + Economy + Objective) ÷ 40 × 100, capped at 100; ≥90 = +5 pts, ≥80 = +3 pts, ≥70 = +1 pt.'],
+              ['Consistency','text-violet-300','+1 point when a player reaches an 80 performance index in three consecutive match appearances.'],
             ].map(([cat, colour, desc]) => (
               <div key={cat} className="flex gap-3 rounded-lg border border-slate-800 bg-slate-950/30 p-3"><span className={`mt-0.5 w-24 shrink-0 text-xs font-bold ${colour}`}>{cat}</span><span className="text-xs text-slate-400">{desc}</span></div>
             ))}
@@ -113,7 +116,7 @@ export default function RulesPage() {
           <div className="mb-5 overflow-x-auto rounded-xl border border-slate-800">
             <table className="w-full text-left text-sm"><thead><tr className="border-b border-slate-700 text-xs uppercase tracking-widest text-slate-500"><th className="px-4 py-3">Role</th><th className="px-4 py-3">Expected GPM</th><th className="px-4 py-3">Expected XPM</th></tr></thead><tbody>{[['Carry','550','600'],['Mid','450','550'],['Offlane','350','450'],['Support','250','350'],['Hard Support','200','300']].map(([role, gpm, xpm]) => (<tr key={role} className="border-b border-slate-800 last:border-0"><td className="px-4 py-3 font-medium text-white">{role}</td><td className="px-4 py-3 text-amber-300">{gpm}</td><td className="px-4 py-3 text-cyan-300">{xpm}</td></tr>))}</tbody></table>
           </div>
-          <div className="rounded-xl border border-emerald-500/25 bg-emerald-500/5 p-4"><p className="mb-2 text-xs font-semibold uppercase tracking-widest text-emerald-300">Captain Multiplier — Applied Last</p><p className="text-sm text-slate-300">After player scores are summed, the captain&apos;s score is multiplied by <strong className="text-white">2×</strong> (or <strong className="text-white">3×</strong> with Triple Captain). If the captain has no recorded match participation, the vice-captain receives that same multiplier. The automated scorer currently assigns no separate series, consistency, or player-penalty points.</p></div>
+          <div className="rounded-xl border border-emerald-500/25 bg-emerald-500/5 p-4"><p className="mb-2 text-xs font-semibold uppercase tracking-widest text-emerald-300">Captain Multiplier — Applied Last</p><p className="text-sm text-slate-300">After player scores are summed, the captain&apos;s score is multiplied by <strong className="text-white">2×</strong> (or <strong className="text-white">3×</strong> with Triple Captain). If the captain has no recorded match participation, the vice-captain receives that same multiplier. Teamfight points use the match provider&apos;s player-level damage and healing stats as a proxy, since neither configured provider supplies a distinct teamfight-participation value. A +3 series bonus is awarded to players in the clinching game for the team that completes the best-of series. A +1 consistency bonus is awarded on an appearance when the player reaches at least an 80 performance index for three consecutive match appearances. Death deductions are displayed separately under Penalties.</p></div>
         </div>
 
         {/* 2. Live Data Pipeline */}

@@ -1,5 +1,13 @@
 import { createClient } from '@supabase/supabase-js';
 import { recalculateGameweeks } from './recalculate-gameweeks';
+import {
+  calculateDeathPenaltyPoints,
+  calculateConsistencyPoints,
+  calculatePerformanceBonus,
+  calculatePerformanceIndex,
+  findSeriesClincherMatches,
+  calculateTeamfightPoints,
+} from '@/lib/scoring-categories';
 
 interface JobResult {
   success: boolean;
@@ -32,9 +40,13 @@ interface MatchPlayerStats {
 
 interface Match {
   id: number;
+  series_id: number;
   gameweek_id: number;
+  scheduled_time: string;
+  match_number: number | null;
   duration_minutes: number | null;
   winner_team_id: number | null;
+  best_of: number;
 }
 
 interface ScoringRuleVersionRow {
@@ -98,6 +110,7 @@ interface ScoreBreakdown {
   performance: number;
   consistency: number;
   penalty: number;
+  performanceIndex: number;
 }
 
 export class FantasyScoreCalculator {
@@ -172,17 +185,13 @@ export class FantasyScoreCalculator {
    * Calculate combat score (kills, deaths, assists, KDA efficiency)
    */
   private calculateCombatScore(stats: MatchPlayerStats): number {
-    const deathMultiplier = this.scoringRules.death_penalty !== undefined 
-      ? this.scoringRules.death_penalty 
-      : (this.scoringRules.death_points ?? -1.0);
     const killMultiplier = this.scoringRules.kill_points ?? 1.5;
     const assistMultiplier = this.scoringRules.assist_points ?? 0.75;
 
     const baseKills = stats.kills * killMultiplier;
-    const baseDeaths = stats.deaths * deathMultiplier;
     const baseAssists = stats.assists * assistMultiplier;
 
-    let score = baseKills + baseDeaths + baseAssists;
+    let score = baseKills + baseAssists;
 
     // KDA efficiency bonus (simplified)
     const kda = stats.deaths === 0 ? stats.kills + stats.assists : (stats.kills + stats.assists) / stats.deaths;
@@ -261,14 +270,9 @@ export class FantasyScoreCalculator {
     combatScore: number,
     economyScore: number,
     objectiveScore: number,
-  ): number {
-    const totalScore = combatScore + economyScore + objectiveScore;
-    const performanceIndex = Math.min(totalScore / 20, 100); // Normalize to 0-100
-
-    if (performanceIndex >= 90) return this.scoringRules.performance_90_bonus;
-    if (performanceIndex >= 80) return this.scoringRules.performance_80_bonus;
-    if (performanceIndex >= 70) return this.scoringRules.performance_70_bonus;
-    return 0;
+  ): { index: number; bonus: number } {
+    const index = calculatePerformanceIndex(combatScore, economyScore, objectiveScore);
+    return { index, bonus: calculatePerformanceBonus(index, this.scoringRules) };
   }
 
   /**
@@ -278,21 +282,24 @@ export class FantasyScoreCalculator {
     stats: MatchPlayerStats,
     match: Match,
     playerTeamId: number,
+    options: {
+      playerRole?: string;
+      seriesBonus?: number;
+      previousPerformanceStreak?: number;
+    } = {},
   ): Promise<ScoreBreakdown> {
-    // Get player role from professional_players table
-    const { data: playerData } = await this.supabase
+    const playerRole = options.playerRole ?? await this.supabase
       .from('professional_players')
       .select('primary_role')
       .eq('id', stats.player_id)
-      .single();
-
-    const playerRole = (playerData as PlayerRoleRow | null)?.primary_role || 'Support';
+      .single()
+      .then(({ data }) => (data as PlayerRoleRow | null)?.primary_role || 'Support') ?? 'Support';
 
     // Calculate component scores
     const combat = this.calculateCombatScore(stats);
     const economy = this.calculateEconomyScore(stats, playerRole, match.duration_minutes || 40);
     const objective = this.calculateObjectiveScore(stats, playerRole);
-    const performance = this.calculatePerformanceBonus(combat, economy, objective);
+    const { index: performanceIndex, bonus: performance } = this.calculatePerformanceBonus(combat, economy, objective);
 
     // Win bonus (only if player's team won)
     const winBonus = this.scoringRules.win_points !== undefined 
@@ -300,19 +307,22 @@ export class FantasyScoreCalculator {
       : (this.scoringRules.match_win_bonus ?? 5.0);
     const win = playerTeamId === match.winner_team_id ? winBonus : 0;
 
-    // Penalties (placeholder for now - could add for unusual stats)
-    const penalty = 0;
+    const penalty = calculateDeathPenaltyPoints(stats.deaths, this.scoringRules);
+    const consistency = calculateConsistencyPoints(performanceIndex, options.previousPerformanceStreak ?? 0);
+    const series = options.seriesBonus ?? 0;
+    const teamfight = calculateTeamfightPoints(stats, this.scoringRules);
 
     return {
       combat: Math.round(combat * 100) / 100,
       economy: Math.round(economy * 100) / 100,
       objective: Math.round(objective * 100) / 100,
-      teamfight: 0, // Aggregated in consistency/performance
+      teamfight: Math.round(teamfight * 100) / 100,
       win: Math.round(win * 100) / 100,
-      series: 0, // Calculated when series is complete
+      series: Math.round(series * 100) / 100,
       performance: Math.round(performance * 100) / 100,
-      consistency: 0, // Calculated from rolling average
+      consistency,
       penalty: Math.round(penalty * 100) / 100,
+      performanceIndex,
     };
   }
 
@@ -336,17 +346,29 @@ export class FantasyScoreCalculator {
         .from('matches')
         .select(
           `
-          id, 
-          gameweek_id, 
-          duration_minutes, 
+          id,
+          series_id,
+          gameweek_id,
+          scheduled_time,
+          match_number,
+          team_a_id,
+          team_b_id,
+          duration_minutes,
           winner_team_id,
-          gameweeks(id)
+          tournament_series(best_of)
         `,
         )
         .eq('status', 'completed')
         .not('detailed_stats_fetched_at', 'is', null);
 
-      const matches = (rawMatchData ?? []) as Match[];
+      const matches = ((rawMatchData ?? []) as unknown as Array<Omit<Match, 'best_of'> & {
+        tournament_series: { best_of: number | null } | null;
+      }>)
+        .map(({ tournament_series, ...match }) => ({
+          ...match,
+          best_of: tournament_series?.best_of ?? 3,
+        }))
+        .sort((left, right) => new Date(left.scheduled_time).getTime() - new Date(right.scheduled_time).getTime());
 
       if (matchError) {
         result.errors.push(`Failed to fetch matches: ${matchError.message}`);
@@ -377,6 +399,8 @@ export class FantasyScoreCalculator {
       const updatedGameweeks = new Set<number>();
       const matchCount = matches.length;
       console.log(`[CalculateScores] Processing fantasy scores for ${matchCount} matches...`);
+      const clincherMatchBySeries = findSeriesClincherMatches(matches);
+      const performanceStreaks = new Map<number, number>();
 
       // Pre-load all professional player roles into memory map so we don't query 1-by-1
       const { data: allPlayerRows } = await this.supabase
@@ -406,7 +430,12 @@ export class FantasyScoreCalculator {
           continue;
         }
 
-        const playerStats = (statsRes.data ?? []) as MatchPlayerStats[];
+        const playerStats = ((statsRes.data ?? []) as MatchPlayerStats[])
+          .sort((left, right) => {
+            const leftTime = new Date(matchMap.get(left.match_id)?.scheduled_time ?? 0).getTime();
+            const rightTime = new Date(matchMap.get(right.match_id)?.scheduled_time ?? 0).getTime();
+            return leftTime - rightTime || left.match_id - right.match_id;
+          });
         const substitutions = (subsRes.data ?? []) as SubstitutionRow[];
         const perfs = (perfsRes.data ?? []) as ExistingPerformanceRow[];
 
@@ -437,26 +466,32 @@ export class FantasyScoreCalculator {
           }
 
           const playerRole = roleMap.get(stats.player_id) || 'Support';
-          const combat = this.calculateCombatScore(stats);
-          const economy = this.calculateEconomyScore(stats, playerRole, match.duration_minutes || 40);
-          const objective = this.calculateObjectiveScore(stats, playerRole);
-          const performance = this.calculatePerformanceBonus(combat, economy, objective);
-          const winBonus = this.scoringRules.win_points !== undefined 
-            ? this.scoringRules.win_points 
-            : (this.scoringRules.match_win_bonus ?? 5.0);
-          const win = match.winner_team_id === stats.team_id ? winBonus : 0;
+          const previousPerformanceStreak = performanceStreaks.get(targetPlayerId) ?? 0;
+          const seriesBonus = clincherMatchBySeries.get(match.series_id) === match.id
+            && match.winner_team_id === stats.team_id
+            ? this.scoringRules.series_win_bonus ?? 3
+            : 0;
+          const breakdown = await this.calculatePlayerMatchScore(stats, match, stats.team_id, {
+            playerRole,
+            seriesBonus,
+            previousPerformanceStreak,
+          });
+          performanceStreaks.set(
+            targetPlayerId,
+            breakdown.performanceIndex >= 80 ? previousPerformanceStreak + 1 : 0,
+          );
 
           breakdownsToUpsert.push({
             performance_id: performanceId,
-            combat_points: Math.round(combat * 100) / 100,
-            economy_points: Math.round(economy * 100) / 100,
-            objective_points: Math.round(objective * 100) / 100,
-            teamfight_points: 0,
-            win_points: Math.round(win * 100) / 100,
-            series_points: 0,
-            performance_index_points: Math.round(performance * 100) / 100,
-            consistency_points: 0,
-            penalty_points: 0,
+            combat_points: breakdown.combat,
+            economy_points: breakdown.economy,
+            objective_points: breakdown.objective,
+            teamfight_points: breakdown.teamfight,
+            win_points: breakdown.win,
+            series_points: breakdown.series,
+            performance_index_points: breakdown.performance,
+            consistency_points: breakdown.consistency,
+            penalty_points: breakdown.penalty,
           });
 
           if (match.gameweek_id) updatedGameweeks.add(match.gameweek_id);
