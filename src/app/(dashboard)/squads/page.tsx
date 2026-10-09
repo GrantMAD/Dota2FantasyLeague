@@ -5,9 +5,10 @@ import Image from 'next/image';
 import { Users } from 'lucide-react';
 import Link from 'next/link';
 import { fetchWithAuth } from '@/lib/fetch-with-auth';
+import { buildOwnedSquadRoster } from '@/lib/squad-roster';
 import type { FantasyPlayer as SquadPlayer, LineupEntry } from '@/types/fantasy';
 
-type Gameweek = { id: number; gameweek_number: number };
+type Gameweek = { id: number; gameweek_number: number; status: string };
 
 type PlayerDetails = SquadPlayer;
 type SquadTab = 'squad' | 'history';
@@ -22,6 +23,7 @@ interface TransferHistoryRecord {
 
 export default function SquadsPage() {
   const [lineup, setLineup] = useState<LineupEntry[]>([]);
+  const [ownedPlayers, setOwnedPlayers] = useState<SquadPlayer[]>([]);
   const [gameweek, setGameweek] = useState<Gameweek | null>(null);
   const [selectedPlayer, setSelectedPlayer] = useState<PlayerDetails | null>(null);
   const [playerLoading, setPlayerLoading] = useState(false);
@@ -33,29 +35,28 @@ export default function SquadsPage() {
   const [historyError, setHistoryError] = useState<string | null>(null);
 
   useEffect(() => {
-    async function fetchLineup() {
+    async function fetchSquad() {
       try {
-        // Fetch active gameweek
-        const gwRes = await fetch('/api/gameweeks?status=active');
-        const gwData = await gwRes.json();
-        const activeGw = gwData.gameweeks?.[0];
+        const response = await fetchWithAuth('/api/fantasy/context');
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || 'Failed to load fantasy squad');
 
-        if (activeGw) {
-          setGameweek(activeGw);
-          // Fetch lineup
-          const lineupRes = await fetch(`/api/fantasy/lineup?gameweekId=${activeGw.id}`);
-          if (lineupRes.ok) {
-            const lineupData = await lineupRes.json();
-            setLineup(lineupData.lineup || []);
-          }
-        }
+        setOwnedPlayers(Array.isArray(data.ownedPlayers) ? data.ownedPlayers : []);
+        setLineup(Array.isArray(data.lineup) ? data.lineup : []);
+        setGameweek(data.gameweek
+          ? {
+              id: data.gameweek.id,
+              gameweek_number: data.gameweek.gameweekNumber,
+              status: data.gameweek.status,
+            }
+          : null);
       } catch (err: unknown) {
-        setError(err instanceof Error ? err.message : 'Failed to load lineup');
+        setError(err instanceof Error ? err.message : 'Failed to load fantasy squad');
       } finally {
         setLoading(false);
       }
     }
-    fetchLineup();
+    fetchSquad();
   }, []);
 
   useEffect(() => {
@@ -160,60 +161,7 @@ export default function SquadsPage() {
     );
   }
 
-  const renderSlot = (slotName: string, roleLabel: string, isStarter: boolean = true) => {
-    const playerEntry = lineup.find((p) => p.slot === slotName);
-
-    if (!playerEntry) {
-      return (
-        <Link href="/transfers" className="flex min-h-24 flex-1 items-center justify-between rounded-xl border border-dashed border-slate-700 bg-slate-900/40 px-5 py-4 transition-colors hover:border-cyan-500/50 hover:bg-slate-800">
-          <div>
-            <p className="text-xs font-bold uppercase tracking-widest text-cyan-400">{roleLabel}</p>
-            <p className="mt-1 text-sm text-slate-500">No player selected</p>
-          </div>
-          <span className="squad-empty-slot-icon flex h-9 w-9 items-center justify-center rounded-full border border-slate-600 text-xl text-slate-400">+</span>
-        </Link>
-      );
-    }
-
-    const player = playerEntry.professional_players;
-    if (!player) {
-      return (
-        <Link href="/transfers" className="flex min-h-24 flex-1 items-center justify-between rounded-xl border border-dashed border-slate-700 bg-slate-900/40 px-5 py-4 transition-colors hover:border-cyan-500/50 hover:bg-slate-800">
-          <div>
-            <p className="text-xs font-bold uppercase tracking-widest text-cyan-400">{roleLabel}</p>
-            <p className="mt-1 text-sm text-slate-500">Player data unavailable</p>
-          </div>
-          <span className="squad-empty-slot-icon flex h-9 w-9 items-center justify-center rounded-full border border-slate-600 text-xl text-slate-400">+</span>
-        </Link>
-      );
-    }
-
-    return (
-      <div data-guide={slotName === 'carry' ? 'squad-first-player' : undefined} data-tour={slotName === 'carry' ? 'squad-first-player' : undefined} role="button" tabIndex={0} onClick={() => openPlayerDetails(player.id)} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') openPlayerDetails(player.id); }} className="relative flex min-h-24 flex-1 cursor-pointer items-center gap-4 rounded-xl border border-cyan-500/30 bg-slate-800/80 px-4 py-3 shadow-lg transition-colors hover:border-cyan-400/70 hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-cyan-400">
-        <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-full border border-slate-600 bg-slate-700">
-          {player.profile_image_url ? (
-            <Image src={player.profile_image_url} alt={player.in_game_name || player.name} width={56} height={56} unoptimized className="h-full w-full object-cover" />
-          ) : (
-            <span className="player-avatar-initials squad-card-muted text-xs">{(player.in_game_name || player.name || 'P').substring(0, 2).toUpperCase()}</span>
-          )}
-        </div>
-        <div className="min-w-0 flex-1">
-          <p className="text-xs font-bold uppercase tracking-widest text-cyan-400">{roleLabel}</p>
-          <p className="truncate text-base font-bold text-white" title={player.in_game_name || player.name}>{player.in_game_name || player.name}</p>
-          <p className="squad-card-muted truncate text-sm text-slate-400">{player.professional_teams?.slug?.toUpperCase() || player.professional_teams?.name || 'FA'}</p>
-        </div>
-        <div className="flex shrink-0 flex-col items-end gap-1 text-right">
-          <span className="font-mono text-sm text-amber-400">${player.current_price || '0.0'}M</span>
-          <span className="text-xs text-slate-500">{isStarter ? 'Starter' : 'Bench'}</span>
-        </div>
-        {(playerEntry.is_captain || playerEntry.is_vice_captain) && (
-          <span className={`absolute -right-2 -top-2 rounded-full px-2 py-0.5 text-xs font-bold ${playerEntry.is_captain ? 'bg-amber-500 text-slate-950' : 'bg-slate-200 text-slate-900'}`}>
-            {playerEntry.is_captain ? 'C' : 'VC'}
-          </span>
-        )}
-      </div>
-    );
-  };
+  const ownedRoster = buildOwnedSquadRoster(ownedPlayers, lineup);
 
 
   return (
@@ -226,8 +174,10 @@ export default function SquadsPage() {
           </h1>
           {gameweek && (
             <div>
-              <p className="text-amber-500 font-semibold">Gameweek {gameweek.gameweek_number}</p>
-              <p className="mt-1 text-sm text-slate-400">Review your active starters, bench players, captain, and current player values.</p>
+              <p className="text-amber-500 font-semibold">
+                {gameweek.status === 'closed' ? 'Last available gameweek' : 'Gameweek'} {gameweek.gameweek_number}
+              </p>
+              <p className="mt-1 text-sm text-slate-400">Review your owned players and, when available, their gameweek lineup assignments.</p>
             </div>
           )}
         </div>
@@ -311,39 +261,76 @@ export default function SquadsPage() {
         </div>
       )}
 
-      {/* Role-based squad board */}
-      <div data-guide="squad-pitch" data-tour="squad-pitch" className="mb-8 rounded-2xl border border-slate-700 bg-slate-900/50 p-4 shadow-xl sm:p-6">
-        <div className="mb-5 flex items-end justify-between gap-4">
+      <section data-guide="squad-pitch" data-tour="squad-pitch" className="rounded-2xl border border-slate-700 bg-slate-900/50 p-4 shadow-xl sm:p-6">
+        <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
           <div>
-            <span data-guide="squad-starters-badge" className="squad-section-label text-xs font-bold uppercase tracking-widest text-cyan-400">Starting Squad</span>
-            <h2 className="mt-1 text-xl font-bold text-white">Five active roles</h2>
+            <span data-guide="squad-starters-badge" className="squad-section-label text-xs font-bold uppercase tracking-widest text-cyan-400">Owned Squad</span>
+            <h2 className="mt-1 text-xl font-bold text-white">Your players</h2>
+            <p className="mt-1 text-sm text-slate-400">
+              Squad ownership is shown independently from your gameweek lineup.
+            </p>
           </div>
-          <span className="text-xs text-slate-500">1 player per role</span>
+          <span className="text-xs text-slate-500">{ownedRoster.length} players</span>
         </div>
-        <div className="space-y-3">
-          {renderSlot('carry', 'Carry')}
-          {renderSlot('mid', 'Mid')}
-          {renderSlot('offlane', 'Offlane')}
-          {renderSlot('support', 'Support')}
-          {renderSlot('hard_support', 'Hard Support')}
-        </div>
-      </div>
 
-      {/* Bench */}
-      <div data-guide="squad-bench" data-tour="squad-bench" className="rounded-2xl border border-slate-700/70 bg-slate-800/40 p-4 sm:p-6">
-        <div className="mb-5 flex items-end justify-between gap-4">
-          <div>
-            <span className="squad-section-label text-xs font-bold uppercase tracking-widest text-slate-400">Substitutes</span>
-            <h2 className="mt-1 text-xl font-bold text-white">Bench players</h2>
+        {ownedRoster.length === 0 ? (
+          <div className="rounded-xl border border-dashed border-slate-700 px-5 py-10 text-center">
+            <p className="text-sm text-slate-400">You do not currently own any players.</p>
+            <Link href="/transfers" className="mt-4 inline-flex rounded-lg bg-cyan-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-cyan-500">
+              Add players to your squad
+            </Link>
           </div>
-          <span className="text-xs text-slate-500">Priority order</span>
-        </div>
-        <div className="grid gap-3 md:grid-cols-3">
-          {renderSlot('bench_1', 'Bench 1', false)}
-          {renderSlot('bench_2', 'Bench 2', false)}
-          {renderSlot('bench_3', 'Bench 3', false)}
-        </div>
-      </div>
+        ) : (
+          <div className="grid gap-3 sm:grid-cols-2">
+            {ownedRoster.map(({ player, lineupEntry }, index) => {
+              const playerName = player.in_game_name || player.name;
+              const lineupLabel = lineupEntry
+                ? `${lineupEntry.slot.replace('_', ' ')} · ${lineupEntry.is_starter ? 'Starter' : 'Bench'}`
+                : 'Not assigned to this lineup';
+              const lineupPeriod = gameweek?.status === 'closed'
+                ? `Last GW ${gameweek.gameweek_number}`
+                : gameweek ? `Selected GW ${gameweek.gameweek_number}` : 'No current gameweek';
+
+              return (
+                <button
+                  key={player.id}
+                  type="button"
+                  data-guide={index === 0 ? 'squad-first-player' : undefined}
+                  data-tour={index === 0 ? 'squad-first-player' : undefined}
+                  onClick={() => openPlayerDetails(player.id)}
+                  className="relative flex min-h-24 w-full items-center gap-4 rounded-xl border border-cyan-500/30 bg-slate-800/80 px-4 py-3 text-left shadow-lg transition-colors hover:border-cyan-400/70 hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-cyan-400"
+                >
+                  <span className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-full border border-slate-600 bg-slate-700">
+                    {player.profile_image_url ? (
+                      <Image src={player.profile_image_url} alt="" width={56} height={56} unoptimized className="h-full w-full object-cover" />
+                    ) : (
+                      <span className="player-avatar-initials squad-card-muted text-xs">{(playerName || 'P').substring(0, 2).toUpperCase()}</span>
+                    )}
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-xs font-bold uppercase tracking-widest text-cyan-400">{player.primary_role || 'Role unavailable'}</span>
+                    <span className="block truncate text-base font-bold text-white" title={playerName}>{playerName}</span>
+                    <span className="squad-card-muted block truncate text-sm text-slate-400">{player.professional_teams?.slug?.toUpperCase() || player.professional_teams?.name || 'Free Agent'}</span>
+                    <span className="mt-1 block text-xs capitalize text-slate-500">
+                      {gameweek ? `${lineupPeriod} · ${lineupLabel}` : `${lineupPeriod} · squad ownership`}
+                    </span>
+                  </span>
+                  <span className="flex shrink-0 flex-col items-end gap-1 text-right">
+                    <span className="font-mono text-sm text-amber-400">${Number(player.current_price || 0).toFixed(1)}M</span>
+                    <span className="text-xs text-slate-500">{player.availability_status || 'Availability unknown'}</span>
+                  </span>
+                  {lineupEntry?.is_captain && (
+                    <span className="absolute -right-2 -top-2 rounded-full bg-amber-500 px-2 py-0.5 text-xs font-bold text-slate-950">C</span>
+                  )}
+                  {lineupEntry?.is_vice_captain && (
+                    <span className="absolute -right-2 -top-2 rounded-full bg-slate-200 px-2 py-0.5 text-xs font-bold text-slate-900">VC</span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </section>
       </>
       )}
 
