@@ -213,9 +213,12 @@ export default function LineupsPage() {
   const starterSlots = ['carry', 'mid', 'offlane', 'support', 'hard_support'];
   const hasAllStarters = starterSlots.every((slot) => lineup.some((entry) => entry.slot === slot));
   const startingPlayers = lineup.filter((entry) => starterSlots.includes(entry.slot) && entry.player_id);
-  const startingPlayerDetails = startingPlayers.map((entry) => {
-    return ownedPlayers.find((p) => p.id === entry.player_id) || entry.professional_players;
-  }).filter(Boolean) as LineupPlayer[];
+  const startingPlayerDetails = Array.from(new Map(
+    startingPlayers
+      .map((entry) => ownedPlayers.find((player) => player.id === entry.player_id) || entry.professional_players)
+      .filter((player): player is LineupPlayer => Boolean(player))
+      .map((player) => [player.id, player]),
+  ).values());
   const hasCaptainAndVice = lineup.filter((e) => e.is_captain).length === 1 && lineup.filter((e) => e.is_vice_captain).length === 1;
   const isLineupReady = hasAllStarters && hasCaptainAndVice;
 

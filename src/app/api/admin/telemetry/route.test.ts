@@ -60,32 +60,58 @@ describe('GET /api/admin/telemetry', () => {
     expect(mockSupabaseServer).not.toHaveBeenCalled();
   });
 
-  it('returns bounded summaries and event rows for authorized admins', async () => {
-    const rows = [
-      { event_type: 'page_view', status_code: null, duration_ms: null, error_class: null },
-      { event_type: 'api_request', status_code: 200, duration_ms: 40, error_class: null },
-      { event_type: 'database_request', status_code: 500, duration_ms: 80, error_class: null },
-    ];
-    const pageQuery = telemetryQuery({ data: [rows[0]], error: null, count: 3 });
-    const summaryQuery = telemetryQuery({ data: rows, error: null, count: 3 });
-    const from = jest.fn().mockReturnValueOnce(pageQuery).mockReturnValueOnce(summaryQuery);
-    mockSupabaseServer.mockReturnValue({ from });
+  it('uses minute aggregates for summaries and retained events for detail browsing', async () => {
+    const retainedEvent = { id: 7, event_type: 'api_request', status_code: 500, duration_ms: 40 };
+    const pageQuery = telemetryQuery({ data: [retainedEvent], error: null, count: 1 });
+    const from = jest.fn().mockReturnValueOnce(pageQuery);
+    const summary = {
+      sampleSize: 12500,
+      pageViews: 3000,
+      apiRequests: 5000,
+      databaseRequests: 4000,
+      providerRequests: 500,
+      errors: 20,
+      averageDurationMs: 60,
+      p95DurationMs: 250,
+    };
+    const rpc = jest.fn().mockResolvedValue({ data: summary, error: null });
+    mockSupabaseServer.mockReturnValue({ from, rpc });
 
-    const response = await GET(new Request('https://example.test/api/admin/telemetry?hours=999&limit=500&page=99999'));
+    const response = await GET(new Request('https://example.test/api/admin/telemetry?hours=9999&limit=500&page=99999'));
     const body = await response.json();
 
     expect(response.status).toBe(200);
-    expect(body.windowHours).toBe(168);
+    expect(body.windowHours).toBe(4320);
     expect(body.page).toBe(200);
     expect(body.pageSize).toBe(100);
-    expect(body.summary).toMatchObject({
-      pageViews: 1,
-      apiRequests: 1,
-      databaseRequests: 1,
-      errors: 1,
-      averageDurationMs: 60,
-      p95DurationMs: 80,
-    });
+    expect(body.summary).toEqual(summary);
+    expect(body.summaryIsEstimated).toBe(true);
+    expect(body.events).toEqual([retainedEvent]);
+    expect(rpc).toHaveBeenCalledWith('get_interaction_telemetry_summary', expect.objectContaining({
+      p_event_type: null,
+      p_route: null,
+    }));
     expect(pageQuery.rangeArgs).toEqual([19900, 19999]);
+  });
+
+  it('summarizes a trace from retained detail events', async () => {
+    const rows = [
+      { event_type: 'api_request', status_code: 500, duration_ms: 80, error_class: null },
+      { event_type: 'database_request', status_code: 200, duration_ms: 40, error_class: null },
+    ];
+    const trace = '9f5c95c0-6027-4a22-8a33-7ce34b5fd934';
+    const pageQuery = telemetryQuery({ data: rows, error: null, count: 2 });
+    const summaryQuery = telemetryQuery({ data: rows, error: null, count: 2 });
+    const from = jest.fn().mockReturnValueOnce(pageQuery).mockReturnValueOnce(summaryQuery);
+    const rpc = jest.fn();
+    mockSupabaseServer.mockReturnValue({ from, rpc });
+
+    const response = await GET(new Request(`https://example.test/api/admin/telemetry?trace_id=${trace}`));
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.summaryIsEstimated).toBe(false);
+    expect(body.summary).toMatchObject({ sampleSize: 2, errors: 1, averageDurationMs: 60 });
+    expect(rpc).not.toHaveBeenCalled();
   });
 });

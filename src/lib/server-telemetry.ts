@@ -1,25 +1,32 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
 import { after } from 'next/server';
 import { headers } from 'next/headers';
-import type { TelemetryEvent } from '@/lib/telemetry';
+import {
+  getDetailSampleRate,
+  getSlowRequestThreshold,
+  shouldRetainTelemetryDetail,
+  type TelemetryEvent,
+} from '@/lib/telemetry';
 
-const TELEMETRY_TABLE = 'interaction_telemetry';
+const TELEMETRY_RPC = 'record_interaction_telemetry';
 const MAX_EVENTS_PER_TRACE = 250;
 interface TraceContext {
   traceId: string;
+  route: string | null;
   suppressed: boolean;
   events: TelemetryEvent[];
 }
 const traceContext = new AsyncLocalStorage<TraceContext>();
 
-export function runWithTraceId<T>(traceId: string, callback: () => T): T {
-  return traceContext.run({ traceId, suppressed: false, events: [] }, callback);
+export function runWithTraceId<T>(traceId: string, callback: () => T, route: string | null = null): T {
+  return traceContext.run({ traceId, route, suppressed: false, events: [] }, callback);
 }
 
 export function runWithTelemetrySuppressed<T>(callback: () => T): T {
   const current = traceContext.getStore();
   return traceContext.run({
     traceId: current?.traceId ?? '',
+    route: current?.route ?? null,
     suppressed: true,
     events: current?.events ?? [],
   }, callback);
@@ -27,6 +34,10 @@ export function runWithTelemetrySuppressed<T>(callback: () => T): T {
 
 export function isTelemetrySuppressed(): boolean {
   return traceContext.getStore()?.suppressed ?? false;
+}
+
+export function getCurrentRoute(): string | null {
+  return traceContext.getStore()?.route ?? null;
 }
 
 export function scheduleTelemetryWrite(event: TelemetryEvent): void {
@@ -61,23 +72,29 @@ function persistTelemetryEvents(events: TelemetryEvent[]): void {
   try {
     after(async () => {
       try {
-        const response = await fetch(`${url}/rest/v1/${TELEMETRY_TABLE}`, {
+        const detailSampleRate = getDetailSampleRate(process.env.TELEMETRY_DETAIL_SAMPLE_RATE);
+        const slowRequestThreshold = getSlowRequestThreshold(process.env.TELEMETRY_SLOW_REQUEST_THRESHOLD_MS);
+        const details = events.filter((event) => shouldRetainTelemetryDetail(
+          event,
+          detailSampleRate,
+          slowRequestThreshold,
+        ));
+        const response = await runWithTelemetrySuppressed(() => fetch(`${url}/rest/v1/rpc/${TELEMETRY_RPC}`, {
           method: 'POST',
           headers: {
             apikey: serviceRoleKey,
             Authorization: `Bearer ${serviceRoleKey}`,
             'Content-Type': 'application/json',
-            Prefer: 'return=minimal',
           },
-          body: JSON.stringify(events),
+          body: JSON.stringify({ event_batch: events, detail_batch: details }),
           cache: 'no-store',
-        });
+        }));
 
         if (!response.ok) {
-          console.warn(`[Telemetry] Storage rejected ${events.length} events with status ${response.status}.`);
+          console.warn(`[Telemetry] Storage rejected ${events.length} aggregate events with status ${response.status}.`);
         }
       } catch (error) {
-        console.warn(`[Telemetry] Persistence failed for ${events.length} events:`, error);
+        console.warn(`[Telemetry] Persistence failed for ${events.length} aggregate events:`, error);
       }
     });
   } catch (error) {

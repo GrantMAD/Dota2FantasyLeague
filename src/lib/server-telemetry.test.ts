@@ -12,12 +12,14 @@ import { flushTelemetryEvents, runWithTelemetrySuppressed, runWithTraceId, sched
 describe('server telemetry batching', () => {
   const originalUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const originalServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const originalDetailSampleRate = process.env.TELEMETRY_DETAIL_SAMPLE_RATE;
 
   beforeEach(() => {
     mockCallbacks.length = 0;
     mockAfter.mockClear();
     process.env.NEXT_PUBLIC_SUPABASE_URL = 'https://example.supabase.co';
     process.env.SUPABASE_SERVICE_ROLE_KEY = 'test-service-role-key';
+    process.env.TELEMETRY_DETAIL_SAMPLE_RATE = '0';
   });
 
   afterAll(() => {
@@ -25,13 +27,15 @@ describe('server telemetry batching', () => {
     else process.env.NEXT_PUBLIC_SUPABASE_URL = originalUrl;
     if (originalServiceRoleKey === undefined) delete process.env.SUPABASE_SERVICE_ROLE_KEY;
     else process.env.SUPABASE_SERVICE_ROLE_KEY = originalServiceRoleKey;
+    if (originalDetailSampleRate === undefined) delete process.env.TELEMETRY_DETAIL_SAMPLE_RATE;
+    else process.env.TELEMETRY_DETAIL_SAMPLE_RATE = originalDetailSampleRate;
   });
 
   it('persists all events for one trace in a single request', async () => {
     const fetchSpy = jest.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(null, { status: 201 }));
     try {
       await runWithTraceId('9f5c95c0-6027-4a22-8a33-7ce34b5fd934', async () => {
-        scheduleTelemetryWrite({ event_type: 'database_request', method: 'GET', resource: 'players' });
+        scheduleTelemetryWrite({ event_type: 'database_request', method: 'GET', resource: 'players', status_code: 500 });
         scheduleTelemetryWrite({ event_type: 'api_request', route: '/api/players', method: 'GET', status_code: 200 });
         flushTelemetryEvents();
       });
@@ -40,11 +44,13 @@ describe('server telemetry batching', () => {
       await mockCallbacks[0]();
       expect(fetchSpy).toHaveBeenCalledTimes(1);
       const requestBody = JSON.parse(String(fetchSpy.mock.calls[0][1]?.body));
-      expect(requestBody).toHaveLength(2);
-      expect(requestBody.map((event: { event_type: string }) => event.event_type)).toEqual([
+      expect(requestBody.event_batch).toHaveLength(2);
+      expect(requestBody.event_batch.map((event: { event_type: string }) => event.event_type)).toEqual([
         'database_request',
         'api_request',
       ]);
+      expect(requestBody.detail_batch).toHaveLength(1);
+      expect(requestBody.detail_batch[0].status_code).toBe(500);
     } finally {
       fetchSpy.mockRestore();
     }

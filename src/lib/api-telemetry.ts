@@ -60,6 +60,6 @@ export function withApiTelemetry<Args extends unknown[]>(
         }
         throw error;
       }
-    });
+    }, route);
   };
 }

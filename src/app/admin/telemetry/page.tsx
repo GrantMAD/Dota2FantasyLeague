@@ -24,6 +24,7 @@ interface TelemetryRow {
 interface TelemetryResponse {
   summary: TelemetrySummary;
   summarySampleCapped: boolean;
+  summaryIsEstimated: boolean;
   events: TelemetryRow[];
   page: number;
   pageSize: number;
@@ -99,7 +100,7 @@ export default function AdminTelemetryPage() {
             <Activity className="h-8 w-8 text-amber-400" /> Interaction Telemetry
           </h1>
           <p className="mt-1 text-sm text-gray-400">
-            API, database, and provider activity with successful database reads sampled by default. Payloads, credentials, and user-entered content are not recorded.
+            Full request volume is summarized in minute buckets; detailed rows retain errors, requests slower than 2 seconds, and a 1% sample of routine activity. Payloads, credentials, and user-entered content are excluded.
           </p>
         </div>
         <button
@@ -122,9 +123,14 @@ export default function AdminTelemetryPage() {
         ))}
       </section>
 
+      {data?.summaryIsEstimated && (
+        <p className="rounded border border-sky-700/60 bg-sky-900/20 p-3 text-sm text-sky-200">
+          Summary totals are aggregated by minute. Successful database reads are weighted to estimate total volume from the configured read sample; the event table below contains only retained detail traces.
+        </p>
+      )}
       {data?.summarySampleCapped && (
         <p className="rounded border border-amber-700/60 bg-amber-900/20 p-3 text-sm text-amber-200">
-          Summary metrics use the newest 1,000 matching events in this time window; narrow the filters for a more focused view.
+          Trace summaries use the newest 1,000 retained details; narrow the filters for a more focused view.
         </p>
       )}
       {error && <p role="alert" className="rounded border border-red-700 bg-red-900/20 p-4 text-red-300">{error}</p>}
@@ -142,6 +148,9 @@ export default function AdminTelemetryPage() {
               <option value="24">24 hours</option>
               <option value="72">3 days</option>
               <option value="168">7 days</option>
+              <option value="720">30 days</option>
+              <option value="2160">90 days</option>
+              <option value="4320">180 days</option>
             </select>
           </label>
           <label className="text-sm text-gray-300">
@@ -178,6 +187,9 @@ export default function AdminTelemetryPage() {
         </div>
 
         <div className="overflow-x-auto">
+          <p className="border-b border-gray-800 px-4 py-3 text-sm text-gray-400">
+            Retained detail traces — errors, slow requests, and a 1% routine sample
+          </p>
           <table className="w-full min-w-[980px] text-left text-sm">
             <thead className="bg-gray-800/70 text-xs uppercase text-gray-400">
               <tr>
@@ -209,7 +221,7 @@ export default function AdminTelemetryPage() {
                 </tr>
               ))}
               {!loading && !error && data?.events.length === 0 && (
-                <tr><td colSpan={8} className="px-4 py-12 text-center text-gray-400">No telemetry events in this time window.</td></tr>
+                <tr><td colSpan={8} className="px-4 py-12 text-center text-gray-400">No retained detail traces match this filter; aggregated activity is included above.</td></tr>
               )}
               {loading && <tr><td colSpan={8} className="px-4 py-12 text-center text-gray-400">Loading telemetry…</td></tr>}
             </tbody>
@@ -217,7 +229,7 @@ export default function AdminTelemetryPage() {
         </div>
 
         <footer className="flex items-center justify-between border-t border-gray-800 px-4 py-3 text-sm text-gray-400">
-          <span>{data?.summary.sampleSize ?? 0} events in summary sample</span>
+          <span>{(data?.summary.sampleSize ?? 0).toLocaleString()} estimated events in summary</span>
           <div className="flex items-center gap-2">
             <button
               type="button"

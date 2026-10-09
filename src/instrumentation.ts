@@ -25,7 +25,10 @@ export async function register() {
     );
     const isProviderRequest = target.hostname === 'api.opendota.com' || target.hostname === stratzHost;
     if (!isDatabaseRequest && !isProviderRequest) return originalFetch(input, init);
-    if (isDatabaseRequest && target.pathname.startsWith('/rest/v1/interaction_telemetry')) return originalFetch(input, init);
+    if (isDatabaseRequest && (
+      target.pathname.startsWith('/rest/v1/interaction_telemetry') ||
+      target.pathname === '/rest/v1/rpc/record_interaction_telemetry'
+    )) return originalFetch(input, init);
 
     const request = input instanceof Request ? input : null;
     const method = (init?.method ?? request?.method ?? 'GET').toUpperCase();
@@ -43,7 +46,7 @@ export async function register() {
 
     try {
       const response = await originalFetch(input, init);
-      const { isTelemetrySuppressed } = await import('@/lib/server-telemetry');
+      const { getCurrentRoute, isTelemetrySuppressed } = await import('@/lib/server-telemetry');
       if (isTelemetrySuppressed()) return response;
       if (isProviderRequest || shouldCaptureDatabaseEvent(method, response.status, sampleRate)) {
         const eventType = isDatabaseRequest ? 'database_request' : 'provider_request';
@@ -52,6 +55,7 @@ export async function register() {
         scheduleTelemetryWrite({
           event_type: eventType,
           trace_id: await getCurrentTraceId(),
+          route: getCurrentRoute(),
           method,
           resource: safeResource,
           status_code: response.status,
@@ -66,12 +70,13 @@ export async function register() {
       }
       return response;
     } catch (error) {
-      const { isTelemetrySuppressed } = await import('@/lib/server-telemetry');
+      const { getCurrentRoute, isTelemetrySuppressed } = await import('@/lib/server-telemetry');
       if (isTelemetrySuppressed()) throw error;
       const { scheduleTelemetryWrite, getCurrentTraceId } = await import('@/lib/server-telemetry');
       scheduleTelemetryWrite({
         event_type: isDatabaseRequest ? 'database_request' : 'provider_request',
         trace_id: await getCurrentTraceId(),
+        route: getCurrentRoute(),
         method,
         resource: safeResource,
         duration_ms: Math.round(performance.now() - startedAt),

@@ -1,7 +1,10 @@
 import {
   getReadSampleRate,
+  getDetailSampleRate,
+  getSlowRequestThreshold,
   createPageViewEvent,
   normalizeRoutePath,
+  shouldRetainTelemetryDetail,
   shouldCaptureDatabaseEvent,
   summarizeTelemetryEvents,
 } from './telemetry';
@@ -31,6 +34,20 @@ describe('telemetry helpers', () => {
     expect(shouldCaptureDatabaseEvent('GET', 200, 0.1, 0.5)).toBe(false);
     expect(shouldCaptureDatabaseEvent('GET', 500, 0, 0.5)).toBe(true);
     expect(shouldCaptureDatabaseEvent('POST', 200, 0, 0.5)).toBe(true);
+  });
+
+  it('retains all errors and slow traces while sampling routine detail rows', () => {
+    expect(getDetailSampleRate(undefined)).toBe(0.01);
+    expect(getDetailSampleRate('2')).toBe(1);
+    expect(getDetailSampleRate('-1')).toBe(0);
+    expect(getSlowRequestThreshold(undefined)).toBe(2000);
+    expect(getSlowRequestThreshold('0')).toBe(0);
+    expect(getSlowRequestThreshold('-1')).toBe(2000);
+    expect(getSlowRequestThreshold('700000')).toBe(600000);
+    expect(shouldRetainTelemetryDetail({ event_type: 'api_request', status_code: 503 }, 0, 2000, 0.5)).toBe(true);
+    expect(shouldRetainTelemetryDetail({ event_type: 'database_request', duration_ms: 2000 }, 0, 2000, 0.5)).toBe(true);
+    expect(shouldRetainTelemetryDetail({ event_type: 'api_request', status_code: 200 }, 0.01, 2000, 0.005)).toBe(true);
+    expect(shouldRetainTelemetryDetail({ event_type: 'api_request', status_code: 200 }, 0.01, 2000, 0.5)).toBe(false);
   });
 
   it('summarizes event categories, failures, average duration and p95', () => {

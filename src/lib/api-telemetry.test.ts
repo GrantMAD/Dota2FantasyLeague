@@ -1,12 +1,13 @@
 const mockGetCurrentTraceId = jest.fn();
 const mockScheduleTelemetryWrite = jest.fn();
 const mockFlushTelemetryEvents = jest.fn();
+const mockRunWithTraceId = jest.fn((...args: [string, () => unknown, (string | null)?]) => args[1]());
 
 jest.mock('@/lib/server-telemetry', () => ({
   getCurrentTraceId: (...args: unknown[]) => mockGetCurrentTraceId(...args),
   flushTelemetryEvents: (...args: unknown[]) => mockFlushTelemetryEvents(...args),
   runWithTelemetrySuppressed: (callback: () => unknown) => callback(),
-  runWithTraceId: (_traceId: string, callback: () => unknown) => callback(),
+  runWithTraceId: (...args: [string, () => unknown, (string | null)?]) => mockRunWithTraceId(...args),
   scheduleTelemetryWrite: (...args: unknown[]) => mockScheduleTelemetryWrite(...args),
 }));
 
@@ -17,6 +18,7 @@ describe('withApiTelemetry', () => {
     mockGetCurrentTraceId.mockReset().mockResolvedValue(null);
     mockScheduleTelemetryWrite.mockReset();
     mockFlushTelemetryEvents.mockReset();
+    mockRunWithTraceId.mockClear();
   });
 
   it('records normalized request metadata without recording request content', async () => {
@@ -43,6 +45,11 @@ describe('withApiTelemetry', () => {
     });
     expect(JSON.stringify(event)).not.toContain('must-not-be-recorded');
     expect(mockFlushTelemetryEvents).toHaveBeenCalledTimes(1);
+    expect(mockRunWithTraceId).toHaveBeenCalledWith(
+      '9f5c95c0-6027-4a22-8a33-7ce34b5fd934',
+      expect.any(Function),
+      '/api/lineups/:id',
+    );
   });
 
   it('records thrown handler failures and preserves the original error', async () => {

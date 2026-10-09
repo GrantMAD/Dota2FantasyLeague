@@ -1,6 +1,6 @@
 const mockVerifyAuth = jest.fn();
 const mockSupabaseServer = jest.fn();
-const mockInsert = jest.fn();
+const mockRecord = jest.fn();
 
 jest.mock('@/lib/auth-utils', () => ({
   verifyAuth: (...args: unknown[]) => mockVerifyAuth(...args),
@@ -15,12 +15,18 @@ jest.mock('@/lib/supabase', () => ({
 import { POST } from './route';
 
 describe('POST /api/telemetry/events', () => {
+  const originalDetailSampleRate = process.env.TELEMETRY_DETAIL_SAMPLE_RATE;
+
   beforeEach(() => {
     mockVerifyAuth.mockReset().mockResolvedValue({ userId: 'user-1' });
-    mockInsert.mockReset().mockResolvedValue({ error: null });
-    mockSupabaseServer.mockReset().mockReturnValue({
-      from: jest.fn(() => ({ insert: mockInsert })),
-    });
+    mockRecord.mockReset().mockResolvedValue({ error: null });
+    mockSupabaseServer.mockReset().mockReturnValue({ rpc: mockRecord });
+    process.env.TELEMETRY_DETAIL_SAMPLE_RATE = '1';
+  });
+
+  afterAll(() => {
+    if (originalDetailSampleRate === undefined) delete process.env.TELEMETRY_DETAIL_SAMPLE_RATE;
+    else process.env.TELEMETRY_DETAIL_SAMPLE_RATE = originalDetailSampleRate;
   });
 
   it('stores only normalized page-view metadata', async () => {
@@ -36,13 +42,16 @@ describe('POST /api/telemetry/events', () => {
     }));
 
     expect(response.status).toBe(204);
-    expect(mockInsert).toHaveBeenCalledWith(expect.objectContaining({
-      event_type: 'page_view',
-      route: '/dashboard/squad/:id',
-      trace_id: '9f5c95c0-6027-4a22-8a33-7ce34b5fd934',
-      metadata: { source: 'browser' },
-    }));
-    expect(JSON.stringify(mockInsert.mock.calls[0][0])).not.toContain('must-not-be-stored');
+    expect(mockRecord).toHaveBeenCalledWith('record_interaction_telemetry', {
+      event_batch: [expect.objectContaining({
+        event_type: 'page_view',
+        route: '/dashboard/squad/:id',
+        trace_id: '9f5c95c0-6027-4a22-8a33-7ce34b5fd934',
+        metadata: { source: 'browser' },
+      })],
+      detail_batch: [expect.objectContaining({ event_type: 'page_view' })],
+    });
+    expect(JSON.stringify(mockRecord.mock.calls[0][1])).not.toContain('must-not-be-stored');
   });
 
   it('rejects unauthenticated and invalid page-view events', async () => {
@@ -56,6 +65,6 @@ describe('POST /api/telemetry/events', () => {
       body: JSON.stringify({ route: '/api/secret', trace_id: 'invalid' }),
     }));
     expect(invalid.status).toBe(400);
-    expect(mockInsert).not.toHaveBeenCalled();
+    expect(mockRecord).not.toHaveBeenCalled();
   });
 });

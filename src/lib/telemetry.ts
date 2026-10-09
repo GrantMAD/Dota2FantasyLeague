@@ -50,6 +50,29 @@ export function getReadSampleRate(value: string | undefined): number {
   return Math.min(1, Math.max(0, parsed));
 }
 
+export function getDetailSampleRate(value: string | undefined): number {
+  if (value === undefined || value.trim() === '') return 0.01;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? Math.min(1, Math.max(0, parsed)) : 0.01;
+}
+
+export function getSlowRequestThreshold(value: string | undefined): number {
+  if (value === undefined || value.trim() === '') return 2000;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed >= 0 ? Math.min(parsed, 600000) : 2000;
+}
+
+export function shouldRetainTelemetryDetail(
+  event: TelemetryEvent,
+  detailSampleRate: number,
+  slowRequestThresholdMs = 2000,
+  randomValue = Math.random(),
+): boolean {
+  if ((event.status_code ?? 0) >= 400 || event.error_class) return true;
+  if ((event.duration_ms ?? 0) >= slowRequestThresholdMs) return true;
+  return randomValue < detailSampleRate;
+}
+
 export function shouldCaptureDatabaseEvent(
   method: string,
   status: number,

@@ -91,13 +91,12 @@ async function getHandler(request: NextRequest) {
       });
     }
 
-    // 1b. Try to fetch chip columns separately — they may not exist in all DB versions
+    // 1b. Fetch chip activation gameweeks separately from the core season record.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const chipQueryResult = await (supabase.from('fantasy_seasons') as any)
-      .select('triple_captain_used_gameweek_id, bench_boost_used_gameweek_id, wildcard_used_gameweek_id')
+      .select('triple_captain_gameweek_id, bench_boost_gameweek_id, wildcard_used_gameweek_id')
       .eq('id', fantasySeason.id)
       .maybeSingle();
-    // If columns don't exist, chipQueryResult.error will be set — fall back to empty object
     const chipsRow = (!chipQueryResult.error && chipQueryResult.data) ? chipQueryResult.data : {};
 
     // 2. Fetch Gameweeks: Look for active first, then upcoming, then fallback to latest closed
@@ -278,10 +277,10 @@ async function getHandler(request: NextRequest) {
       globalRank: fantasySeason.global_rank ?? null,
       gameweek: gameweekInfo,
       chips: {
-        tripleCaptainUsed: chipsRow.triple_captain_used_gameweek_id != null,
-        tripleCaptainGameweekId: chipsRow.triple_captain_used_gameweek_id ?? null,
-        benchBoostUsed: chipsRow.bench_boost_used_gameweek_id != null,
-        benchBoostGameweekId: chipsRow.bench_boost_used_gameweek_id ?? null,
+        tripleCaptainUsed: chipsRow.triple_captain_gameweek_id != null,
+        tripleCaptainGameweekId: chipsRow.triple_captain_gameweek_id ?? null,
+        benchBoostUsed: chipsRow.bench_boost_gameweek_id != null,
+        benchBoostGameweekId: chipsRow.bench_boost_gameweek_id ?? null,
         wildcardUsed: chipsRow.wildcard_used_gameweek_id != null,
         wildcardUsedGameweekId: chipsRow.wildcard_used_gameweek_id ?? null,
       },

@@ -2,7 +2,12 @@ import { NextResponse } from 'next/server';
 import { createErrorResponse, verifyAuth } from '@/lib/auth-utils';
 import { supabaseServer } from '@/lib/supabase';
 import { withApiTelemetry } from '@/lib/api-telemetry';
-import { createPageViewEvent } from '@/lib/telemetry';
+import {
+  createPageViewEvent,
+  getDetailSampleRate,
+  getSlowRequestThreshold,
+  shouldRetainTelemetryDetail,
+} from '@/lib/telemetry';
 
 async function postHandler(request: Request) {
   try {
@@ -45,9 +50,17 @@ async function postHandler(request: Request) {
     if (!event) return NextResponse.json({ error: 'Invalid telemetry event.' }, { status: 400 });
 
     const supabase = supabaseServer();
-    // The telemetry table is provisioned by the accompanying SQL migration.
+    const retainDetail = shouldRetainTelemetryDetail(
+      event,
+      getDetailSampleRate(process.env.TELEMETRY_DETAIL_SAMPLE_RATE),
+      getSlowRequestThreshold(process.env.TELEMETRY_SLOW_REQUEST_THRESHOLD_MS),
+    );
+    // The telemetry RPC and tables are provisioned by the accompanying SQL migration.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error } = await (supabase.from('interaction_telemetry') as any).insert(event);
+    const { error } = await (supabase.rpc as any)('record_interaction_telemetry', {
+      event_batch: [event],
+      detail_batch: retainDetail ? [event] : [],
+    });
     if (error) {
       console.error('[Telemetry] Failed to persist page view:', error.message);
       return NextResponse.json({ error: 'Unable to record telemetry event.' }, { status: 503 });

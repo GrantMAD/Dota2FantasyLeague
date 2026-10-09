@@ -239,7 +239,7 @@ const JOBS: JobDefinition[] = [
   },
   {
     name: 'purge-interaction-telemetry',
-    schedule: '15 4 * * 0', // Weekly Sunday at 4:15 AM UTC
+    schedule: '15 4 * * *', // Daily at 4:15 AM UTC
     handler: purgeInteractionTelemetry,
     enabled: process.env.ENABLE_TELEMETRY !== 'false',
     timeout: 5 * 60 * 1000,
