@@ -1,7 +1,7 @@
 'use client';
 
 import { fetchWithAuth } from '@/lib/fetch-with-auth';
-import { Suspense, useEffect, useState } from 'react';
+import { Suspense, useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { useTheme, type Theme } from '@/components/theme/ThemeProvider';
@@ -43,11 +43,57 @@ function SettingsContent() {
   const [message, setMessage] = useState<string | null>(null);
   const [messageIsError, setMessageIsError] = useState(false);
 
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  const loadProfile = useCallback(async () => {
+    setLoading(true);
+    setLoadError(null);
+    setMessage(null);
+    setMessageIsError(false);
+
+    try {
+      const res = await fetchWithAuth('/api/user/profile');
+      if (!res.ok) throw new Error('Failed to load profile preferences');
+      const data = (await res.json()) as {
+        profile?: {
+          display_name?: string | null;
+          username?: string;
+          email?: string;
+          country_code?: string | null;
+          timezone?: string | null;
+          email_notifications?: boolean | null;
+          push_notifications?: boolean | null;
+        };
+      };
+      const profile = data.profile;
+      if (!profile) throw new Error('No profile record found');
+      setAccountData({ username: profile.username || '', email: profile.email || '' });
+      setFormData((current) => ({
+        ...current,
+        displayName: profile.display_name || profile.username || '',
+        countryCode: profile.country_code || 'US',
+        timezone: profile.timezone || 'UTC',
+        emailNotifications: profile.email_notifications ?? true,
+        pushNotifications: profile.push_notifications ?? true,
+      }));
+    } catch (err: unknown) {
+      const errMsg = err instanceof Error ? err.message : 'Unable to load profile preferences';
+      setLoadError(errMsg);
+      setMessage(errMsg);
+      setMessageIsError(true);
+      toast.error('Settings Error', 'Unable to load your profile settings. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  }, [toast]);
+
   useEffect(() => {
-    async function loadProfile() {
+    let ignore = false;
+
+    async function loadInitialProfile() {
       try {
         const res = await fetchWithAuth('/api/user/profile');
-        if (!res.ok) return;
+        if (!res.ok) throw new Error('Failed to load profile preferences');
         const data = (await res.json()) as {
           profile?: {
             display_name?: string | null;
@@ -60,26 +106,39 @@ function SettingsContent() {
           };
         };
         const profile = data.profile;
-        if (!profile) return;
-        setAccountData({ username: profile.username || '', email: profile.email || '' });
-        setFormData((current) => ({
-          ...current,
-          displayName: profile.display_name || profile.username || '',
-          countryCode: profile.country_code || 'US',
-          timezone: profile.timezone || 'UTC',
-          emailNotifications: profile.email_notifications ?? true,
-          pushNotifications: profile.push_notifications ?? true,
-        }));
-      } catch {
-        setMessage('Unable to load profile preferences');
-        setMessageIsError(true);
+        if (!profile) throw new Error('No profile record found');
+        if (!ignore) {
+          setAccountData({ username: profile.username || '', email: profile.email || '' });
+          setFormData((current) => ({
+            ...current,
+            displayName: profile.display_name || profile.username || '',
+            countryCode: profile.country_code || 'US',
+            timezone: profile.timezone || 'UTC',
+            emailNotifications: profile.email_notifications ?? true,
+            pushNotifications: profile.push_notifications ?? true,
+          }));
+        }
+      } catch (err: unknown) {
+        if (!ignore) {
+          const errMsg = err instanceof Error ? err.message : 'Unable to load profile preferences';
+          setLoadError(errMsg);
+          setMessage(errMsg);
+          setMessageIsError(true);
+          toast.error('Settings Error', 'Unable to load your profile settings. Please try again.');
+        }
       } finally {
-        setLoading(false);
+        if (!ignore) {
+          setLoading(false);
+        }
       }
     }
 
-    void loadProfile();
-  }, []);
+    void loadInitialProfile();
+
+    return () => {
+      ignore = true;
+    };
+  }, [toast]);
 
   const changeTab = (tab: SettingsTab) => {
     setActiveTab(tab);
@@ -241,7 +300,23 @@ function SettingsContent() {
         </div>
       </section>
 
-      {message && <div className={`mb-6 rounded-xl border px-4 py-3 text-sm ${messageIsError ? 'border-red-500/40 bg-red-500/10 text-red-200' : 'border-emerald-500/35 bg-emerald-500/10 text-emerald-200'}`}>{message}</div>}
+      {loadError && (
+        <div className="mb-6 flex flex-col items-start justify-between gap-4 rounded-xl border border-red-500/40 bg-red-500/10 p-4 text-sm text-red-200 sm:flex-row sm:items-center">
+          <div>
+            <p className="font-semibold text-red-100">Unable to load profile preferences</p>
+            <p className="mt-0.5 text-xs text-red-300/90">{loadError}</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => void loadProfile()}
+            className="inline-flex shrink-0 items-center rounded-lg bg-red-600 px-3.5 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-red-500 focus:outline-none focus:ring-2 focus:ring-red-400"
+          >
+            Retry
+          </button>
+        </div>
+      )}
+
+      {message && !loadError && <div className={`mb-6 rounded-xl border px-4 py-3 text-sm ${messageIsError ? 'border-red-500/40 bg-red-500/10 text-red-200' : 'border-emerald-500/35 bg-emerald-500/10 text-emerald-200'}`}>{message}</div>}
 
       <div className="grid gap-6 lg:grid-cols-[220px_1fr]">
         <nav className="h-fit rounded-2xl border border-slate-800 bg-slate-900/70 p-2" aria-label="Settings sections">

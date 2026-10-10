@@ -1,9 +1,10 @@
 'use client';
 
 import { fetchWithAuth } from '@/lib/fetch-with-auth';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useTheme } from '@/components/theme/ThemeProvider';
+import { useToast } from '@/components/Toast';
 import {
   ResponsiveContainer,
   LineChart,
@@ -91,26 +92,61 @@ export default function AnalyticsDashboard() {
     globalAvgDot: isLight ? '#475569' : '#64748b',
   }), [isLight]);
 
+  const toast = useToast();
   const [data, setData] = useState(initialData);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [tab, setTab] = useState<'my' | 'market' | 'dream'>('my');
 
+  const fetchAnalytics = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetchWithAuth('/api/analytics');
+      if (!res.ok) throw new Error('Failed to load analytics data');
+      const payload = await res.json() as Partial<AnalyticsData>;
+      setData({ ...initialData, ...payload });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to load analytics data';
+      setError(message);
+      setData(initialData);
+      toast.error('Unable to load analytics', 'Could not retrieve your latest manager metrics. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  }, [toast]);
+
   useEffect(() => {
-    async function fetchAnalytics() {
+    let ignore = false;
+
+    async function loadInitialAnalytics() {
       try {
         const res = await fetchWithAuth('/api/analytics');
-        if (!res.ok) throw new Error('Failed to load analytics');
+        if (!res.ok) throw new Error('Failed to load analytics data');
         const payload = await res.json() as Partial<AnalyticsData>;
-        setData({ ...initialData, ...payload });
-      } catch {
-        setData(initialData);
+        if (!ignore) {
+          setData({ ...initialData, ...payload });
+        }
+      } catch (err: unknown) {
+        if (!ignore) {
+          const message = err instanceof Error ? err.message : 'Failed to load analytics data';
+          setError(message);
+          setData(initialData);
+          toast.error('Unable to load analytics', 'Could not retrieve your latest manager metrics. Please try again.');
+        }
       } finally {
-        setLoading(false);
+        if (!ignore) {
+          setLoading(false);
+        }
       }
     }
 
-    fetchAnalytics();
-  }, []);
+    void loadInitialAnalytics();
+
+    return () => {
+      ignore = true;
+    };
+  }, [toast]);
 
 
 
@@ -165,6 +201,22 @@ export default function AnalyticsDashboard() {
             </button>
           ))}
         </div>
+
+        {error && (
+          <div className="mb-8 flex flex-col items-start justify-between gap-4 rounded-2xl border border-red-500/30 bg-red-500/10 p-5 text-red-200 sm:flex-row sm:items-center">
+            <div>
+              <p className="font-semibold text-red-100">Analytics data temporarily unavailable</p>
+              <p className="mt-1 text-sm text-red-300/90">{error}. Displaying default fallback values.</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => void fetchAnalytics()}
+              className="inline-flex shrink-0 items-center gap-2 rounded-xl bg-red-600 px-4 py-2 text-sm font-semibold text-white shadow-md transition hover:bg-red-500 focus:outline-none focus:ring-2 focus:ring-red-400 focus:ring-offset-2 focus:ring-offset-slate-950"
+            >
+              Retry
+            </button>
+          </div>
+        )}
 
         {loading ? (
           <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-4">
