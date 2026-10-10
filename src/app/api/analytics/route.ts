@@ -211,97 +211,139 @@ async function getHandler(request: NextRequest) {
       squadValue = activePlayerIds.reduce((sum, playerId) => sum + (latestByPlayer.get(playerId) ?? 0), 0);
     }
 
+    let targetGameweekId = recentGameweekId;
+    if (!targetGameweekId) {
+      // Find the latest closed or locked gameweek in the season
+      const { data: latestFinishedGw } = await supabase.from('gameweeks')
+        .select('id')
+        .eq('season_id', season.season_id)
+        .in('status', ['closed', 'locked'])
+        .order('gameweek_number', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (latestFinishedGw) {
+        targetGameweekId = Number(latestFinishedGw.id);
+      } else {
+        // Fallback to active or latest gameweek in the season
+        const { data: fallbackGw } = await supabase.from('gameweeks')
+          .select('id')
+          .eq('season_id', season.season_id)
+          .order('gameweek_number', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        targetGameweekId = fallbackGw ? Number(fallbackGw.id) : null;
+      }
+    }
+
     const market = [] as Array<{ playerName: string; team: string; role: string; ownership: number; price: number; roi: number; }>; 
-    
-    // Fetch scoring players from player_performances in recent gameweek to compute real ROI
-    const { data: recentPerformanceData } = await supabase.from('player_performances')
-      .select('player_id, fantasy_points_breakdown(total_points), professional_players(id, name, in_game_name, team_id, primary_role, professional_teams(name))')
-      .eq('gameweek_id', recentGameweekId ?? 2)
-      .not('fantasy_points_breakdown', 'is', null)
-      .limit(300);
-    const recentPerfRows = (recentPerformanceData ?? []) as PerformanceAnalyticsRow[];
+    let dreamTeam: Array<{ playerName: string; team: string; role: string; points: number }> = [];
 
-    const perfTotalsByPlayer = new Map<number, { player: AnalyticsPlayer; points: number }>();
-    for (const row of recentPerfRows) {
-      const p = firstRelation(row.professional_players);
-      const team = firstRelation(p?.professional_teams);
-      // Filter out players who do not have an active team or are free agents
-      if (!p || !p.team_id || !team?.name) continue;
+    if (targetGameweekId) {
+      // Consolidate market ROI and Dream Team into a single performance query
+      const { data: performanceData } = await supabase.from('player_performances')
+        .select('player_id, fantasy_points_breakdown(total_points), professional_players(id, name, in_game_name, team_id, primary_role, professional_teams(name))')
+        .eq('gameweek_id', targetGameweekId)
+        .not('fantasy_points_breakdown', 'is', null)
+        .limit(300);
+      const perfRows = (performanceData ?? []) as PerformanceAnalyticsRow[];
 
-      const pId = Number(row.player_id);
-      const pts = Number(firstRelation(row.fantasy_points_breakdown)?.total_points ?? 0);
-      const existing = perfTotalsByPlayer.get(pId);
-      if (existing) {
-        existing.points += pts;
-      } else {
-        perfTotalsByPlayer.set(pId, { player: p, points: pts });
+      const perfTotalsByPlayer = new Map<number, { player: AnalyticsPlayer; points: number }>();
+      for (const row of perfRows) {
+        const p = firstRelation(row.professional_players);
+        const team = firstRelation(p?.professional_teams);
+        // Filter out players who do not have an active team or are free agents
+        if (!p || !p.team_id || !team?.name) continue;
+
+        const pId = Number(row.player_id);
+        const pts = Number(firstRelation(row.fantasy_points_breakdown)?.total_points ?? 0);
+        const existing = perfTotalsByPlayer.get(pId);
+        if (existing) {
+          existing.points += pts;
+        } else {
+          perfTotalsByPlayer.set(pId, { player: p, points: pts });
+        }
       }
-    }
 
-    // Fetch prices and ownership for these scoring players
-    const scoringPlayerIds = Array.from(perfTotalsByPlayer.keys());
-    const { data: scoringPlayerPrices } = await supabase.from('player_prices')
-      .select('player_id, price, ownership_percentage')
-      .in('player_id', scoringPlayerIds.length ? scoringPlayerIds : [0]);
+      // Fetch prices and ownership for these scoring players
+      const scoringPlayerIds = Array.from(perfTotalsByPlayer.keys());
+      const { data: scoringPlayerPrices } = await supabase.from('player_prices')
+        .select('player_id, price, ownership_percentage')
+        .in('player_id', scoringPlayerIds.length ? scoringPlayerIds : [0]);
 
-    const priceMap = new Map<number, { price: number; ownership: number }>();
-    for (const p of scoringPlayerPrices ?? []) {
-      priceMap.set(Number(p.player_id), {
-        price: Number(p.price ?? 5.0),
-        ownership: Number(p.ownership_percentage ?? 0),
-      });
-    }
-
-    for (const [pId, { player: p, points }] of perfTotalsByPlayer.entries()) {
-      const team = firstRelation(p.professional_teams);
-      const priceInfo = priceMap.get(pId) ?? { price: 5.0, ownership: 0 };
-      const price = priceInfo.price || 5.0;
-      const ownership = priceInfo.ownership;
-      const roi = Number(((points / price) * 10).toFixed(2));
-      const displayName = (p.in_game_name && p.in_game_name !== 'Player (Unknown)')
-        ? p.in_game_name
-        : (p.name && p.name !== 'Player (Unknown)' ? p.name : `Player #${pId}`);
-
-      market.push({
-        playerName: displayName,
-        team: team?.name || 'Unknown',
-        role: p.primary_role || 'Support',
-        ownership,
-        price,
-        roi,
-      });
-    }
-
-    market.sort((a, b) => b.roi - a.roi);
-
-    const { data: dreamRowData } = await supabase.from('player_performances')
-      .select('player_id, fantasy_points_breakdown(total_points), professional_players(id, name, in_game_name, team_id, primary_role, professional_teams(name))')
-      .eq('gameweek_id', recentGameweekId ?? 2)
-      .not('fantasy_points_breakdown', 'is', null)
-      .limit(300);
-    const dreamRows = (dreamRowData ?? []) as PerformanceAnalyticsRow[];
-
-    const dreamTotals = new Map<number, { player: AnalyticsPlayer; points: number }>();
-    for (const row of dreamRows) {
-      const p = firstRelation(row.professional_players);
-      const team = firstRelation(p?.professional_teams);
-      // Filter out players who do not have an active team or are free agents
-      if (!p || !p.team_id || !team?.name) continue;
-
-      const pId = Number(row.player_id);
-      const pts = Number(firstRelation(row.fantasy_points_breakdown)?.total_points ?? 0);
-      const existing = dreamTotals.get(pId);
-      if (existing) {
-        existing.points += pts;
-      } else {
-        dreamTotals.set(pId, { player: p, points: pts });
+      const priceMap = new Map<number, { price: number; ownership: number }>();
+      for (const p of scoringPlayerPrices ?? []) {
+        priceMap.set(Number(p.player_id), {
+          price: Number(p.price ?? 5.0),
+          ownership: Number(p.ownership_percentage ?? 0),
+        });
       }
-    }
 
-    const dreamTeam = Array.from(dreamTotals.values())
-      .sort((a, b) => b.points - a.points)
-      .slice(0, 8)
-      .map(({ player: p, points }) => {
+      for (const [pId, { player: p, points }] of perfTotalsByPlayer.entries()) {
+        const team = firstRelation(p.professional_teams);
+        const priceInfo = priceMap.get(pId) ?? { price: 5.0, ownership: 0 };
+        const price = priceInfo.price || 5.0;
+        const ownership = priceInfo.ownership;
+        const roi = Number(((points / price) * 10).toFixed(2));
+        const displayName = (p.in_game_name && p.in_game_name !== 'Player (Unknown)')
+          ? p.in_game_name
+          : (p.name && p.name !== 'Player (Unknown)' ? p.name : `Player #${pId}`);
+
+        market.push({
+          playerName: displayName,
+          team: team?.name || 'Unknown',
+          role: p.primary_role || 'Support',
+          ownership,
+          price,
+          roi,
+        });
+      }
+
+      market.sort((a, b) => b.roi - a.roi);
+
+      // Build Dream Team following authentic lineup rules:
+      // 5 Starters: 1 Carry, 1 Mid, 1 Offlane, 1 Support, 1 Hard Support
+      // 3 Bench: Next 3 highest-scoring players regardless of role
+      const allScorers = Array.from(perfTotalsByPlayer.entries()).map(([pId, entry]) => ({
+        id: pId,
+        player: entry.player,
+        points: entry.points,
+        role: entry.player.primary_role || 'Support',
+      }));
+
+      // Sort descending by points
+      allScorers.sort((a, b) => b.points - a.points);
+
+      const chosenIds = new Set<number>();
+      const starters: typeof allScorers = [];
+      const requiredRoles = ['Carry', 'Mid', 'Offlane', 'Support', 'Hard Support'];
+
+      for (const reqRole of requiredRoles) {
+        const bestForRole = allScorers.find((s) => !chosenIds.has(s.id) && s.role === reqRole);
+        if (bestForRole) {
+          chosenIds.add(bestForRole.id);
+          starters.push(bestForRole);
+        }
+      }
+
+      // Fill any remaining starter slots with next highest scorers if a role was absent
+      while (starters.length < 5 && chosenIds.size < allScorers.length) {
+        const nextBest = allScorers.find((s) => !chosenIds.has(s.id));
+        if (!nextBest) break;
+        chosenIds.add(nextBest.id);
+        starters.push(nextBest);
+      }
+
+      // Next 3 highest scoring remaining players for bench
+      const bench: typeof allScorers = [];
+      for (const scorer of allScorers) {
+        if (!chosenIds.has(scorer.id) && bench.length < 3) {
+          chosenIds.add(scorer.id);
+          bench.push(scorer);
+        }
+      }
+
+      dreamTeam = [...starters, ...bench].map(({ player: p, points, role }) => {
         const team = firstRelation(p.professional_teams);
         const displayName = (p.in_game_name && p.in_game_name !== 'Player (Unknown)')
           ? p.in_game_name
@@ -309,10 +351,11 @@ async function getHandler(request: NextRequest) {
         return {
           playerName: displayName,
           team: team?.name || 'Unknown',
-          role: p.primary_role || 'Support',
+          role: role || p.primary_role || 'Support',
           points: Number(points.toFixed(1)),
         };
       });
+    }
 
     return NextResponse.json({
       user: {
