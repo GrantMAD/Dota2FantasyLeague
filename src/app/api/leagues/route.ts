@@ -92,12 +92,50 @@ async function getHandler(request: NextRequest) {
     const type = request.nextUrl.searchParams.get('type');
     const privacy = request.nextUrl.searchParams.get('privacy');
     const supabase = supabaseServer();
+
+    // Query leagues where user is a participant so we can enforce privacy directly in SQL
+    let userLeagueIds: number[] = [];
+    if (privacy !== 'public') {
+      const { data: userMemberships, error: membershipError } = await supabase
+        .from('league_participants')
+        .select('league_id')
+        .eq('user_id', user.userId);
+      if (membershipError) {
+        return NextResponse.json({ error: 'Failed to load user league memberships.' }, { status: 500 });
+      }
+      userLeagueIds = (userMemberships ?? []).map((m: { league_id: number }) => m.league_id);
+    }
+
+    if (privacy === 'private' && userLeagueIds.length === 0) {
+      return NextResponse.json({
+        leagues: [],
+        count: 0,
+        lastRecalculatedAt: null,
+      });
+    }
+
     let query = supabase.from('leagues')
       .select('id, name, league_type, privacy_level, description, max_participants, current_participants, invite_code, status, created_at, league_participants(id, user_id, points, rank, wins, losses, draws, users(id, username, display_name, avatar_url, bio), fantasy_seasons(gameweek_points_latest)), head_to_head_matchups(id, gameweek_id, points_a, points_b, winner_id, is_bye, participant_a:league_participants!participant_a_id(users(id, username, display_name, avatar_url, bio)), participant_b:league_participants!participant_b_id(users(id, username, display_name, avatar_url, bio)))')
       .eq('status', 'active')
       .order('created_at', { ascending: false });
-    if (type && type !== 'all') query = query.in('league_type', type === 'h2h' ? ['h2h', 'head_to_head'] : ['classic']);
-    if (privacy && privacy !== 'all') query = query.eq('privacy_level', privacy);
+
+    if (type && type !== 'all') {
+      query = query.in('league_type', type === 'h2h' ? ['h2h', 'head_to_head'] : ['classic']);
+    }
+
+    if (privacy === 'public') {
+      query = query.eq('privacy_level', 'public');
+    } else if (privacy === 'private') {
+      query = query.eq('privacy_level', 'private').in('id', userLeagueIds);
+    } else {
+      // Default / 'all': Show all public leagues OR private leagues where user is a participant
+      if (userLeagueIds.length > 0) {
+        query = query.or(`privacy_level.neq.private,id.in.(${userLeagueIds.join(',')})`);
+      } else {
+        query = query.neq('privacy_level', 'private');
+      }
+    }
+
     const [{ data, error }, { data: recalculation, error: recalculationError }] = await Promise.all([
       query,
       supabase
@@ -110,11 +148,13 @@ async function getHandler(request: NextRequest) {
         .limit(1)
         .maybeSingle(),
     ]);
+
     if (error) return NextResponse.json({ error: 'Failed to load leagues.' }, { status: 500 });
     if (recalculationError) {
       return NextResponse.json({ error: 'Failed to load the latest league standings update time.' }, { status: 500 });
     }
-    const leagues = ((data ?? []) as unknown as LeagueRow[]).filter((league) => league.privacy_level !== 'private' || league.league_participants.some((participant) => participant.user_id === user.userId));
+
+    const leagues = (data ?? []) as unknown as LeagueRow[];
     return NextResponse.json({
       leagues: leagues.map(serializeLeague),
       count: leagues.length,
@@ -135,64 +175,74 @@ async function postHandler(request: NextRequest) {
     if (body.action === 'join') {
       const inviteCode = typeof body.inviteCode === 'string' ? body.inviteCode.trim().toUpperCase() : '';
       if (!inviteCode) return NextResponse.json({ error: 'Invite code is required to join a league.' }, { status: 400 });
-      const { data: league, error: leagueError } = await supabase
-        .from('leagues')
-        .select('id, season_id, name, creator_id, max_participants, current_participants, invite_code, league_type, privacy_level, description, status')
-        .eq('invite_code', inviteCode)
-        .eq('status', 'active')
-        .maybeSingle();
-      if (leagueError || !league) return NextResponse.json({ error: 'That invite code does not match an active league.' }, { status: 404 });
-      if (league.max_participants && league.current_participants >= league.max_participants) return NextResponse.json({ error: 'This league is full.' }, { status: 409 });
-      const { data: fantasySeason, error: fantasySeasonError } = await supabase
-        .from('fantasy_seasons')
-        .select('id, team_name')
-        .eq('user_id', user.userId)
-        .eq('season_id', league.season_id)
-        .maybeSingle();
-      if (fantasySeasonError) return NextResponse.json({ error: 'Failed to load your fantasy team for this league season.' }, { status: 500 });
-      if (!fantasySeason) return NextResponse.json({ error: 'Create a fantasy team before joining a league.' }, { status: 400 });
-      const { error: participantError } = await supabase.from('league_participants').insert({ league_id: league.id, user_id: user.userId, fantasy_season_id: fantasySeason.id });
-      if (participantError) return NextResponse.json({ error: participantError.code === '23505' ? 'You are already in this league.' : 'Failed to join league.' }, { status: participantError.code === '23505' ? 409 : 500 });
-      await supabase.from('leagues').update({ current_participants: league.current_participants + 1 }).eq('id', league.id);
 
-      // Notify the league creator if someone else joined their league
+      // Call the atomic join RPC to lock the league row, enforce capacity limits, and increment current_participants atomically
+      const { data: rpcResult, error: rpcError } = await supabase.rpc('join_league_atomic', {
+        p_user_id: user.userId,
+        p_invite_code: inviteCode,
+      });
+
+      if (rpcError) {
+        return NextResponse.json({ error: 'Failed to join league.', details: rpcError.message }, { status: 500 });
+      }
+
+      const result = rpcResult as {
+        success: boolean;
+        status?: number;
+        message?: string;
+        league?: {
+          id: number;
+          season_id: number;
+          name: string;
+          creator_id: string;
+          max_participants: number | null;
+          current_participants: number;
+          invite_code: string;
+          league_type: string;
+          privacy_level: string;
+          description: string | null;
+          status: string;
+        };
+      };
+
+      if (!result.success || !result.league) {
+        return NextResponse.json({ error: result.message || 'Failed to join league.' }, { status: result.status || 400 });
+      }
+
+      const league = result.league;
+
+      // Deliver push notification to the league creator if someone else joined
       if (league.creator_id && league.creator_id !== user.userId) {
-        const { data: joiningUser } = await supabase.from('users').select('username, display_name').eq('id', user.userId).maybeSingle();
-        const joinerName = joiningUser?.display_name || joiningUser?.username || 'A player';
-        const teamName = fantasySeason.team_name ? ` with team "${fantasySeason.team_name}"` : '';
-
-        const { error: notificationError } = await (supabase.from('user_notifications') as unknown as {
-          insert: (val: Record<string, unknown>) => PromiseLike<{ error: { message: string } | null }>;
-        }).insert({
-          user_id: league.creator_id,
-          type: 'league_invite',
-          title: `New Challenger in ${league.name}`,
-          message: `${joinerName} has joined ${league.name}${teamName}!`,
-          metadata: { league_id: league.id, joined_by: user.userId },
-        });
-
-        if (notificationError) {
-          console.error('Unable to save a league activity notification:', notificationError.message);
-        } else {
-          try {
-            const delivery = await deliverPushNotifications(supabase, [{
-              userId: league.creator_id,
-              type: 'league_invite',
-              metadata: { league_id: league.id },
-            }]);
-            if (delivery.errors.length > 0) {
-              console.error('League activity push delivery reported an issue:', delivery.errors.join('; '));
-            }
-          } catch (error: unknown) {
-            console.error(
-              'Unable to deliver a league activity push notification:',
-              error instanceof Error ? error.message : String(error),
-            );
+        try {
+          const delivery = await deliverPushNotifications(supabase, [{
+            userId: league.creator_id,
+            type: 'league_invite',
+            metadata: { league_id: league.id },
+          }]);
+          if (delivery.errors.length > 0) {
+            console.error('League activity push delivery reported an issue:', delivery.errors.join('; '));
           }
+        } catch (error: unknown) {
+          console.error(
+            'Unable to deliver a league activity push notification:',
+            error instanceof Error ? error.message : String(error),
+          );
         }
       }
 
-      return NextResponse.json({ data: { ...league, type: league.league_type === 'head_to_head' ? 'h2h' : 'classic', privacyLevel: league.privacy_level, maxParticipants: league.max_participants, currentParticipants: league.current_participants + 1, inviteCode: league.invite_code, standings: [], fixtures: [] }, message: `Joined ${league.name} successfully.` });
+      return NextResponse.json({
+        data: {
+          ...league,
+          type: league.league_type === 'head_to_head' ? 'h2h' : 'classic',
+          privacyLevel: league.privacy_level,
+          maxParticipants: league.max_participants,
+          currentParticipants: league.current_participants,
+          inviteCode: league.invite_code,
+          standings: [],
+          fixtures: [],
+        },
+        message: result.message || `Joined ${league.name} successfully.`,
+      });
     }
 
     const name = typeof body.name === 'string' ? body.name.trim() : '';
