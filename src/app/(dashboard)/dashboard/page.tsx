@@ -100,7 +100,7 @@ export default function DashboardPage() {
   const openPlayerDetails = async (playerId: number) => {
     setPlayerLoading(true);
     try {
-      const response = await fetch(`/api/players/${playerId}`);
+      const response = await fetchWithAuth(`/api/players/${playerId}`);
       if (!response.ok) throw new Error('Unable to load player details');
       const data = (await response.json()) as { player: PlayerDetails };
       setSelectedPlayer(data.player);

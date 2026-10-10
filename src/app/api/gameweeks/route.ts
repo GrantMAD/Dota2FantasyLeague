@@ -15,9 +15,25 @@ async function getHandler(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const seasonId = searchParams.get('seasonId');
     const status = searchParams.get('status');
-    const cacheKey = `gameweeks:${searchParams.toString()}`;
-    const cached = getCached<{ gameweeks: unknown[] }>(cacheKey);
-    if (cached) return NextResponse.json(cached);
+    let userId: string | null = null;
+    try {
+      const auth = await verifyAuth(request);
+      userId = auth.userId;
+    } catch (error) {
+      const authError = error as AuthError;
+      if (authError?.status && authError.status !== 401) {
+        console.warn('Failed to authenticate gameweek score request', authError.message);
+      }
+    }
+
+    const cacheKey = `gameweeks:v2:${searchParams.toString()}`;
+    const cached = getCached<{ gameweeks: Array<Record<string, unknown>> }>(cacheKey);
+    if (cached) {
+      const userScoreMap = userId
+        ? await getUserScoreMap(supabaseServer(), userId, cached.gameweeks.map((gameweek) => Number(gameweek.id)))
+        : new Map<number, number>();
+      return NextResponse.json(withUserScores(cached, userScoreMap));
+    }
 
     const supabase = supabaseServer();
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -180,36 +196,7 @@ async function getHandler(request: NextRequest) {
       flagMap.set(gwId, current);
     }
 
-    const userScoreMap = new Map<number, number>();
-    try {
-      const auth = await verifyAuth(request);
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: seasonRows } = await (supabase.from('fantasy_seasons') as any)
-        .select('id, season_id, user_id')
-        .eq('user_id', auth.userId)
-        .limit(20);
-
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const fantasySeasonIds = (seasonRows ?? []).map((season: any) => season.id);
-      if (fantasySeasonIds.length) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { data: lineupRows } = await (supabase.from('fantasy_lineups') as any)
-          .select('gameweek_id, total_points')
-          .in('fantasy_season_id', fantasySeasonIds)
-          .in('gameweek_id', gameweekIds);
-
-        for (const lineup of lineupRows ?? []) {
-          userScoreMap.set(Number(lineup.gameweek_id), Number(lineup.total_points ?? 0));
-        }
-      }
-    } catch (error) {
-      const authError = error as AuthError;
-      if (authError?.status && authError.status !== 401) {
-        console.warn('Failed to load user-specific gameweek scores', authError.message);
-      }
-    }
-
-    const response = {
+    const publicResponse = {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       gameweeks: gameweeks.map((gw: any) => ({
         ...gw,
@@ -217,15 +204,61 @@ async function getHandler(request: NextRequest) {
         tournaments: tournamentMap.get(Number(gw.id)) ?? [],
         flags: flagMap.get(Number(gw.id)) ?? [],
         top_scorer: topScorerMap.get(Number(gw.id)) ?? null,
-        user_score: userScoreMap.get(Number(gw.id)) ?? null,
       })),
     };
 
-    setCached(cacheKey, response, 60_000);
-    return NextResponse.json(response);
+    setCached(cacheKey, publicResponse, 60_000);
+    const userScoreMap = userId
+      ? await getUserScoreMap(supabase, userId, gameweekIds)
+      : new Map<number, number>();
+    return NextResponse.json(withUserScores(publicResponse, userScoreMap));
   } catch {
     return NextResponse.json({ error: 'An unexpected error occurred.' }, { status: 500 });
   }
+}
+
+async function getUserScoreMap(
+  supabase: ReturnType<typeof supabaseServer>,
+  userId: string,
+  gameweekIds: number[],
+): Promise<Map<number, number>> {
+  const userScoreMap = new Map<number, number>();
+  if (!gameweekIds.length) return userScoreMap;
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: seasonRows, error: seasonError } = await (supabase.from('fantasy_seasons') as any)
+    .select('id')
+    .eq('user_id', userId)
+    .limit(20);
+  if (seasonError) throw new Error(`Failed to load fantasy seasons for gameweek scores: ${seasonError.message}`);
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const fantasySeasonIds = (seasonRows ?? []).map((season: any) => season.id);
+  if (!fantasySeasonIds.length) return userScoreMap;
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: lineupRows, error: lineupError } = await (supabase.from('fantasy_lineups') as any)
+    .select('gameweek_id, total_points')
+    .in('fantasy_season_id', fantasySeasonIds)
+    .in('gameweek_id', gameweekIds);
+  if (lineupError) throw new Error(`Failed to load user gameweek scores: ${lineupError.message}`);
+
+  for (const lineup of lineupRows ?? []) {
+    userScoreMap.set(Number(lineup.gameweek_id), Number(lineup.total_points ?? 0));
+  }
+  return userScoreMap;
+}
+
+function withUserScores(
+  response: { gameweeks: Array<Record<string, unknown>> },
+  userScoreMap: Map<number, number>,
+) {
+  return {
+    gameweeks: response.gameweeks.map((gameweek) => ({
+      ...gameweek,
+      user_score: userScoreMap.get(Number(gameweek.id)) ?? null,
+    })),
+  };
 }
 
 export const GET = withApiTelemetry('GET', '/api/gameweeks', getHandler);

@@ -1,5 +1,6 @@
 'use client';
 
+import { fetchWithAuth } from '@/lib/fetch-with-auth';
 import { use, useEffect, useState, Suspense } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
@@ -116,7 +117,7 @@ function MatchDetailInner({ params }: { params: Promise<{ id: string }> }) {
   useEffect(() => {
     async function loadMatch() {
       try {
-        const response = await fetch(`/api/matches/${id}`);
+        const response = await fetchWithAuth(`/api/matches/${id}`);
         const data = (await response.json()) as MatchApiResponse & { error?: string };
         if (!response.ok) throw new Error(data.error || 'Failed to load match');
         setMatch(data.match ?? null);

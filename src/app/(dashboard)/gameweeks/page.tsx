@@ -1,5 +1,6 @@
 'use client';
 
+import { fetchWithAuth } from '@/lib/fetch-with-auth';
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { ActiveGameweekHero } from './components/ActiveGameweekHero';
@@ -26,7 +27,7 @@ export default function GameweeksPage() {
     async function fetchGameweeks() {
       try {
         setLoading(true);
-        const res = await fetch('/api/gameweeks');
+        const res = await fetchWithAuth('/api/gameweeks');
         const data = await res.json();
         setGameweeks(Array.isArray(data.gameweeks) ? data.gameweeks : []);
       } catch (err: unknown) {

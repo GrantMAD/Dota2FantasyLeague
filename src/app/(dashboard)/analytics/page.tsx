@@ -1,5 +1,6 @@
 'use client';
 
+import { fetchWithAuth } from '@/lib/fetch-with-auth';
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useTheme } from '@/components/theme/ThemeProvider';
@@ -97,7 +98,7 @@ export default function AnalyticsDashboard() {
   useEffect(() => {
     async function fetchAnalytics() {
       try {
-        const res = await fetch('/api/analytics');
+        const res = await fetchWithAuth('/api/analytics');
         if (!res.ok) throw new Error('Failed to load analytics');
         const payload = await res.json() as Partial<AnalyticsData>;
         setData({ ...initialData, ...payload });

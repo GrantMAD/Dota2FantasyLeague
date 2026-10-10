@@ -1,5 +1,6 @@
 'use client';
 
+import { fetchWithAuth } from '@/lib/fetch-with-auth';
 import { useEffect, useState } from 'react';
 import {
   CheckCircle2,
@@ -268,7 +269,7 @@ export default function DataJobsPage() {
     if (!silent) setRefreshing(true);
     try {
       const authHeaders = await getAuthHeaders();
-      const response = await fetch('/api/admin/jobs/status', {
+      const response = await fetchWithAuth('/api/admin/jobs/status', {
         headers: { ...authHeaders },
       });
       if (response.ok) {
@@ -300,7 +301,7 @@ export default function DataJobsPage() {
   async function fetchFailedJobs() {
     try {
       const authHeaders = await getAuthHeaders();
-      const response = await fetch('/api/admin/jobs/failed', {
+      const response = await fetchWithAuth('/api/admin/jobs/failed', {
         headers: { ...authHeaders },
       });
       if (response.ok) {
@@ -338,7 +339,7 @@ export default function DataJobsPage() {
     toast.info('Job Triggered', `Job ${jobName} has been queued.`);
     try {
       const authHeaders = await getAuthHeaders();
-      const response = await fetch('/api/admin/jobs/run', {
+      const response = await fetchWithAuth('/api/admin/jobs/run', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -367,7 +368,7 @@ export default function DataJobsPage() {
     toast.info('Retrying Job', `Attempting retry for ${jobName}...`);
     try {
       const authHeaders = await getAuthHeaders();
-      const response = await fetch('/api/admin/jobs/run', {
+      const response = await fetchWithAuth('/api/admin/jobs/run', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

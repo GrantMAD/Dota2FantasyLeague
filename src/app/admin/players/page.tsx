@@ -1,5 +1,6 @@
 'use client';
 
+import { fetchWithAuth } from '@/lib/fetch-with-auth';
 import { useMemo, useState, useEffect } from 'react';
 import { Plus, Search, Pencil, Trash2, Users } from 'lucide-react';
 
@@ -47,7 +48,7 @@ export default function AdminPlayersPage() {
           params.append('rostered', 'true');
         }
 
-        const res = await fetch(`/api/players?${params.toString()}`);
+        const res = await fetchWithAuth(`/api/players?${params.toString()}`);
         if (res.ok) {
           const json = (await res.json()) as { data?: PlayerApiRow[] };
           const items = Array.isArray(json.data) ? json.data : [];

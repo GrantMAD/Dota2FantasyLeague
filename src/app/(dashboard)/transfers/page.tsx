@@ -62,7 +62,7 @@ export default function TransfersPage() {
         setOwnedPlayerIds(ownedIds);
 
         if (ownedIds.length > 0) {
-          const ownedRes = await fetch(`/api/players?ids=${ownedIds.join(',')}&show_all=true`);
+          const ownedRes = await fetchWithAuth(`/api/players?ids=${ownedIds.join(',')}&show_all=true`);
           if (ownedRes.ok) {
             const ownedData = await ownedRes.json();
             const map = new Map<number, TransferPlayer>();
@@ -94,7 +94,7 @@ export default function TransfersPage() {
         if (search.trim()) queryParams.set('search', search.trim());
         if (roleFilter) queryParams.set('role', roleFilter);
 
-        const playersRes = await fetch(`/api/players?${queryParams.toString()}`);
+        const playersRes = await fetchWithAuth(`/api/players?${queryParams.toString()}`);
         const data = await playersRes.json();
         if (!playersRes.ok) throw new Error(data.error || 'Failed to load players');
         if (cancelled) return;
@@ -120,7 +120,7 @@ export default function TransfersPage() {
     setModalPlayer(playerSummary);
     setModalLoading(true);
     try {
-      const res = await fetch(`/api/players/${playerSummary.id}`);
+      const res = await fetchWithAuth(`/api/players/${playerSummary.id}`);
       if (res.ok) {
         const data = await res.json();
         setModalPlayer(data.player);

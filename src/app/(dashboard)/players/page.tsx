@@ -221,7 +221,7 @@ export default function PlayersPage() {
   useEffect(() => {
     async function loadTeams() {
       try {
-        const res = await fetch('/api/teams?limit=200');
+        const res = await fetchWithAuth('/api/teams?limit=200');
         if (res.ok) {
           const json = await res.json();
           const sorted = ((json.data as ProfessionalTeam[]) || []).sort((a, b) =>
@@ -247,7 +247,7 @@ export default function PlayersPage() {
         setOwnedPlayerIds(ownedIds);
 
         if (ownedIds.length > 0) {
-          const ownedRes = await fetch(`/api/players?ids=${ownedIds.join(',')}`);
+          const ownedRes = await fetchWithAuth(`/api/players?ids=${ownedIds.join(',')}`);
           if (ownedRes.ok) {
             const ownedData = await ownedRes.json();
             const map = new Map<number, Player>();
@@ -284,7 +284,7 @@ export default function PlayersPage() {
         if (roleFilter)      params.append('role', roleFilter);
         if (teamIdFilter)    params.append('team_id', teamIdFilter.toString());
 
-        const res = await fetch(`/api/players?${params.toString()}`);
+        const res = await fetchWithAuth(`/api/players?${params.toString()}`);
         if (!res.ok) {
           const body = await res.json().catch(() => ({}));
           throw new Error(body.error || `Failed to fetch players (${res.status})`);

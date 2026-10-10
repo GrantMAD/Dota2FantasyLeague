@@ -103,7 +103,7 @@ export default function PlayerDetailPage() {
   useEffect(() => {
     async function fetchPlayer() {
       try {
-        const res = await fetch(`/api/players/${id}`);
+        const res = await fetchWithAuth(`/api/players/${id}`);
         if (!res.ok) throw new Error('Player not found');
         const data = (await res.json()) as PlayerResponse;
         setPlayer(data.player ?? null);

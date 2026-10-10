@@ -1,5 +1,6 @@
 'use client';
 
+import { fetchWithAuth } from '@/lib/fetch-with-auth';
 import { Suspense, useEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 import Link from 'next/link';
@@ -141,7 +142,7 @@ function PlayerComparisonContent() {
       }
 
       try {
-        const response = await fetch(`/api/players?ids=${ids.join(',')}&limit=4&show_all=true`);
+        const response = await fetchWithAuth(`/api/players?ids=${ids.join(',')}&limit=4&show_all=true`);
         const data = (await response.json()) as PlayersResponse;
         if (!response.ok) throw new Error(data.error || `Unable to load players (${response.status})`);
         if (cancelled) return;
@@ -153,7 +154,7 @@ function PlayerComparisonContent() {
           .map((player) => player.team_id)
           .filter((teamId): teamId is number => teamId != null))];
         const scheduleResults = await Promise.all(teamIds.map(async (teamId) => {
-          const scheduleResponse = await fetch(
+          const scheduleResponse = await fetchWithAuth(
             `/api/matches?teamId=${teamId}&status=scheduled&order=asc&limit=100`,
           );
           const scheduleData = (await scheduleResponse.json()) as MatchesResponse;

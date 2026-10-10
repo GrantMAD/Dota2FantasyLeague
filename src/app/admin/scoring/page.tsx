@@ -1,5 +1,6 @@
 'use client';
 
+import { fetchWithAuth } from '@/lib/fetch-with-auth';
 import { useEffect, useEffectEvent, useState } from 'react';
 import { CheckCircle, X } from 'lucide-react';
 import { useToast } from '@/components/Toast';
@@ -103,7 +104,7 @@ export default function AdminScoringPage() {
   const fetchRules = async () => {
     try {
       setLoading(true);
-      const res = await fetch('/api/admin/scoring/rules');
+      const res = await fetchWithAuth('/api/admin/scoring/rules');
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to fetch rules');
       
@@ -134,7 +135,7 @@ export default function AdminScoringPage() {
   const handleCreateDraft = async () => {
     try {
       setLoading(true);
-      const res = await fetch('/api/admin/scoring/rules', {
+      const res = await fetchWithAuth('/api/admin/scoring/rules', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({}),
@@ -152,7 +153,7 @@ export default function AdminScoringPage() {
 
   const handleUpdateRule = async (ruleId: number, field: 'value' | 'is_enabled', value: number | boolean) => {
     try {
-      const res = await fetch(`/api/admin/scoring/rules/${ruleId}`, {
+      const res = await fetchWithAuth(`/api/admin/scoring/rules/${ruleId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ [field]: value })
@@ -181,7 +182,7 @@ export default function AdminScoringPage() {
     try {
       setLoading(true);
       setShowPublishModal(false);
-      const res = await fetch('/api/admin/scoring/publish', {
+      const res = await fetchWithAuth('/api/admin/scoring/publish', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ version: selectedVersion, gameweekId: publishGameweekId })
@@ -216,7 +217,7 @@ export default function AdminScoringPage() {
     };
 
     try {
-      const res = await fetch('/api/admin/scoring/simulate', {
+      const res = await fetchWithAuth('/api/admin/scoring/simulate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -261,7 +262,7 @@ export default function AdminScoringPage() {
     try {
       // Use the season from the first loaded rule version, fall back to 1
       const seasonId = ruleVersions[0]?.rules?.[0]?.season_id ?? 1;
-      const res = await fetch(`/api/admin/scoring/balance?seasonId=${seasonId}`);
+      const res = await fetchWithAuth(`/api/admin/scoring/balance?seasonId=${seasonId}`);
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to load balance report');
       setBalanceReport(data);
@@ -277,7 +278,7 @@ export default function AdminScoringPage() {
     setHistoricalLoading(true);
     setError(null);
     try {
-      const res = await fetch('/api/admin/scoring/historical-simulation', {
+      const res = await fetchWithAuth('/api/admin/scoring/historical-simulation', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

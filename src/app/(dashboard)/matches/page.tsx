@@ -1,5 +1,6 @@
 'use client';
 
+import { fetchWithAuth } from '@/lib/fetch-with-auth';
 import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { MatchCard, MatchData } from './components/MatchCard';
@@ -36,18 +37,18 @@ export default function MatchesPage() {
       try {
         setLoading(true);
         // 1. Fetch matches
-        const res = await fetch('/api/matches?limit=100');
+        const res = await fetchWithAuth('/api/matches?limit=100');
         const data = await res.json();
         setMatches(data.matches || []);
 
         // 2. Fetch active gameweek lineup to detect user's owned players
         try {
-          const gwRes = await fetch('/api/gameweeks?status=active');
+          const gwRes = await fetchWithAuth('/api/gameweeks?status=active');
           const gwData = await gwRes.json();
           const activeGw = gwData.gameweeks?.[0];
 
           if (activeGw) {
-            const lineupRes = await fetch(`/api/fantasy/lineup?gameweekId=${activeGw.id}`);
+            const lineupRes = await fetchWithAuth(`/api/fantasy/lineup?gameweekId=${activeGw.id}`);
             if (lineupRes.ok) {
               const lineupData = await lineupRes.json();
               const lineup: LineupEntry[] = Array.isArray(lineupData.lineup) ? lineupData.lineup : [];

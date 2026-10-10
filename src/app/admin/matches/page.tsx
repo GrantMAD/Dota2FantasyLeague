@@ -1,5 +1,6 @@
 'use client';
 
+import { fetchWithAuth } from '@/lib/fetch-with-auth';
 import React, { useState, useEffect } from 'react';
 import Image from 'next/image';
 import { BarChart3, RefreshCw } from 'lucide-react';
@@ -51,7 +52,7 @@ export default function AdminMatchesPage() {
         const params = new URLSearchParams({ limit: limit.toString(), offset: offset.toString() });
         if (statusFilter) params.append('status', statusFilter);
 
-        const res = await fetch(`/api/admin/matches?${params.toString()}`);
+        const res = await fetchWithAuth(`/api/admin/matches?${params.toString()}`);
         if (res.ok) {
           const data = await res.json();
           setMatches(data.data || []);
@@ -71,7 +72,7 @@ export default function AdminMatchesPage() {
     setSyncingMatchId(matchId);
     setSyncMessage(null);
     try {
-      const res = await fetch(`/api/admin/matches/${matchId}/sync`, { method: 'POST' });
+      const res = await fetchWithAuth(`/api/admin/matches/${matchId}/sync`, { method: 'POST' });
       const data = await res.json();
       setSyncMessage(data.message || (res.ok ? 'Sync triggered.' : data.error));
     } catch {
@@ -87,7 +88,7 @@ export default function AdminMatchesPage() {
     setSyncMessage(null);
 
     try {
-      const response = await fetch('/api/admin/jobs/run', {
+      const response = await fetchWithAuth('/api/admin/jobs/run', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ jobName: 'fetch-match-details' }),

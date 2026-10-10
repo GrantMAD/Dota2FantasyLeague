@@ -1,5 +1,6 @@
 'use client';
 
+import { fetchWithAuth } from '@/lib/fetch-with-auth';
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -30,7 +31,7 @@ export default function ProfilePage() {
   useEffect(() => {
     async function fetchProfile() {
       try {
-        const res = await fetch('/api/user/profile');
+        const res = await fetchWithAuth('/api/user/profile');
         if (!res.ok) throw new Error('Failed to load profile');
         const data = (await res.json()) as { profile: Profile | null };
         setProfile(data.profile);

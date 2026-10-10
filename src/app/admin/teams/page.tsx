@@ -1,5 +1,6 @@
 'use client';
 
+import { fetchWithAuth } from '@/lib/fetch-with-auth';
 import { useMemo, useState, useEffect } from 'react';
 import NextImage from 'next/image';
 import { Trophy, Pencil, X, Check, Globe, Clock, Database, Link, Image as ImageIcon } from 'lucide-react';
@@ -60,7 +61,7 @@ export default function AdminTeamsPage() {
   useEffect(() => {
     async function loadTeams() {
       try {
-        const res = await fetch('/api/teams?limit=200');
+        const res = await fetchWithAuth('/api/teams?limit=200');
         if (res.ok) {
           const json = await res.json();
           const items = Array.isArray(json.data) ? json.data : [];
@@ -120,7 +121,7 @@ export default function AdminTeamsPage() {
   const handleSave = async (team: TeamRecord) => {
     setSaving(true);
     try {
-      const res = await fetch(`/api/teams/${team.id}`, {
+      const res = await fetchWithAuth(`/api/teams/${team.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

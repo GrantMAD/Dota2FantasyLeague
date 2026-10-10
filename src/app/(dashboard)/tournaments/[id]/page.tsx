@@ -1,5 +1,6 @@
 'use client';
 
+import { fetchWithAuth } from '@/lib/fetch-with-auth';
 import { useEffect, useState, use } from 'react';
 import Link from 'next/link';
 import { TeamLogo } from '../../matches/components/TeamLogo';
@@ -54,7 +55,7 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
     async function fetchTournament() {
       try {
         setLoading(true);
-        const res = await fetch(`/api/tournaments/${tournamentId}`);
+        const res = await fetchWithAuth(`/api/tournaments/${tournamentId}`);
         if (!res.ok) {
           throw new Error('Tournament could not be found');
         }

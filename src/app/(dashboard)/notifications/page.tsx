@@ -1,5 +1,6 @@
 'use client';
 
+import { fetchWithAuth } from '@/lib/fetch-with-auth';
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { Bell, CheckCircle2, Clock, Sparkles, TrendingUp, Trophy } from 'lucide-react';
@@ -32,7 +33,7 @@ export default function NotificationsPage() {
       setError(null);
       try {
         const params = new URLSearchParams({ category: activeCategory });
-        const res = await fetch(`/api/notifications?${params.toString()}`, { signal: controller.signal });
+        const res = await fetchWithAuth(`/api/notifications?${params.toString()}`, { signal: controller.signal });
         const data = (await res.json()) as { notifications?: Notification[]; error?: string };
         if (!res.ok) throw new Error(data.error || 'Failed to load notifications');
         setNotifications(data.notifications || []);
@@ -54,7 +55,7 @@ export default function NotificationsPage() {
 
   const handleMarkAsRead = async (id: number) => {
     try {
-      const res = await fetch(`/api/notifications/${id}/read`, { method: 'PUT' });
+      const res = await fetchWithAuth(`/api/notifications/${id}/read`, { method: 'PUT' });
       if (res.ok) {
         setNotifications((current) => current.map((notification) => (notification.id === id ? { ...notification, is_read: true } : notification)));
         toast.info('Marked as Read');
@@ -69,7 +70,7 @@ export default function NotificationsPage() {
 
   const handleMarkAllAsRead = async () => {
     try {
-      const response = await fetch('/api/notifications', { method: 'PUT' });
+      const response = await fetchWithAuth('/api/notifications', { method: 'PUT' });
       if (!response.ok) throw new Error('Failed to mark notifications as read');
       setNotifications((current) => current.map((notification) => ({ ...notification, is_read: true })));
       toast.info('All Notifications Marked as Read');
@@ -82,7 +83,7 @@ export default function NotificationsPage() {
 
   const handleClearRead = async () => {
     try {
-      const response = await fetch('/api/notifications', { method: 'DELETE' });
+      const response = await fetchWithAuth('/api/notifications', { method: 'DELETE' });
       if (!response.ok) throw new Error('Failed to clear read notifications');
       setNotifications((current) => current.filter((notification) => !notification.is_read));
       toast.success('Cleared', 'Read notifications have been removed');

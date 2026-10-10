@@ -1,5 +1,6 @@
 'use client';
 
+import { fetchWithAuth } from '@/lib/fetch-with-auth';
 import { useState, useEffect } from 'react';
 import { Calendar, Plus, ChevronDown, Check, X, Loader2, Clock } from 'lucide-react';
 
@@ -71,7 +72,7 @@ function NewSeasonModal({ onClose, onCreated }: { onClose: () => void; onCreated
     setSaving(true);
     setError('');
     try {
-      const res = await fetch('/api/seasons', {
+      const res = await fetchWithAuth('/api/seasons', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -165,7 +166,7 @@ function SeasonCard({ season, onStatusChange }: { season: SeasonRecord; onStatus
     const next = STATUS_CYCLE[(idx + 1) % STATUS_CYCLE.length];
     setUpdating(true);
     try {
-      const res = await fetch('/api/admin/settings', {
+      const res = await fetchWithAuth('/api/admin/settings', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ type: 'season', id: season.id, status: next }),
@@ -260,7 +261,7 @@ export default function AdminSeasonsPage() {
   useEffect(() => {
     async function loadSeasons() {
       try {
-        const res = await fetch('/api/admin/settings');
+        const res = await fetchWithAuth('/api/admin/settings');
         if (!res.ok) { setError('Failed to load seasons.'); return; }
         const json = (await res.json()) as { seasons?: SeasonApiRecord[]; gameweeks?: GameweekRecord[] };
         const rawSeasons = Array.isArray(json.seasons) ? json.seasons : [];

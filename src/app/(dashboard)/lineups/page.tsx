@@ -1,5 +1,6 @@
 'use client';
 
+import { fetchWithAuth } from '@/lib/fetch-with-auth';
 import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import { UserCheck, TrendingUp, TrendingDown, Minus } from 'lucide-react';
@@ -34,7 +35,7 @@ export default function LineupsPage() {
     async function fetchFantasyContext() {
       try {
         setLoading(true);
-        const res = await fetch('/api/fantasy/context');
+        const res = await fetchWithAuth('/api/fantasy/context');
         if (!res.ok) throw new Error('Failed to load fantasy context');
 
         const data = await res.json();
@@ -150,7 +151,7 @@ export default function LineupsPage() {
     }
     setSaving(true);
     try {
-      const response = await fetch('/api/fantasy/lineup', {
+      const response = await fetchWithAuth('/api/fantasy/lineup', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ gameweekId, lineup: lineup.map((entry) => ({ playerId: entry.player_id, slot: entry.slot, isCaptain: entry.is_captain, isViceCaptain: entry.is_vice_captain })) }),
@@ -184,7 +185,7 @@ export default function LineupsPage() {
     const endpoint = isTripleCaptain ? '/api/fantasy/triple-captain' : '/api/fantasy/bench-boost';
 
     try {
-      const res = await fetch(endpoint, {
+      const res = await fetchWithAuth(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ fantasySeasonId }),

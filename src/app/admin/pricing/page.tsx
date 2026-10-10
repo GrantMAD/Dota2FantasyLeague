@@ -1,5 +1,6 @@
 'use client';
 
+import { fetchWithAuth } from '@/lib/fetch-with-auth';
 import { useMemo, useState, useEffect } from 'react';
 import { ArrowUpRight, ArrowDownRight, TrendingUp, Zap, DollarSign, Search, ChevronLeft, ChevronRight } from 'lucide-react';
 import { simulatePriceDynamics } from '@/lib/fantasy-gameplay';
@@ -48,7 +49,7 @@ export default function AdminPricingPage() {
   useEffect(() => {
     async function loadPricingPlayers() {
       try {
-        const res = await fetch('/api/players?limit=100');
+        const res = await fetchWithAuth('/api/players?limit=100');
         if (res.ok) {
           const json = (await res.json()) as { data?: PricingPlayerRow[] };
           const items = Array.isArray(json.data) ? json.data : [];
@@ -110,7 +111,7 @@ export default function AdminPricingPage() {
     setJobRunning(true);
     setJobMessage(null);
     try {
-      const res  = await fetch('/api/admin/jobs/run', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ jobName: 'update-player-prices' }) });
+      const res  = await fetchWithAuth('/api/admin/jobs/run', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ jobName: 'update-player-prices' }) });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Job failed to start');
       setJobMessage({ type: 'success', text: 'Price update job started successfully.' });

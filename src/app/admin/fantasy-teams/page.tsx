@@ -1,5 +1,6 @@
 'use client';
 
+import { fetchWithAuth } from '@/lib/fetch-with-auth';
 import { useState, useEffect, useMemo } from 'react';
 import { Search, Users, Trophy, Eye, Swords } from 'lucide-react';
 import AdminTeamDetailModal from '@/components/admin/AdminTeamDetailModal';
@@ -35,7 +36,7 @@ export default function AdminFantasyTeamsPage() {
   useEffect(() => {
     async function loadFantasyTeams() {
       try {
-        const res = await fetch('/api/leaderboard?limit=100');
+        const res = await fetchWithAuth('/api/leaderboard?limit=100');
         if (res.ok) {
           const json = (await res.json()) as { leaderboard?: LeaderboardEntry[] };
           const items = Array.isArray(json.leaderboard) ? json.leaderboard : [];

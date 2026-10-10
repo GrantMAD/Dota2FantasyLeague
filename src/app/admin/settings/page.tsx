@@ -1,5 +1,6 @@
 'use client';
 
+import { fetchWithAuth } from '@/lib/fetch-with-auth';
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import {
@@ -63,7 +64,7 @@ export default function AdminSettingsPage() {
   useEffect(() => {
     async function fetchSettings() {
       try {
-        const res = await fetch('/api/admin/settings');
+        const res = await fetchWithAuth('/api/admin/settings');
         if (res.ok) {
           const data = await res.json();
           const loadedSeasons: Season[] = data.seasons || [];
@@ -139,7 +140,7 @@ export default function AdminSettingsPage() {
 
     setSavingSeasonId(seasonId);
     try {
-      const res = await fetch('/api/admin/settings', {
+      const res = await fetchWithAuth('/api/admin/settings', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -184,7 +185,7 @@ export default function AdminSettingsPage() {
 
     setSavingGwId(gameweekId);
     try {
-      const res = await fetch('/api/admin/settings', {
+      const res = await fetchWithAuth('/api/admin/settings', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

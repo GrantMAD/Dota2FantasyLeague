@@ -1,5 +1,6 @@
 'use client';
 
+import { fetchWithAuth } from '@/lib/fetch-with-auth';
 import { use, useEffect, useState } from 'react';
 import Link from 'next/link';
 import {
@@ -116,7 +117,7 @@ export default function GameweekDetailPage({
     async function loadGameweek() {
       try {
         setLoading(true);
-        const res = await fetch(`/api/gameweeks/${id}`);
+        const res = await fetchWithAuth(`/api/gameweeks/${id}`);
         if (!res.ok) {
           if (res.status === 404) {
             throw new Error('Gameweek not found');

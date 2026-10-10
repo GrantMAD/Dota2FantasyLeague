@@ -1,5 +1,6 @@
 'use client';
 
+import { fetchWithAuth } from '@/lib/fetch-with-auth';
 import { useEffect, useState } from 'react';
 import { AlertCircle, CheckCircle, Clock, Zap, Calendar, LayoutDashboard } from 'lucide-react';
 
@@ -29,7 +30,7 @@ export default function AdminDashboardPage() {
 
   async function fetchMetrics() {
     try {
-      const response = await fetch('/api/admin/metrics');
+      const response = await fetchWithAuth('/api/admin/metrics');
       if (response.ok) {
         const data = await response.json();
         if (data.metrics) {

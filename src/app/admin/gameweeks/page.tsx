@@ -1,5 +1,6 @@
 'use client';
 
+import { fetchWithAuth } from '@/lib/fetch-with-auth';
 import { useState, useEffect, useCallback } from 'react';
 import { Gamepad2, RefreshCw, ChevronDown, ChevronUp, Swords, Flag, Database, Clock, Hash, AlertTriangle } from 'lucide-react';
 import { useToast } from '@/components/Toast';
@@ -120,7 +121,7 @@ export default function AdminGameweeksPage() {
   const loadGameweeks = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch('/api/gameweeks');
+      const res = await fetchWithAuth('/api/gameweeks');
       if (res.ok) {
         const json = await res.json();
         const items = Array.isArray(json.gameweeks) ? json.gameweeks : [];
@@ -162,7 +163,7 @@ export default function AdminGameweeksPage() {
     const { gameweek, status: nextDbStatus } = pendingTransition;
     setCycling(gameweek.id);
     try {
-      const res = await fetch(`/api/admin/gameweeks/${gameweek.id}`, {
+      const res = await fetchWithAuth(`/api/admin/gameweeks/${gameweek.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: nextDbStatus }),
@@ -202,7 +203,7 @@ export default function AdminGameweeksPage() {
     if (detailsCache[gameweek.id]) return; // already fetched
     setDetailsLoading(gameweek.id);
     try {
-      const res = await fetch(`/api/gameweeks/${gameweek.id}`);
+      const res = await fetchWithAuth(`/api/gameweeks/${gameweek.id}`);
       if (res.ok) {
         const json = await res.json();
         setDetailsCache((prev) => ({ ...prev, [gameweek.id]: json }));

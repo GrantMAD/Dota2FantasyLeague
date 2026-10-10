@@ -1,5 +1,6 @@
 'use client';
 
+import { fetchWithAuth } from '@/lib/fetch-with-auth';
 import { Suspense, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
@@ -45,7 +46,7 @@ function SettingsContent() {
   useEffect(() => {
     async function loadProfile() {
       try {
-        const res = await fetch('/api/user/profile');
+        const res = await fetchWithAuth('/api/user/profile');
         if (!res.ok) return;
         const data = (await res.json()) as {
           profile?: {
@@ -94,7 +95,7 @@ function SettingsContent() {
     setMessageIsError(false);
 
     try {
-      const res = await fetch('/api/user/profile', {
+      const res = await fetchWithAuth('/api/user/profile', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -126,7 +127,7 @@ function SettingsContent() {
 
     const label = key === 'pushNotifications' ? 'Push alerts' : 'Email digests';
     try {
-      const res = await fetch('/api/user/profile', {
+      const res = await fetchWithAuth('/api/user/profile', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -167,7 +168,7 @@ function SettingsContent() {
     setMessage(null);
     setMessageIsError(false);
     try {
-      const res = await fetch('/api/user/profile', {
+      const res = await fetchWithAuth('/api/user/profile', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

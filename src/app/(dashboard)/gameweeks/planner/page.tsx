@@ -125,7 +125,7 @@ export default function SquadPlannerPage() {
           .map((player) => player.professional_teams?.id)
           .filter((teamId): teamId is number => teamId != null))];
         const matchResults = await Promise.all(teamIds.map(async (teamId) => {
-          const matchesResponse = await fetch(
+          const matchesResponse = await fetchWithAuth(
             `/api/matches?teamId=${teamId}&status=scheduled&order=asc&limit=100`,
           );
           const matchesData = (await matchesResponse.json()) as MatchesResponse;

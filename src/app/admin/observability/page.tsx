@@ -1,5 +1,6 @@
 'use client';
 
+import { fetchWithAuth } from '@/lib/fetch-with-auth';
 import { useEffect, useState } from 'react';
 import { Activity, CircleCheck, CircleHelp, Clock3, TriangleAlert, XCircle } from 'lucide-react';
 
@@ -25,7 +26,7 @@ export default function AdminObservabilityPage() {
 
   const load = async () => {
     try {
-      const response = await fetch('/api/admin/observability');
+      const response = await fetchWithAuth('/api/admin/observability');
       const body = await response.json();
       if (!response.ok) throw new Error(body.error || 'Failed to load observability data');
       setData(body);

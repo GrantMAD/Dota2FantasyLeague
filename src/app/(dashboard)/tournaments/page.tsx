@@ -1,5 +1,6 @@
 'use client';
 
+import { fetchWithAuth } from '@/lib/fetch-with-auth';
 import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { TournamentCard, TournamentData } from './components/TournamentCard';
@@ -20,7 +21,7 @@ export default function TournamentsHubPage() {
     async function loadTournaments() {
       try {
         setLoading(true);
-        const res = await fetch('/api/tournaments');
+        const res = await fetchWithAuth('/api/tournaments');
         const data = await res.json();
         setTournaments(data.tournaments || []);
       } catch (error: unknown) {

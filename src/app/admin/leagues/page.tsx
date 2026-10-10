@@ -1,5 +1,6 @@
 'use client';
 
+import { fetchWithAuth } from '@/lib/fetch-with-auth';
 import { useState, useEffect, useMemo } from 'react';
 import {
   Search, Shield, Lock, Globe, X, Trophy,
@@ -272,7 +273,7 @@ export default function AdminLeaguesPage() {
   useEffect(() => {
     async function loadLeagues() {
       try {
-        const res = await fetch('/api/leagues');
+        const res = await fetchWithAuth('/api/leagues');
         if (res.ok) {
           const json = (await res.json()) as { leagues?: LeagueApiRecord[] } | LeagueApiRecord[];
           const items = Array.isArray(json) ? json : Array.isArray(json.leagues) ? json.leagues : [];

@@ -1,5 +1,6 @@
 'use client';
 
+import { fetchWithAuth } from '@/lib/fetch-with-auth';
 import { useState, useEffect, useCallback } from 'react';
 import Image from 'next/image';
 import { Medal, RefreshCw } from 'lucide-react';
@@ -55,7 +56,7 @@ export default function LeaderboardPage() {
   useEffect(() => {
     async function fetchCurrentUser() {
       try {
-        const res = await fetch('/api/user/profile');
+        const res = await fetchWithAuth('/api/user/profile');
         if (!res.ok) return;
         const data = (await res.json()) as { profile?: { id?: string } | null };
         if (data.profile?.id) {
@@ -71,7 +72,7 @@ export default function LeaderboardPage() {
   useEffect(() => {
     async function fetchCountries() {
       try {
-        const res = await fetch('/api/leaderboard/countries');
+        const res = await fetchWithAuth('/api/leaderboard/countries');
         const data = await res.json() as { countries?: { code: string; name: string }[] };
         if (data.countries && data.countries.length > 0) {
           setCountries([
@@ -93,7 +94,7 @@ export default function LeaderboardPage() {
       let url = `/api/leaderboard?page=${page}&limit=50`;
       if (countryFilter) url += `&country=${countryFilter}`;
 
-      const res = await fetch(url);
+      const res = await fetchWithAuth(url);
       const data = await res.json() as {
         leaderboard?: LeaderboardEntry[];
         error?: string;
