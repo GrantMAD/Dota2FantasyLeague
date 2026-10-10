@@ -31,15 +31,37 @@ async function getHandler(request: NextRequest) {
     const gameweekId = request.nextUrl.searchParams.get('gameweekId');
     if (!gameweekId) return NextResponse.json({ error: 'gameweekId is required.' }, { status: 400 });
     const supabase = supabaseServer();
+    const parsedGameweekId = Number(gameweekId);
+    if (!Number.isInteger(parsedGameweekId) || parsedGameweekId <= 0) {
+      return NextResponse.json({ error: 'A valid gameweekId is required.' }, { status: 400 });
+    }
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: fantasySeason } = await (supabase.from('fantasy_seasons') as any).select('id, season_id').eq('id', request.nextUrl.searchParams.get('fantasySeasonId') || '').eq('user_id', user.userId).maybeSingle();
+    const { data: gameweek, error: gameweekError } = await (supabase.from('gameweeks') as any)
+      .select('season_id')
+      .eq('id', parsedGameweekId)
+      .maybeSingle();
+    if (gameweekError) return NextResponse.json({ error: 'Failed to determine the gameweek season.' }, { status: 500 });
+    if (!gameweek) return NextResponse.json({ error: 'Gameweek not found.' }, { status: 404 });
+
+    const requestedFantasySeasonId = request.nextUrl.searchParams.get('fantasySeasonId');
+    const parsedFantasySeasonId = requestedFantasySeasonId === null ? null : Number(requestedFantasySeasonId);
+    if (parsedFantasySeasonId !== null && (!Number.isInteger(parsedFantasySeasonId) || parsedFantasySeasonId <= 0)) {
+      return NextResponse.json({ error: 'A valid fantasySeasonId is required.' }, { status: 400 });
+    }
+
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: ownedSeason } = fantasySeason ? { data: fantasySeason } : await (supabase.from('fantasy_seasons') as any).select('id, season_id').eq('user_id', user.userId).limit(1).maybeSingle();
+    let fantasySeasonQuery = (supabase.from('fantasy_seasons') as any)
+      .select('id, season_id')
+      .eq('user_id', user.userId)
+      .eq('season_id', gameweek.season_id);
+    if (parsedFantasySeasonId !== null) fantasySeasonQuery = fantasySeasonQuery.eq('id', parsedFantasySeasonId);
+    const { data: ownedSeason, error: fantasySeasonError } = await fantasySeasonQuery.maybeSingle();
+    if (fantasySeasonError) return NextResponse.json({ error: 'Failed to load the fantasy season.' }, { status: 500 });
     if (!ownedSeason) return NextResponse.json({ fantasySeasonId: null, gameweekId, lineup: [] });
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: row, error } = await (supabase.from('fantasy_lineups') as any).select('*').eq('fantasy_season_id', ownedSeason.id).eq('gameweek_id', Number(gameweekId)).maybeSingle();
+    const { data: row, error } = await (supabase.from('fantasy_lineups') as any).select('*').eq('fantasy_season_id', ownedSeason.id).eq('gameweek_id', parsedGameweekId).maybeSingle();
     if (error) return NextResponse.json({ error: 'Failed to fetch lineup.' }, { status: 500 });
     if (!row) return NextResponse.json({ fantasySeasonId: ownedSeason.id, gameweekId, lineup: [] });
 
@@ -132,7 +154,21 @@ async function putHandler(request: NextRequest) {
 
     const supabase = supabaseServer();
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: season } = await (supabase.from('fantasy_seasons') as any).select('id').eq('user_id', user.userId).limit(1).maybeSingle();
+    const { data: gameweek, error: gameweekError } = await (supabase.from('gameweeks') as any)
+      .select('season_id, status, deadline')
+      .eq('id', gameweekId)
+      .maybeSingle();
+    if (gameweekError) return NextResponse.json({ error: 'Failed to validate the gameweek.' }, { status: 500 });
+    if (!gameweek) return NextResponse.json({ error: 'Gameweek not found.' }, { status: 404 });
+    if (gameweek.status === 'closed' || (gameweek.deadline && new Date(gameweek.deadline) < new Date())) return NextResponse.json({ error: 'The gameweek deadline has passed. Lineup changes are locked.' }, { status: 400 });
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: season, error: seasonError } = await (supabase.from('fantasy_seasons') as any)
+      .select('id, season_id')
+      .eq('user_id', user.userId)
+      .eq('season_id', gameweek.season_id)
+      .maybeSingle();
+    if (seasonError) return NextResponse.json({ error: 'Failed to load the fantasy season.' }, { status: 500 });
     if (!season) return NextResponse.json({ error: 'Fantasy season not found.' }, { status: 404 });
 
     const playerIds = lineup.map((entry) => entry.playerId);
@@ -168,11 +204,6 @@ async function putHandler(request: NextRequest) {
         return NextResponse.json({ error: `Player ${entry.playerId} does not match the ${entry.slot.replaceAll('_', ' ')} role.` }, { status: 400 });
       }
     }
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: gameweek } = await (supabase.from('gameweeks') as any).select('status, deadline').eq('id', gameweekId).maybeSingle();
-    if (!gameweek) return NextResponse.json({ error: 'Gameweek not found.' }, { status: 404 });
-    if (gameweek.status === 'closed' || (gameweek.deadline && new Date(gameweek.deadline) < new Date())) return NextResponse.json({ error: 'The gameweek deadline has passed. Lineup changes are locked.' }, { status: 400 });
 
     const row = {
       fantasy_season_id: season.id,

@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { PUT } from '../route';
+import { GET, PUT } from '../route';
 
 const mockVerifyAuth = jest.fn();
 const mockSupabaseServer = jest.fn();
@@ -36,6 +36,43 @@ describe('PUT /api/fantasy/lineup boundary validation', () => {
   beforeEach(() => {
     mockVerifyAuth.mockResolvedValue({ userId: 'manager-1', email: 'manager@example.test' });
     mockSupabaseServer.mockReset();
+  });
+
+  describe('GET /api/fantasy/lineup season isolation', () => {
+    beforeEach(() => {
+      mockVerifyAuth.mockResolvedValue({ userId: 'manager-1', email: 'manager@example.test' });
+    });
+
+    it('only looks up the fantasy enrollment for the requested gameweek season', async () => {
+      const filters: Record<string, string | number> = {};
+      const queryFor = (table: string) => {
+        const query = {
+          select: () => query,
+          eq: (column: string, value: string | number) => {
+            filters[`${table}.${column}`] = value;
+            return query;
+          },
+          maybeSingle: async () => ({
+            data: table === 'gameweeks' ? { season_id: 12 } : null,
+            error: null,
+          }),
+        };
+        return query;
+      };
+      mockSupabaseServer.mockReturnValue({ from: queryFor });
+
+      const response = await GET(new NextRequest(
+        'http://localhost:3000/api/fantasy/lineup?gameweekId=91',
+      ));
+
+      expect(response.status).toBe(200);
+      expect(await response.json()).toEqual({ fantasySeasonId: null, gameweekId: '91', lineup: [] });
+      expect(filters).toMatchObject({
+        'gameweeks.id': 91,
+        'fantasy_seasons.user_id': 'manager-1',
+        'fantasy_seasons.season_id': 12,
+      });
+    });
   });
 
   it.each([

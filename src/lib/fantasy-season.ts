@@ -16,16 +16,69 @@ export interface EnsureFantasySeasonResult {
  */
 export async function getOrCreateFantasySeason(
   supabase: SupabaseClient,
-  userId: string
+  userId: string,
+  requestedSeasonId?: number
 ): Promise<EnsureFantasySeasonResult | null> {
-  // 1. Try to fetch existing fantasy_season for this user
+  let seasonId = requestedSeasonId;
+
+  if (seasonId === undefined) {
+    // Prefer the active season over a newer season that is still being planned.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: activeSeason, error: activeSeasonError } = await (supabase.from('seasons') as any)
+      .select('id')
+      .eq('status', 'active')
+      .order('id', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (activeSeasonError) throw new Error('Failed to determine the active fantasy season.');
+    seasonId = activeSeason?.id;
+
+    if (!seasonId) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: futureSeason, error: futureSeasonError } = await (supabase.from('seasons') as any)
+        .select('id')
+        .eq('status', 'planning')
+        .order('id', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (futureSeasonError) throw new Error('Failed to determine the next fantasy season.');
+      seasonId = futureSeason?.id;
+    }
+
+    if (!seasonId) {
+      // Preserve the existing fallback when the database has no active or planned season.
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: latestSeason, error: latestSeasonError } = await (supabase.from('seasons') as any)
+        .select('id')
+        .order('id', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (latestSeasonError) throw new Error('Failed to determine the latest fantasy season.');
+      seasonId = latestSeason?.id;
+    }
+  }
+
+  if (!seasonId) {
+    return {
+      id: 0,
+      season_id: 0,
+      budget: 100,
+      free_transfers: 2,
+      total_points: 0,
+      global_rank: null,
+      created: false,
+    };
+  }
+
+  // Find this user's enrollment in the requested season, not an arbitrary prior season.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: existing } = await (supabase.from('fantasy_seasons') as any)
+  const { data: existing, error: existingError } = await (supabase.from('fantasy_seasons') as any)
     .select('id, season_id, budget, free_transfers, total_points, global_rank')
     .eq('user_id', userId)
-    .order('id', { ascending: false })
+    .eq('season_id', seasonId)
     .limit(1)
     .maybeSingle();
+  if (existingError) throw new Error('Failed to load the fantasy season enrollment.');
 
   if (existing) {
     return {
@@ -39,41 +92,7 @@ export async function getOrCreateFantasySeason(
     };
   }
 
-  // 2. Fetch the active or latest season to bind to
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: activeSeason } = await (supabase.from('seasons') as any)
-    .select('id')
-    .in('status', ['active', 'upcoming', 'planning'])
-    .order('id', { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
-  // If no active season found, grab any latest season
-  let seasonId = activeSeason?.id;
-  if (!seasonId) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: anySeason } = await (supabase.from('seasons') as any)
-      .select('id')
-      .order('id', { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    seasonId = anySeason?.id;
-  }
-
-  if (!seasonId) {
-    // Return standard defaults even if no season exists
-    return {
-      id: 0,
-      season_id: 0,
-      budget: 100.0,
-      free_transfers: 2,
-      total_points: 0,
-      global_rank: null,
-      created: false,
-    };
-  }
-
-  // 3. Create the initial fantasy_seasons record with standard defaults: 100M budget and 2 free transfers
+  // Create the initial enrollment for this season.
   const initialBudget = 100.0;
   const initialFreeTransfers = 2;
 
@@ -90,18 +109,29 @@ export async function getOrCreateFantasySeason(
     .select('id, season_id, budget, free_transfers, total_points, global_rank')
     .maybeSingle();
 
-  if (insertError || !newSeason) {
-    console.error('Failed to auto-create fantasy_seasons record:', insertError);
-    return {
-      id: 0,
-      season_id: seasonId,
-      budget: initialBudget,
-      free_transfers: initialFreeTransfers,
-      total_points: 0,
-      global_rank: null,
-      created: false,
-    };
+  if (insertError?.code === '23505') {
+    // Another request may have created the unique user/season enrollment concurrently.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: concurrentSeason, error: concurrentSeasonError } = await (supabase.from('fantasy_seasons') as any)
+      .select('id, season_id, budget, free_transfers, total_points, global_rank')
+      .eq('user_id', userId)
+      .eq('season_id', seasonId)
+      .maybeSingle();
+    if (concurrentSeasonError) throw new Error('Failed to load the concurrently created fantasy season.');
+    if (concurrentSeason) {
+      return {
+        id: concurrentSeason.id,
+        season_id: concurrentSeason.season_id,
+        budget: Number(concurrentSeason.budget ?? 100),
+        free_transfers: Number(concurrentSeason.free_transfers ?? 2),
+        total_points: Number(concurrentSeason.total_points ?? 0),
+        global_rank: concurrentSeason.global_rank ?? null,
+        created: false,
+      };
+    }
   }
+
+  if (insertError || !newSeason) throw new Error('Failed to create the fantasy season enrollment.');
 
   return {
     id: newSeason.id,

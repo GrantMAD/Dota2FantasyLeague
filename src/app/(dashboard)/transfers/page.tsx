@@ -62,7 +62,7 @@ export default function TransfersPage() {
         setOwnedPlayerIds(ownedIds);
 
         if (ownedIds.length > 0) {
-          const ownedRes = await fetch(`/api/players?ids=${ownedIds.join(',')}`);
+          const ownedRes = await fetch(`/api/players?ids=${ownedIds.join(',')}&show_all=true`);
           if (ownedRes.ok) {
             const ownedData = await ownedRes.json();
             const map = new Map<number, TransferPlayer>();

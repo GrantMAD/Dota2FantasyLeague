@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyAuth } from '@/lib/auth-utils';
 import { supabaseServer } from '@/lib/supabase';
+import { getOrCreateFantasySeason } from '@/lib/fantasy-season';
 import { deliverPushNotifications } from '@/lib/push-notifications';
 import { withApiTelemetry } from '@/lib/api-telemetry';
 
@@ -136,13 +137,19 @@ async function postHandler(request: NextRequest) {
       if (!inviteCode) return NextResponse.json({ error: 'Invite code is required to join a league.' }, { status: 400 });
       const { data: league, error: leagueError } = await supabase
         .from('leagues')
-        .select('id, name, creator_id, max_participants, current_participants, invite_code, league_type, privacy_level, description, status')
+        .select('id, season_id, name, creator_id, max_participants, current_participants, invite_code, league_type, privacy_level, description, status')
         .eq('invite_code', inviteCode)
         .eq('status', 'active')
         .maybeSingle();
       if (leagueError || !league) return NextResponse.json({ error: 'That invite code does not match an active league.' }, { status: 404 });
       if (league.max_participants && league.current_participants >= league.max_participants) return NextResponse.json({ error: 'This league is full.' }, { status: 409 });
-      const { data: fantasySeason } = await supabase.from('fantasy_seasons').select('id, team_name').eq('user_id', user.userId).limit(1).maybeSingle();
+      const { data: fantasySeason, error: fantasySeasonError } = await supabase
+        .from('fantasy_seasons')
+        .select('id, team_name')
+        .eq('user_id', user.userId)
+        .eq('season_id', league.season_id)
+        .maybeSingle();
+      if (fantasySeasonError) return NextResponse.json({ error: 'Failed to load your fantasy team for this league season.' }, { status: 500 });
       if (!fantasySeason) return NextResponse.json({ error: 'Create a fantasy team before joining a league.' }, { status: 400 });
       const { error: participantError } = await supabase.from('league_participants').insert({ league_id: league.id, user_id: user.userId, fantasy_season_id: fantasySeason.id });
       if (participantError) return NextResponse.json({ error: participantError.code === '23505' ? 'You are already in this league.' : 'Failed to join league.' }, { status: participantError.code === '23505' ? 409 : 500 });
@@ -190,8 +197,8 @@ async function postHandler(request: NextRequest) {
 
     const name = typeof body.name === 'string' ? body.name.trim() : '';
     if (!name) return NextResponse.json({ error: 'League name is required.' }, { status: 400 });
-    const { data: fantasySeason } = await supabase.from('fantasy_seasons').select('id, season_id').eq('user_id', user.userId).limit(1).maybeSingle();
-    if (!fantasySeason) return NextResponse.json({ error: 'Create a fantasy team before creating a league.' }, { status: 400 });
+    const fantasySeason = await getOrCreateFantasySeason(supabase, user.userId);
+    if (!fantasySeason || fantasySeason.id === 0) return NextResponse.json({ error: 'Create a fantasy team before creating a league.' }, { status: 400 });
     const leagueType = body.type === 'h2h' ? 'head_to_head' : 'classic';
     const maxParticipants = Math.min(32, Math.max(4, Number(body.maxParticipants) || 10));
     const inviteCode = `${name.slice(0, 3).toUpperCase()}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
