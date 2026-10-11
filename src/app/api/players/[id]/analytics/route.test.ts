@@ -141,8 +141,8 @@ describe('GET /api/players/:id/analytics — Finding 2: Scoped breakdown query',
     const pricesBuilder = makeQueryBuilder();
     pricesBuilder.limit.mockResolvedValue({
       data: [
-        { gameweek_id: 3, price: 8.5 },
         { gameweek_id: 4, price: 9.0 },
+        { gameweek_id: 3, price: 8.5 },
       ],
       error: null,
     });
@@ -176,6 +176,60 @@ describe('GET /api/players/:id/analytics — Finding 2: Scoped breakdown query',
     expect(json.analytics.latestPoints).toBe(17);
     // latestPrice = 9.0
     expect(json.analytics.latestPrice).toBe(9);
+    // Prices are matched by gameweek, not by the order returned from the database.
+    expect(json.analytics.priceChange).toBe(0.5);
+  });
+
+  it('does not shift prices onto a different gameweek when price history has a gap', async () => {
+    const performancesBuilder = makeQueryBuilder();
+    performancesBuilder.limit.mockResolvedValue({
+      data: [
+        { id: 401, gameweek_id: 3 },
+        { id: 402, gameweek_id: 4 },
+      ],
+      error: null,
+    });
+
+    const breakdownBuilderFinal = {
+      select: jest.fn().mockReturnThis(),
+      in: jest.fn().mockResolvedValue({
+        data: [
+          { performance_id: 401, total_points: 12 },
+          { performance_id: 402, total_points: 21 },
+        ],
+        error: null,
+      }),
+    };
+
+    const pricesBuilder = makeQueryBuilder();
+    pricesBuilder.limit.mockResolvedValue({
+      data: [{ gameweek_id: 4, price: 9.5 }],
+      error: null,
+    });
+
+    const profileBuilder = makeQueryBuilder();
+    profileBuilder.maybeSingle.mockResolvedValue({
+      data: { is_premium: true, subscription_tier: 'pro' },
+      error: null,
+    });
+
+    mockSupabaseServer.mockReturnValue({
+      from: jest.fn((table: string) => {
+        if (table === 'users') return profileBuilder;
+        if (table === 'player_performances') return performancesBuilder;
+        if (table === 'fantasy_points_breakdown') return breakdownBuilderFinal;
+        if (table === 'player_prices') return pricesBuilder;
+        throw new Error(`Unexpected table: ${table}`);
+      }),
+    });
+
+    const response = await GET(makeRequest('7'), { params: Promise.resolve({ id: '7' }) });
+    expect(response.status).toBe(200);
+
+    const json = await response.json();
+    expect(json.analytics.latestPrice).toBe(9.5);
+    expect(json.analytics.priceChange).toBe(0);
+    expect(json.analytics.form).toEqual([12, 21]);
   });
 
   // ── Empty performances guard ─────────────────────────────────────────────

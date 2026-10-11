@@ -8,6 +8,16 @@ import { withApiTelemetry } from '@/lib/api-telemetry';
 
 interface RouteContext { params: Promise<{ id: string }> }
 
+interface PlayerPerformanceSample {
+  id: number;
+  gameweek_id: number;
+}
+
+interface PlayerPriceSample {
+  gameweek_id: number;
+  price: number | null;
+}
+
 async function getHandler(request: NextRequest, context: RouteContext) {
   try {
     const auth = await verifyAuth(request);
@@ -17,7 +27,12 @@ async function getHandler(request: NextRequest, context: RouteContext) {
     if (!canUsePremiumFeature(profile, 'advanced-analytics')) {
       return NextResponse.json({ error: 'Advanced analytics require a premium account.' }, { status: 403 });
     }
-    const { data: performances, error } = await (supabase.from('player_performances') as any).select('id, gameweek_id').eq('player_id', Number(id)).order('gameweek_id', { ascending: true }).limit(50); // eslint-disable-line @typescript-eslint/no-explicit-any
+    const { data: performances, error } = await (supabase.from('player_performances') as any) // eslint-disable-line @typescript-eslint/no-explicit-any
+      .select('id, gameweek_id')
+      .eq('player_id', Number(id))
+      .order('gameweek_id', { ascending: true })
+      .order('id', { ascending: true })
+      .limit(50);
     if (error) return NextResponse.json({ error: 'Failed to load player analytics.' }, { status: 500 });
 
     // Finding 2 fix: filter breakdown query by the player's scoped performance IDs
@@ -32,9 +47,24 @@ async function getHandler(request: NextRequest, context: RouteContext) {
       breakdownMap = new Map((breakdowns ?? []).map((row: { performance_id: number; total_points: number }) => [row.performance_id, Number(row.total_points ?? 0)]));
     }
 
-    const { data: prices } = await (supabase.from('player_prices') as any).select('gameweek_id, price').eq('player_id', Number(id)).order('gameweek_id', { ascending: true }).limit(50); // eslint-disable-line @typescript-eslint/no-explicit-any
-    const priceRows = prices ?? [];
-    const samples = (performances ?? []).map((performance: { id: number; gameweek_id: number }, index: number) => ({ gameweekId: performance.gameweek_id, points: breakdownMap.get(performance.id) ?? 0, price: Number(priceRows[index]?.price ?? 0) }));
+    const { data: prices, error: pricesError } = await (supabase.from('player_prices') as any) // eslint-disable-line @typescript-eslint/no-explicit-any
+      .select('gameweek_id, price')
+      .eq('player_id', Number(id))
+      .order('gameweek_id', { ascending: true })
+      .limit(50);
+    if (pricesError) return NextResponse.json({ error: 'Failed to load player analytics.' }, { status: 500 });
+
+    const priceByGameweek = new Map<number, number | null>(
+      ((prices ?? []) as PlayerPriceSample[]).map((row) => [
+        row.gameweek_id,
+        row.price === null ? null : Number(row.price),
+      ])
+    );
+    const samples = ((performances ?? []) as PlayerPerformanceSample[]).map((performance) => ({
+      gameweekId: performance.gameweek_id,
+      points: breakdownMap.get(performance.id) ?? 0,
+      price: priceByGameweek.get(performance.gameweek_id) ?? null,
+    }));
     return NextResponse.json({ playerId: Number(id), analytics: buildPlayerAnalytics(samples) });
   } catch (error: unknown) {
     const status = typeof error === 'object' && error !== null && 'status' in error ? Number((error as { status: number }).status) : 500;

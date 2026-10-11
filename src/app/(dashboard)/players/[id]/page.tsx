@@ -118,11 +118,18 @@ export default function PlayerDetailPage() {
     async function fetchPlayer() {
       try {
         const res = await fetchWithAuth(`/api/players/${id}`);
-        if (!res.ok) throw new Error('Player not found');
+        if (!res.ok) {
+          const result = await res.json() as { error?: unknown };
+          throw new Error(
+            typeof result.error === 'string'
+              ? result.error
+              : `Unable to load player details (HTTP ${res.status}).`
+          );
+        }
         const data = (await res.json()) as PlayerResponse;
         setPlayer(data.player ?? null);
       } catch (err: unknown) {
-        setError(err instanceof Error ? err.message : 'Failed to load player details');
+        setError(err instanceof Error ? err.message : 'Failed to load player details.');
       } finally {
         setLoading(false);
       }
