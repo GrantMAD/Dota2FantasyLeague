@@ -38,6 +38,17 @@ type TeamMatch = {
 type PlayersResponse = { data?: ComparisonPlayer[]; error?: string };
 type MatchesResponse = { matches?: TeamMatch[]; error?: string };
 
+type PlayerAnalytics = {
+  matches: number;
+  averagePoints: number;
+  latestPoints: number;
+  latestPrice: number;
+  priceChange: number;
+  form: number[];
+  projectedPoints: number;
+  bestPoints: number;
+};
+
 function playerLabel(player: ComparisonPlayer): string {
   return player.in_game_name || player.name;
 }
@@ -126,6 +137,8 @@ function PlayerComparisonContent() {
   const [upcomingByTeam, setUpcomingByTeam] = useState<Map<number, TeamMatch[]>>(new Map());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [analyticsMap, setAnalyticsMap] = useState<Map<number, PlayerAnalytics>>(new Map());
+  const [userIsPremium, setUserIsPremium] = useState<boolean | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -149,6 +162,31 @@ function PlayerComparisonContent() {
 
         const loadedPlayers = data.data ?? [];
         setPlayers(loadedPlayers);
+
+        // Fetch analytics for all players in parallel (non-blocking: 403 = not premium)
+        void Promise.all(
+          loadedPlayers.map(async (p) => {
+            try {
+              const r = await fetchWithAuth(`/api/players/${p.id}/analytics`);
+              if (r.status === 403) return { id: p.id, analytics: null as PlayerAnalytics | null, premium: false };
+              if (!r.ok) return { id: p.id, analytics: null as PlayerAnalytics | null, premium: true };
+              const d = await r.json() as { playerId: number; analytics: PlayerAnalytics };
+              return { id: p.id, analytics: d.analytics ?? null, premium: true };
+            } catch {
+              return { id: p.id, analytics: null as PlayerAnalytics | null, premium: true };
+            }
+          })
+        ).then((results) => {
+          if (cancelled) return;
+          const map = new Map<number, PlayerAnalytics>();
+          let premium = true;
+          for (const r of results) {
+            if (!r.premium) { premium = false; break; }
+            if (r.analytics) map.set(r.id, r.analytics);
+          }
+          setUserIsPremium(premium);
+          setAnalyticsMap(map);
+        });
 
         const teamIds = [...new Set(loadedPlayers
           .map((player) => player.team_id)
@@ -331,6 +369,45 @@ function PlayerComparisonContent() {
                     </td>
                   ))}
                 </ComparisonRow>
+                {userIsPremium !== null && (
+                  <ComparisonRow label="Projected pts">
+                    {players.map((player) => {
+                      if (!userIsPremium) {
+                        return (
+                          <td key={player.id} className="p-4 text-sm">
+                            <span className="text-slate-600">&#128274; <span className="text-teal-700 text-xs">Premium</span></span>
+                          </td>
+                        );
+                      }
+                      const a = analyticsMap.get(player.id);
+                      return (
+                        <td key={player.id} className="p-4 font-mono text-sm font-semibold text-teal-300">
+                          {a ? a.projectedPoints.toFixed(1) : '—'}
+                        </td>
+                      );
+                    })}
+                  </ComparisonRow>
+                )}
+                {userIsPremium !== null && (
+                  <ComparisonRow label="Season avg / match">
+                    {players.map((player) => {
+                      if (!userIsPremium) {
+                        return (
+                          <td key={player.id} className="p-4 text-sm">
+                            <span className="text-slate-600">&#128274; <span className="text-teal-700 text-xs">Premium</span></span>
+                          </td>
+                        );
+                      }
+                      const a = analyticsMap.get(player.id);
+                      return (
+                        <td key={player.id} className="p-4 text-sm text-slate-300 font-mono">
+                          {a ? a.averagePoints.toFixed(1) : '—'}
+                          <span className="ml-1 text-xs font-normal text-slate-500">avg</span>
+                        </td>
+                      );
+                    })}
+                  </ComparisonRow>
+                )}
                 <ComparisonRow label="Availability">
                   {players.map((player) => {
                     const available = player.availability_status === 'available';

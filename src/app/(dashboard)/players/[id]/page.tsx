@@ -7,6 +7,17 @@ import Image from 'next/image';
 import { ShieldCheck, ArrowRightLeft } from 'lucide-react';
 import { fetchWithAuth } from '@/lib/fetch-with-auth';
 
+type PlayerAnalytics = {
+  matches: number;
+  averagePoints: number;
+  latestPoints: number;
+  latestPrice: number;
+  priceChange: number;
+  form: number[];
+  projectedPoints: number;
+  bestPoints: number;
+};
+
 type FantasyBreakdown = {
   combat_points?: number;
   economy_points?: number;
@@ -99,6 +110,9 @@ export default function PlayerDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [selectedMatch, setSelectedMatch] = useState<MatchHistoryItem | null>(null);
   const [ownedPlayerIds, setOwnedPlayerIds] = useState<number[]>([]);
+  const [analytics, setAnalytics] = useState<PlayerAnalytics | null>(null);
+  const [analyticsLoading, setAnalyticsLoading] = useState(false);
+  const [isPremium, setIsPremium] = useState<boolean | null>(null);
 
   useEffect(() => {
     async function fetchPlayer() {
@@ -114,6 +128,29 @@ export default function PlayerDetailPage() {
       }
     }
     if (id) fetchPlayer();
+  }, [id]);
+
+  useEffect(() => {
+    if (!id) return;
+    let cancelled = false;
+    async function loadAnalytics() {
+      setAnalyticsLoading(true);
+      try {
+        const res = await fetchWithAuth(`/api/players/${id}/analytics`);
+        if (cancelled) return;
+        if (res.status === 403) { setIsPremium(false); return; }
+        if (!res.ok) return;
+        const data = await res.json() as { playerId: number; analytics: PlayerAnalytics };
+        if (!cancelled && data.analytics) {
+          setAnalytics(data.analytics);
+          setIsPremium(true);
+        }
+      } catch { /* analytics is non-blocking */ } finally {
+        if (!cancelled) setAnalyticsLoading(false);
+      }
+    }
+    loadAnalytics();
+    return () => { cancelled = true; };
   }, [id]);
 
   useEffect(() => {
@@ -381,11 +418,103 @@ export default function PlayerDetailPage() {
          </div>
          <div className="bg-slate-800/40 border border-slate-700 rounded-xl p-5 text-center shadow-sm">
             <div className="text-xs text-slate-400 uppercase mb-1">Form Rating</div>
-            <div className="text-2xl font-bold text-amber-400 font-mono">
-               9.4
+            <div className="text-2xl font-bold font-mono">
+               {analyticsLoading ? (
+                  <div className="animate-pulse h-8 w-14 bg-slate-700 rounded mx-auto" />
+               ) : analytics ? (
+                  <span className="text-amber-400">{analytics.projectedPoints.toFixed(1)}</span>
+               ) : isPremium === false ? (
+                  <span className="text-slate-500 text-xl" title="Upgrade to Premium">🔒</span>
+               ) : (
+                  <span className="text-slate-500">—</span>
+               )}
             </div>
+            {analytics && <div className="text-[10px] text-teal-500 mt-1">proj. next GW</div>}
          </div>
       </div>
+
+      {/* Premium Analytics Panel */}
+      {(analyticsLoading || analytics !== null || isPremium === false) && (
+        <div className="mb-8 rounded-xl border border-teal-500/20 bg-gradient-to-br from-slate-900 to-slate-800/60 overflow-hidden shadow-lg">
+          <div className="flex items-center gap-2.5 px-6 py-4 border-b border-slate-700/50 bg-slate-800/30">
+            <svg className="w-4 h-4 text-teal-400 shrink-0" fill="currentColor" viewBox="0 0 20 20">
+              <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+            </svg>
+            <span className="text-sm font-semibold text-white">Premium Analytics</span>
+            {isPremium && !analyticsLoading && (
+              <span className="ml-auto text-xs text-teal-400 bg-teal-400/10 px-2 py-0.5 rounded-full border border-teal-400/20 font-medium">Active</span>
+            )}
+          </div>
+
+          {analyticsLoading ? (
+            <div className="p-6 grid grid-cols-2 md:grid-cols-4 gap-4 animate-pulse">
+              {[1,2,3,4].map((i) => <div key={i} className="h-20 rounded-lg bg-slate-700/50" />)}
+            </div>
+          ) : isPremium === false ? (
+            <div className="p-8 text-center">
+              <div className="text-4xl mb-3">🔒</div>
+              <h3 className="text-white font-semibold mb-1">Unlock Premium Analytics</h3>
+              <p className="text-sm text-slate-400 mb-5 max-w-sm mx-auto">
+                Get projected points, form trends, season averages, and price delta for every player — powered by your real match data.
+              </p>
+              <Link
+                href="/premium"
+                className="inline-flex items-center gap-2 bg-gradient-to-r from-teal-500 to-cyan-500 hover:from-teal-400 hover:to-cyan-400 text-slate-950 font-semibold px-5 py-2.5 rounded-lg text-sm transition-all shadow-lg shadow-teal-500/20"
+              >
+                Upgrade to Premium
+              </Link>
+            </div>
+          ) : analytics ? (
+            <div className="p-6">
+              {analytics.form.length > 0 && (
+                <div className="mb-6">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs text-slate-400 uppercase tracking-wider">Last {analytics.form.length} Gameweeks — Form</span>
+                    <span className="text-xs text-slate-500">{analytics.matches} match{analytics.matches !== 1 ? 'es' : ''} tracked</span>
+                  </div>
+                  <div className="flex items-end gap-1.5 h-16 bg-slate-900/40 rounded-lg px-3 py-2">
+                    {analytics.form.map((pts, i) => {
+                      const max = Math.max(...analytics.form, 1);
+                      const pct = Math.max(8, (pts / max) * 100);
+                      return (
+                        <div key={i} className="flex-1 flex flex-col items-center justify-end h-full" title={`${pts.toFixed(1)} pts`}>
+                          <div
+                            className="w-full rounded-sm bg-gradient-to-t from-teal-600 to-cyan-400 transition-all"
+                            style={{ height: `${pct}%` }}
+                          />
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <div className="rounded-lg bg-slate-900/40 border border-slate-700/50 p-4 text-center">
+                  <div className="text-xs text-slate-400 uppercase mb-1.5">Avg / Match</div>
+                  <div className="text-xl font-bold text-white font-mono">{analytics.averagePoints.toFixed(1)}</div>
+                </div>
+                <div className="rounded-lg bg-slate-900/40 border border-slate-700/50 p-4 text-center">
+                  <div className="text-xs text-slate-400 uppercase mb-1.5">Season Best</div>
+                  <div className="text-xl font-bold text-amber-400 font-mono">{analytics.bestPoints.toFixed(1)}</div>
+                </div>
+                <div className="rounded-lg bg-teal-500/5 border border-teal-500/25 p-4 text-center">
+                  <div className="text-xs text-teal-400 uppercase mb-1.5">Projected</div>
+                  <div className="text-xl font-bold text-teal-300 font-mono">{analytics.projectedPoints.toFixed(1)}</div>
+                </div>
+                <div className="rounded-lg bg-slate-900/40 border border-slate-700/50 p-4 text-center">
+                  <div className="text-xs text-slate-400 uppercase mb-1.5">Price Δ</div>
+                  <div className={`text-xl font-bold font-mono ${
+                    analytics.priceChange > 0 ? 'text-emerald-400' :
+                    analytics.priceChange < 0 ? 'text-rose-400' : 'text-slate-400'
+                  }`}>
+                    {analytics.priceChange > 0 ? '+' : ''}{analytics.priceChange.toFixed(2)}M
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : null}
+        </div>
+      )}
 
       {/* Match History */}
       <div className="bg-slate-800/40 border border-slate-700 rounded-xl overflow-hidden shadow-sm">
