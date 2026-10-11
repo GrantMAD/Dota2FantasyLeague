@@ -382,7 +382,7 @@ function PlayerComparisonContent() {
                       const a = analyticsMap.get(player.id);
                       return (
                         <td key={player.id} className="p-4 font-mono text-sm font-semibold text-teal-300">
-                          {a ? a.projectedPoints.toFixed(1) : '—'}
+                          {a ? a.projectedPoints.toFixed(1) : '-'}
                         </td>
                       );
                     })}
@@ -401,7 +401,7 @@ function PlayerComparisonContent() {
                       const a = analyticsMap.get(player.id);
                       return (
                         <td key={player.id} className="p-4 text-sm text-slate-300 font-mono">
-                          {a ? a.averagePoints.toFixed(1) : '—'}
+                          {a ? a.averagePoints.toFixed(1) : '-'}
                           <span className="ml-1 text-xs font-normal text-slate-500">avg</span>
                         </td>
                       );
