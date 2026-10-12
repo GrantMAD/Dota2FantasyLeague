@@ -89,14 +89,6 @@ export default function DashboardPage() {
   const [whatsNew, setWhatsNew] = useState<WhatsNewData | null>(null);
   const [whatsNewError, setWhatsNewError] = useState<string | null>(null);
 
-  useEffect(() => {
-    const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setSelectedPlayer(null);
-    };
-    document.addEventListener('keydown', closeOnEscape);
-    return () => document.removeEventListener('keydown', closeOnEscape);
-  }, []);
-
   const openPlayerDetails = async (playerId: number) => {
     setPlayerLoading(true);
     try {

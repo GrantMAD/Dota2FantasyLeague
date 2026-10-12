@@ -1,9 +1,10 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Award, X } from 'lucide-react';
 import { fetchWithAuth } from '@/lib/fetch-with-auth';
 import { POINT_CATEGORIES, type GameweekPointsBreakdown, type PlayerPointCategories } from '@/lib/dashboard-points';
+import { useAccessibleDialog } from '@/components/use-accessible-dialog';
 
 interface PointsBreakdown {
   seasonName: string | null;
@@ -25,6 +26,8 @@ export function TotalPointsModal({ onClose }: TotalPointsModalProps) {
   const [breakdown, setBreakdown] = useState<PointsBreakdown | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const dialogRef = useAccessibleDialog({ open: true, onClose, initialFocusRef: closeButtonRef });
 
   useEffect(() => {
     let cancelled = false;
@@ -48,14 +51,6 @@ export function TotalPointsModal({ onClose }: TotalPointsModalProps) {
     };
   }, []);
 
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onClose();
-    };
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, [onClose]);
-
   return (
     <div
       className="fixed inset-0 z-80 flex items-center justify-center bg-slate-950/75 p-4 backdrop-blur-sm"
@@ -64,9 +59,11 @@ export function TotalPointsModal({ onClose }: TotalPointsModalProps) {
       }}
     >
       <section
+        ref={dialogRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby="total-points-title"
+        tabIndex={-1}
         className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-2xl border border-slate-700 bg-slate-900 p-5 shadow-2xl sm:p-7"
       >
         <header className="mb-6 flex items-start justify-between gap-4">
@@ -82,6 +79,7 @@ export function TotalPointsModal({ onClose }: TotalPointsModalProps) {
           </div>
           <button
             type="button"
+            ref={closeButtonRef}
             onClick={onClose}
             aria-label="Close total points breakdown"
             className="rounded-lg p-2 text-slate-400 hover:bg-slate-800 hover:text-white"

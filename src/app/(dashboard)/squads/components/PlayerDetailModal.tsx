@@ -2,7 +2,9 @@
 
 import Image from 'next/image';
 import Link from 'next/link';
+import { useRef } from 'react';
 import { X, ExternalLink } from 'lucide-react';
+import { useAccessibleDialog } from '@/components/use-accessible-dialog';
 import type { SquadPlayer } from './SquadPlayerCard';
 
 type PlayerPerformance = {
@@ -27,6 +29,13 @@ interface PlayerDetailModalProps {
 }
 
 export function PlayerDetailModal({ player, loading, onClose }: PlayerDetailModalProps) {
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const dialogRef = useAccessibleDialog<HTMLDivElement>({
+    open: Boolean(player) && !loading,
+    onClose,
+    initialFocusRef: closeButtonRef,
+  });
+
   if (loading) {
     return (
       <div
@@ -48,14 +57,17 @@ export function PlayerDetailModal({ player, loading, onClose }: PlayerDetailModa
   return (
     <div
       className="fixed inset-0 z-100 flex items-center justify-center bg-slate-950/75 backdrop-blur-xs p-4"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="squad-player-title"
-      onClick={onClose}
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) onClose();
+      }}
     >
       <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="squad-player-title"
+        tabIndex={-1}
         className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-3xl border border-teal-500/30 bg-slate-900 p-6 shadow-2xl dark:border-teal-500/30 dark:bg-slate-900"
-        onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
         <div className="mb-6 flex items-start justify-between gap-4">
@@ -91,6 +103,7 @@ export function PlayerDetailModal({ player, loading, onClose }: PlayerDetailModa
 
           <button
             type="button"
+            ref={closeButtonRef}
             onClick={onClose}
             aria-label="Close player details"
             className="rounded-xl border border-slate-700 bg-slate-800/80 p-2 text-slate-400 hover:border-slate-500 hover:text-white transition"

@@ -30,13 +30,14 @@ function SettingsContent() {
       : 'overview';
   });
   const [formData, setFormData] = useState({
+    username: '',
+    email: '',
     displayName: '',
     countryCode: '',
     timezone: 'UTC',
     emailNotifications: true,
     pushNotifications: true,
   });
-  const [accountData, setAccountData] = useState({ username: '', email: '' });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [themeSaving, setThemeSaving] = useState(false);
@@ -67,9 +68,10 @@ function SettingsContent() {
       };
       const profile = data.profile;
       if (!profile) throw new Error('No profile record found');
-      setAccountData({ username: profile.username || '', email: profile.email || '' });
       setFormData((current) => ({
         ...current,
+        username: profile.username || '',
+        email: profile.email || '',
         displayName: profile.display_name || profile.username || '',
         countryCode: profile.country_code || 'US',
         timezone: profile.timezone || 'UTC',
@@ -108,9 +110,10 @@ function SettingsContent() {
         const profile = data.profile;
         if (!profile) throw new Error('No profile record found');
         if (!ignore) {
-          setAccountData({ username: profile.username || '', email: profile.email || '' });
           setFormData((current) => ({
             ...current,
+            username: profile.username || '',
+            email: profile.email || '',
             displayName: profile.display_name || profile.username || '',
             countryCode: profile.country_code || 'US',
             timezone: profile.timezone || 'UTC',
@@ -158,17 +161,29 @@ function SettingsContent() {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          username: formData.username,
           display_name: formData.displayName,
+          country_code: formData.countryCode,
+          timezone: formData.timezone,
           email_notifications: formData.emailNotifications,
           push_notifications: formData.pushNotifications,
         }),
       });
 
-      if (!res.ok) throw new Error('Unable to save profile');
-      setMessage('Profile preferences saved successfully');
+      const data = (await res.json()) as {
+        profile?: { username?: string; email?: string };
+        error?: string;
+      };
+      if (!res.ok || !data.profile) throw new Error(data.error || 'Unable to save settings');
+      setFormData((current) => ({
+        ...current,
+        username: data.profile?.username || current.username,
+        email: data.profile?.email || current.email,
+      }));
+      setMessage('Settings saved successfully');
       toast.success('Settings Saved', 'Your changes have been applied.');
     } catch (error: unknown) {
-      const errMsg = error instanceof Error ? error.message : 'Profile update failed';
+      const errMsg = error instanceof Error ? error.message : 'Settings update failed';
       setMessage(errMsg);
       setMessageIsError(true);
       toast.error('Save Failed', errMsg);
@@ -219,35 +234,6 @@ function SettingsContent() {
       toast.error('Save Failed', 'Theme preference could not be saved');
     } finally {
       setThemeSaving(false);
-    }
-  };
-
-  const handleAccountSave = async () => {
-    setSaving(true);
-    setMessage(null);
-    setMessageIsError(false);
-    try {
-      const res = await fetchWithAuth('/api/user/profile', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          username: accountData.username,
-          country_code: formData.countryCode,
-          timezone: formData.timezone,
-        }),
-      });
-      const data = (await res.json()) as { profile?: { username?: string; email?: string }; error?: string };
-      if (!res.ok || !data.profile) throw new Error(data.error || 'Unable to save account details');
-      setAccountData({ username: data.profile.username || accountData.username, email: data.profile.email || accountData.email });
-      setMessage('Account details saved successfully');
-      toast.success('Settings Saved', 'Your account details have been updated.');
-    } catch (error: unknown) {
-      const errMsg = error instanceof Error ? error.message : 'Account update failed';
-      setMessage(errMsg);
-      setMessageIsError(true);
-      toast.error('Save Failed', errMsg);
-    } finally {
-      setSaving(false);
     }
   };
 
@@ -360,12 +346,12 @@ function SettingsContent() {
               <div className="mt-6 space-y-5">
                 <div>
                   <label htmlFor="settings-username" className="mb-2 block text-sm font-medium text-slate-300">Username</label>
-                  <input id="settings-username" value={accountData.username} onChange={(event) => setAccountData({ ...accountData, username: event.target.value })} className={inputClass} />
+                  <input id="settings-username" value={formData.username} onChange={(event) => setFormData({ ...formData, username: event.target.value })} className={inputClass} />
                   <p className="mt-2 text-xs text-slate-500">Your username identifies you across leagues and account menus.</p>
                 </div>
                 <div>
                   <label htmlFor="settings-email" className="mb-2 block text-sm font-medium text-slate-300">Login email</label>
-                  <input id="settings-email" type="email" value={accountData.email} disabled className={`${inputClass} cursor-not-allowed text-slate-500`} />
+                  <input id="settings-email" type="email" value={formData.email} disabled className={`${inputClass} cursor-not-allowed text-slate-500`} />
                   <p className="mt-2 text-xs text-slate-500">Email changes are managed securely through Supabase Auth.</p>
                 </div>
                 <div className="grid gap-5 md:grid-cols-2">
@@ -383,7 +369,7 @@ function SettingsContent() {
                   </div>
                 </div>
                 <div className="flex flex-wrap items-center gap-3 border-t border-slate-800 pt-6">
-                  <button onClick={handleAccountSave} disabled={saving} className="rounded-lg bg-cyan-500 px-5 py-3 font-semibold text-slate-950 transition hover:bg-cyan-400 disabled:opacity-60">{saving ? 'Saving account...' : 'Save account details'}</button>
+                  <button onClick={handleSave} disabled={saving} className="rounded-lg bg-cyan-500 px-5 py-3 font-semibold text-slate-950 transition hover:bg-cyan-400 disabled:opacity-60">{saving ? 'Saving settings...' : 'Save account details'}</button>
                   <Link href="/forgot-password" className="rounded-lg border border-slate-700 px-4 py-2.5 text-sm font-semibold text-slate-200 hover:border-cyan-400 hover:text-white">Reset password</Link>
                 </div>
               </div>
@@ -412,7 +398,7 @@ function SettingsContent() {
                     ))}
                   </div>
                 </div>
-                <button onClick={handleSave} disabled={saving} className="rounded-lg bg-cyan-500 px-5 py-3 font-semibold text-slate-950 transition hover:bg-cyan-400 disabled:opacity-60">{saving ? 'Saving changes...' : 'Save profile changes'}</button>
+                <button onClick={handleSave} disabled={saving} className="rounded-lg bg-cyan-500 px-5 py-3 font-semibold text-slate-950 transition hover:bg-cyan-400 disabled:opacity-60">{saving ? 'Saving settings...' : 'Save profile changes'}</button>
               </div>
             </div>
           )}

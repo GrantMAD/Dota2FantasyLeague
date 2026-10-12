@@ -39,12 +39,14 @@ export function TournamentFilters({
     <div className="space-y-4 mb-8">
       {/* Status Segmented Buttons */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div className="flex items-center gap-1.5 p-1 bg-slate-900/90 border border-slate-800 rounded-xl overflow-x-auto w-full sm:w-auto">
+        <div role="group" aria-label="Filter tournaments by status" className="flex items-center gap-1.5 p-1 bg-slate-900/90 border border-slate-800 rounded-xl overflow-x-auto w-full sm:w-auto">
           {statusTabs.map((tab) => {
             const isActive = activeStatus === tab.id;
             return (
               <button
                 key={tab.id}
+                type="button"
+                aria-pressed={isActive}
                 onClick={() => onStatusChange(tab.id)}
                 className={`tournament-status-tab flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all ${
                   isActive
@@ -68,12 +70,14 @@ export function TournamentFilters({
         </div>
 
         {/* Tier filter chips */}
-        <div className="flex items-center gap-1.5 overflow-x-auto">
+        <div role="group" aria-label="Filter tournaments by tier" className="flex items-center gap-1.5 overflow-x-auto">
           {tiers.map((t) => {
             const isSelected = selectedTier === t.id;
             return (
               <button
                 key={t.id}
+                type="button"
+                aria-pressed={isSelected}
                 onClick={() => onTierChange(t.id)}
                 className={`px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-colors border ${
                   isSelected
@@ -100,6 +104,7 @@ export function TournamentFilters({
         </svg>
         <input
           type="text"
+          aria-label="Search tournaments"
           placeholder="Search tournaments (e.g. Riyadh Masters, The International, ESL)..."
           value={searchQuery}
           onChange={(e) => onSearchChange(e.target.value)}
@@ -107,6 +112,8 @@ export function TournamentFilters({
         />
         {searchQuery && (
           <button
+            type="button"
+            aria-label="Clear tournament search"
             onClick={() => onSearchChange('')}
             className="absolute right-3.5 top-1/2 -translate-y-1/2 text-xs text-slate-500 hover:text-white"
           >
