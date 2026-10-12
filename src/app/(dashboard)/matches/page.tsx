@@ -1,7 +1,7 @@
 'use client';
 
 import { fetchWithAuth } from '@/lib/fetch-with-auth';
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { MatchCard, MatchData } from './components/MatchCard';
 import { MatchRow } from './components/MatchRow';
@@ -18,112 +18,114 @@ interface LineupEntry {
   professional_players?: UserSquadPlayer | null;
 }
 
+interface TournamentOption {
+  id: number;
+  name: string;
+}
+
+const PAGE_SIZE = 24;
+
 export default function MatchesPage() {
   const [matches, setMatches] = useState<MatchData[]>([]);
+  const [tournaments, setTournaments] = useState<TournamentOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
+  const [counts, setCounts] = useState({ all: 0, live: 0, upcoming: 0, completed: 0 });
 
   // Filters state
   const [activeTab, setActiveTab] = useState<'all' | 'live' | 'upcoming' | 'completed'>('all');
   const [selectedTournamentId, setSelectedTournamentId] = useState<string>('');
   const [searchQuery, setSearchQuery] = useState<string>('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
 
   // Fantasy user squad state
   const [userSquadPlayers, setUserSquadPlayers] = useState<UserSquadPlayer[]>([]);
 
   useEffect(() => {
-    async function loadData() {
+    const timeout = window.setTimeout(() => {
+      setDebouncedSearch(searchQuery.trim());
+      setPage(1);
+    }, 300);
+    return () => window.clearTimeout(timeout);
+  }, [searchQuery]);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function loadMatches() {
       try {
         setLoading(true);
-        // 1. Fetch matches
-        const res = await fetchWithAuth('/api/matches?limit=100');
+        setError(null);
+        const params = new URLSearchParams({
+          page: String(page),
+          limit: String(PAGE_SIZE),
+          status: activeTab,
+        });
+        if (selectedTournamentId) params.set('tournamentId', selectedTournamentId);
+        if (debouncedSearch) params.set('search', debouncedSearch);
+        const res = await fetchWithAuth(`/api/matches?${params.toString()}`);
         const data = await res.json();
-        setMatches(data.matches || []);
-
-        // 2. Fetch active gameweek lineup to detect user's owned players
-        try {
-          const gwRes = await fetchWithAuth('/api/gameweeks?status=active');
-          const gwData = await gwRes.json();
-          const activeGw = gwData.gameweeks?.[0];
-
-          if (activeGw) {
-            const lineupRes = await fetchWithAuth(`/api/fantasy/lineup?gameweekId=${activeGw.id}`);
-            if (lineupRes.ok) {
-              const lineupData = await lineupRes.json();
-              const lineup: LineupEntry[] = Array.isArray(lineupData.lineup) ? lineupData.lineup : [];
-              const players: UserSquadPlayer[] = lineup
-                .map((slot) => slot.professional_players)
-                .filter((player): player is UserSquadPlayer => Boolean(player))
-                .map((p) => ({
-                  id: p.id,
-                  name: p.in_game_name || p.name,
-                  team_id: p.team_id,
-                }));
-              setUserSquadPlayers(players);
-            }
-          }
-        } catch {
-          // Squad enrichment is non-blocking
+        if (!res.ok) {
+          throw new Error(
+            typeof data.details === 'string'
+              ? data.details
+              : typeof data.error === 'string' ? data.error : 'Failed to load matches.'
+          );
         }
+        if (cancelled) return;
+        setMatches(Array.isArray(data.matches) ? data.matches : []);
+        setTournaments(Array.isArray(data.tournaments) ? data.tournaments : []);
+        setTotal(Number.isFinite(data.pagination?.total) ? data.pagination.total : 0);
+        setTotalPages(Number.isFinite(data.pagination?.totalPages) ? data.pagination.totalPages : 0);
+        setCounts({
+          all: Number.isFinite(data.counts?.all) ? data.counts.all : 0,
+          live: Number.isFinite(data.counts?.live) ? data.counts.live : 0,
+          upcoming: Number.isFinite(data.counts?.upcoming) ? data.counts.upcoming : 0,
+          completed: Number.isFinite(data.counts?.completed) ? data.counts.completed : 0,
+        });
       } catch (err: unknown) {
-        setError(err instanceof Error ? err.message : 'Failed to load matches');
+        if (!cancelled) setError(err instanceof Error ? err.message : 'Failed to load matches');
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     }
-
-    loadData();
-  }, []);
-
-  // Compute available tournaments from actual loaded matches
-  const tournaments = useMemo(() => {
-    const map = new Map<number, string>();
-    matches.forEach((m) => {
-      if (m.tournaments?.id && m.tournaments?.name) {
-        map.set(m.tournaments.id, m.tournaments.name);
-      }
-    });
-    return Array.from(map.entries()).map(([id, name]) => ({ id, name }));
-  }, [matches]);
-
-  // Tab counts
-  const counts = useMemo(() => {
-    return {
-      all: matches.length,
-      live: matches.filter((m) => m.status === 'live').length,
-      upcoming: matches.filter((m) => m.status === 'scheduled' || m.status === 'upcoming').length,
-      completed: matches.filter((m) => m.status === 'completed').length,
+    void loadMatches();
+    return () => {
+      cancelled = true;
     };
-  }, [matches]);
+  }, [activeTab, debouncedSearch, page, selectedTournamentId]);
 
-  // Filtered matches
-  const filteredMatches = useMemo(() => {
-    return matches.filter((match) => {
-      // 1. Tab filter
-      if (activeTab === 'live' && match.status !== 'live') return false;
-      if (activeTab === 'upcoming' && match.status !== 'scheduled' && match.status !== 'upcoming') return false;
-      if (activeTab === 'completed' && match.status !== 'completed') return false;
+  useEffect(() => {
+    async function loadSquadPlayers() {
+      try {
+        const gwRes = await fetchWithAuth('/api/gameweeks?status=active');
+        if (!gwRes.ok) return;
+        const gwData = await gwRes.json();
+        const activeGw = gwData.gameweeks?.[0];
+        if (!activeGw) return;
 
-      // 2. Tournament filter
-      if (selectedTournamentId && match.tournaments?.id?.toString() !== selectedTournamentId) {
-        return false;
+        const lineupRes = await fetchWithAuth(`/api/fantasy/lineup?gameweekId=${activeGw.id}`);
+        if (!lineupRes.ok) return;
+        const lineupData = await lineupRes.json();
+        const lineup: LineupEntry[] = Array.isArray(lineupData.lineup) ? lineupData.lineup : [];
+        const players: UserSquadPlayer[] = lineup
+          .map((slot) => slot.professional_players)
+          .filter((player): player is UserSquadPlayer => Boolean(player))
+          .map((player) => ({
+            id: player.id,
+            name: player.in_game_name || player.name,
+            team_id: player.team_id,
+          }));
+        setUserSquadPlayers(players);
+      } catch {
+        // Squad enrichment is non-blocking.
       }
-
-      // 3. Search query filter (matches team names or tournament)
-      if (searchQuery.trim()) {
-        const q = searchQuery.toLowerCase().trim();
-        const radName = match.radiant_team?.name?.toLowerCase() || '';
-        const direName = match.dire_team?.name?.toLowerCase() || '';
-        const tournName = match.tournaments?.name?.toLowerCase() || '';
-        if (!radName.includes(q) && !direName.includes(q) && !tournName.includes(q)) {
-          return false;
-        }
-      }
-
-      return true;
-    });
-  }, [matches, activeTab, selectedTournamentId, searchQuery]);
+    }
+    void loadSquadPlayers();
+  }, []);
 
   // Helper to map squad players to a match
   const getSquadPlayerNamesForMatch = (match: MatchData) => {
@@ -166,11 +168,17 @@ export default function MatchesPage() {
       {/* Filter Bar */}
       <MatchFilters
         activeTab={activeTab}
-        onTabChange={setActiveTab}
+        onTabChange={(tab) => {
+          setActiveTab(tab);
+          setPage(1);
+        }}
         counts={counts}
         tournaments={tournaments}
         selectedTournamentId={selectedTournamentId}
-        onTournamentChange={setSelectedTournamentId}
+        onTournamentChange={(id) => {
+          setSelectedTournamentId(id);
+          setPage(1);
+        }}
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
         viewMode={viewMode}
@@ -203,7 +211,7 @@ export default function MatchesPage() {
             </div>
           ))}
         </div>
-      ) : filteredMatches.length === 0 ? (
+      ) : matches.length === 0 ? (
         /* Empty State */
         <div className="flex flex-col items-center justify-center py-20 px-4 text-center rounded-2xl border border-slate-800 bg-slate-900/40">
           <div className="w-16 h-16 rounded-2xl bg-slate-800/80 border border-slate-700 flex items-center justify-center text-2xl mb-4 text-slate-500">
@@ -221,6 +229,8 @@ export default function MatchesPage() {
                 setActiveTab('all');
                 setSelectedTournamentId('');
                 setSearchQuery('');
+                setDebouncedSearch('');
+                setPage(1);
               }}
               className="px-4 py-2 rounded-xl text-xs font-semibold bg-amber-500 text-slate-950 hover:bg-amber-400 transition-colors shadow-md shadow-amber-500/20"
             >
@@ -231,7 +241,7 @@ export default function MatchesPage() {
       ) : viewMode === 'grid' ? (
         /* Grid Mode */
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredMatches.map((match) => (
+          {matches.map((match) => (
             <MatchCard
               key={match.id}
               match={match}
@@ -242,13 +252,39 @@ export default function MatchesPage() {
       ) : (
         /* List Mode */
         <div className="flex flex-col gap-3">
-          {filteredMatches.map((match) => (
+          {matches.map((match) => (
             <MatchRow
               key={match.id}
               match={match}
               userSquadPlayerNames={getSquadPlayerNamesForMatch(match)}
             />
           ))}
+        </div>
+      )}
+      {!loading && total > 0 && (
+        <div className="mt-6 flex flex-col sm:flex-row items-center justify-between gap-3 text-sm text-slate-400">
+          <p>
+            Showing {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, total)} of {total} matches
+          </p>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setPage((current) => Math.max(1, current - 1))}
+              disabled={page <= 1}
+              className="rounded-lg border border-slate-700 px-3 py-1.5 text-slate-200 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              Previous
+            </button>
+            <span className="px-2">Page {page} of {totalPages}</span>
+            <button
+              type="button"
+              onClick={() => setPage((current) => Math.min(totalPages, current + 1))}
+              disabled={page >= totalPages}
+              className="rounded-lg border border-slate-700 px-3 py-1.5 text-slate-200 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              Next
+            </button>
+          </div>
         </div>
       )}
     </div>

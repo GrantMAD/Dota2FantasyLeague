@@ -118,7 +118,7 @@ export function MatchFilters({
           </svg>
           <input
             type="text"
-            placeholder="Search teams (e.g. Spirit, Liquid, GG)..."
+            placeholder="Search teams or tournaments (e.g. Spirit, Liquid, TI)..."
             value={searchQuery}
             onChange={(e) => onSearchChange(e.target.value)}
             className="w-full bg-slate-900/90 border border-slate-800 rounded-xl pl-9 pr-4 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-500 transition-colors"

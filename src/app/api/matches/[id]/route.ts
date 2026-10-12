@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase';
 import { withApiTelemetry } from '@/lib/api-telemetry';
+import { getTeamDisplayTag } from '@/lib/team-tag';
 
 
 interface RouteContext {
@@ -23,6 +24,7 @@ interface MatchRecord {
 interface TeamRecord {
   id: number;
   name: string;
+  slug: string;
   logo_url: string | null;
   region: string | null;
 }
@@ -100,7 +102,7 @@ async function getHandler(request: NextRequest, context: RouteContext) {
 
     const [{ data: teams }, { data: series }] = await Promise.all([
       supabase.from('professional_teams')
-        .select('id, name, logo_url, region')
+        .select('id, name, slug, logo_url, region')
         .in('id', [matchRecord.team_a_id, matchRecord.team_b_id].filter((id): id is number => id !== null)),
       supabase.from('tournament_series')
         .select('id, tournament_id, best_of, series_number')
@@ -124,10 +126,11 @@ async function getHandler(request: NextRequest, context: RouteContext) {
       const buildTeam = (teamId: number | null) => {
         if (teamId === null) return null;
       const team = teamById.get(teamId);
-      return team ? { ...team, tag: team.name.slice(0, 4).toUpperCase() } : null;
+      return team ? { ...team, tag: getTeamDisplayTag(team.name) } : null;
     };
     const match = {
       ...matchRecord,
+      status: matchRecord.status === 'in_progress' ? 'live' : matchRecord.status,
       best_of: seriesRecord?.best_of || 3,
       series_number: seriesRecord?.series_number || 1,
       scheduled_at: matchRecord.scheduled_time,
