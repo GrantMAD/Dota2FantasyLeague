@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import { ArrowLeft, ArrowRight, X } from 'lucide-react';
 import { useTour } from '@/context/TourContext';
@@ -22,6 +22,8 @@ export function PageTour() {
   const pageTour = useMemo(() => getPageTour(pathname), [pathname]);
   const [target, setTarget] = useState<TargetRect | null>(null);
   const [isMobile, setIsMobile] = useState(false);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const previousFocusRef = useRef<HTMLElement | null>(null);
 
   const currentStep = pageTour?.steps[Math.min(stepIndex, (pageTour.steps.length || 1) - 1)] ?? null;
 
@@ -81,6 +83,58 @@ export function PageTour() {
     };
   }, [currentStep, isOpen, pageTour]);
 
+  useEffect(() => {
+    if (!isOpen || !pageTour) return;
+
+    previousFocusRef.current = document.activeElement instanceof HTMLElement
+      ? document.activeElement
+      : null;
+    const frame = window.requestAnimationFrame(() => {
+      const firstFocusable = dialogRef.current?.querySelector<HTMLElement>(
+        'button:not(:disabled), a[href], input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex="-1"])',
+      );
+      (firstFocusable ?? dialogRef.current)?.focus();
+    });
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        closeTour();
+        return;
+      }
+      if (event.key !== 'Tab' || !dialogRef.current) return;
+
+      const focusable = Array.from(
+        dialogRef.current.querySelectorAll<HTMLElement>(
+          'button:not(:disabled), a[href], input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex="-1"])',
+        ),
+      ).filter((element) => !element.closest('[aria-hidden="true"]'));
+
+      if (focusable.length === 0) {
+        event.preventDefault();
+        dialogRef.current.focus();
+        return;
+      }
+
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && (document.activeElement === first || !dialogRef.current.contains(document.activeElement))) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && (document.activeElement === last || !dialogRef.current.contains(document.activeElement))) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      document.removeEventListener('keydown', handleKeyDown);
+      if (previousFocusRef.current?.isConnected) previousFocusRef.current.focus();
+    };
+  }, [closeTour, isOpen, pageTour]);
+
   if (!isOpen || !pageTour || !currentStep) return null;
 
   const isLastStep = stepIndex >= pageTour.steps.length - 1;
@@ -135,7 +189,7 @@ export function PageTour() {
 
   if (isMobile) {
     return (
-      <div className="fixed inset-0 z-130 pointer-events-none" role="dialog" aria-modal="true" aria-labelledby="tour-title">
+      <div ref={dialogRef} tabIndex={-1} className="fixed inset-0 z-130 pointer-events-none" role="dialog" aria-modal="true" aria-labelledby="tour-title">
         <div className="absolute inset-0 bg-slate-950/10" />
         <div className="absolute inset-x-0 bottom-0 z-131 rounded-t-3xl border border-cyan-400/30 bg-slate-900/95 p-5 shadow-[0_-20px_50px_rgba(34,211,238,0.12)] backdrop-blur-md pointer-events-auto">
           <div className="mx-auto mb-3 h-1.5 w-12 rounded-full bg-slate-600/80" />
@@ -182,7 +236,7 @@ export function PageTour() {
   }
 
   return (
-    <div className="fixed inset-0 z-120" role="dialog" aria-modal="true" aria-labelledby="tour-title">
+    <div ref={dialogRef} tabIndex={-1} className="fixed inset-0 z-120" role="dialog" aria-modal="true" aria-labelledby="tour-title">
       {target && (
         <svg className="pointer-events-none absolute inset-0 h-full w-full" aria-hidden="true">
           <defs>
