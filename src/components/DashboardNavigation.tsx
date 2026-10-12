@@ -174,7 +174,7 @@ export function DashboardNavigation({
                         {!sidebarCollapsed && (
                           <span className="min-w-0">
                             <span className="block truncate font-medium">{link.label}</span>
-                            <span className={`mt-0.5 block text-[10px] leading-tight ${active ? 'text-amber-200/70' : 'text-slate-500'}`}>
+                            <span className={`mt-0.5 block text-[10px] leading-tight ${active ? 'text-teal-700 dark:text-teal-200' : 'text-slate-500'}`}>
                               {link.description}
                             </span>
                           </span>
@@ -208,7 +208,7 @@ export function DashboardNavigation({
                     {!sidebarCollapsed && (
                       <span className="min-w-0">
                         <span className="block truncate font-medium">{link.label}</span>
-                        <span className="mt-0.5 block truncate text-[10px] leading-tight text-slate-500">{link.description}</span>
+                        <span className={`mt-0.5 block truncate text-[10px] leading-tight ${active ? 'text-teal-700 dark:text-teal-200' : 'text-slate-500'}`}>{link.description}</span>
                       </span>
                     )}
                   </Link>
@@ -225,7 +225,7 @@ export function DashboardNavigation({
                   {!sidebarCollapsed && (
                     <span className="min-w-0">
                       <span className="block truncate">Admin Console</span>
-                      <span className="mt-0.5 block truncate text-[10px] leading-tight text-amber-400/60">Manage app operations</span>
+                      <span className={`mt-0.5 block truncate text-[10px] leading-tight ${pathname.startsWith('/admin') ? 'text-teal-700 dark:text-teal-200' : 'text-slate-500'}`}>Manage app operations</span>
                     </span>
                   )}
                 </Link>
@@ -280,7 +280,7 @@ export function DashboardNavigation({
                         <Icon className={`mt-0.5 h-5 w-5 shrink-0 ${active ? 'text-amber-500' : 'text-slate-400'}`} />
                         <span className="min-w-0">
                           <span className="block font-medium">{link.label}</span>
-                          <span className={`mt-0.5 block text-xs leading-tight ${active ? 'text-amber-200/70' : 'text-slate-500'}`}>{link.description}</span>
+                          <span className={`mt-0.5 block text-xs leading-tight ${active ? 'text-teal-700 dark:text-teal-200' : 'text-slate-500'}`}>{link.description}</span>
                         </span>
                       </Link>
                     );
@@ -306,7 +306,7 @@ export function DashboardNavigation({
                     <Icon className={`mt-0.5 h-5 w-5 shrink-0 ${active ? 'text-amber-500' : 'text-slate-400'}`} />
                     <span className="min-w-0">
                       <span className="block font-medium">{link.label}</span>
-                      <span className="mt-0.5 block text-xs leading-tight text-slate-500">{link.description}</span>
+                      <span className={`mt-0.5 block text-xs leading-tight ${active ? 'text-teal-700 dark:text-teal-200' : 'text-slate-500'}`}>{link.description}</span>
                     </span>
                   </Link>
                 );
@@ -321,7 +321,7 @@ export function DashboardNavigation({
                   <Shield className="mt-0.5 h-5 w-5 shrink-0 text-amber-400" />
                   <span className="min-w-0">
                     <span className="block">Admin Console</span>
-                    <span className="mt-0.5 block text-xs leading-tight text-amber-400/60">Manage app operations</span>
+                    <span className={`mt-0.5 block text-xs leading-tight ${pathname.startsWith('/admin') ? 'text-teal-700 dark:text-teal-200' : 'text-slate-500'}`}>Manage app operations</span>
                   </span>
                 </Link>
               )}

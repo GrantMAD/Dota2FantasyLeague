@@ -19,6 +19,10 @@ import {
   TrendingUp,
   Shield,
   Info,
+  Calendar,
+  Clock,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
 import { fetchWithAuth } from '@/lib/fetch-with-auth';
 import { useToast } from '@/components/Toast';
@@ -76,6 +80,34 @@ interface WhatsNewData {
   updates: WhatsNewUpdate[];
 }
 
+type WhatsNewTab = 'tournaments' | 'players';
+
+function useCountdown(targetDateStr: string | null | undefined): string {
+  const [label, setLabel] = useState('');
+  useEffect(() => {
+    if (!targetDateStr) { setLabel(''); return; }
+    const tick = () => {
+      const diff = new Date(targetDateStr).getTime() - Date.now();
+      if (diff <= 0) { setLabel('Deadline passed'); return; }
+      const h = Math.floor(diff / 3_600_000);
+      const m = Math.floor((diff % 3_600_000) / 60_000);
+      const s = Math.floor((diff % 60_000) / 1_000);
+      if (h > 48) {
+        const d = Math.floor(h / 24);
+        setLabel(`${d}d ${h % 24}h`);
+      } else if (h > 0) {
+        setLabel(`${h}h ${m}m`);
+      } else {
+        setLabel(`${m}m ${s}s`);
+      }
+    };
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, [targetDateStr]);
+  return label;
+}
+
 export default function DashboardPage() {
   const router = useRouter();
   const toast = useToast();
@@ -88,6 +120,9 @@ export default function DashboardPage() {
   const [showPointsBreakdown, setShowPointsBreakdown] = useState(false);
   const [whatsNew, setWhatsNew] = useState<WhatsNewData | null>(null);
   const [whatsNewError, setWhatsNewError] = useState<string | null>(null);
+  const [whatsNewTab, setWhatsNewTab] = useState<WhatsNewTab>('tournaments');
+  const [tournamentsExpanded, setTournamentsExpanded] = useState(false);
+  const [playersExpanded, setPlayersExpanded] = useState(false);
 
   const openPlayerDetails = async (playerId: number) => {
     setPlayerLoading(true);
@@ -200,6 +235,8 @@ export default function DashboardPage() {
       window.clearInterval(intervalId);
     };
   }, []);
+
+  const countdown = useCountdown(whatsNew?.gameweek?.deadline);
 
   const formatUtcDate = (date: string) =>
     new Intl.DateTimeFormat('en', {
@@ -324,86 +361,221 @@ export default function DashboardPage() {
       {/* Main Content */}
       <section className="max-w-7xl mx-auto px-4 py-12">
         {whatsNew && (whatsNew.events.length > 0 || whatsNew.gameweek || whatsNew.updates.length > 0) && (
-          <section className="dashboard-whats-new mb-8 rounded-xl p-5 sm:p-6" aria-labelledby="whats-new-heading">
-            <div className="mb-5 flex items-center gap-3">
-              <span className="whats-new-heading-icon flex items-center justify-center rounded-lg p-2">
-                <Megaphone className="h-5 w-5" />
-              </span>
-              <h3 id="whats-new-heading" className="text-lg font-bold">What&apos;s New</h3>
-              <span className="whats-new-live-indicator">
-                <span aria-hidden="true" className="whats-new-live-dot" />
-                Live
-              </span>
+          <section className="wn-panel" aria-labelledby="whats-new-heading">
+            {/* ── Header ── */}
+            <div className="wn-header">
+              <div className="wn-header-left">
+                <span className="wn-heading-icon" aria-hidden="true">
+                  <Megaphone className="h-5 w-5" />
+                </span>
+                <h3 id="whats-new-heading" className="wn-title">What&apos;s New</h3>
+                <span className="wn-live-badge">
+                  <span className="wn-live-dot" aria-hidden="true" />
+                  <span className="wn-live-ring" aria-hidden="true" />
+                  Live
+                </span>
+              </div>
+              {whatsNew.gameweek && countdown && (
+                <div className="wn-countdown" aria-label={`Deadline in ${countdown}`}>
+                  <Clock className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                  <span className="wn-countdown-label">Deadline in</span>
+                  <span className="wn-countdown-value">{countdown}</span>
+                </div>
+              )}
             </div>
 
+            {/* ── Gameweek — always visible, above the tabs ── */}
             {whatsNew.gameweek && (
-              <Link
-                href={whatsNew.gameweek.href}
-                className="whats-new-gameweek group mb-5 flex flex-wrap items-center gap-x-4 gap-y-2 rounded-lg px-4 py-3 transition-colors"
-              >
-                <span className="whats-new-gameweek-label">
-                  {whatsNew.gameweek.isCurrent ? 'Current' : 'Next'}
-                </span>
-                <span className="whats-new-gameweek-number">GW {whatsNew.gameweek.number}</span>
-                <span className="whats-new-gameweek-detail">{whatsNew.gameweek.matchCount} matches</span>
-                {describeMatchStatuses(whatsNew.gameweek.matchStatuses) && (
-                  <span className="whats-new-gameweek-detail">{describeMatchStatuses(whatsNew.gameweek.matchStatuses)}</span>
-                )}
-                <span className="whats-new-gameweek-detail">
-                  Deadline: {formatUtcDate(whatsNew.gameweek.deadline)} UTC
-                  {whatsNew.gameweek.endsSoon && (
-                    <span className="whats-new-gameweek-deadline-note"> · Gameweek ends within 24 hours — make your final moves now.</span>
-                  )}
-                </span>
-                <ArrowRight aria-hidden="true" className="ml-auto h-4 w-4 shrink-0 transition-transform group-hover:translate-x-1" />
-              </Link>
+              <div className="wn-gw-strip">
+                <Link href={whatsNew.gameweek.href} className="wn-gw-card group">
+                  {/* Row 1: icon + label + GW number + match meta + urgency */}
+                  <div className="wn-gw-row1">
+                    <span className="wn-icon-bubble wn-icon-bubble--gw">
+                      <Calendar className="h-4 w-4" aria-hidden="true" />
+                    </span>
+                    <span className="wn-gw-label">
+                      {whatsNew.gameweek.isCurrent ? 'Current' : 'Next'} Gameweek
+                    </span>
+                    <span className="wn-gw-number">GW {whatsNew.gameweek.number}</span>
+                    <span className="wn-gw-dot" aria-hidden="true">·</span>
+                    <span className="wn-gw-meta">
+                      {whatsNew.gameweek.matchCount} matches
+                      {describeMatchStatuses(whatsNew.gameweek.matchStatuses) && (
+                        <> · {describeMatchStatuses(whatsNew.gameweek.matchStatuses)}</>
+                      )}
+                    </span>
+                    {whatsNew.gameweek.endsSoon && (
+                      <span className="wn-urgency-badge">⚡ Ends soon</span>
+                    )}
+                  </div>
+                  {/* Row 2: deadline + CTA */}
+                  <div className="wn-gw-row2">
+                    <span className="wn-gw-deadline-inline">
+                      <Clock className="h-3 w-3" aria-hidden="true" />
+                      Deadline: {formatUtcDate(whatsNew.gameweek.deadline)} UTC
+                    </span>
+                    <span className="wn-gw-cta">
+                      View details
+                      <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-1" aria-hidden="true" />
+                    </span>
+                  </div>
+                </Link>
+              </div>
             )}
 
+            {/* ── Tabs (Tournaments & Player Updates only) ── */}
             {(whatsNew.events.length > 0 || whatsNew.updates.length > 0) && (
-              <div>
-                <h4 className="whats-new-section-label mb-2">Recent updates</h4>
-                <div className="whats-new-update-list">
-                  {whatsNew.events.map((event) => (
-                    <Link
-                      href={event.href}
-                      key={`tournament-${event.id}`}
-                      className="whats-new-update-row whats-new-tournament-row group flex flex-wrap items-center gap-x-3 gap-y-2 py-3 transition-colors"
+              <>
+                <div className="wn-tabs" role="tablist" aria-label="Recent updates">
+                  {whatsNew.events.length > 0 && (
+                    <button
+                      role="tab"
+                      id="wn-tab-tournaments"
+                      aria-controls="wn-panel-tournaments"
+                      aria-selected={whatsNewTab === 'tournaments'}
+                      className={`wn-tab ${whatsNewTab === 'tournaments' ? 'wn-tab--active' : ''}`}
+                      onClick={() => setWhatsNewTab('tournaments')}
                     >
-                      <Trophy aria-hidden="true" className="whats-new-update-icon h-4 w-4 shrink-0" />
-                      <span className="whats-new-update-type">Tournament active</span>
-                      <span className="whats-new-update-title">{event.title}</span>
-                      <span className="whats-new-update-detail">
-                        {[event.tier, `${event.seriesCount ?? 0} series`, `${event.matchCount ?? 0} matches`,
-                          ...(event.bestOfFormats && event.bestOfFormats.length > 0
-                            ? [`Bo${event.bestOfFormats.join(' / Bo')}`]
-                            : [])]
-                          .filter(Boolean)
-                          .join(' · ')}
-                      </span>
-                      <ArrowRight aria-hidden="true" className="ml-auto h-4 w-4 shrink-0 transition-transform group-hover:translate-x-1" />
-                    </Link>
-                  ))}
-
-                  {whatsNew.updates.map((update) => {
-                    const UpdateIcon = update.kind === 'availability' ? AlertTriangle : TrendingUp;
-                    return (
-                      <Link
-                        href={update.href}
-                        key={`${update.kind}-${update.id}`}
-                        className="whats-new-update-row group flex flex-wrap items-center gap-x-3 gap-y-1 py-3 transition-colors"
-                      >
-                        <UpdateIcon aria-hidden="true" className={`whats-new-update-icon h-4 w-4 shrink-0 ${update.kind === 'availability' ? 'whats-new-availability-icon' : 'whats-new-price-icon'}`} />
-                        <span className="whats-new-update-type">
-                          {update.kind === 'availability' ? 'Squad availability' : 'Player price'}
-                        </span>
-                        <span className="whats-new-update-title">{update.title}</span>
-                        <span className="whats-new-update-detail">{update.message}</span>
-                        <ArrowRight aria-hidden="true" className="ml-auto h-4 w-4 shrink-0 transition-transform group-hover:translate-x-1" />
-                      </Link>
-                    );
-                  })}
+                      <Trophy className="h-3.5 w-3.5" aria-hidden="true" />
+                      Tournaments
+                      <span className="wn-tab-badge wn-tab-badge--tournament">{whatsNew.events.length}</span>
+                    </button>
+                  )}
+                  {whatsNew.updates.length > 0 && (
+                    <button
+                      role="tab"
+                      id="wn-tab-players"
+                      aria-controls="wn-panel-players"
+                      aria-selected={whatsNewTab === 'players'}
+                      className={`wn-tab ${whatsNewTab === 'players' ? 'wn-tab--active' : ''}`}
+                      onClick={() => setWhatsNewTab('players')}
+                    >
+                      <TrendingUp className="h-3.5 w-3.5" aria-hidden="true" />
+                      Player Updates
+                      <span className="wn-tab-badge wn-tab-badge--player">{whatsNew.updates.length}</span>
+                    </button>
+                  )}
                 </div>
-              </div>
+
+                {/* ── Tournaments panel ── */}
+                {whatsNew.events.length > 0 && (
+                  <div
+                    role="tabpanel"
+                    id="wn-panel-tournaments"
+                    aria-labelledby="wn-tab-tournaments"
+                    hidden={whatsNewTab !== 'tournaments'}
+                    className="wn-tab-content"
+                  >
+                    <div className="wn-list">
+                      {(tournamentsExpanded
+                        ? whatsNew.events
+                        : whatsNew.events.slice(0, 4)
+                      ).map((event) => (
+                        <Link
+                          href={event.href}
+                          key={`tournament-${event.id}`}
+                          className="wn-row wn-row--tournament group"
+                        >
+                          <span className="wn-icon-bubble wn-icon-bubble--tournament">
+                            <Trophy className="h-4 w-4" aria-hidden="true" />
+                          </span>
+                          <div className="wn-row-body">
+                            <span className="wn-row-type">Tournament active</span>
+                            <span className="wn-row-title">{event.title}</span>
+                            <span className="wn-row-detail">
+                              {[event.tier, `${event.seriesCount ?? 0} series`, `${event.matchCount ?? 0} matches`,
+                                ...(event.bestOfFormats && event.bestOfFormats.length > 0
+                                  ? [`Bo${event.bestOfFormats.join(' / Bo')}`]
+                                  : [])]
+                                .filter(Boolean)
+                                .join(' · ')}
+                            </span>
+                          </div>
+                          <ArrowRight aria-hidden="true" className="wn-row-arrow h-4 w-4 shrink-0 transition-transform group-hover:translate-x-1" />
+                        </Link>
+                      ))}
+                      {whatsNew.events.length > 4 && (
+                        <button
+                          type="button"
+                          className="wn-more-btn"
+                          onClick={() => setTournamentsExpanded((prev) => !prev)}
+                        >
+                          {tournamentsExpanded ? (
+                            <>
+                              <span>Show less</span>
+                              <ChevronUp className="h-4 w-4" aria-hidden="true" />
+                            </>
+                          ) : (
+                            <>
+                              <span>Show {whatsNew.events.length - 4} more tournaments</span>
+                              <ChevronDown className="h-4 w-4" aria-hidden="true" />
+                            </>
+                          )}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* ── Player Updates panel ── */}
+                {whatsNew.updates.length > 0 && (
+                  <div
+                    role="tabpanel"
+                    id="wn-panel-players"
+                    aria-labelledby="wn-tab-players"
+                    hidden={whatsNewTab !== 'players'}
+                    className="wn-tab-content"
+                  >
+                    <div className="wn-list">
+                      {(playersExpanded
+                        ? whatsNew.updates
+                        : whatsNew.updates.slice(0, 4)
+                      ).map((update) => {
+                        const isAvailability = update.kind === 'availability';
+                        const UpdateIcon = isAvailability ? AlertTriangle : TrendingUp;
+                        return (
+                          <Link
+                            href={update.href}
+                            key={`${update.kind}-${update.id}`}
+                            className={`wn-row group ${isAvailability ? 'wn-row--availability' : 'wn-row--price'}`}
+                          >
+                            <span className={`wn-icon-bubble ${isAvailability ? 'wn-icon-bubble--availability' : 'wn-icon-bubble--price'}`}>
+                              <UpdateIcon className="h-4 w-4" aria-hidden="true" />
+                            </span>
+                            <div className="wn-row-body">
+                              <span className="wn-row-type">
+                                {isAvailability ? 'Squad availability' : 'Player price'}
+                              </span>
+                              <span className="wn-row-title">{update.title}</span>
+                              <span className="wn-row-detail">{update.message}</span>
+                            </div>
+                            <ArrowRight aria-hidden="true" className="wn-row-arrow h-4 w-4 shrink-0 transition-transform group-hover:translate-x-1" />
+                          </Link>
+                        );
+                      })}
+                      {whatsNew.updates.length > 4 && (
+                        <button
+                          type="button"
+                          className="wn-more-btn"
+                          onClick={() => setPlayersExpanded((prev) => !prev)}
+                        >
+                          {playersExpanded ? (
+                            <>
+                              <span>Show less</span>
+                              <ChevronUp className="h-4 w-4" aria-hidden="true" />
+                            </>
+                          ) : (
+                            <>
+                              <span>Show {whatsNew.updates.length - 4} more updates</span>
+                              <ChevronDown className="h-4 w-4" aria-hidden="true" />
+                            </>
+                          )}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </>
             )}
           </section>
         )}
