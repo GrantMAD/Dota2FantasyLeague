@@ -48,6 +48,15 @@ interface GameweekScoreRow {
   gameweek_id: number;
 }
 
+interface GameweekRow {
+  id: number;
+  gameweek_number: number;
+  status: string;
+  start_date: string | null;
+  end_date: string | null;
+  deadline: string | null;
+}
+
 type EnrichedFantasyPlayer = FantasyPlayerRow & {
   current_price: number;
   last_gw_points: number;
@@ -64,6 +73,11 @@ async function getHandler(request: NextRequest) {
   try {
     const user = await verifyAuth(request);
     const supabase = supabaseServer();
+    const requestedGameweekId = request.nextUrl.searchParams.get('gameweekId');
+    const parsedRequestedGameweekId = requestedGameweekId === null ? null : Number(requestedGameweekId);
+    if (parsedRequestedGameweekId !== null && (!Number.isInteger(parsedRequestedGameweekId) || parsedRequestedGameweekId <= 0)) {
+      return NextResponse.json({ error: 'A valid gameweekId is required.' }, { status: 400 });
+    }
 
     // 1. Fetch user fantasy season (auto-provision if new user)
     const fantasySeason = await getOrCreateFantasySeason(supabase, user.userId);
@@ -77,6 +91,8 @@ async function getHandler(request: NextRequest) {
         totalPoints: 0,
         globalRank: null,
         gameweek: null,
+        defaultGameweekId: null,
+        availableGameweeks: [],
         chips: {
           tripleCaptainUsed: false,
           tripleCaptainGameweekId: null,
@@ -99,22 +115,37 @@ async function getHandler(request: NextRequest) {
       .maybeSingle();
     const chipsRow = (!chipQueryResult.error && chipQueryResult.data) ? chipQueryResult.data : {};
 
-    // 2. Fetch Gameweeks: Look for active first, then upcoming, then fallback to latest closed
+    // 2. Keep lineup planning scoped to the fantasy season and expose only editable weeks.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: gameweekRows } = await (supabase.from('gameweeks') as any)
+    const { data: gameweekRows, error: gameweekError } = await (supabase.from('gameweeks') as any)
       .select('id, gameweek_number, status, start_date, end_date, deadline')
+      .eq('season_id', fantasySeason.season_id)
       .order('id', { ascending: true });
+    if (gameweekError) return NextResponse.json({ error: 'Failed to load gameweeks.' }, { status: 500 });
 
-    const allGws = gameweekRows || [];
-    const activeGw = allGws.find((gw: { status: string }) => gw.status === 'active');
-    const upcomingGw = allGws.find(
-      (gw: { status: string; deadline?: string }) => gw.status === 'upcoming' && (!gw.deadline || new Date(gw.deadline) > new Date())
+    const allGws = (gameweekRows || []) as GameweekRow[];
+    const now = Date.now();
+    const availableGameweeks = allGws.filter((gw) =>
+      gw.status === 'active' ||
+      (gw.status === 'upcoming' && (!gw.deadline || new Date(gw.deadline).getTime() > now))
     );
-    const targetGw = activeGw || upcomingGw || allGws[allGws.length - 1] || null;
+    const activeGw = availableGameweeks.find((gw) => gw.status === 'active');
+    const upcomingGw = availableGameweeks.find((gw) => gw.status === 'upcoming');
+    const defaultGw = activeGw || upcomingGw || null;
+    const targetGw = parsedRequestedGameweekId === null
+      ? defaultGw || allGws[allGws.length - 1] || null
+      : availableGameweeks.find((gw) => gw.id === parsedRequestedGameweekId) || null;
+
+    if (parsedRequestedGameweekId !== null && !targetGw) {
+      return NextResponse.json(
+        { error: 'Only the active gameweek or an upcoming gameweek with an open deadline can be selected.' },
+        { status: 400 }
+      );
+    }
 
     let gameweekInfo = null;
     if (targetGw) {
-      const isPastDeadline = Boolean(targetGw.deadline && new Date(targetGw.deadline) < new Date());
+      const isPastDeadline = Boolean(targetGw.deadline && new Date(targetGw.deadline).getTime() <= now);
       const isLocked = targetGw.status === 'closed' || isPastDeadline;
       gameweekInfo = {
         id: targetGw.id,
@@ -125,6 +156,13 @@ async function getHandler(request: NextRequest) {
         hasUpcoming: Boolean(upcomingGw),
       };
     }
+    const availableGameweekInfo = availableGameweeks.map((gw) => ({
+      id: gw.id,
+      gameweekNumber: gw.gameweek_number,
+      status: gw.status,
+      deadline: gw.deadline,
+      isLocked: gw.status === 'closed' || Boolean(gw.deadline && new Date(gw.deadline).getTime() <= now),
+    }));
 
     // 3. Fetch Squad and Members
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -276,6 +314,8 @@ async function getHandler(request: NextRequest) {
       totalPoints: Number(fantasySeason.total_points ?? 0),
       globalRank: fantasySeason.global_rank ?? null,
       gameweek: gameweekInfo,
+      defaultGameweekId: defaultGw?.id ?? null,
+      availableGameweeks: availableGameweekInfo,
       chips: {
         tripleCaptainUsed: chipsRow.triple_captain_gameweek_id != null,
         tripleCaptainGameweekId: chipsRow.triple_captain_gameweek_id ?? null,

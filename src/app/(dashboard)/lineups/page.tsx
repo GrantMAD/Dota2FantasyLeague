@@ -1,11 +1,19 @@
 'use client';
 
 import { fetchWithAuth } from '@/lib/fetch-with-auth';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Image from 'next/image';
 import { UserCheck, TrendingUp, TrendingDown, Minus } from 'lucide-react';
 import { useToast } from '@/components/Toast';
 import type { ChipType, ChipStatus, FantasyPlayer as LineupPlayer, LineupEntry } from '@/types/fantasy';
+
+interface LineupGameweekOption {
+  id: number;
+  gameweekNumber: number;
+  status: string;
+  deadline: string | null;
+  isLocked: boolean;
+}
 
 const SpinnerIcon = () => (
   <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -25,46 +33,60 @@ export default function LineupsPage() {
 
   const [fantasySeasonId, setFantasySeasonId] = useState<number | null>(null);
   const [gameweekId, setGameweekId] = useState<number | null>(null);
+  const [defaultGameweekId, setDefaultGameweekId] = useState<number | null>(null);
+  const [availableGameweeks, setAvailableGameweeks] = useState<LineupGameweekOption[]>([]);
   const [lineupLocked, setLineupLocked] = useState(false);
   const [hasUpcomingGw, setHasUpcomingGw] = useState(false);
   const [lineup, setLineup] = useState<LineupEntry[]>([]);
   const [ownedPlayers, setOwnedPlayers] = useState<LineupPlayer[]>([]);
   const [saving, setSaving] = useState(false);
 
-  useEffect(() => {
-    async function fetchFantasyContext() {
-      try {
-        setLoading(true);
-        const res = await fetchWithAuth('/api/fantasy/context');
-        if (!res.ok) throw new Error('Failed to load fantasy context');
+  const loadFantasyContext = useCallback(async (requestedGameweekId?: number) => {
+    try {
+      const endpoint = requestedGameweekId
+        ? `/api/fantasy/context?gameweekId=${requestedGameweekId}`
+        : '/api/fantasy/context';
+      const res = await fetchWithAuth(endpoint);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to load fantasy context');
 
-        const data = await res.json();
-        setFantasySeasonId(data.fantasySeasonId);
-
-        if (data.gameweek) {
-          setGameweekId(data.gameweek.id);
-          setLineupLocked(Boolean(data.gameweek.isLocked));
-          setHasUpcomingGw(Boolean(data.gameweek.hasUpcoming));
-        }
-
-        setLineup(data.lineup || []);
-        setOwnedPlayers(data.ownedPlayers || []);
-        setTcStatus(data.chips ? {
-          tripleCaptainUsed: data.chips.tripleCaptainUsed,
-          tripleCaptainGameweekId: data.chips.tripleCaptainGameweekId,
-        } : null);
-        setBbStatus(data.chips ? {
-          benchBoostUsed: data.chips.benchBoostUsed,
-          benchBoostGameweekId: data.chips.benchBoostGameweekId,
-        } : null);
-      } catch (err) {
-        toastError('Load Error', err instanceof Error ? err.message : 'Unable to load fantasy lineup');
-      } finally {
-        setLoading(false);
-      }
+      setFantasySeasonId(data.fantasySeasonId);
+      setGameweekId(data.gameweek?.id ?? null);
+      setLineupLocked(Boolean(data.gameweek?.isLocked));
+      setHasUpcomingGw(Boolean(data.gameweek?.hasUpcoming));
+      setDefaultGameweekId(data.defaultGameweekId ?? null);
+      setAvailableGameweeks(data.availableGameweeks ?? []);
+      setLineup(data.lineup || []);
+      setOwnedPlayers(data.ownedPlayers || []);
+      setTcStatus(data.chips ? {
+        tripleCaptainUsed: data.chips.tripleCaptainUsed,
+        tripleCaptainGameweekId: data.chips.tripleCaptainGameweekId,
+      } : null);
+      setBbStatus(data.chips ? {
+        benchBoostUsed: data.chips.benchBoostUsed,
+        benchBoostGameweekId: data.chips.benchBoostGameweekId,
+      } : null);
+    } catch (err) {
+      toastError('Load Error', err instanceof Error ? err.message : 'Unable to load fantasy lineup');
+    } finally {
+      setLoading(false);
     }
-    fetchFantasyContext();
   }, [toastError]);
+
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      void loadFantasyContext();
+    }, 0);
+    return () => window.clearTimeout(timeoutId);
+  }, [loadFantasyContext]);
+
+  const handleGameweekChange = (value: string) => {
+    const selectedGameweekId = Number(value);
+    if (Number.isInteger(selectedGameweekId) && selectedGameweekId > 0 && selectedGameweekId !== gameweekId) {
+      setLoading(true);
+      void loadFantasyContext(selectedGameweekId);
+    }
+  };
 
   const updateSlot = (slot: string, playerId: number) => {
     if (lineupLocked) return;
@@ -175,6 +197,10 @@ export default function LineupsPage() {
 
   const handleActivate = async () => {
     if (!activeModal) return;
+    if (!chipActivationAvailable) {
+      toast.error('Chip Activation Unavailable', 'Switch to the default gameweek before activating a chip.');
+      return;
+    }
     if (!fantasySeasonId) {
       toast.error('Chip Activation Failed', 'Create a fantasy squad before activating a chip.');
       return;
@@ -222,6 +248,8 @@ export default function LineupsPage() {
   ).values());
   const hasCaptainAndVice = lineup.filter((e) => e.is_captain).length === 1 && lineup.filter((e) => e.is_vice_captain).length === 1;
   const isLineupReady = hasAllStarters && hasCaptainAndVice;
+  const selectedGameweek = availableGameweeks.find((gameweek) => gameweek.id === gameweekId);
+  const chipActivationAvailable = gameweekId !== null && gameweekId === defaultGameweekId;
 
   // Filter owned players matching a specific slot role
   // Support and Hard Support both accept Support & Hard Support players interchangeably
@@ -248,12 +276,42 @@ export default function LineupsPage() {
         {/* Main content */}
         <div className="lg:col-span-3">
           <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-6">
-            <div className="flex items-center justify-between mb-6">
+            <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
               <div>
                 <h2 className="text-xl font-semibold text-white">Gameweek Lineup</h2>
                 <p className="text-sm text-slate-400">
-                  Gameweek {gameweekId ?? 'not available'} {lineupLocked ? '(Closed)' : ''}
+                  Gameweek {selectedGameweek?.gameweekNumber ?? gameweekId ?? 'not available'} {lineupLocked ? '(Closed)' : ''}
                 </p>
+                {availableGameweeks.length > 1 && (
+                  <div className="mt-3">
+                    <label htmlFor="lineup-gameweek" className="mb-1 block text-xs font-semibold text-slate-300">Choose gameweek</label>
+                    <select
+                      id="lineup-gameweek"
+                      value={gameweekId ?? ''}
+                      onChange={(event) => handleGameweekChange(event.target.value)}
+                      disabled={loading}
+                      className="rounded border border-slate-600 bg-slate-900 px-3 py-2 text-sm text-white focus:border-cyan-500 focus:outline-none disabled:opacity-50"
+                    >
+                      {availableGameweeks.map((gameweek) => (
+                        <option key={gameweek.id} value={gameweek.id}>
+                          Gameweek {gameweek.gameweekNumber} {gameweek.status === 'active'
+                            ? gameweek.isLocked ? '(Active · Locked)' : '(Active)'
+                            : '(Upcoming)'}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+                {selectedGameweek?.deadline && (
+                  <p className="mt-2 text-xs text-slate-400">
+                    Deadline: {new Date(selectedGameweek.deadline).toLocaleString()}
+                  </p>
+                )}
+                {selectedGameweek?.status === 'upcoming' && !lineupLocked && (
+                  <p className="mt-2 text-xs font-semibold text-cyan-300" role="status">
+                    Planning ahead · this lineup is saved separately for Gameweek {selectedGameweek.gameweekNumber}.
+                  </p>
+                )}
                 {lineupLocked && <p className="mt-1 text-xs font-semibold text-red-400">Deadline passed · lineup locked</p>}
               </div>
               <button
@@ -557,6 +615,11 @@ export default function LineupsPage() {
 
         {/* Chips sidebar */}
         <div data-guide="lineup-chips" data-tour="lineup-chips" className="lg:col-span-1 space-y-4">
+          {defaultGameweekId !== null && !chipActivationAvailable && (
+            <p className="rounded-lg border border-amber-700/40 bg-amber-900/20 p-3 text-xs text-amber-200" role="status">
+              Chip activation is separate from lineup planning. Switch to the default gameweek to activate a chip for the next eligible gameweek.
+            </p>
+          )}
           {/* Triple Captain */}
           <div className="lineup-chip-card lineup-chip-purple bg-purple-900/20 border border-purple-700/50 rounded-xl p-5">
             <h3 className="font-semibold text-purple-400 mb-2 text-sm flex items-center justify-between">
@@ -580,12 +643,12 @@ export default function LineupsPage() {
                 <p className="lineup-chip-description text-xs text-purple-200/70 mb-3">Triple your captain&apos;s points for one gameweek.</p>
                 <button
                   onClick={() => openModal('triple-captain')}
-                  disabled={!hasUpcomingGw}
+                  disabled={!hasUpcomingGw || !chipActivationAvailable}
                   className="w-full bg-purple-600/20 hover:bg-purple-600/30 border border-purple-600/50 text-purple-400 text-xs font-bold py-2 rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                 >
-                  {hasUpcomingGw ? 'Play Triple Captain' : 'Chips Locked'}
+                  {!chipActivationAvailable ? 'Select Default Gameweek' : hasUpcomingGw ? 'Play Triple Captain' : 'Chips Locked'}
                 </button>
-                {!hasUpcomingGw && (
+                {!hasUpcomingGw && chipActivationAvailable && (
                   <p className="text-[11px] text-slate-500 text-center mt-1.5">No open upcoming gameweek</p>
                 )}
               </div>
@@ -615,12 +678,12 @@ export default function LineupsPage() {
                 <p className="lineup-chip-description text-xs text-emerald-200/70 mb-3">Your bench players also score points for one gameweek.</p>
                 <button
                   onClick={() => openModal('bench-boost')}
-                  disabled={!hasUpcomingGw}
+                  disabled={!hasUpcomingGw || !chipActivationAvailable}
                   className="w-full bg-emerald-600/20 hover:bg-emerald-600/30 border border-emerald-600/50 text-emerald-400 text-xs font-bold py-2 rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                 >
-                  {hasUpcomingGw ? 'Play Bench Boost' : 'Chips Locked'}
+                  {!chipActivationAvailable ? 'Select Default Gameweek' : hasUpcomingGw ? 'Play Bench Boost' : 'Chips Locked'}
                 </button>
-                {!hasUpcomingGw && (
+                {!hasUpcomingGw && chipActivationAvailable && (
                   <p className="text-[11px] text-slate-500 text-center mt-1.5">No open upcoming gameweek</p>
                 )}
               </div>

@@ -79,10 +79,23 @@ async function signIn(page: Page) {
   await expect(page).toHaveURL(/\/dashboard$/);
 }
 
-function lineupContext(isLocked = false) {
+function lineupContext(isLocked = false, targetGameweekId = 12) {
+  const isPlanningAhead = targetGameweekId === 13;
   return {
     fantasySeasonId: 1,
-    gameweek: { id: 12, isLocked, hasUpcoming: !isLocked },
+    gameweek: {
+      id: targetGameweekId,
+      gameweekNumber: targetGameweekId,
+      status: isPlanningAhead ? 'upcoming' : 'active',
+      deadline: isLocked ? '2026-10-01T12:00:00.000Z' : '2026-11-01T12:00:00.000Z',
+      isLocked,
+      hasUpcoming: true,
+    },
+    defaultGameweekId: 12,
+    availableGameweeks: [
+      { id: 12, gameweekNumber: 12, status: 'active', deadline: '2026-11-01T12:00:00.000Z', isLocked },
+      { id: 13, gameweekNumber: 13, status: 'upcoming', deadline: '2026-11-08T12:00:00.000Z', isLocked: false },
+    ],
     lineup: [],
     ownedPlayers: players.slice(0, 8),
     chips: {
@@ -98,8 +111,13 @@ test.describe('manager fantasy workflows', () => {
   test('assigns a starting five, sets captaincy, and saves the lineup', async ({ page }) => {
     const savedLineup: { gameweekId?: number; lineup?: unknown[] } = {};
     await installFallbackRoutes(page);
-    await page.route('**/api/fantasy/context', async (route) => {
-      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(lineupContext()) });
+    await page.route('**/api/fantasy/context*', async (route) => {
+      const requestedGameweekId = Number(new URL(route.request().url()).searchParams.get('gameweekId') || 12);
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(lineupContext(false, requestedGameweekId)),
+      });
     });
     await page.route('**/api/fantasy/lineup', async (route) => {
       if (route.request().method() !== 'PUT') {
@@ -112,6 +130,8 @@ test.describe('manager fantasy workflows', () => {
     await signIn(page);
 
     await page.goto('/lineups');
+    await page.locator('#lineup-gameweek').selectOption('13');
+    await expect(page.getByText('Planning ahead · this lineup is saved separately for Gameweek 13.')).toBeVisible();
     await page.locator('#lineup-carry').selectOption('1');
     await page.locator('#lineup-mid').selectOption('2');
     await page.locator('#lineup-offlane').selectOption('3');
@@ -122,7 +142,7 @@ test.describe('manager fantasy workflows', () => {
     await page.getByRole('button', { name: 'Save Lineup' }).click();
 
     await expect(page.getByText('Lineup Saved')).toBeVisible();
-    expect(savedLineup.gameweekId).toBe(12);
+    expect(savedLineup.gameweekId).toBe(13);
     expect(savedLineup.lineup).toEqual(expect.arrayContaining([
       expect.objectContaining({ playerId: 1, slot: 'carry', isCaptain: true, isViceCaptain: false }),
       expect.objectContaining({ playerId: 2, slot: 'mid', isCaptain: false, isViceCaptain: true }),
@@ -134,7 +154,7 @@ test.describe('manager fantasy workflows', () => {
 
   test('keeps lineup editing disabled after the gameweek deadline', async ({ page }) => {
     await installFallbackRoutes(page);
-    await page.route('**/api/fantasy/context', async (route) => {
+    await page.route('**/api/fantasy/context*', async (route) => {
       await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(lineupContext(true)) });
     });
     await signIn(page);
