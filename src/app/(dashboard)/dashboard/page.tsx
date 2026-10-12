@@ -83,29 +83,38 @@ interface WhatsNewData {
 type WhatsNewTab = 'tournaments' | 'players';
 
 function useCountdown(targetDateStr: string | null | undefined): string {
-  const [label, setLabel] = useState('');
+  const [countdown, setCountdown] = useState<{ targetDateStr: string | null | undefined; label: string }>({
+    targetDateStr: undefined,
+    label: '',
+  });
   useEffect(() => {
-    if (!targetDateStr) { setLabel(''); return; }
+    if (!targetDateStr) return;
     const tick = () => {
       const diff = new Date(targetDateStr).getTime() - Date.now();
-      if (diff <= 0) { setLabel('Deadline passed'); return; }
+      if (diff <= 0) {
+        setCountdown({ targetDateStr, label: 'Deadline passed' });
+        return;
+      }
       const h = Math.floor(diff / 3_600_000);
       const m = Math.floor((diff % 3_600_000) / 60_000);
       const s = Math.floor((diff % 60_000) / 1_000);
       if (h > 48) {
         const d = Math.floor(h / 24);
-        setLabel(`${d}d ${h % 24}h`);
+        setCountdown({ targetDateStr, label: `${d}d ${h % 24}h` });
       } else if (h > 0) {
-        setLabel(`${h}h ${m}m`);
+        setCountdown({ targetDateStr, label: `${h}h ${m}m` });
       } else {
-        setLabel(`${m}m ${s}s`);
+        setCountdown({ targetDateStr, label: `${m}m ${s}s` });
       }
     };
-    tick();
+    const initialTick = setTimeout(tick, 0);
     const id = setInterval(tick, 1000);
-    return () => clearInterval(id);
+    return () => {
+      clearTimeout(initialTick);
+      clearInterval(id);
+    };
   }, [targetDateStr]);
-  return label;
+  return countdown.targetDateStr === targetDateStr ? countdown.label : '';
 }
 
 export default function DashboardPage() {
