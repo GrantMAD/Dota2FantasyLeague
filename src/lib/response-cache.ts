@@ -5,6 +5,7 @@ interface CacheEntry {
 
 const cache = new Map<string, CacheEntry>();
 const DEFAULT_TTL_MS = 60_000;
+const MAX_CACHE_ENTRIES = 500;
 
 export function getCached<T>(key: string): T | null {
   const entry = cache.get(key);
@@ -13,11 +14,23 @@ export function getCached<T>(key: string): T | null {
     cache.delete(key);
     return null;
   }
+  cache.delete(key);
+  cache.set(key, entry);
   return entry.value as T;
 }
 
 export function setCached(key: string, value: unknown, ttlMs = DEFAULT_TTL_MS): void {
-  cache.set(key, { value, expiresAt: Date.now() + ttlMs });
+  const now = Date.now();
+  for (const [cachedKey, entry] of cache) {
+    if (entry.expiresAt <= now) cache.delete(cachedKey);
+  }
+  cache.delete(key);
+  while (cache.size >= MAX_CACHE_ENTRIES) {
+    const leastRecentlyUsedKey = cache.keys().next().value;
+    if (leastRecentlyUsedKey === undefined) break;
+    cache.delete(leastRecentlyUsedKey);
+  }
+  cache.set(key, { value, expiresAt: now + ttlMs });
 }
 
 export function invalidateCache(prefix?: string): void {

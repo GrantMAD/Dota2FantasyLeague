@@ -1,119 +1,39 @@
 'use client';
 
 import Image from 'next/image';
+import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import {
-  Bell,
-  ChevronLeft,
-  ChevronRight,
-  LayoutDashboard,
-  Users,
-  UserCheck,
-  ArrowLeftRight,
-  Trophy,
-  Medal,
-  Calendar,
-  Swords,
-  Gamepad2,
-  BarChart3,
-  Compass,
-  BookOpen,
-  UserRound,
   Search,
-  Wallet,
-  Clock,
   Command,
-  X,
-  Sparkles,
   Shield,
 } from 'lucide-react';
 import { usePathname, useRouter } from 'next/navigation';
-import { useEffect, useRef, useState, useMemo } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { ThemeToggle } from './theme/ThemeToggle';
-import { useAccessibleDialog } from './use-accessible-dialog';
 import { fetchWithAuth } from '@/lib/fetch-with-auth';
-import { supabase } from '@/lib/supabase';
-import { useToast } from '@/components/Toast';
+import { NotificationDropdown } from './NotificationDropdown';
+import { QuickStatsBar } from './QuickStatsBar';
+import { DashboardNavigation } from './DashboardNavigation';
+import type { HeaderProfile, QuickStats } from './header-types';
 
-type HeaderProfile = {
-  username: string;
-  display_name: string | null;
-  avatar_url: string | null;
-  role?: string | null;
-};
-
-type HeaderNotification = {
-  id: number;
-  type: string;
-  title: string;
-  message: string;
-  is_read: boolean;
-  created_at: string;
-};
-
-type QuickStats = {
-  bankBalance: number;
-  freeTransfers: number;
-  globalRank: number | null;
-  totalPoints: number;
-  gameweek: {
-    gameweek_number: number;
-    deadline: string;
-    status: string;
-  } | null;
-};
-
-type SearchResultItem = {
-  id: string | number;
-  title: string;
-  subtitle: string;
-  category: 'Players' | 'Navigation' | 'Pages';
-  href: string;
-  badge?: string;
-};
+const LazyCommandPalette = dynamic(
+  () => import('./CommandPalette').then((module) => module.CommandPalette),
+  { ssr: false },
+);
 
 export function Header() {
   const pathname = usePathname();
   const router = useRouter();
-  const { info: showNotificationToast } = useToast();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [profile, setProfile] = useState<HeaderProfile | null>(null);
   const [notificationMenuOpen, setNotificationMenuOpen] = useState(false);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [notifications, setNotifications] = useState<HeaderNotification[]>([]);
-  const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
-  const [currentTime, setCurrentTime] = useState(0);
   const [quickStats, setQuickStats] = useState<QuickStats | null>(null);
   const [searchOpen, setSearchOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [playerResults, setPlayerResults] = useState<SearchResultItem[]>([]);
-  const [isSearchingPlayers, setIsSearchingPlayers] = useState(false);
   const userMenuRef = useRef<HTMLDivElement>(null);
-  const searchInputRef = useRef<HTMLInputElement>(null);
-  const commandPaletteRef = useAccessibleDialog<HTMLDivElement>({
-    open: searchOpen,
-    onClose: () => setSearchOpen(false),
-    initialFocusRef: searchInputRef,
-  });
-  const mobileDrawerRef = useRef<HTMLDivElement>(null);
-  const touchStartXRef = useRef<number>(0);
-  const touchStartYRef = useRef<number>(0);
-
-  useEffect(() => {
-    document.documentElement.dataset.sidebarCollapsed = String(sidebarCollapsed);
-    window.localStorage.setItem('sidebar-collapsed', String(sidebarCollapsed));
-  }, [sidebarCollapsed]);
-
-  useEffect(() => {
-    const initialUpdate = window.setTimeout(() => setCurrentTime(Date.now()), 0);
-    const interval = window.setInterval(() => setCurrentTime(Date.now()), 60_000);
-    return () => {
-      window.clearTimeout(initialUpdate);
-      window.clearInterval(interval);
-    };
-  }, []);
+  const closeMobileMenu = useCallback(() => setMobileMenuOpen(false), []);
 
   useEffect(() => {
     async function loadProfile() {
@@ -131,93 +51,13 @@ export function Header() {
   }, []);
 
   useEffect(() => {
-    async function loadNotifications() {
-      try {
-        const response = await fetchWithAuth('/api/notifications?limit=5');
-        if (!response.ok) return;
-        const data = (await response.json()) as { notifications: HeaderNotification[]; unreadCount: number };
-        setNotifications(data.notifications ?? []);
-        setUnreadNotificationCount(data.unreadCount ?? 0);
-      } catch {
-        setNotifications([]);
-        setUnreadNotificationCount(0);
-      }
-    }
-
-    void loadNotifications();
-  }, []);
-
-  useEffect(() => {
-    let disposed = false;
-    let channel: ReturnType<typeof supabase.channel> | null = null;
-
-    const refreshNotifications = async () => {
-      try {
-        const response = await fetchWithAuth('/api/notifications?limit=5');
-        if (!response.ok) throw new Error(`Notification refresh failed (${response.status}).`);
-        const data = (await response.json()) as { notifications: HeaderNotification[]; unreadCount: number };
-        if (disposed) return;
-        setNotifications(data.notifications ?? []);
-        setUnreadNotificationCount(data.unreadCount ?? 0);
-      } catch (error) {
-        console.error('Failed to refresh notifications after a realtime event:', error);
-      }
-    };
-
-    const setupRealtimeNotifications = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (disposed || !session?.user.id) return;
-
-      channel = supabase
-        .channel(`user-notifications:${session.user.id}`)
-        .on(
-          'postgres_changes',
-          {
-            event: 'INSERT',
-            schema: 'public',
-            table: 'user_notifications',
-            filter: `user_id=eq.${session.user.id}`,
-          },
-          (payload) => {
-            const notification = payload.new as HeaderNotification;
-            if (notification.is_read === false) {
-              showNotificationToast(notification.title, notification.message, 7000);
-            }
-            void refreshNotifications();
-          },
-        )
-        .on(
-          'postgres_changes',
-          {
-            event: 'UPDATE',
-            schema: 'public',
-            table: 'user_notifications',
-            filter: `user_id=eq.${session.user.id}`,
-          },
-          () => void refreshNotifications(),
-        )
-        .subscribe((status, error) => {
-          if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
-            console.error('Realtime notification subscription failed:', error?.message ?? status);
-          }
-        });
-    };
-
-    void setupRealtimeNotifications().catch((error: unknown) => {
-      console.error('Unable to set up realtime notification subscription:', error);
-    });
-
-    return () => {
-      disposed = true;
-      if (channel) void supabase.removeChannel(channel);
-    };
-  }, [showNotificationToast]);
-
-  useEffect(() => {
     async function loadQuickStats() {
       try {
-        const response = await fetchWithAuth('/api/dashboard/stats');
-        if (!response.ok) return;
+        const response = await fetchWithAuth('/api/user/quick-stats');
+        if (!response.ok) {
+          console.error('Unable to load Header quick stats:', response.status);
+          return;
+        }
         const data = await response.json();
         setQuickStats({
           bankBalance: Number(data.bankBalance || 0),
@@ -226,8 +66,8 @@ export function Header() {
           totalPoints: Number(data.totalPoints || 0),
           gameweek: data.gameweek || null,
         });
-      } catch {
-        // Soft fallback
+      } catch (error) {
+        console.error('Unable to load Header quick stats:', error);
       }
     }
 
@@ -254,57 +94,6 @@ export function Header() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
-  // Focus search input when modal opens
-  useEffect(() => {
-    if (searchOpen) {
-      const timer = window.setTimeout(() => {
-        searchInputRef.current?.focus();
-      }, 50);
-      return () => window.clearTimeout(timer);
-    }
-  }, [searchOpen]);
-
-  // Live player search inside command palette
-  useEffect(() => {
-    const trimmed = searchQuery.trim();
-    if (!trimmed) {
-      return;
-    }
-
-    const timer = setTimeout(async () => {
-      setIsSearchingPlayers(true);
-      try {
-        const res = await fetch(`/api/players?search=${encodeURIComponent(trimmed)}&limit=5`);
-        if (!res.ok) return;
-        const json = await res.json();
-        const players = Array.isArray(json.data) ? json.data : [];
-        setPlayerResults(
-          players.map((p: {
-            id: number;
-            name: string;
-            in_game_name?: string | null;
-            primary_role?: string | null;
-            current_price?: number | null;
-            professional_teams?: { name: string } | null;
-          }) => ({
-            id: p.id,
-            title: p.in_game_name || p.name,
-            subtitle: `${p.professional_teams?.name || 'Free Agent'} • ${p.primary_role || 'Player'}`,
-            category: 'Players' as const,
-            href: `/players/${p.id}`,
-            badge: p.current_price ? `$${Number(p.current_price).toFixed(1)}M` : undefined,
-          }))
-        );
-      } catch {
-        setPlayerResults([]);
-      } finally {
-        setIsSearchingPlayers(false);
-      }
-    }, 250);
-
-    return () => clearTimeout(timer);
-  }, [searchQuery]);
-
   useEffect(() => {
     function closePopups(event: MouseEvent) {
       if (userMenuRef.current && !userMenuRef.current.contains(event.target as Node)) {
@@ -329,33 +118,6 @@ export function Header() {
     };
   }, []);
 
-  // Swipe-to-close gesture on the mobile off-canvas drawer
-  useEffect(() => {
-    const drawer = mobileDrawerRef.current;
-    if (!drawer) return;
-
-    function handleTouchStart(e: TouchEvent) {
-      touchStartXRef.current = e.touches[0].clientX;
-      touchStartYRef.current = e.touches[0].clientY;
-    }
-
-    function handleTouchEnd(e: TouchEvent) {
-      const deltaX = e.changedTouches[0].clientX - touchStartXRef.current;
-      const deltaY = e.changedTouches[0].clientY - touchStartYRef.current;
-      // Left swipe: deltaX is negative and more horizontal than vertical
-      if (deltaX < -50 && Math.abs(deltaX) > Math.abs(deltaY)) {
-        setMobileMenuOpen(false);
-      }
-    }
-
-    drawer.addEventListener('touchstart', handleTouchStart, { passive: true });
-    drawer.addEventListener('touchend', handleTouchEnd, { passive: true });
-    return () => {
-      drawer.removeEventListener('touchstart', handleTouchStart);
-      drawer.removeEventListener('touchend', handleTouchEnd);
-    };
-  }, []);
-
   const handleSignOut = async () => {
     setSigningOut(true);
     try {
@@ -369,16 +131,6 @@ export function Header() {
   };
 
   const initials = (profile?.display_name || profile?.username || 'U').slice(0, 1).toUpperCase();
-  const unreadNotifications = unreadNotificationCount;
-  const formatNotificationTime = (createdAt: string) => {
-    if (!currentTime) return 'Recently';
-    const minutes = Math.max(0, Math.floor((currentTime - new Date(createdAt).getTime()) / 60000));
-    if (minutes < 1) return 'Just now';
-    if (minutes < 60) return `${minutes}m ago`;
-    const hours = Math.floor(minutes / 60);
-    if (hours < 24) return `${hours}h ago`;
-    return `${Math.floor(hours / 24)}d ago`;
-  };
   const userMenu = (
     <div className="absolute right-0 top-12 z-50 w-48 rounded-lg border border-slate-700 bg-slate-900 p-2 shadow-xl">
       <div className="border-b border-slate-700 px-3 py-2">
@@ -406,128 +158,6 @@ export function Header() {
       </button>
     </div>
   );
-  const getNotificationHref = (type: string) => {
-    switch (type) {
-      case 'gameweek_deadline':
-      case 'lineup_deadline':
-      case 'deadline':
-        return '/lineups';
-      case 'price_change':
-      case 'transfer_market':
-      case 'wildcard_used':
-        return '/transfers';
-      case 'score_posted':
-      case 'gameweek_result':
-      case 'rank_movement':
-        return '/gameweeks';
-      case 'league_activity':
-      case 'league_result':
-      case 'h2h_result':
-        return '/leagues';
-      default:
-        return '/notifications';
-    }
-  };
-
-  const handleNotificationClick = async (notification: HeaderNotification) => {
-    setNotificationMenuOpen(false);
-    if (!notification.is_read) {
-      setNotifications((current) =>
-        current.map((item) => (item.id === notification.id ? { ...item, is_read: true } : item))
-      );
-      setUnreadNotificationCount((count) => Math.max(0, count - 1));
-      try {
-        await fetchWithAuth(`/api/notifications/${notification.id}/read`, { method: 'PUT' });
-      } catch (err) {
-        console.error('Failed to mark notification read', err);
-      }
-    }
-  };
-
-  const notificationMenu = (
-    <div className="absolute right-0 top-12 z-50 w-80 rounded-lg border border-slate-700 bg-slate-900 p-2 shadow-xl">
-      <div className="flex items-center justify-between border-b border-slate-700 px-3 py-2">
-        <p className="text-sm font-semibold text-white">Notifications</p>
-        {unreadNotifications > 0 && <span className="text-xs text-cyan-400">{unreadNotifications} unread</span>}
-      </div>
-      {notifications.length === 0 ? (
-        <p className="px-3 py-6 text-center text-sm text-slate-400">You are all caught up.</p>
-      ) : (
-        <div className="max-h-80 overflow-y-auto">
-          {notifications.map((notification) => (
-            <Link
-              key={notification.id}
-              href={getNotificationHref(notification.type)}
-              onClick={() => void handleNotificationClick(notification)}
-              className={`block border-b border-slate-800 px-3 py-3 transition hover:bg-slate-800/60 last:border-b-0 ${notification.is_read ? 'opacity-70' : 'bg-slate-800/20'}`}
-            >
-              <div className="flex items-start justify-between gap-3">
-                <div className="flex items-center gap-1.5 min-w-0">
-                  {!notification.is_read && (
-                    <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-cyan-400" />
-                  )}
-                  <p className="truncate text-sm font-medium text-white">{notification.title}</p>
-                </div>
-                <span className="shrink-0 text-[11px] text-slate-500">{formatNotificationTime(notification.created_at)}</span>
-              </div>
-              <p className="mt-1 line-clamp-2 text-xs text-slate-400">{notification.message}</p>
-            </Link>
-          ))}
-        </div>
-      )}
-      <Link href="/notifications" onClick={() => setNotificationMenuOpen(false)} className="mt-2 block rounded-md border border-slate-700 px-3 py-2 text-center text-sm font-medium text-cyan-400 hover:bg-slate-800 hover:text-cyan-300">
-        View All Notifications
-      </Link>
-    </div>
-  );
-
-  const isActive = (path: string) => pathname === path || pathname.startsWith(path + '/');
-
-  const navSections = [
-    {
-      label: 'Overview',
-      links: [
-        { href: '/dashboard', label: 'Dashboard', description: 'Your points, rank, and updates', icon: LayoutDashboard },
-      ],
-    },
-    {
-      label: 'My Fantasy Team',
-      links: [
-        { href: '/squads', label: 'Squad', description: 'Manage your players and budget', icon: Users },
-        { href: '/lineups', label: 'Lineups', description: 'Set starters and captain picks', icon: UserCheck },
-        { href: '/transfers', label: 'Transfers', description: 'Browse players and make transfers', icon: ArrowLeftRight },
-        { href: '/gameweeks/planner', label: 'Squad Planner', description: 'Check availability and fixtures', icon: Calendar },
-      ],
-    },
-    {
-      label: 'Competitions',
-      links: [
-        { href: '/leagues', label: 'Leagues', description: 'Create or follow league standings', icon: Trophy },
-        { href: '/leaderboard', label: 'Leaderboard', description: 'Compare global manager ranks', icon: Medal },
-        { href: '/gameweeks', label: 'Gameweeks', description: 'View schedules and deadlines', icon: Calendar },
-        { href: '/season-recap', label: 'Season Recap', description: 'Review a finished season', icon: Trophy },
-      ],
-    },
-    {
-      label: 'Dota Esports',
-      links: [
-        { href: '/players', label: 'Players', description: 'Explore pro player stats', icon: UserRound },
-        { href: '/tournaments', label: 'Tournaments', description: 'Follow tournament results', icon: Swords },
-        { href: '/matches', label: 'Matches', description: 'Browse match schedules and results', icon: Gamepad2 },
-      ],
-    },
-    {
-      label: 'Insights',
-      links: [
-        { href: '/analytics', label: 'Analytics', description: 'Explore fantasy performance data', icon: BarChart3 },
-      ],
-    },
-  ];
-
-  const bottomNavLinks = [
-    { href: '/learn', label: 'Learn', description: 'Rules, guides, and fantasy basics', icon: BookOpen },
-  ];
-
   // Breadcrumb label map
   const pageTitles: Record<string, string> = {
     '/dashboard': 'Dashboard',
@@ -553,175 +183,9 @@ export function Header() {
 
   const currentPageTitle = pageTitles[pathname] || (pathname.startsWith('/players/') ? 'Player Inspection' : 'Dota 2 Fantasy');
 
-  // Format deadline countdown
-  const deadlineCountdown = useMemo(() => {
-    if (!quickStats?.gameweek?.deadline || !currentTime) return null;
-    const deadlineMs = new Date(quickStats.gameweek.deadline).getTime();
-    const diff = deadlineMs - currentTime;
-    if (diff <= 0) return 'Deadline passed';
-    const hours = Math.floor(diff / (1000 * 60 * 60));
-    const mins = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-    if (hours < 24) {
-      return `${hours}h ${mins}m`;
-    }
-    const days = Math.floor(hours / 24);
-    return `${days}d ${hours % 24}h`;
-  }, [quickStats, currentTime]);
-
-  const staticNavigationItems: SearchResultItem[] = useMemo(
-    () => [
-      { id: 'nav-dash', title: 'Dashboard', subtitle: 'Overview, stats and rank', category: 'Navigation', href: '/dashboard' },
-      { id: 'nav-squads', title: 'My Squad', subtitle: 'Pitch formation and players', category: 'Navigation', href: '/squads' },
-      { id: 'nav-lineups', title: 'Lineups', subtitle: 'Captain & Vice Captain pick', category: 'Navigation', href: '/lineups' },
-      { id: 'nav-transfers', title: 'Transfer Market', subtitle: 'Buy and sell pro players', category: 'Navigation', href: '/transfers' },
-      { id: 'nav-players', title: 'Players Directory', subtitle: 'Browse all pro statistics', category: 'Navigation', href: '/players' },
-      { id: 'nav-leagues', title: 'Leagues', subtitle: 'Private & public standings', category: 'Navigation', href: '/leagues' },
-      { id: 'nav-leaderboard', title: 'Leaderboard', subtitle: 'Top global fantasy managers', category: 'Navigation', href: '/leaderboard' },
-      { id: 'nav-gameweeks', title: 'Gameweek Schedule', subtitle: 'Deadlines and fixtures', category: 'Navigation', href: '/gameweeks' },
-      { id: 'nav-planner', title: 'My Squad Planner', subtitle: 'Squad availability and fixtures', category: 'Navigation', href: '/gameweeks/planner' },
-      { id: 'nav-recap', title: 'Season Recap', subtitle: 'Review and share a finished season', category: 'Navigation', href: '/season-recap' },
-      { id: 'nav-learn', title: 'Learn Hub', subtitle: 'Guide, rules and fantasy basics', category: 'Pages', href: '/learn' },
-      { id: 'nav-premium', title: 'Premium Tools', subtitle: 'Advanced analytics and fantasy tools', category: 'Pages', href: '/premium' },
-    ],
-    []
-  );
-
-  const filteredSearchResults = useMemo(() => {
-    if (!searchQuery.trim()) {
-      return staticNavigationItems.slice(0, 5);
-    }
-    const query = searchQuery.toLowerCase().trim();
-    const matchedPages = staticNavigationItems.filter(
-      (item) => item.title.toLowerCase().includes(query) || item.subtitle.toLowerCase().includes(query)
-    );
-    return [...playerResults, ...matchedPages];
-  }, [searchQuery, playerResults, staticNavigationItems]);
-
   return (
     <>
-      <aside className={`dashboard-sidebar fixed inset-y-0 left-0 z-50 hidden flex-col border-r border-slate-700 bg-slate-900 px-4 py-6 transition-[width] duration-200 md:flex ${sidebarCollapsed ? 'w-20' : 'w-64'}`}>
-        <div className={`mb-6 flex items-center ${sidebarCollapsed ? 'justify-center' : 'justify-between'}`}>
-          <Link href="/dashboard" className="flex items-center gap-2 px-2 font-bold text-xl">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-linear-to-br from-amber-500 to-orange-600">
-              <span className="font-bold text-white">D2</span>
-            </div>
-            {!sidebarCollapsed && <span className="bg-linear-to-r from-amber-500 to-orange-600 bg-clip-text text-transparent">Fantasy</span>}
-          </Link>
-          {!sidebarCollapsed && (
-            <button type="button" aria-label="Collapse sidebar" onClick={() => setSidebarCollapsed(true)} className="rounded p-1 text-slate-400 hover:bg-slate-800 hover:text-white">
-              <ChevronLeft className="h-5 w-5" />
-            </button>
-          )}
-        </div>
-        {sidebarCollapsed && (
-          <button type="button" aria-label="Expand sidebar" onClick={() => setSidebarCollapsed(false)} className="mb-4 self-center rounded p-1 text-slate-400 hover:bg-slate-800 hover:text-white">
-            <ChevronRight className="h-5 w-5" />
-          </button>
-        )}
-        <nav className="no-scrollbar flex flex-1 flex-col overflow-y-auto overflow-x-hidden">
-          <div className="space-y-4">
-            {navSections.map((section) => (
-              <section key={section.label} aria-label={section.label}>
-                {!sidebarCollapsed && (
-                  <h2 className="mb-1 px-3 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">
-                    {section.label}
-                  </h2>
-                )}
-                <div className="space-y-1">
-                  {section.links.map((link) => {
-                    const Icon = link.icon;
-                    const active = isActive(link.href);
-                    return (
-                      <Link
-                        key={link.href}
-                        href={link.href}
-                        title={sidebarCollapsed ? `${link.label}: ${link.description}` : undefined}
-                        aria-current={active ? 'page' : undefined}
-                        className={`flex items-center rounded-lg text-sm transition-colors ${
-                          sidebarCollapsed ? 'justify-center p-2.5' : 'items-start gap-3 px-3 py-2'
-                        } ${
-                          active
-                            ? 'bg-amber-500/20 text-amber-500'
-                            : 'text-slate-400 hover:bg-slate-800 hover:text-white'
-                        }`}
-                      >
-                        <Icon className={`mt-0.5 h-5 w-5 shrink-0 ${active ? 'text-amber-500' : 'text-slate-400'}`} />
-                        {!sidebarCollapsed && (
-                          <span className="min-w-0">
-                            <span className="block truncate font-medium">{link.label}</span>
-                            <span className={`mt-0.5 block text-[10px] leading-tight ${active ? 'text-amber-200/70' : 'text-slate-500'}`}>
-                              {link.description}
-                            </span>
-                          </span>
-                        )}
-                      </Link>
-                    );
-                  })}
-                </div>
-              </section>
-            ))}
-          </div>
-
-          <div className="mt-auto border-t border-slate-800/80 pt-3">
-            {!sidebarCollapsed && (
-              <h2 className="mb-1 px-3 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">
-                Resources
-              </h2>
-            )}
-            <div className="space-y-1">
-            {bottomNavLinks.map((link) => {
-              const Icon = link.icon;
-              const active = isActive(link.href);
-              return (
-                <Link
-                  key={link.href}
-                  href={link.href}
-                  title={sidebarCollapsed ? `${link.label}: ${link.description}` : undefined}
-                  aria-current={active ? 'page' : undefined}
-                  className={`flex items-center rounded-lg text-sm transition-colors ${
-                    sidebarCollapsed ? 'justify-center p-2.5' : 'gap-3 px-3 py-2.5'
-                  } ${
-                    active
-                      ? 'bg-amber-500/20 text-amber-500'
-                      : 'text-slate-400 hover:bg-slate-800 hover:text-white'
-                  }`}
-                >
-                  <Icon className={`h-5 w-5 shrink-0 ${active ? 'text-amber-500' : 'text-slate-400'}`} />
-                  {!sidebarCollapsed && (
-                    <span className="min-w-0">
-                      <span className="block truncate font-medium">{link.label}</span>
-                      <span className="mt-0.5 block truncate text-[10px] leading-tight text-slate-500">{link.description}</span>
-                    </span>
-                  )}
-                </Link>
-              );
-            })}
-            {profile?.role === 'admin' && (
-              <Link
-                href="/admin/dashboard"
-                title={sidebarCollapsed ? 'Admin Console: Manage app operations' : undefined}
-                aria-current={pathname.startsWith('/admin') ? 'page' : undefined}
-                className={`flex items-center rounded-lg text-sm font-medium transition-colors ${
-                  sidebarCollapsed ? 'justify-center p-2.5' : 'gap-3 px-3 py-2.5'
-                } ${
-                  pathname.startsWith('/admin')
-                    ? 'bg-amber-500/20 text-amber-400 font-semibold'
-                    : 'text-amber-400/80 hover:bg-amber-500/10 hover:text-amber-300'
-                }`}
-              >
-                <Shield className="h-5 w-5 shrink-0 text-amber-400" />
-                {!sidebarCollapsed && (
-                  <span className="min-w-0">
-                    <span className="block truncate">Admin Console</span>
-                    <span className="mt-0.5 block text-[10px] leading-tight text-amber-400/60">Manage app operations</span>
-                  </span>
-                )}
-              </Link>
-            )}
-            </div>
-          </div>
-        </nav>
-      </aside>
+      <DashboardNavigation pathname={pathname} isAdmin={profile?.role === 'admin'} mobileMenuOpen={mobileMenuOpen} onMobileMenuClose={closeMobileMenu} />
 
       <header className="dashboard-header sticky top-0 z-40 border-b border-slate-700/80 bg-slate-900/95 backdrop-blur-md">
         <nav ref={userMenuRef} className="mx-auto px-4 sm:px-6">
@@ -783,44 +247,7 @@ export function Header() {
               </button>
 
               {/* Fantasy HUD Pills (Desktop) */}
-              <div className="hidden sm:flex items-center gap-2">
-                {/* Gameweek Deadline Status Pill */}
-                {quickStats?.gameweek && (
-                  <Link
-                    href="/gameweeks"
-                    className="flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-amber-500/30 bg-amber-500/10 hover:bg-amber-500/20 text-xs font-medium text-amber-400 transition-colors"
-                    title={`GW${quickStats.gameweek.gameweek_number} Deadline`}
-                  >
-                    <Clock className="h-3.5 w-3.5 animate-pulse" />
-                    <span>GW{quickStats.gameweek.gameweek_number}:</span>
-                    <span className="font-semibold text-white">{deadlineCountdown || 'Active'}</span>
-                  </Link>
-                )}
-
-                {/* Bank Balance Pill */}
-                <Link
-                  href="/transfers"
-                  className="flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-slate-700 bg-slate-800/80 hover:bg-slate-700/80 text-xs text-slate-300 transition-colors"
-                  title="Remaining Transfer Budget"
-                >
-                  <Wallet className="h-3.5 w-3.5 text-emerald-400" />
-                  <span className="font-semibold text-emerald-400">
-                    ${Number(quickStats?.bankBalance ?? 100).toFixed(1)}M
-                  </span>
-                </Link>
-
-                {/* Free Transfers Chip */}
-                <Link
-                  href="/transfers"
-                  className="flex items-center gap-1 px-2.5 py-1 rounded-full border border-slate-700 bg-slate-800/80 hover:bg-slate-700/80 text-xs text-slate-300 transition-colors"
-                  title="Available Free Transfers"
-                >
-                  <ArrowLeftRight className="h-3 w-3 text-cyan-400" />
-                  <span>
-                    <span className="font-semibold text-white">{quickStats?.freeTransfers ?? 2}</span> FT
-                  </span>
-                </Link>
-              </div>
+              <QuickStatsBar quickStats={quickStats} />
 
               {/* Vertical Divider */}
               <div className="hidden sm:block h-5 w-px bg-slate-700/80 mx-1" />
@@ -831,24 +258,14 @@ export function Header() {
               </div>
 
               {/* Notifications */}
-              <div className="relative">
-                <button
-                  type="button"
-                  aria-label="Open notifications"
-                  aria-expanded={notificationMenuOpen}
-                  onClick={() => {
-                    setNotificationMenuOpen(!notificationMenuOpen);
-                    setUserMenuOpen(false);
-                  }}
-                  className="relative rounded-full p-2 text-slate-400 hover:bg-slate-800 hover:text-white transition-colors"
-                >
-                  <Bell className="h-5 w-5" />
-                  {unreadNotifications > 0 && (
-                    <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-cyan-400 ring-2 ring-slate-900" />
-                  )}
-                </button>
-                {notificationMenuOpen && notificationMenu}
-              </div>
+              <NotificationDropdown
+                isOpen={notificationMenuOpen}
+                onToggle={() => {
+                  setNotificationMenuOpen(!notificationMenuOpen);
+                  setUserMenuOpen(false);
+                }}
+                onClose={() => setNotificationMenuOpen(false)}
+              />
 
               {/* User Avatar Menu */}
               <div className="relative">
@@ -883,251 +300,9 @@ export function Header() {
 
       </nav>
 
-      {/* Command Palette Modal (Ctrl+K / Cmd+K) */}
-      {searchOpen && (
-          <div className="fixed inset-0 z-50 flex items-start justify-center pt-20 px-4 bg-slate-950/70 backdrop-blur-xs animate-in fade-in duration-150">
-            <div
-              ref={commandPaletteRef}
-              role="dialog"
-              aria-modal="true"
-              aria-labelledby="command-palette-title"
-              tabIndex={-1}
-              className="w-full max-w-xl rounded-xl border border-slate-700 bg-slate-900 shadow-2xl overflow-hidden"
-            >
-              <h2 id="command-palette-title" className="sr-only">Command palette</h2>
-              {/* Search Bar Input */}
-              <div className="flex items-center px-4 border-b border-slate-700/80 bg-slate-800/40">
-                <Search className="h-5 w-5 text-slate-400 shrink-0" />
-                <input
-                  ref={searchInputRef}
-                  type="text"
-                  aria-label="Search players, pages, and rules"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search pro players, pages, rules... (Esc to close)"
-                  className="w-full bg-transparent px-3 py-3.5 text-sm text-white placeholder-slate-400 focus:outline-none"
-                />
-                {searchQuery ? (
-                  <button
-                    type="button"
-                    aria-label="Clear search"
-                    onClick={() => setSearchQuery('')}
-                    className="p-1 rounded text-slate-400 hover:text-white"
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
-                ) : (
-                  <kbd className="text-[10px] font-mono text-slate-400 bg-slate-800 px-1.5 py-0.5 rounded border border-slate-700">
-                    ESC
-                  </kbd>
-                )}
-              </div>
-
-              {/* Results List */}
-              <div className="max-h-80 overflow-y-auto p-2 space-y-1">
-                {isSearchingPlayers && (
-                  <div role="status" aria-label="Searching players" className="space-y-1.5 p-1">
-                    {[1, 2, 3].map((item) => (
-                      <div key={item} className="flex items-center gap-3 rounded-lg p-2.5">
-                        <div className="h-8 w-8 shrink-0 animate-pulse rounded-md bg-slate-800" />
-                        <div className="min-w-0 flex-1 space-y-2">
-                          <div className="h-3 w-2/5 animate-pulse rounded bg-slate-700" />
-                          <div className="h-2.5 w-3/5 animate-pulse rounded bg-slate-800" />
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                {filteredSearchResults.length === 0 && !isSearchingPlayers && (
-                  <div className="p-8 text-center text-sm text-slate-400">
-                    No results found for &ldquo;<span className="text-white">{searchQuery}</span>&rdquo;
-                  </div>
-                )}
-
-                {filteredSearchResults.map((item) => (
-                  <button
-                    key={`${item.category}-${item.id}`}
-                    type="button"
-                    onClick={() => {
-                      setSearchOpen(false);
-                      router.push(item.href);
-                    }}
-                    className="w-full flex items-center justify-between p-2.5 rounded-lg hover:bg-slate-800 text-left transition-colors group"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className={`p-2 rounded-md ${item.category === 'Players' ? 'bg-amber-500/10 text-amber-400' : 'bg-slate-800 text-slate-400'}`}>
-                        {item.category === 'Players' ? <Sparkles className="h-4 w-4" /> : <Compass className="h-4 w-4" />}
-                      </div>
-                      <div>
-                        <p className="text-sm font-medium text-white group-hover:text-amber-400 transition-colors">
-                          {item.title}
-                        </p>
-                        <p className="text-xs text-slate-400">
-                          {item.subtitle}
-                        </p>
-                      </div>
-                    </div>
-                    {item.badge && (
-                      <span className="text-xs font-semibold px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                        {item.badge}
-                      </span>
-                    )}
-                  </button>
-                ))}
-              </div>
-
-              {/* Footer Helper */}
-              <div className="flex items-center justify-between px-4 py-2 border-t border-slate-800 bg-slate-900/60 text-[11px] text-slate-500">
-                <span>Select a result to navigate</span>
-                <span>ESC to close</span>
-              </div>
-            </div>
-          </div>
-        )}
+      {searchOpen && <LazyCommandPalette onClose={() => setSearchOpen(false)} />}
       </header>
 
-      {/* Mobile Off-Canvas Drawer (audit item 2.14 — swipe-to-close) */}
-      {/* Backdrop */}
-      <div
-        className={`fixed inset-0 z-[55] bg-slate-950/60 backdrop-blur-sm transition-opacity duration-300 md:hidden ${
-          mobileMenuOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
-        }`}
-        onClick={() => setMobileMenuOpen(false)}
-        aria-hidden="true"
-      />
-
-      {/* Drawer Panel — always in DOM so touch events attach to stable element */}
-      <div
-        ref={mobileDrawerRef}
-        className={`fixed inset-y-0 left-0 z-[60] flex w-72 flex-col bg-slate-900 border-r border-slate-700/80 shadow-2xl transition-transform duration-300 ease-in-out md:hidden ${
-          mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'
-        }`}
-        aria-label="Mobile navigation drawer"
-        aria-hidden={!mobileMenuOpen}
-      >
-        {/* Drawer Header */}
-        <div className="flex items-center justify-between px-4 py-4 border-b border-slate-700/80 shrink-0">
-          <Link
-            href="/dashboard"
-            onClick={() => setMobileMenuOpen(false)}
-            className="flex items-center gap-2 font-bold text-xl"
-          >
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-linear-to-br from-amber-500 to-orange-600">
-              <span className="font-bold text-white">D2</span>
-            </div>
-            <span className="bg-linear-to-r from-amber-500 to-orange-600 bg-clip-text text-transparent">
-              Fantasy
-            </span>
-          </Link>
-          <button
-            type="button"
-            aria-label="Close navigation menu"
-            onClick={() => setMobileMenuOpen(false)}
-            className="rounded-lg p-2 text-slate-400 hover:bg-slate-800 hover:text-white transition-colors"
-          >
-            <X className="h-5 w-5" />
-          </button>
-        </div>
-
-        {/* Swipe hint */}
-        <p className="px-4 pt-1.5 pb-0.5 text-[10px] text-slate-600 flex items-center gap-1 shrink-0">
-          <span aria-hidden="true">←</span> Swipe left to close
-        </p>
-
-        {/* Nav Links */}
-        <nav className="no-scrollbar flex-1 overflow-y-auto px-3 py-2">
-          <div className="space-y-4">
-            {navSections.map((section) => (
-              <section key={section.label} aria-label={section.label}>
-                <h2 className="mb-1 px-3 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">
-                  {section.label}
-                </h2>
-                <div className="space-y-0.5">
-                  {section.links.map((link) => {
-                    const Icon = link.icon;
-                    const active = isActive(link.href);
-                    return (
-                      <Link
-                        key={link.href}
-                        href={link.href}
-                        aria-current={active ? 'page' : undefined}
-                        className={`flex items-start gap-3 rounded-lg px-3 py-2.5 transition-colors ${
-                          active
-                            ? 'bg-amber-500/20 text-amber-500'
-                            : 'text-slate-400 hover:bg-slate-800 hover:text-white'
-                        }`}
-                        onClick={() => setMobileMenuOpen(false)}
-                      >
-                        <Icon className={`mt-0.5 h-5 w-5 shrink-0 ${active ? 'text-amber-500' : 'text-slate-400'}`} />
-                        <span className="min-w-0">
-                          <span className="block font-medium">{link.label}</span>
-                          <span className={`mt-0.5 block text-xs leading-tight ${active ? 'text-amber-200/70' : 'text-slate-500'}`}>
-                            {link.description}
-                          </span>
-                        </span>
-                      </Link>
-                    );
-                  })}
-                </div>
-              </section>
-            ))}
-          </div>
-          <div className="mt-3 border-t border-slate-700/80 pt-2">
-            <h2 className="mb-1 px-3 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">
-              Resources
-            </h2>
-            <div className="space-y-0.5">
-            {bottomNavLinks.map((link) => {
-              const Icon = link.icon;
-              const active = isActive(link.href);
-              return (
-                <Link
-                  key={link.href}
-                  href={link.href}
-                  aria-current={active ? 'page' : undefined}
-                  className={`flex items-start gap-3 rounded-lg px-3 py-2.5 transition-colors ${
-                    active
-                      ? 'bg-amber-500/20 text-amber-500'
-                      : 'text-slate-400 hover:text-white hover:bg-slate-800'
-                  }`}
-                  onClick={() => setMobileMenuOpen(false)}
-                >
-                  <Icon className={`mt-0.5 h-5 w-5 shrink-0 ${active ? 'text-amber-500' : 'text-slate-400'}`} />
-                  <span className="min-w-0">
-                    <span className="block font-medium">{link.label}</span>
-                    <span className="mt-0.5 block text-xs leading-tight text-slate-500">{link.description}</span>
-                  </span>
-                </Link>
-              );
-            })}
-            {profile?.role === 'admin' && (
-              <Link
-                href="/admin/dashboard"
-                aria-current={pathname.startsWith('/admin') ? 'page' : undefined}
-                className={`flex items-start gap-3 rounded-lg px-3 py-2.5 font-medium transition-colors ${
-                  pathname.startsWith('/admin')
-                    ? 'bg-amber-500/20 text-amber-400 font-semibold'
-                    : 'text-amber-400/80 hover:bg-amber-500/10 hover:text-amber-300'
-                }`}
-                onClick={() => setMobileMenuOpen(false)}
-              >
-                <Shield className="mt-0.5 h-5 w-5 shrink-0 text-amber-400" />
-                <span className="min-w-0">
-                  <span className="block">Admin Console</span>
-                  <span className="mt-0.5 block text-xs leading-tight text-amber-400/60">Manage app operations</span>
-                </span>
-              </Link>
-            )}
-            </div>
-          </div>
-        </nav>
-
-        {/* Drawer Footer — Theme Toggle */}
-        <div className="border-t border-slate-700 px-4 py-3 shrink-0">
-          <ThemeToggle />
-        </div>
-      </div>
     </>
   );
 }

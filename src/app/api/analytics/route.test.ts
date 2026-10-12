@@ -22,6 +22,92 @@ describe('GET /api/analytics - Finding 31: Dynamic gameweek resolution and role-
     mockVerifyAuth.mockResolvedValue({ userId: 'manager-42', email: 'manager42@example.test' });
   });
 
+  it('loads global gameweek averages from the database aggregate instead of downloading every lineup', async () => {
+    const lineup = {
+      gameweek_id: 7,
+      total_points: 12.5,
+      captain_player_id: null,
+      vice_captain_player_id: null,
+      carry_id: null,
+      mid_id: null,
+      offlane_id: null,
+      support_id: null,
+      hard_support_id: null,
+    };
+    const mockRpc = jest.fn().mockResolvedValue({
+      data: [{ gameweek_id: 7, global_average: 18.4 }],
+      error: null,
+    });
+    const mockFrom = jest.fn((table: string) => {
+      if (table === 'fantasy_seasons') {
+        return {
+          select: jest.fn().mockReturnThis(),
+          eq: jest.fn().mockReturnThis(),
+          maybeSingle: jest.fn().mockResolvedValue({
+            data: {
+              id: 10,
+              season_id: 1,
+              budget: 100,
+              total_points: 250,
+              global_rank: 5,
+              free_transfers: 2,
+            },
+            error: null,
+          }),
+        };
+      }
+      if (table === 'fantasy_lineups') {
+        const query = {
+          select: jest.fn().mockReturnThis(),
+          eq: jest.fn().mockReturnThis(),
+          order: jest.fn().mockReturnThis(),
+          then: (resolve: (value: unknown) => void) => resolve({ data: [lineup], error: null }),
+        };
+        return query;
+      }
+      if (table === 'fantasy_squads') {
+        return {
+          select: jest.fn().mockReturnThis(),
+          eq: jest.fn().mockReturnThis(),
+          maybeSingle: jest.fn().mockResolvedValue({
+            data: { id: 100, fantasy_squad_members: [] },
+            error: null,
+          }),
+        };
+      }
+      if (table === 'player_performances') {
+        const query = {
+          select: jest.fn().mockReturnThis(),
+          eq: jest.fn().mockReturnThis(),
+          not: jest.fn().mockReturnThis(),
+          limit: jest.fn().mockReturnThis(),
+          then: (resolve: (value: unknown) => void) => resolve({ data: [], error: null }),
+        };
+        return query;
+      }
+      if (table === 'player_prices') {
+        return {
+          select: jest.fn().mockReturnThis(),
+          in: jest.fn().mockResolvedValue({ data: [], error: null }),
+        };
+      }
+      throw new Error(`Unexpected table: ${table}`);
+    });
+
+    mockSupabaseServer.mockReturnValue({ from: mockFrom, rpc: mockRpc });
+
+    const response = await GET(new NextRequest('http://localhost:3000/api/analytics'));
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      trend: [{ gameweekId: 7, userScore: 12.5, globalAverage: 18.4 }],
+    });
+    expect(mockRpc).toHaveBeenCalledWith('get_global_gameweek_averages', {
+      p_gameweek_ids: [7],
+    });
+    expect(mockFrom.mock.calls.filter(([table]) => table === 'fantasy_lineups')).toHaveLength(1);
+  });
+
   it('dynamically resolves to latest closed gameweek and selects authentic Dream Team role distribution', async () => {
     let queriedGameweekId: number | null = null;
 

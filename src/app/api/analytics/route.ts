@@ -62,23 +62,22 @@ async function getHandler(request: NextRequest) {
 
     const recentLineup = (lineups ?? []).at(-1) ?? null;
     const recentGameweekId = recentLineup ? Number(recentLineup.gameweek_id) : null;
-    const allGameweekIds = (lineups ?? []).map((row) => Number(row.gameweek_id));
-
-    const { data: allSeasonLineups } = await supabase.from('fantasy_lineups')
-      .select('gameweek_id, total_points')
-      .in('gameweek_id', allGameweekIds.length ? allGameweekIds : [0]);
-
     const globalAverageByGameweek = new Map<number, number>();
-    const globalTotals = new Map<number, { count: number; total: number }>();
-    for (const row of allSeasonLineups ?? []) {
-      const gwId = Number(row.gameweek_id);
-      const current = globalTotals.get(gwId) ?? { count: 0, total: 0 };
-      current.count += 1;
-      current.total += Number(row.total_points ?? 0);
-      globalTotals.set(gwId, current);
-    }
-    for (const [gwId, values] of globalTotals.entries()) {
-      globalAverageByGameweek.set(gwId, Number((values.total / values.count).toFixed(1)));
+    const allGameweekIds = Array.from(new Set((lineups ?? []).map((row) => Number(row.gameweek_id))));
+    if (allGameweekIds.length) {
+      const { data: globalAverages, error: globalAveragesError } = await supabase.rpc(
+        'get_global_gameweek_averages',
+        { p_gameweek_ids: allGameweekIds },
+      );
+      if (globalAveragesError) {
+        throw Object.assign(
+          new Error(`Unable to load global gameweek averages: ${globalAveragesError.message}`),
+          { status: 500 },
+        );
+      }
+      for (const row of globalAverages ?? []) {
+        globalAverageByGameweek.set(Number(row.gameweek_id), Number(row.global_average ?? 0));
+      }
     }
 
     const trend = (lineups ?? []).map((row) => ({
