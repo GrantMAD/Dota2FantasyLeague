@@ -1,7 +1,8 @@
 'use client';
 
 import { fetchWithAuth } from '@/lib/fetch-with-auth';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { KeyboardEvent } from 'react';
 import Link from 'next/link';
 import { useTheme } from '@/components/theme/ThemeProvider';
 import { useToast } from '@/components/Toast';
@@ -23,6 +24,8 @@ type TrendRow = {
   userScore: number;
   globalAverage: number;
 };
+
+type AnalyticsTab = 'my' | 'market' | 'dream';
 
 type RoleBreakdownRow = {
   role: string;
@@ -96,7 +99,12 @@ export default function AnalyticsDashboard() {
   const [data, setData] = useState(initialData);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [tab, setTab] = useState<'my' | 'market' | 'dream'>('my');
+  const [tab, setTab] = useState<AnalyticsTab>('my');
+  const tabRefs = useRef<Record<AnalyticsTab, HTMLButtonElement | null>>({
+    my: null,
+    market: null,
+    dream: null,
+  });
 
   const fetchAnalytics = useCallback(async () => {
     setLoading(true);
@@ -169,6 +177,24 @@ export default function AnalyticsDashboard() {
     };
   }, [tab]);
 
+  function handleTabKeyDown(event: KeyboardEvent<HTMLButtonElement>, currentTab: AnalyticsTab) {
+    const tabs: AnalyticsTab[] = ['my', 'market', 'dream'];
+    const currentIndex = tabs.indexOf(currentTab);
+    let nextIndex: number | null = null;
+
+    if (event.key === 'ArrowRight') nextIndex = (currentIndex + 1) % tabs.length;
+    if (event.key === 'ArrowLeft') nextIndex = (currentIndex - 1 + tabs.length) % tabs.length;
+    if (event.key === 'Home') nextIndex = 0;
+    if (event.key === 'End') nextIndex = tabs.length - 1;
+
+    if (nextIndex !== null) {
+      event.preventDefault();
+      const nextTab = tabs[nextIndex];
+      setTab(nextTab);
+      tabRefs.current[nextTab]?.focus();
+    }
+  }
+
   return (
     <div className="analytics-page min-h-screen bg-slate-950 text-slate-100">
       <div className="mx-auto max-w-7xl px-4 py-8">
@@ -183,7 +209,11 @@ export default function AnalyticsDashboard() {
           <Link href="/premium" className="inline-flex items-center rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-2.5 text-sm font-semibold text-amber-300 transition hover:bg-amber-500/20">Explore Premium Tools →</Link>
         </div>
 
-        <div className="mb-8 flex flex-wrap gap-2 rounded-2xl border border-slate-800 bg-slate-900/70 p-2">
+        <div
+          role="tablist"
+          aria-label="Analytics views"
+          className="mb-8 flex flex-wrap gap-2 rounded-2xl border border-slate-800 bg-slate-900/70 p-2"
+        >
           {[
             ['my', 'My Performance'],
             ['market', 'Market'],
@@ -191,8 +221,15 @@ export default function AnalyticsDashboard() {
           ].map(([key, label]) => (
             <button
               key={key}
+              ref={(element) => { tabRefs.current[key as AnalyticsTab] = element; }}
               type="button"
-              onClick={() => setTab(key as 'my' | 'market' | 'dream')}
+              role="tab"
+              id={`analytics-tab-${key}`}
+              aria-selected={tab === key}
+              aria-controls="analytics-panel"
+              tabIndex={tab === key ? 0 : -1}
+              onClick={() => setTab(key as AnalyticsTab)}
+              onKeyDown={(event) => handleTabKeyDown(event, key as AnalyticsTab)}
               className={`rounded-xl px-4 py-2 text-sm font-medium transition ${
                 tab === key ? 'bg-cyan-500 text-slate-950 shadow-lg shadow-cyan-500/20' : 'text-slate-300 hover:bg-slate-800'
               }`}
@@ -202,30 +239,36 @@ export default function AnalyticsDashboard() {
           ))}
         </div>
 
-        {error && (
-          <div className="mb-8 flex flex-col items-start justify-between gap-4 rounded-2xl border border-red-500/30 bg-red-500/10 p-5 text-red-200 sm:flex-row sm:items-center">
-            <div>
-              <p className="font-semibold text-red-100">Analytics data temporarily unavailable</p>
-              <p className="mt-1 text-sm text-red-300/90">{error}. Displaying default fallback values.</p>
+        <div
+          id="analytics-panel"
+          role="tabpanel"
+          aria-labelledby={`analytics-tab-${tab}`}
+          tabIndex={0}
+        >
+          {error && (
+            <div className="mb-8 flex flex-col items-start justify-between gap-4 rounded-2xl border border-red-500/30 bg-red-500/10 p-5 text-red-200 sm:flex-row sm:items-center">
+              <div>
+                <p className="font-semibold text-red-100">Analytics data temporarily unavailable</p>
+                <p className="mt-1 text-sm text-red-300/90">{error}. Displaying default fallback values.</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => void fetchAnalytics()}
+                className="inline-flex shrink-0 items-center gap-2 rounded-xl bg-red-600 px-4 py-2 text-sm font-semibold text-white shadow-md transition hover:bg-red-500 focus:outline-none focus:ring-2 focus:ring-red-400 focus:ring-offset-2 focus:ring-offset-slate-950"
+              >
+                Retry
+              </button>
             </div>
-            <button
-              type="button"
-              onClick={() => void fetchAnalytics()}
-              className="inline-flex shrink-0 items-center gap-2 rounded-xl bg-red-600 px-4 py-2 text-sm font-semibold text-white shadow-md transition hover:bg-red-500 focus:outline-none focus:ring-2 focus:ring-red-400 focus:ring-offset-2 focus:ring-offset-slate-950"
-            >
-              Retry
-            </button>
-          </div>
-        )}
+          )}
 
-        {loading ? (
-          <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-4">
-            {[1, 2, 3, 4].map((item) => (
-              <div key={item} className="h-32 animate-pulse rounded-2xl border border-slate-800 bg-slate-900/80" />
-            ))}
-          </div>
-        ) : (
-          <>
+          {loading ? (
+            <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-4">
+              {[1, 2, 3, 4].map((item) => (
+                <div key={item} className="h-32 animate-pulse rounded-2xl border border-slate-800 bg-slate-900/80" />
+              ))}
+            </div>
+          ) : (
+            <>
             <div className="mb-8 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
               <div className="rounded-2xl border border-slate-800 bg-slate-900/80 p-5">
                 <p className="text-xs uppercase tracking-[0.22em] text-slate-400">Total Points</p>
@@ -519,8 +562,9 @@ export default function AnalyticsDashboard() {
                 </div>
               )}
             </div>
-          </>
-        )}
+            </>
+          )}
+        </div>
       </div>
     </div>
   );
