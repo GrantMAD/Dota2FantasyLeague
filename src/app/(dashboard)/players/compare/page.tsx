@@ -1,7 +1,7 @@
 'use client';
 
 import { fetchWithAuth } from '@/lib/fetch-with-auth';
-import { Suspense, useEffect, useMemo, useState } from 'react';
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -88,7 +88,7 @@ function PlayerComparisonSkeleton() {
         <div className="h-4 w-full max-w-2xl rounded bg-slate-800" />
       </div>
       <div className="overflow-x-auto rounded-xl border border-slate-700 bg-slate-800/40">
-        <div className="min-w-[640px]">
+        <div className="min-w-160">
           <div className="grid grid-cols-[minmax(8rem,0.8fr)_repeat(3,minmax(0,1fr))] border-b border-slate-700">
             <div className="p-4"><div className="h-4 w-24 rounded bg-slate-800" /></div>
             {[1, 2, 3].map((column) => (
@@ -135,10 +135,63 @@ function PlayerComparisonContent() {
   );
   const [players, setPlayers] = useState<ComparisonPlayer[]>([]);
   const [upcomingByTeam, setUpcomingByTeam] = useState<Map<number, TeamMatch[]>>(new Map());
+  const [failedFixtureTeamIds, setFailedFixtureTeamIds] = useState<Set<number>>(new Set());
+  const [fixtureLoading, setFixtureLoading] = useState(false);
+  const [fixtureError, setFixtureError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [analyticsMap, setAnalyticsMap] = useState<Map<number, PlayerAnalytics>>(new Map());
   const [userIsPremium, setUserIsPremium] = useState<boolean | null>(null);
+  const fixtureRequestId = useRef(0);
+
+  const loadFixtures = useCallback(async (playersToLoad: ComparisonPlayer[]) => {
+    const requestId = ++fixtureRequestId.current;
+    const teamIds = [...new Set(playersToLoad
+      .map((player) => player.team_id)
+      .filter((teamId): teamId is number => teamId != null))];
+
+    setFixtureLoading(true);
+    setFixtureError(null);
+    setFailedFixtureTeamIds(new Set());
+
+    const scheduleResults = await Promise.allSettled(teamIds.map(async (teamId) => {
+      const scheduleResponse = await fetchWithAuth(
+        `/api/matches?teamId=${teamId}&status=scheduled&order=asc&limit=100`,
+      );
+      const scheduleData = (await scheduleResponse.json()) as MatchesResponse;
+      if (!scheduleResponse.ok) {
+        throw new Error(scheduleData.error || `Unable to load fixtures for team ${teamId}`);
+      }
+      const now = Date.now();
+      const fixtures = (scheduleData.matches ?? [])
+        .filter((match) => new Date(match.scheduled_time).getTime() >= now)
+        .sort((a, b) => new Date(a.scheduled_time).getTime() - new Date(b.scheduled_time).getTime())
+        .slice(0, 3);
+      return [teamId, fixtures] as const;
+    }));
+
+    if (requestId !== fixtureRequestId.current) return;
+
+    const loadedFixtures = new Map<number, TeamMatch[]>();
+    const failedTeamIds: number[] = [];
+    scheduleResults.forEach((result, index) => {
+      if (result.status === 'fulfilled') {
+        loadedFixtures.set(...result.value);
+      } else {
+        failedTeamIds.push(teamIds[index]);
+      }
+    });
+
+    setUpcomingByTeam(loadedFixtures);
+    setFailedFixtureTeamIds(new Set(failedTeamIds));
+    if (failedTeamIds.length > 0) {
+      const failedTeamNames = failedTeamIds.map((teamId) =>
+        playersToLoad.find((player) => player.team_id === teamId)?.professional_teams?.name ?? `team ${teamId}`,
+      );
+      setFixtureError(`Unable to load upcoming fixtures for ${failedTeamNames.join(', ')}. Player comparison data is still available.`);
+    }
+    setFixtureLoading(false);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -148,6 +201,9 @@ function PlayerComparisonContent() {
       setError(null);
       setPlayers([]);
       setUpcomingByTeam(new Map());
+      setFailedFixtureTeamIds(new Set());
+      setFixtureError(null);
+      setFixtureLoading(false);
 
       if (ids.length < 2) {
         setLoading(false);
@@ -162,6 +218,7 @@ function PlayerComparisonContent() {
 
         const loadedPlayers = data.data ?? [];
         setPlayers(loadedPlayers);
+        void loadFixtures(loadedPlayers);
 
         // Fetch analytics for all players in parallel (non-blocking: 403 = not premium)
         void Promise.all(
@@ -187,28 +244,6 @@ function PlayerComparisonContent() {
           setUserIsPremium(premium);
           setAnalyticsMap(map);
         });
-
-        const teamIds = [...new Set(loadedPlayers
-          .map((player) => player.team_id)
-          .filter((teamId): teamId is number => teamId != null))];
-        const scheduleResults = await Promise.all(teamIds.map(async (teamId) => {
-          const scheduleResponse = await fetchWithAuth(
-            `/api/matches?teamId=${teamId}&status=scheduled&order=asc&limit=100`,
-          );
-          const scheduleData = (await scheduleResponse.json()) as MatchesResponse;
-          if (!scheduleResponse.ok) {
-            throw new Error(scheduleData.error || `Unable to load fixtures for team ${teamId}`);
-          }
-          const now = Date.now();
-          const fixtures = (scheduleData.matches ?? [])
-            .filter((match) => new Date(match.scheduled_time).getTime() >= now)
-            .sort((a, b) => new Date(a.scheduled_time).getTime() - new Date(b.scheduled_time).getTime())
-            .slice(0, 3);
-          return [teamId, fixtures] as const;
-        }));
-
-        if (cancelled) return;
-        setUpcomingByTeam(new Map(scheduleResults));
       } catch (loadError: unknown) {
         if (!cancelled) {
           setError(loadError instanceof Error ? loadError.message : 'Failed to load player comparison');
@@ -221,8 +256,9 @@ function PlayerComparisonContent() {
     void loadComparison();
     return () => {
       cancelled = true;
+      fixtureRequestId.current += 1;
     };
-  }, [ids]);
+  }, [ids, loadFixtures]);
 
   const removePlayer = (playerId: number) => {
     const remainingIds = ids.filter((id) => id !== playerId);
@@ -281,8 +317,24 @@ function PlayerComparisonContent() {
         </div>
       ) : (
         <>
+          {fixtureError && (
+            <div role="alert" className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-500/30 bg-amber-950/30 p-4 text-sm text-amber-200">
+              <p>{fixtureError}</p>
+              <button
+                type="button"
+                onClick={() => void loadFixtures(players)}
+                disabled={fixtureLoading}
+                className="rounded-lg border border-amber-400/40 px-3 py-2 font-semibold text-amber-100 transition-colors hover:bg-amber-400/10 disabled:cursor-wait disabled:opacity-60"
+              >
+                {fixtureLoading ? 'Retrying…' : 'Retry fixtures'}
+              </button>
+            </div>
+          )}
+          {fixtureLoading && (
+            <p role="status" className="mb-4 text-sm text-slate-400">Loading upcoming fixtures…</p>
+          )}
           <div className="overflow-x-auto rounded-xl border border-slate-700 bg-slate-800/40">
-            <table className="w-full min-w-[760px] border-collapse text-left">
+            <table className="w-full min-w-190 border-collapse text-left">
               <caption className="sr-only">Selected player statistics and upcoming matches</caption>
               <thead>
                 <tr>
@@ -430,6 +482,8 @@ function PlayerComparisonContent() {
                       <UpcomingMatches
                         player={player}
                         matches={player.team_id == null ? [] : upcomingByTeam.get(player.team_id) ?? []}
+                        isLoading={fixtureLoading && player.team_id != null && !upcomingByTeam.has(player.team_id)}
+                        unavailable={player.team_id != null && failedFixtureTeamIds.has(player.team_id)}
                       />
                     </td>
                   ))}
@@ -466,11 +520,17 @@ function ComparisonRow({
 function UpcomingMatches({
   player,
   matches,
+  isLoading,
+  unavailable,
 }: {
   player: ComparisonPlayer;
   matches: TeamMatch[];
+  isLoading: boolean;
+  unavailable: boolean;
 }) {
   if (player.team_id == null) return <p className="text-sm text-slate-500">No team schedule</p>;
+  if (isLoading) return <p className="text-sm text-slate-500">Loading fixtures…</p>;
+  if (unavailable) return <p className="text-sm text-amber-300">Fixtures unavailable</p>;
   if (matches.length === 0) return <p className="text-sm text-slate-500">No upcoming matches</p>;
 
   return (
