@@ -1605,3 +1605,22 @@ body {
 .animate-toast-in {
   animation: toast-slide-in 200ms ease-out both;
 }
+
+@keyframes toast-progress {
+  from {
+    width: 100%;
+  }
+  to {
+    width: 0;
+  }
+}
+
+.toast-progress-bar {
+  animation: toast-progress linear forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .toast-progress-bar {
+    animation: none;
+  }
+}

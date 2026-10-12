@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { CheckCircle, XCircle, Info, Loader2, X } from 'lucide-react';
 import { Toast, useToast } from './ToastContext';
 
@@ -11,25 +11,8 @@ interface ToastItemProps {
 export function ToastItem({ toast }: ToastItemProps) {
   const { dismiss } = useToast();
   const [isExiting, setIsExiting] = useState(false);
-  const [progress, setProgress] = useState(100);
 
   const duration = toast.duration ?? 4000;
-
-  useEffect(() => {
-    if (duration <= 0) return;
-
-    const interval = 20; // 50fps
-    const decrement = (interval / duration) * 100;
-
-    const timer = setInterval(() => {
-      setProgress((prev) => {
-        const next = prev - decrement;
-        return next <= 0 ? 0 : next;
-      });
-    }, interval);
-
-    return () => clearInterval(timer);
-  }, [duration]);
 
   const handleDismiss = () => {
     setIsExiting(true);
@@ -111,8 +94,8 @@ export function ToastItem({ toast }: ToastItemProps) {
       {duration > 0 && (
         <div className="h-0.5 w-full bg-slate-700/50 overflow-hidden">
           <div
-            className={`h-full ${config.progressClass} transition-all duration-75 ease-linear`}
-            style={{ width: `${progress}%` }}
+            className={`toast-progress-bar h-full ${config.progressClass}`}
+            style={{ animationDuration: `${duration}ms` }}
           />
         </div>
       )}

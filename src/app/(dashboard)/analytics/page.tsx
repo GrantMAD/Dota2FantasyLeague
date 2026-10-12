@@ -275,61 +275,86 @@ export default function AnalyticsDashboard() {
                       </div>
                     </div>
                     {data.trend.length ? (
-                      <div className="h-64 w-full">
-                        <ResponsiveContainer width="100%" height="100%">
-                          <LineChart
-                            data={data.trend.map((row: TrendRow) => ({
-                              name: `GW${row.gameweekId}`,
-                              userScore: row.userScore,
-                              globalAverage: row.globalAverage,
-                            }))}
-                            margin={{ top: 12, right: 16, left: -16, bottom: 4 }}
-                          >
-                            <CartesianGrid strokeDasharray="3 3" stroke={chartTheme.gridStroke} opacity={0.5} vertical={false} />
-                            <XAxis
-                              dataKey="name"
-                              stroke={chartTheme.axisStroke}
-                              tick={{ fill: chartTheme.tickFill, fontSize: 12 }}
-                              tickLine={{ stroke: chartTheme.axisStroke }}
-                            />
-                            <YAxis
-                              stroke={chartTheme.axisStroke}
-                              tick={{ fill: chartTheme.tickFill, fontSize: 12 }}
-                              tickLine={{ stroke: chartTheme.axisStroke }}
-                            />
-                            <Tooltip
-                              contentStyle={{
-                                backgroundColor: chartTheme.tooltipBg,
-                                borderColor: chartTheme.tooltipBorder,
-                                borderRadius: '0.75rem',
-                                boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.2)',
-                                color: chartTheme.tooltipText,
-                                fontSize: '12px',
-                              }}
-                              itemStyle={{ color: chartTheme.tooltipItemColor, padding: '2px 0' }}
-                              labelStyle={{ fontWeight: 'bold', color: isLight ? '#0284c7' : '#38bdf8', marginBottom: '4px' }}
-                            />
-                            <Line
-                              type="monotone"
-                              dataKey="userScore"
-                              name="Your Score"
-                              stroke="#06b6d4"
-                              strokeWidth={3}
-                              dot={{ r: 4, fill: '#06b6d4', stroke: isLight ? '#ffffff' : '#083344', strokeWidth: 2 }}
-                              activeDot={{ r: 6, fill: '#22d3ee', stroke: isLight ? '#0f172a' : '#fff', strokeWidth: 2 }}
-                            />
-                            <Line
-                              type="monotone"
-                              dataKey="globalAverage"
-                              name="Global Average"
-                              stroke={chartTheme.globalAvgLine}
-                              strokeWidth={2}
-                              strokeDasharray="4 4"
-                              dot={{ r: 3, fill: chartTheme.globalAvgDot }}
-                            />
-                          </LineChart>
-                        </ResponsiveContainer>
-                      </div>
+                      <>
+                        <div className="h-64 w-full" aria-hidden="true">
+                          <ResponsiveContainer width="100%" height="100%">
+                            <LineChart
+                              data={data.trend.map((row: TrendRow) => ({
+                                name: `GW${row.gameweekId}`,
+                                userScore: row.userScore,
+                                globalAverage: row.globalAverage,
+                              }))}
+                              margin={{ top: 12, right: 16, left: -16, bottom: 4 }}
+                            >
+                              <CartesianGrid strokeDasharray="3 3" stroke={chartTheme.gridStroke} opacity={0.5} vertical={false} />
+                              <XAxis
+                                dataKey="name"
+                                stroke={chartTheme.axisStroke}
+                                tick={{ fill: chartTheme.tickFill, fontSize: 12 }}
+                                tickLine={{ stroke: chartTheme.axisStroke }}
+                              />
+                              <YAxis
+                                stroke={chartTheme.axisStroke}
+                                tick={{ fill: chartTheme.tickFill, fontSize: 12 }}
+                                tickLine={{ stroke: chartTheme.axisStroke }}
+                              />
+                              <Tooltip
+                                contentStyle={{
+                                  backgroundColor: chartTheme.tooltipBg,
+                                  borderColor: chartTheme.tooltipBorder,
+                                  borderRadius: '0.75rem',
+                                  boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.2)',
+                                  color: chartTheme.tooltipText,
+                                  fontSize: '12px',
+                                }}
+                                itemStyle={{ color: chartTheme.tooltipItemColor, padding: '2px 0' }}
+                                labelStyle={{ fontWeight: 'bold', color: isLight ? '#0284c7' : '#38bdf8', marginBottom: '4px' }}
+                              />
+                              <Line
+                                type="monotone"
+                                dataKey="userScore"
+                                name="Your Score"
+                                stroke="#06b6d4"
+                                strokeWidth={3}
+                                dot={{ r: 4, fill: '#06b6d4', stroke: isLight ? '#ffffff' : '#083344', strokeWidth: 2 }}
+                                activeDot={{ r: 6, fill: '#22d3ee', stroke: isLight ? '#0f172a' : '#fff', strokeWidth: 2 }}
+                              />
+                              <Line
+                                type="monotone"
+                                dataKey="globalAverage"
+                                name="Global Average"
+                                stroke={chartTheme.globalAvgLine}
+                                strokeWidth={2}
+                                strokeDasharray="4 4"
+                                dot={{ r: 3, fill: chartTheme.globalAvgDot }}
+                              />
+                            </LineChart>
+                          </ResponsiveContainer>
+                        </div>
+                        <div className="mt-5 overflow-x-auto">
+                          <table className="w-full min-w-80 text-left text-sm">
+                            <caption className="sr-only">Gameweek scores shown in the trajectory chart</caption>
+                            <thead className="border-b border-slate-700 text-xs uppercase tracking-wide text-slate-400">
+                              <tr>
+                                <th scope="col" className="px-3 py-2 font-semibold">Gameweek</th>
+                                <th scope="col" className="px-3 py-2 text-right font-semibold">Your score</th>
+                                <th scope="col" className="px-3 py-2 text-right font-semibold">Global average</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-800 text-slate-200">
+                              {data.trend.map((row) => (
+                                <tr key={row.gameweekId}>
+                                  <th scope="row" className="px-3 py-2 font-medium text-slate-300">
+                                    Gameweek {row.gameweekId}
+                                  </th>
+                                  <td className="px-3 py-2 text-right tabular-nums">{row.userScore}</td>
+                                  <td className="px-3 py-2 text-right tabular-nums">{row.globalAverage}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </>
                     ) : (
                       <div className="flex h-48 w-full items-center justify-center text-sm text-slate-400">
                         No score history available yet.
