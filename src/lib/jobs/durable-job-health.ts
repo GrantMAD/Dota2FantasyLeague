@@ -45,10 +45,21 @@ export function buildDurableJobHealth(
   const runningJobs: string[] = [];
   const staleJobs: string[] = [];
   const unknownJobs: string[] = [];
+  const skippedJobs: string[] = [];
 
   for (const job of jobs.filter((candidate) => candidate.enabled)) {
-    const latest = latestByName.get(job.name);
+    const jobRuns = latestRuns.filter((run) => run.job_name === job.name);
+    const mostRecent = jobRuns[0];
+    if (mostRecent?.status === 'skipped') skippedJobs.push(job.name);
+
+    const latest = jobRuns.find((run) => run.status !== 'skipped')
+      ?? mostRecent
+      ?? latestByName.get(job.name);
     if (!latest) {
+      unknownJobs.push(job.name);
+      continue;
+    }
+    if (latest.status === 'skipped') {
       unknownJobs.push(job.name);
       continue;
     }
@@ -95,5 +106,6 @@ export function buildDurableJobHealth(
     runningJobs,
     staleJobs,
     unknownJobs,
+    skippedJobs,
   };
 }

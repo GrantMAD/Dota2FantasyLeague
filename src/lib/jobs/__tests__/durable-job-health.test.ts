@@ -33,7 +33,21 @@ describe('durable job health', () => {
     expect(health.unknownJobs).toEqual([]);
   });
 
-  it('does not treat skipped executions as successful job activity', () => {
+  it('uses the latest substantive run for health while reporting a newer lock skip separately', () => {
+    const health = buildDurableJobHealth([
+      { name: 'skipped', schedule: '*/10 * * * *', enabled: true },
+    ], [
+      { job_name: 'skipped', status: 'skipped', started_at: new Date(now).toISOString(), completed_at: new Date(now).toISOString(), error_message: null },
+      { job_name: 'skipped', status: 'completed', started_at: new Date(now - MINUTE).toISOString(), completed_at: new Date(now - MINUTE).toISOString(), error_message: null },
+    ], now);
+
+    expect(health.status).toBe('healthy');
+    expect(health.healthy).toBe(true);
+    expect(health.unknownJobs).toEqual([]);
+    expect(health.skippedJobs).toEqual(['skipped']);
+  });
+
+  it('keeps a job unknown when it has skips but no substantive run', () => {
     const health = buildDurableJobHealth([
       { name: 'skipped', schedule: '*/10 * * * *', enabled: true },
     ], [
@@ -43,6 +57,20 @@ describe('durable job health', () => {
     expect(health.status).toBe('unknown');
     expect(health.healthy).toBeNull();
     expect(health.unknownJobs).toEqual(['skipped']);
+    expect(health.skippedJobs).toEqual(['skipped']);
+  });
+
+  it('uses a substantive run for health even after multiple overlap skips', () => {
+    const health = buildDurableJobHealth([
+      { name: 'failed', schedule: '*/10 * * * *', enabled: true },
+    ], [
+      { job_name: 'failed', status: 'skipped', started_at: new Date(now).toISOString(), completed_at: new Date(now).toISOString(), error_message: null },
+      { job_name: 'failed', status: 'failed', started_at: new Date(now - MINUTE).toISOString(), completed_at: new Date(now - MINUTE).toISOString(), error_message: 'failure' },
+    ], now);
+
+    expect(health.status).toBe('degraded');
+    expect(health.failedJobs).toEqual(['failed']);
+    expect(health.skippedJobs).toEqual(['failed']);
   });
 
   it('uses schedule-aware freshness thresholds for supported cron cadences', () => {

@@ -15,6 +15,7 @@ interface ObservabilityData {
     runningJobs: string[];
     staleJobs: string[];
     unknownJobs: string[];
+    skippedJobs: string[];
   };
   recentRuns: Array<{ job_name: string; status: string; started_at: string; error_message?: string }>;
   cache: { entries: number };
@@ -132,6 +133,12 @@ export default function AdminObservabilityPage() {
       jobs: data.health.unknownJobs,
       description: 'No latest execution record with a recognized status is available.',
       Icon: CircleHelp,
+    },
+    {
+      label: 'Skipped overlaps',
+      jobs: data.health.skippedJobs,
+      description: 'The latest scheduler attempt was skipped because another instance held the job lock; health uses the latest substantive execution.',
+      Icon: Clock3,
     },
   ].filter((group) => group.jobs.length > 0);
 

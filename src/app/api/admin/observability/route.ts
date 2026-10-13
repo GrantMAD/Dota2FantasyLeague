@@ -30,8 +30,7 @@ async function getHandler(request: NextRequest) {
         .select('job_name, status, started_at, completed_at, error_message')
         .eq('job_name', job.name)
         .order('started_at', { ascending: false })
-        .limit(1)
-        .maybeSingle())),
+        .limit(100))),
     ]);
 
     const failedLatestQuery = latestResults.find((result) => result.error);
@@ -40,8 +39,7 @@ async function getHandler(request: NextRequest) {
     }
     const runs = (recentResult.data ?? []) as JobRunRow[];
     const latestRuns = latestResults
-      .map((result) => result.data)
-      .filter((run): run is NonNullable<typeof run> => run !== null) as DurableJobRun[];
+      .flatMap((result) => result.data ?? []) as DurableJobRun[];
     const health = buildDurableJobHealth(
       jobs.map(({ name, schedule, enabled }) => ({ name, schedule, enabled })),
       latestRuns,
