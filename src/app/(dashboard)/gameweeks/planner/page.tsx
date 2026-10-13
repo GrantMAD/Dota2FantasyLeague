@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { ArrowLeft, CalendarClock, CalendarDays, CircleAlert, ShieldCheck } from 'lucide-react';
@@ -53,7 +53,11 @@ type PlannerMatch = {
   tournaments?: { name: string } | null;
 };
 
-type MatchesResponse = { matches?: PlannerMatch[]; error?: string };
+type MatchesResponse = {
+  matches?: PlannerMatch[];
+  error?: string;
+  pagination?: { totalPages?: number };
+};
 
 function displayName(player: PlannerPlayer): string {
   return player.in_game_name || player.name;
@@ -105,6 +109,83 @@ export default function SquadPlannerPage() {
   const [matchesByTeam, setMatchesByTeam] = useState<Map<number, PlannerMatch[]>>(new Map());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [fixtureLoading, setFixtureLoading] = useState(false);
+  const [fixtureError, setFixtureError] = useState<string | null>(null);
+  const fixtureRequestId = useRef(0);
+
+  const loadFixtures = useCallback(async (teamIds: number[]) => {
+    const requestId = ++fixtureRequestId.current;
+    setFixtureLoading(true);
+    setFixtureError(null);
+
+    try {
+      if (teamIds.length === 0) {
+        setMatchesByTeam(new Map());
+        return;
+      }
+
+      const fetchPage = async (page: number): Promise<MatchesResponse> => {
+        const params = new URLSearchParams({
+          teamIds: teamIds.join(','),
+          status: 'scheduled',
+          order: 'asc',
+          page: String(page),
+          limit: '100',
+        });
+        const response = await fetchWithAuth(`/api/matches?${params}`);
+        const data = (await response.json()) as MatchesResponse;
+        if (!response.ok) {
+          throw new Error(data.error || `Unable to load squad fixtures (${response.status})`);
+        }
+        return data;
+      };
+
+      const firstPage = await fetchPage(1);
+      const totalPages = Math.max(1, firstPage.pagination?.totalPages ?? 1);
+      const remainingPages = await Promise.allSettled(
+        Array.from({ length: totalPages - 1 }, (_, index) => fetchPage(index + 2)),
+      );
+      if (requestId !== fixtureRequestId.current) return;
+
+      const allMatches = [...(firstPage.matches ?? [])];
+      let hasPartialFailure = false;
+      for (const result of remainingPages) {
+        if (result.status === 'fulfilled') {
+          allMatches.push(...(result.value.matches ?? []));
+        } else {
+          hasPartialFailure = true;
+        }
+      }
+
+      const now = Date.now();
+      const upcoming = allMatches
+        .filter((match) => {
+          const scheduled = new Date(match.scheduled_time).getTime();
+          return Number.isFinite(scheduled) && scheduled >= now;
+        })
+        .sort((a, b) => new Date(a.scheduled_time).getTime() - new Date(b.scheduled_time).getTime());
+      const fixturesByTeam = new Map(teamIds.map((teamId) => [teamId, [] as PlannerMatch[]]));
+      for (const match of upcoming) {
+        for (const teamId of [match.team_a_id, match.team_b_id]) {
+          if (teamId === null) continue;
+          const teamFixtures = fixturesByTeam.get(teamId);
+          if (teamFixtures && !teamFixtures.some((fixture) => fixture.id === match.id)) {
+            teamFixtures.push(match);
+          }
+        }
+      }
+      setMatchesByTeam(fixturesByTeam);
+      if (hasPartialFailure) {
+        setFixtureError('Some fixture results could not be loaded. Showing the fixtures that were available.');
+      }
+    } catch (loadError: unknown) {
+      if (requestId === fixtureRequestId.current) {
+        setFixtureError(loadError instanceof Error ? loadError.message : 'Failed to load squad fixtures.');
+      }
+    } finally {
+      if (requestId === fixtureRequestId.current) setFixtureLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -124,24 +205,8 @@ export default function SquadPlannerPage() {
         const teamIds = [...new Set((data.ownedPlayers ?? [])
           .map((player) => player.professional_teams?.id)
           .filter((teamId): teamId is number => teamId != null))];
-        const matchResults = await Promise.all(teamIds.map(async (teamId) => {
-          const matchesResponse = await fetchWithAuth(
-            `/api/matches?teamId=${teamId}&status=scheduled&order=asc&limit=100`,
-          );
-          const matchesData = (await matchesResponse.json()) as MatchesResponse;
-          if (!matchesResponse.ok) {
-            throw new Error(matchesData.error || `Unable to load fixtures for team ${teamId}`);
-          }
-          const now = Date.now();
-          const upcoming = (matchesData.matches ?? [])
-            .filter((match) => {
-              const scheduled = new Date(match.scheduled_time).getTime();
-              return Number.isFinite(scheduled) && scheduled >= now;
-            })
-            .sort((a, b) => new Date(a.scheduled_time).getTime() - new Date(b.scheduled_time).getTime());
-          return [teamId, upcoming] as const;
-        }));
-        if (!cancelled) setMatchesByTeam(new Map(matchResults));
+        setLoading(false);
+        void loadFixtures(teamIds);
       } catch (loadError: unknown) {
         if (!cancelled) {
           setError(loadError instanceof Error ? loadError.message : 'Failed to load the squad planner');
@@ -154,8 +219,9 @@ export default function SquadPlannerPage() {
     void loadPlanner();
     return () => {
       cancelled = true;
+      fixtureRequestId.current += 1;
     };
-  }, []);
+  }, [loadFixtures]);
 
   const lineupByPlayer = useMemo(
     () => new Map((context?.lineup ?? []).map((entry) => [entry.player_id, entry])),
@@ -254,7 +320,7 @@ export default function SquadPlannerPage() {
       </header>
 
       <section className="mb-8 grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
-        <div className="rounded-2xl border border-cyan-500/25 bg-gradient-to-br from-cyan-950/40 to-slate-900 p-6">
+        <div className="rounded-2xl border border-cyan-500/25 bg-linear-to-br from-cyan-950/40 to-slate-900 p-6">
           <p className="text-xs font-semibold uppercase tracking-wider text-cyan-300">Planning for</p>
           <h2 className="mt-2 text-2xl font-bold text-white">
             {gameweek ? `Gameweek ${gameweek.gameweekNumber}` : 'No active gameweek'}
@@ -383,6 +449,29 @@ export default function SquadPlannerPage() {
             <h2 className="text-lg font-semibold text-white">Upcoming squad fixtures</h2>
             <p className="mt-1 text-sm text-slate-400">Next scheduled matches for teams represented in your squad.</p>
           </div>
+          {fixtureError && (
+            <div role="alert" className="flex flex-wrap items-center justify-between gap-3 border-b border-amber-500/20 bg-amber-950/20 p-4 text-sm text-amber-200">
+              <p>{fixtureError}</p>
+              <button
+                type="button"
+                onClick={() => {
+                  const teamIds = [...new Set(ownedPlayers
+                    .map((player) => player.professional_teams?.id)
+                    .filter((teamId): teamId is number => teamId != null))];
+                  void loadFixtures(teamIds);
+                }}
+                disabled={fixtureLoading}
+                className="shrink-0 rounded-lg border border-amber-400/40 px-3 py-2 font-semibold text-amber-100 transition-colors hover:bg-amber-400/10 disabled:cursor-wait disabled:opacity-60"
+              >
+                {fixtureLoading ? 'Retrying…' : 'Retry fixtures'}
+              </button>
+            </div>
+          )}
+          {fixtureLoading && (
+            <p role="status" className="border-b border-slate-700/70 p-4 text-sm text-slate-400">
+              Loading upcoming fixtures…
+            </p>
+          )}
           {schedule.length === 0 ? (
             <div className="p-8 text-center text-sm text-slate-400">No upcoming fixtures found for your squad.</div>
           ) : (

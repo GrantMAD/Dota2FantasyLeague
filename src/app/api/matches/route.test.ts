@@ -162,6 +162,32 @@ describe('GET /api/matches server-side filtering and pagination', () => {
     expect(body.matches[0].status).toBe('live');
   });
 
+  it('filters a batch of team schedules in a single match query', async () => {
+    const mock = createSupabaseMock();
+    mockSupabaseServer.mockReturnValue(mock.client);
+
+    const response = await GET(new NextRequest(
+      'http://localhost:3000/api/matches?teamIds=10,11&status=scheduled&order=asc&limit=100',
+    ));
+    const pageQuery = mock.matchCalls.find(({ selectOptions }) => !selectOptions?.head);
+
+    expect(response.status).toBe(200);
+    expect(pageQuery?.operations).toContainEqual([
+      'or',
+      'team_a_id.in.(10,11),team_b_id.in.(10,11)',
+    ]);
+    expect(pageQuery?.operations).toContainEqual(['eq', 'status', 'scheduled']);
+  });
+
+  it('rejects invalid batched team IDs', async () => {
+    const response = await GET(new NextRequest(
+      'http://localhost:3000/api/matches?teamIds=10,invalid&status=scheduled',
+    ));
+
+    expect(response.status).toBe(400);
+    expect(mockSupabaseServer).not.toHaveBeenCalled();
+  });
+
   it('rejects oversized page limits instead of silently truncating results', async () => {
     const response = await GET(new NextRequest('http://localhost:3000/api/matches?limit=101'));
 

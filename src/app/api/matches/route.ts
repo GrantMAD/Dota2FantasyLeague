@@ -70,6 +70,16 @@ function parsePositiveInteger(value: string | null, fallback: number): number | 
   return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : null;
 }
 
+function parsePositiveIntegerList(value: string | null, maxItems: number): number[] | null {
+  if (value === null) return [];
+  const parts = value.split(',');
+  if (parts.length === 0 || parts.length > maxItems) return null;
+  const parsed = parts.map((part) => parsePositiveInteger(part, 0));
+  if (parsed.some((item) => item === null)) return null;
+  const ids = parsed.filter((item): item is number => item !== null);
+  return new Set(ids).size === ids.length ? ids : null;
+}
+
 function escapeLikeTerm(value: string): string {
   return value.replace(/[\\%_]/g, '\\$&');
 }
@@ -82,6 +92,7 @@ function buildMatchQuery(
     gameweekId: number | null;
     tournamentSeriesIds: number[] | null;
     teamId: number | null;
+    teamIds: number[];
     searchTeamIds: number[];
     searchSeriesIds: number[];
     status: string;
@@ -98,6 +109,9 @@ function buildMatchQuery(
   if (filters.tournamentSeriesIds !== null) query = query.in('series_id', filters.tournamentSeriesIds);
   if (filters.teamId !== null) {
     query = query.or(`team_a_id.eq.${filters.teamId},team_b_id.eq.${filters.teamId}`);
+  } else if (filters.teamIds.length > 0) {
+    const teamIds = filters.teamIds.join(',');
+    query = query.or(`team_a_id.in.(${teamIds}),team_b_id.in.(${teamIds})`);
   }
 
   const searchConditions = [
@@ -134,6 +148,8 @@ async function getHandler(request: NextRequest) {
     const gameweekId = parsePositiveInteger(searchParams.get('gameweekId'), 0);
     const tournamentId = parsePositiveInteger(searchParams.get('tournamentId'), 0);
     const teamId = parsePositiveInteger(searchParams.get('teamId'), 0);
+    const teamIdsParam = searchParams.get('teamIds');
+    const teamFilterIds = parsePositiveIntegerList(teamIdsParam, 50);
     const status = searchParams.get('status') ?? 'all';
     const search = (searchParams.get('search') ?? '').trim().slice(0, 80);
     const ascending = searchParams.get('order') === 'asc';
@@ -146,6 +162,8 @@ async function getHandler(request: NextRequest) {
       gameweekId === null ||
       tournamentId === null ||
       teamId === null ||
+      teamFilterIds === null ||
+      (teamIdsParam !== null && teamId > 0) ||
       !VALID_STATUSES.has(status)
     ) {
       return NextResponse.json({ error: 'Invalid match filters or pagination parameters.' }, { status: 400 });
@@ -224,6 +242,7 @@ async function getHandler(request: NextRequest) {
       gameweekId: gameweekId || null,
       tournamentSeriesIds,
       teamId: teamId || null,
+      teamIds: teamFilterIds,
       searchTeamIds,
       searchSeriesIds,
       page,
