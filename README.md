@@ -47,6 +47,12 @@ Required local variables:
 These should stay in .env.local and must not be committed to the repository.
 The shared privileged server client requires SUPABASE_SERVICE_ROLE_KEY and fails explicitly if it is missing; it never falls back to the public anon key.
 
+Professional data provider configuration:
+
+- `NEXT_PUBLIC_DATA_PROVIDER` defaults to `opendota`, which is also explicitly configured as the Vercel production primary.
+- STRATZ is the fallback when `ENABLE_PROVIDER_FALLBACK` is unset or not `false`; configure `STRATZ_API_KEY` to use that fallback.
+- `/api/data/sync-status` reports the effective primary/fallback names and whether fallback is enabled; it never returns provider credentials.
+
 ## Project Structure
 
 - app/src/app for route pages

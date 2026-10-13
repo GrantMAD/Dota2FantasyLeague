@@ -11,6 +11,7 @@ import {
   getMonitoringSummary,
   healthCheck,
 } from '@/lib/jobs/scheduler';
+import { getProviderConfigurationStatus } from '@/lib/data-providers/provider-config';
 import { withApiTelemetry } from '@/lib/api-telemetry';
 
 
@@ -20,11 +21,13 @@ async function getHandler() {
     const health = await healthCheck();
     const recentRuns = getJobHistory(undefined, 10);
     const monitoring = getMonitoringSummary();
+    const providerConfiguration = getProviderConfigurationStatus();
 
     return Response.json({
       success: true,
       health,
       monitoring,
+      providerConfiguration,
       latestRuns: statuses,
       recentRuns,
       timestamp: new Date(),

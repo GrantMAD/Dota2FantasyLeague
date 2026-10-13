@@ -10,7 +10,7 @@ import { StratzProvider } from './stratz-provider';
 import { OpenDotaProvider } from './opendota-provider';
 import { ResilientDataProvider } from './resilient-provider';
 
-type ProviderType = 'stratz' | 'opendota';
+export type ProviderType = 'stratz' | 'opendota';
 
 interface ProviderConfig {
   primary: ProviderType;
@@ -123,6 +123,19 @@ export function resetProvider() {
 export function getAvailableProviders(): ProviderType[] {
   const config = buildProviderConfig();
   return config.fallback ? [config.primary, config.fallback] : [config.primary];
+}
+
+export function getProviderConfigurationStatus(): {
+  primary: ProviderType;
+  fallback: ProviderType | null;
+  fallbackEnabled: boolean;
+} {
+  const config = buildProviderConfig();
+  return {
+    primary: config.primary,
+    fallback: config.fallback ?? null,
+    fallbackEnabled: config.fallback !== undefined,
+  };
 }
 
 function buildProviderConfig(): ProviderConfig {

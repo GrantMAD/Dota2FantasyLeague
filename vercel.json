@@ -15,7 +15,7 @@
     "SUPABASE_SERVICE_ROLE_KEY": "@supabase_service_role_key",
     "STRATZ_API_KEY": "@stratz_api_key",
     "STRATZ_API_URL": "https://api.stratz.com/graphql",
-    "NEXT_PUBLIC_DATA_PROVIDER": "stratz",
+    "NEXT_PUBLIC_DATA_PROVIDER": "opendota",
     "CRON_SECRET": "@cron_secret",
     "ENABLE_PLAYER_SYNC": "true",
     "ENABLE_TEAM_SYNC": "true",
