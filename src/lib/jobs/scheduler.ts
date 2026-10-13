@@ -35,7 +35,7 @@ import { purgeInactiveData } from './purge-inactive-data';
 import { autoResolveConflicts } from './auto-resolve-conflicts';
 import { purgeInteractionTelemetry } from './purge-interaction-telemetry';
 import { matchesCronSchedule } from './job-schedule';
-import { getHandlerFailure } from './job-result';
+import { runJobWithRetry } from './job-runner';
 import {
   acquireDistributedJobLock,
   releaseDistributedJobLock,
@@ -87,6 +87,9 @@ interface JobResult {
   result?: unknown;
   error?: string;
   duration?: number;
+  attemptCount?: number;
+  retryCount?: number;
+  isDeadLetter?: boolean;
 }
 
 const JOBS: JobDefinition[] = [
@@ -270,8 +273,12 @@ async function persistJobExecution(result: JobResult): Promise<void> {
       status: result.status,
       started_at: result.startedAt.toISOString(),
       completed_at: result.completedAt ? result.completedAt.toISOString() : null,
+      retry_count: result.retryCount ?? 0,
+      next_retry_at: null,
+      is_dead_letter: result.isDeadLetter ?? false,
       metadata: {
         duration_ms: result.duration ?? null,
+        attempt_count: result.attemptCount ?? 1,
         result: result.result ?? null,
       },
       error_message: result.error ?? null,
@@ -434,7 +441,11 @@ export async function runJob(jobName: JobName, options?: JobRunOptions): Promise
 
   const stopLockHeartbeat = () => clearInterval(lockHeartbeat);
   let timeoutHandle: ReturnType<typeof setTimeout> | undefined;
-  const handlerPromise = Promise.resolve().then(() => jobDef.handler(options));
+  const handlerPromise = Promise.resolve().then(() => runJobWithRetry(
+    jobName,
+    () => jobDef.handler(options),
+    { maxDurationMs: jobDef.timeout }
+  ));
   const settledHandler = handlerPromise.then(
     (value) => ({ status: 'completed' as const, value }),
     (error: unknown) => ({ status: 'failed' as const, error })
@@ -477,12 +488,14 @@ export async function runJob(jobName: JobName, options?: JobRunOptions): Promise
     result.error = outcome.error instanceof Error ? outcome.error.message : String(outcome.error);
     console.error(`[Scheduler] Job ${jobName} failed:`, outcome.error);
   } else {
-    result.result = outcome.value;
-    const handlerFailure = getHandlerFailure(outcome.value);
-    if (handlerFailure) {
+    result.result = outcome.value.result;
+    result.attemptCount = outcome.value.attempts;
+    result.retryCount = outcome.value.retryCount;
+    result.isDeadLetter = outcome.value.isDeadLetter;
+    if (outcome.value.error) {
       result.status = 'failed';
-      result.error = handlerFailure;
-      console.error(`[Scheduler] Job ${jobName} reported a failed result:`, handlerFailure);
+      result.error = outcome.value.error;
+      console.error(`[Scheduler] Job ${jobName} failed after ${outcome.value.attempts} attempts:`, outcome.value.error);
     } else {
       result.status = 'completed';
       console.log(`[Scheduler] Job ${jobName} completed successfully`);

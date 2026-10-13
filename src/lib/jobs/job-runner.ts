@@ -1,120 +1,107 @@
-import { createClient } from '@supabase/supabase-js';
+import { getHandlerFailure } from './job-result';
 
-const MAX_RETRIES = 3;
-const BASE_DELAY_MS = 5000; // 5 seconds base, doubles each retry
+const MAX_ATTEMPTS = 3;
+const BASE_DELAY_MS = 5000;
 
-export interface JobRunResult {
-  success: boolean;
-  errors: string[];
-  duration: number;
-  [key: string]: unknown;
+export interface JobRetryOptions {
+  maxAttempts?: number;
+  baseDelayMs?: number;
+  maxDurationMs?: number;
+}
+
+export interface JobRetryOutcome<T> {
+  result?: T;
+  attempts: number;
+  retryCount: number;
+  error?: string;
+  isDeadLetter: boolean;
+}
+
+function wait(delayMs: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, delayMs));
+}
+
+function formatError(error: unknown): string {
+  if (error instanceof Error) return error.message;
+  if (
+    typeof error === 'object' &&
+    error !== null &&
+    'message' in error &&
+    typeof error.message === 'string'
+  ) {
+    return error.message;
+  }
+  return String(error);
 }
 
 /**
- * Wraps a background job execution with:
- * - Automatic logging to job_execution_log
- * - Exponential backoff retry on failure
- * - Dead-letter state after MAX_RETRIES exhausted
+ * Runs a scheduled job with bounded exponential-backoff retries.
+ * The scheduler owns execution logging, so every attempt is recorded in one
+ * final execution row rather than creating competing rows per attempt.
  */
-export async function runJobWithRetry(
+export async function runJobWithRetry<T>(
   jobName: string,
-  jobFn: () => Promise<JobRunResult>
-): Promise<JobRunResult> {
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL || '',
-    process.env.SUPABASE_SERVICE_ROLE_KEY || ''
-  );
-
-  const startedAt = new Date();
-
-  // Check if there is a failed job ready to retry
-  const { data: existingJob } = await (supabase
-    // The generated local schema does not include this table.
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    .from('job_execution_log') as any)
-    .select('id, retry_count')
-    .eq('job_name', jobName)
-    .eq('status', 'failed')
-    .eq('is_dead_letter', false)
-    .lte('next_retry_at', new Date().toISOString())
-    .order('started_at', { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
-  const retryCount = existingJob?.retry_count ?? 0;
-
-  // Create a new log entry for this execution
-  const { data: logEntry } = await (supabase
-    // The generated local schema does not include this table.
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    .from('job_execution_log') as any)
-    .insert({
-      job_name: jobName,
-      status: 'running',
-      started_at: startedAt.toISOString(),
-      retry_count: retryCount,
-    })
-    .select('id')
-    .single();
-
-  const logId = logEntry?.id;
-
-  try {
-    const result = await jobFn();
-    const completedAt = new Date();
-
-    // Mark the job as completed
-    if (logId) {
-      // The generated local schema does not include this table.
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await (supabase.from('job_execution_log') as any).update({
-        status: result.success ? 'completed' : 'failed',
-        completed_at: completedAt.toISOString(),
-        metadata: { ...result },
-        error_message: result.errors.length > 0 ? result.errors.join('; ') : null,
-      }).eq('id', logId);
-    }
-
-    return result;
-  } catch (error: unknown) {
-    const completedAt = new Date();
-    const newRetryCount = retryCount + 1;
-    const isDeadLetter = newRetryCount >= MAX_RETRIES;
-
-    // Exponential backoff: 5s, 10s, 20s
-    const backoffMs = BASE_DELAY_MS * Math.pow(2, newRetryCount - 1);
-    const nextRetryAt = isDeadLetter
-      ? null
-      : new Date(completedAt.getTime() + backoffMs).toISOString();
-
-    const errorDetails = error && typeof error === 'object'
-      ? error as { message?: unknown; stack?: string; name?: string }
-      : undefined;
-    const errorMessage = typeof errorDetails?.message === 'string' ? errorDetails.message : 'Unknown error';
-
-    if (logId) {
-      // The generated local schema does not include this table.
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await (supabase.from('job_execution_log') as any).update({
-        status: 'failed',
-        completed_at: completedAt.toISOString(),
-        error_message: errorMessage,
-        error_details: { stack: errorDetails?.stack, name: errorDetails?.name },
-        retry_count: newRetryCount,
-        next_retry_at: nextRetryAt,
-        is_dead_letter: isDeadLetter,
-      }).eq('id', logId);
-    }
-
-    console.error(`[JobRunner] ${jobName} failed (attempt ${newRetryCount}/${MAX_RETRIES}): ${errorMessage}`);
-    if (isDeadLetter) {
-      console.error(`[JobRunner] ${jobName} moved to dead-letter after ${MAX_RETRIES} attempts.`);
-    }
-
-    return {
-      success: false,
-      errors: [errorMessage],
-      duration: completedAt.getTime() - startedAt.getTime(),
-    };
+  jobFn: () => Promise<T>,
+  options: JobRetryOptions = {}
+): Promise<JobRetryOutcome<T>> {
+  const maxAttempts = options.maxAttempts ?? MAX_ATTEMPTS;
+  const baseDelayMs = options.baseDelayMs ?? BASE_DELAY_MS;
+  const maxDurationMs = options.maxDurationMs ?? Number.POSITIVE_INFINITY;
+  if (!Number.isSafeInteger(maxAttempts) || maxAttempts < 1) {
+    throw new Error('Job retry maxAttempts must be a positive integer');
   }
+  if (!Number.isFinite(baseDelayMs) || baseDelayMs < 0) {
+    throw new Error('Job retry baseDelayMs must be a non-negative finite number');
+  }
+  if (Number.isNaN(maxDurationMs) || maxDurationMs < 0) {
+    throw new Error('Job retry maxDurationMs must be a non-negative number');
+  }
+  const startedAt = Date.now();
+  let lastResult: T | undefined;
+  let lastError: string | undefined;
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    try {
+      lastResult = await jobFn();
+      lastError = getHandlerFailure(lastResult) ?? undefined;
+    } catch (error: unknown) {
+      lastError = formatError(error);
+    }
+
+    if (!lastError) {
+      return {
+        result: lastResult,
+        attempts: attempt,
+        retryCount: attempt - 1,
+        isDeadLetter: false,
+      };
+    }
+
+    console.warn(`[JobRunner] ${jobName} failed (attempt ${attempt}/${maxAttempts}): ${lastError}`);
+    if (attempt === maxAttempts) {
+      console.error(`[JobRunner] ${jobName} moved to dead-letter after ${maxAttempts} attempts.`);
+      return {
+        result: lastResult,
+        attempts: attempt,
+        retryCount: attempt,
+        error: lastError,
+        isDeadLetter: true,
+      };
+    }
+
+    const delayMs = baseDelayMs * Math.pow(2, attempt - 1);
+    if (Date.now() - startedAt + delayMs >= maxDurationMs) {
+      return {
+        result: lastResult,
+        attempts: attempt,
+        retryCount: attempt,
+        error: lastError,
+        isDeadLetter: false,
+      };
+    }
+
+    await wait(delayMs);
+  }
+
+  throw new Error('Job retry loop exited without a result');
 }
