@@ -22,12 +22,18 @@ export function getSupabaseServerClient(): any {
   }
 
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  // Use service role key on the server to bypass RLS for background workers and system jobs
-  const serverKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  // This helper is for privileged server operations and must never silently use the public key.
+  const serverKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-  if (!url || !serverKey) {
+  if (!url) {
     throw new Error(
-      'Missing Supabase environment variables: NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY'
+      'Missing Supabase environment variable: NEXT_PUBLIC_SUPABASE_URL'
+    );
+  }
+
+  if (!serverKey) {
+    throw new Error(
+      'Missing Supabase environment variable: SUPABASE_SERVICE_ROLE_KEY. The privileged server client requires this key.'
     );
   }
 

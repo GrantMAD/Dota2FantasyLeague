@@ -45,6 +45,7 @@ Required local variables:
 - SUPABASE_SERVICE_ROLE_KEY
 
 These should stay in .env.local and must not be committed to the repository.
+The shared privileged server client requires SUPABASE_SERVICE_ROLE_KEY and fails explicitly if it is missing; it never falls back to the public anon key.
 
 ## Project Structure
 
