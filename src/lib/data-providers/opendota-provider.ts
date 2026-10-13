@@ -118,7 +118,7 @@ export class OpenDotaProvider extends DataProviderBase implements DataProvider {
 
   private config: OpenDotaConfig;
   private apiUrl: string;
-  private lastRequestTime = 0;
+  private nextRequestAt = 0;
   private minRequestInterval: number;
 
   constructor(config: OpenDotaConfig = {}) {
@@ -582,14 +582,11 @@ export class OpenDotaProvider extends DataProviderBase implements DataProvider {
     queryParams?: Record<string, string | number | undefined>
   ): Promise<T> {
     return this.retry(async () => {
-      // Rate limiting
-      const timeSinceLastRequest = Date.now() - this.lastRequestTime;
-      if (timeSinceLastRequest < this.minRequestInterval) {
-        await new Promise(resolve =>
-          setTimeout(resolve, this.minRequestInterval - timeSinceLastRequest)
-        );
-      }
-      this.lastRequestTime = Date.now();
+      const now = Date.now();
+      const requestAt = Math.max(now, this.nextRequestAt);
+      this.nextRequestAt = requestAt + this.minRequestInterval;
+      const waitMs = requestAt - now;
+      if (waitMs > 0) await new Promise((resolve) => setTimeout(resolve, waitMs));
 
       const url = new URL(this.apiUrl + endpoint);
       if (queryParams) {

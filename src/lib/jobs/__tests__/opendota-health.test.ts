@@ -36,4 +36,23 @@ describe('OpenDota health check', () => {
       resetAt: null,
     });
   });
+
+  it('reserves spaced request slots for concurrent calls on the same provider instance', async () => {
+    const requestTimes: number[] = [];
+    jest.spyOn(global, 'fetch').mockImplementation(async () => {
+      requestTimes.push(Date.now());
+      return new Response('[]', { status: 200 });
+    });
+    const intervalMs = 25;
+    const provider = new OpenDotaProvider({
+      apiUrl: 'https://opendota.example/api',
+      rateLimit: { requestsPerMinute: 60_000 / intervalMs },
+    });
+
+    await Promise.all([provider.fetchTeams(), provider.fetchTeams(), provider.fetchTeams()]);
+
+    expect(requestTimes).toHaveLength(3);
+    expect(requestTimes[1] - requestTimes[0]).toBeGreaterThanOrEqual(intervalMs - 2);
+    expect(requestTimes[2] - requestTimes[1]).toBeGreaterThanOrEqual(intervalMs - 2);
+  });
 });
