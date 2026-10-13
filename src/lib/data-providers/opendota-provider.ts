@@ -571,9 +571,9 @@ export class OpenDotaProvider extends DataProviderBase implements DataProvider {
 
   async getRateLimitStatus() {
     return {
-      remaining: 1000,
-      limit: 1000,
-      resetAt: new Date(),
+      remaining: null,
+      limit: null,
+      resetAt: null,
     };
   }
 

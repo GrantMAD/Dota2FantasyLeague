@@ -26,4 +26,14 @@ describe('OpenDota health check', () => {
     jest.spyOn(global, 'fetch').mockRejectedValue(new Error('network failure'));
     await expect(provider.healthCheck()).resolves.toBe(false);
   });
+
+  it('reports quota values as unavailable when OpenDota does not expose measurements', async () => {
+    const provider = new OpenDotaProvider();
+
+    await expect(provider.getRateLimitStatus()).resolves.toEqual({
+      remaining: null,
+      limit: null,
+      resetAt: null,
+    });
+  });
 });

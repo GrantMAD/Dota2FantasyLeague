@@ -94,9 +94,9 @@ export class ResilientDataProvider implements DataProvider {
   }
 
   async getRateLimitStatus(): Promise<{
-    remaining: number;
-    limit: number;
-    resetAt: Date;
+    remaining: number | null;
+    limit: number | null;
+    resetAt: Date | null;
   }> {
     return this.execute('getRateLimitStatus', (provider) => provider.getRateLimitStatus());
   }

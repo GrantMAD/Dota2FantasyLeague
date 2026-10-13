@@ -193,12 +193,13 @@ export interface DataProvider {
   ): Promise<RosterChangeData[]>;
 
   /**
-   * Get provider-specific rate limit info
+   * Get provider-specific rate limit info. Null values indicate that the
+   * provider does not expose a measurable quota through its API.
    */
   getRateLimitStatus(): Promise<{
-    remaining: number;
-    limit: number;
-    resetAt: Date;
+    remaining: number | null;
+    limit: number | null;
+    resetAt: Date | null;
   }>;
 }
 

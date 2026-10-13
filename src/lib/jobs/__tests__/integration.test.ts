@@ -172,7 +172,9 @@ describe('Data Provider Integration Tests', () => {
       expect(rateLimitStatus.limit).toBeDefined();
       expect(rateLimitStatus.remaining).toBeDefined();
       expect(rateLimitStatus.resetAt).toBeDefined();
-      expect(rateLimitStatus.remaining).toBeLessThanOrEqual(rateLimitStatus.limit);
+      if (rateLimitStatus.remaining !== null && rateLimitStatus.limit !== null) {
+        expect(rateLimitStatus.remaining).toBeLessThanOrEqual(rateLimitStatus.limit);
+      }
     });
   });
 
