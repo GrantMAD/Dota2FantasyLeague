@@ -112,6 +112,9 @@ body {
 .hover\:bg-amber-500:hover { background-color: #14b8a6 !important; }
 .hover\:text-amber-500:hover { color: #14b8a6 !important; }
 .focus\:border-amber-500:focus { border-color: #14b8a6 !important; }
+.hover\:from-amber-400:hover { --tw-gradient-from: #2dd4bf !important; }
+.hover\:to-orange-500:hover { --tw-gradient-to: #06b6d4 !important; }
+
 
 /* ─── What's New panel ─────────────────────────────────────────────────────── */
 @keyframes wn-enter {
