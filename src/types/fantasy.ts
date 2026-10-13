@@ -140,6 +140,7 @@ export interface LeagueStanding {
  */
 export interface DashboardData {
   fantasySeasonId?: number | null;
+  displayName?: string | null;
   activeSquadCount: number;
   squadValue: number;
   bankBalance: number;

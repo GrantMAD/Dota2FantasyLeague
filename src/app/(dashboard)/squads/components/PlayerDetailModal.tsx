@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRef } from 'react';
 import { X, ExternalLink } from 'lucide-react';
 import { useAccessibleDialog } from '@/components/use-accessible-dialog';
+import type { ScoreBreakdown } from '@/types/fantasy';
 import type { SquadPlayer } from './SquadPlayerCard';
 
 type PlayerPerformance = {
@@ -26,9 +27,22 @@ interface PlayerDetailModalProps {
   player: PlayerDetails | null;
   loading: boolean;
   onClose: () => void;
+  scoreBreakdown?: ScoreBreakdown | null;
 }
 
-export function PlayerDetailModal({ player, loading, onClose }: PlayerDetailModalProps) {
+const SCORE_CATEGORIES = [
+  ['Combat', 'combat'],
+  ['Economy', 'economy'],
+  ['Objective', 'objective'],
+  ['Teamfight', 'teamfight'],
+  ['Win', 'win'],
+  ['Series', 'series'],
+  ['Performance', 'performance'],
+  ['Consistency', 'consistency'],
+  ['Penalty', 'penalty'],
+] as const;
+
+export function PlayerDetailModal({ player, loading, onClose, scoreBreakdown }: PlayerDetailModalProps) {
   const closeButtonRef = useRef<HTMLButtonElement>(null);
   const dialogRef = useAccessibleDialog<HTMLDivElement>({
     open: Boolean(player) && !loading,
@@ -139,6 +153,40 @@ export function PlayerDetailModal({ player, loading, onClose }: PlayerDetailModa
             </p>
           </div>
         </div>
+
+        {scoreBreakdown !== undefined && (
+          <section aria-labelledby="player-score-breakdown-title" className="mt-6">
+            <div className="mb-3 flex items-center justify-between">
+              <h3 id="player-score-breakdown-title" className="text-xs font-bold uppercase tracking-widest text-slate-400">
+                Gameweek Score Breakdown
+              </h3>
+              {scoreBreakdown && (
+                <span className="font-mono text-sm font-black text-teal-300">
+                  {scoreBreakdown.total.toFixed(2)} pts
+                </span>
+              )}
+            </div>
+            {scoreBreakdown ? (
+              <dl className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                {SCORE_CATEGORIES.map(([label, key]) => {
+                  const value = scoreBreakdown[key];
+                  return (
+                    <div key={key} className="flex items-center justify-between gap-2 rounded-xl border border-slate-700/80 bg-slate-800/50 px-3 py-2">
+                      <dt className="text-xs text-slate-400">{label}</dt>
+                      <dd className={`font-mono text-xs font-semibold ${value < 0 ? 'text-rose-400' : 'text-white'}`}>
+                        {value >= 0 ? '+' : ''}{value.toFixed(2)}
+                      </dd>
+                    </div>
+                  );
+                })}
+              </dl>
+            ) : (
+              <p className="rounded-xl border border-dashed border-slate-700 bg-slate-800/30 p-4 text-center text-xs text-slate-400">
+                No fantasy points have been recorded for this player this gameweek.
+              </p>
+            )}
+          </section>
+        )}
 
         {/* Unavailable Explanation Callout */}
         {player.availability_status && player.availability_status !== 'available' && (

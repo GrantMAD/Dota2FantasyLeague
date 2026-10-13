@@ -4,10 +4,7 @@ import Link from 'next/link';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import {
-  UserCheck,
-  ArrowLeftRight,
   Trophy,
-  UserRound,
   Users,
   DollarSign,
   Wallet,
@@ -18,7 +15,6 @@ import {
   AlertTriangle,
   TrendingUp,
   Shield,
-  Info,
   Calendar,
   Clock,
   ChevronDown,
@@ -26,17 +22,13 @@ import {
 } from 'lucide-react';
 import { fetchWithAuth } from '@/lib/fetch-with-auth';
 import { useToast } from '@/components/Toast';
-import type { DashboardData } from '@/types/fantasy';
+import type { DashboardData, DashboardStarter, ScoreBreakdown } from '@/types/fantasy';
 import { PlayerDetailModal, type PlayerDetails } from '@/app/(dashboard)/squads/components/PlayerDetailModal';
 import { TotalPointsModal } from './components/TotalPointsModal';
-
-interface StatCard {
-  icon: React.ReactNode;
-  label: string;
-  value: string | number;
-  trend?: string;
-  trendColor?: string;
-}
+import { DashboardQuickActions } from './components/DashboardQuickActions';
+import { DashboardStatCards, type DashboardStatCardData } from './components/DashboardStatCards';
+import { DashboardStarterCard } from './components/DashboardStarterCard';
+import { EmptySquadState } from './components/EmptySquadState';
 
 interface WhatsNewEvent {
   kind: 'tournament';
@@ -122,9 +114,10 @@ export default function DashboardPage() {
   const toast = useToast();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [stats, setStats] = useState<StatCard[]>([]);
+  const [stats, setStats] = useState<DashboardStatCardData[]>([]);
   const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
   const [selectedPlayer, setSelectedPlayer] = useState<PlayerDetails | null>(null);
+  const [selectedScoreBreakdown, setSelectedScoreBreakdown] = useState<ScoreBreakdown | null | undefined>(undefined);
   const [playerLoading, setPlayerLoading] = useState(false);
   const [showPointsBreakdown, setShowPointsBreakdown] = useState(false);
   const [whatsNew, setWhatsNew] = useState<WhatsNewData | null>(null);
@@ -133,10 +126,11 @@ export default function DashboardPage() {
   const [tournamentsExpanded, setTournamentsExpanded] = useState(false);
   const [playersExpanded, setPlayersExpanded] = useState(false);
 
-  const openPlayerDetails = async (playerId: number) => {
+  const openPlayerDetails = async (starter: DashboardStarter) => {
+    setSelectedScoreBreakdown(starter.score_breakdown ?? null);
     setPlayerLoading(true);
     try {
-      const response = await fetchWithAuth(`/api/players/${playerId}`);
+      const response = await fetchWithAuth(`/api/players/${starter.id}`);
       if (!response.ok) throw new Error('Unable to load player details');
       const data = (await response.json()) as { player: PlayerDetails };
       setSelectedPlayer(data.player);
@@ -246,6 +240,11 @@ export default function DashboardPage() {
   }, []);
 
   const countdown = useCountdown(whatsNew?.gameweek?.deadline);
+  const hasTournamentUpdates = (whatsNew?.events.length ?? 0) > 0;
+  const hasPlayerUpdates = (whatsNew?.updates.length ?? 0) > 0;
+  const activeWhatsNewTab: WhatsNewTab = whatsNewTab === 'tournaments'
+    ? hasTournamentUpdates || !hasPlayerUpdates ? 'tournaments' : 'players'
+    : hasPlayerUpdates || !hasTournamentUpdates ? 'players' : 'tournaments';
 
   const formatUtcDate = (date: string) =>
     new Intl.DateTimeFormat('en', {
@@ -276,7 +275,7 @@ export default function DashboardPage() {
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8">
             <div>
               <h1 className="dashboard-hero-title text-3xl md:text-4xl font-bold text-white mb-2">
-                Welcome to Fantasy Dota 2
+                Welcome back{dashboardData?.displayName ? `, ${dashboardData.displayName}` : ''}
               </h1>
               <p className="text-slate-400 text-lg">
                 Manage your fantasy squads and compete with players worldwide
@@ -308,61 +307,10 @@ export default function DashboardPage() {
               ))}
             </div>
           ) : (
-            <div data-guide="dashboard-stats" data-tour="dashboard-stats" className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
-              {stats.map((stat, idx) => (
-                stat.label === 'Squad Value' ? (
-                  <Link
-                    key={idx}
-                    href="/squads"
-                    aria-label={`Squad Value: ${stat.value}. Go to squads`}
-                    className="group w-full rounded-lg border border-slate-700 bg-slate-800/50 p-4 text-left transition-all hover:border-emerald-500/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400"
-                  >
-                    <div className="mb-3 flex items-start justify-between">
-                      <div className="flex items-center justify-center rounded-lg border border-slate-700/60 bg-slate-900/60 p-2.5 transition-colors group-hover:border-emerald-500/40">
-                        {stat.icon}
-                      </div>
-                      <ArrowRight aria-hidden="true" className="h-4 w-4 text-slate-500 transition-all group-hover:translate-x-1 group-hover:text-emerald-300" />
-                    </div>
-                    <p className="mb-1 text-sm text-slate-400">{stat.label}</p>
-                    <p className="mb-2 text-2xl font-bold text-white">{stat.value}</p>
-                    {stat.trend && <p className={`text-xs ${stat.trendColor}`}>{stat.trend} · View squads</p>}
-                  </Link>
-                ) : stat.label === 'Total Points' ? (
-                  <button
-                    key={idx}
-                    type="button"
-                    onClick={() => setShowPointsBreakdown(true)}
-                    aria-haspopup="dialog"
-                    aria-expanded={showPointsBreakdown}
-                    className="w-full cursor-pointer rounded-lg border border-slate-700 bg-slate-800/50 p-4 text-left transition-all group hover:border-amber-500/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400"
-                  >
-                    <div className="mb-3 flex items-start justify-between">
-                      <div className="flex items-center justify-center rounded-lg border border-slate-700/60 bg-slate-900/60 p-2.5 transition-colors group-hover:border-amber-500/40">
-                        {stat.icon}
-                      </div>
-                      <Info aria-hidden="true" className="h-4 w-4 text-slate-500 transition-colors group-hover:text-amber-300" />
-                    </div>
-                    <p className="mb-1 text-sm text-slate-400">{stat.label}</p>
-                    <p className="mb-2 text-2xl font-bold text-white">{stat.value}</p>
-                    {stat.trend && <p className={`text-xs ${stat.trendColor}`}>{stat.trend} · View breakdown</p>}
-                  </button>
-                ) : (
-                  <div
-                    key={idx}
-                    className="group rounded-lg border border-slate-700 bg-slate-800/50 p-4 transition-all hover:border-slate-600"
-                  >
-                    <div className="mb-3 flex items-start justify-between">
-                      <div className="flex items-center justify-center rounded-lg border border-slate-700/60 bg-slate-900/60 p-2.5 transition-colors group-hover:border-slate-600">
-                        {stat.icon}
-                      </div>
-                    </div>
-                    <p className="mb-1 text-sm text-slate-400">{stat.label}</p>
-                    <p className="mb-2 text-2xl font-bold text-white">{stat.value}</p>
-                    {stat.trend && <p className={`text-xs ${stat.trendColor}`}>{stat.trend}</p>}
-                  </div>
-                )
-              ))}
-            </div>
+            <DashboardStatCards
+              stats={stats}
+              onOpenPointsBreakdown={() => setShowPointsBreakdown(true)}
+            />
           )}
         </div>
       </section>
@@ -441,8 +389,8 @@ export default function DashboardPage() {
                       role="tab"
                       id="wn-tab-tournaments"
                       aria-controls="wn-panel-tournaments"
-                      aria-selected={whatsNewTab === 'tournaments'}
-                      className={`wn-tab ${whatsNewTab === 'tournaments' ? 'wn-tab--active' : ''}`}
+                      aria-selected={activeWhatsNewTab === 'tournaments'}
+                      className={`wn-tab ${activeWhatsNewTab === 'tournaments' ? 'wn-tab--active' : ''}`}
                       onClick={() => setWhatsNewTab('tournaments')}
                     >
                       <Trophy className="h-3.5 w-3.5" aria-hidden="true" />
@@ -455,8 +403,8 @@ export default function DashboardPage() {
                       role="tab"
                       id="wn-tab-players"
                       aria-controls="wn-panel-players"
-                      aria-selected={whatsNewTab === 'players'}
-                      className={`wn-tab ${whatsNewTab === 'players' ? 'wn-tab--active' : ''}`}
+                      aria-selected={activeWhatsNewTab === 'players'}
+                      className={`wn-tab ${activeWhatsNewTab === 'players' ? 'wn-tab--active' : ''}`}
                       onClick={() => setWhatsNewTab('players')}
                     >
                       <TrendingUp className="h-3.5 w-3.5" aria-hidden="true" />
@@ -472,7 +420,7 @@ export default function DashboardPage() {
                     role="tabpanel"
                     id="wn-panel-tournaments"
                     aria-labelledby="wn-tab-tournaments"
-                    hidden={whatsNewTab !== 'tournaments'}
+                    hidden={activeWhatsNewTab !== 'tournaments'}
                     className="wn-tab-content"
                   >
                     <div className="wn-list">
@@ -532,7 +480,7 @@ export default function DashboardPage() {
                     role="tabpanel"
                     id="wn-panel-players"
                     aria-labelledby="wn-tab-players"
-                    hidden={whatsNewTab !== 'players'}
+                    hidden={activeWhatsNewTab !== 'players'}
                     className="wn-tab-content"
                   >
                     <div className="wn-list">
@@ -597,62 +545,21 @@ export default function DashboardPage() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Primary Actions */}
           <div className="lg:col-span-2">
-            <div className="mb-8">
-              <h2 className="text-2xl font-bold text-white mb-6">Quick Actions</h2>
-              <div data-guide="dashboard-actions" data-tour="dashboard-actions" className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <Link
-                  href="/lineups"
-                  className="bg-slate-800/50 border border-slate-700 rounded-lg p-6 hover:border-amber-500/50 hover:bg-slate-800 transition-all group"
-                >
-                  <div className="mb-3 text-amber-400 group-hover:scale-110 transition-transform inline-block">
-                    <UserCheck className="w-8 h-8" />
-                  </div>
-                  <h3 className="text-lg font-semibold text-white mb-2 group-hover:text-amber-500">
-                    Set Lineup
-                  </h3>
-                  <p className="text-slate-400 text-sm">Choose your starting XI and captain</p>
-                </Link>
-
-                <Link
-                  href="/transfers"
-                  className="bg-slate-800/50 border border-slate-700 rounded-lg p-6 hover:border-amber-500/50 hover:bg-slate-800 transition-all group"
-                >
-                  <div className="mb-3 text-amber-400 group-hover:scale-110 transition-transform inline-block">
-                    <ArrowLeftRight className="w-8 h-8" />
-                  </div>
-                  <h3 className="text-lg font-semibold text-white mb-2 group-hover:text-amber-500">
-                    Transfer Market
-                  </h3>
-                  <p className="text-slate-400 text-sm">Buy and sell players to optimize squad</p>
-                </Link>
-
-                <Link
-                  href="/leagues"
-                  className="bg-slate-800/50 border border-slate-700 rounded-lg p-6 hover:border-amber-500/50 hover:bg-slate-800 transition-all group"
-                >
-                  <div className="mb-3 text-amber-400 group-hover:scale-110 transition-transform inline-block">
-                    <Trophy className="w-8 h-8" />
-                  </div>
-                  <h3 className="text-lg font-semibold text-white mb-2 group-hover:text-amber-500">
-                    Leagues
-                  </h3>
-                  <p className="text-slate-400 text-sm">View leagues and compete with friends</p>
-                </Link>
-
-                <Link
-                  href="/players"
-                  className="bg-slate-800/50 border border-slate-700 rounded-lg p-6 hover:border-amber-500/50 hover:bg-slate-800 transition-all group"
-                >
-                  <div className="mb-3 text-amber-400 group-hover:scale-110 transition-transform inline-block">
-                    <UserRound className="w-8 h-8" />
-                  </div>
-                  <h3 className="text-lg font-semibold text-white mb-2 group-hover:text-amber-500">
-                    Players
-                  </h3>
-                  <p className="text-slate-400 text-sm">Browse player stats and performance</p>
-                </Link>
+            {loading ? (
+              <div className="mb-8 grid grid-cols-1 gap-4 md:grid-cols-2">
+                {[0, 1, 2, 3].map((item) => (
+                  <div key={item} className="h-36 animate-pulse rounded-lg border border-slate-700 bg-slate-800/50" />
+                ))}
               </div>
-            </div>
+            ) : dashboardData ? (
+              <DashboardQuickActions
+                activeSquadCount={dashboardData.activeSquadCount}
+                bankBalance={Number(dashboardData.bankBalance)}
+                freeTransfers={dashboardData.freeTransfers}
+                deadlineCountdown={countdown}
+                hasLeagues={dashboardData.leagueStandings.length > 0}
+              />
+            ) : null}
 
             {/* Squads Status Section */}
             {loading ? (
@@ -661,22 +568,8 @@ export default function DashboardPage() {
                 <div className="h-5 w-48 bg-slate-700/60 rounded mx-auto mb-2" />
                 <div className="h-4 w-64 bg-slate-700/40 rounded mx-auto" />
               </div>
-            ) : !dashboardData?.activeSquadCount ? (
-              <div className="bg-slate-800/30 border border-slate-700 rounded-lg p-8 text-center">
-                <div className="w-16 h-16 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center mx-auto mb-4 text-slate-500">
-                  <Shield className="w-8 h-8" />
-                </div>
-                <h3 className="text-xl font-semibold text-white mb-2">No Active Squads</h3>
-                <p className="text-slate-400 mb-6">
-                  Create or select a squad to get started with your fantasy league
-                </p>
-                <Link
-                  href="/squads"
-                  className="inline-block bg-linear-to-r from-amber-500 to-orange-600 text-white px-6 py-2 rounded-lg font-semibold hover:shadow-lg hover:shadow-orange-500/20 transition-all"
-                >
-                  Create Squad
-                </Link>
-              </div>
+            ) : !dashboardData ? null : !dashboardData.activeSquadCount ? (
+              <EmptySquadState />
             ) : (
               <div className="rounded-2xl p-5 shadow-sm"
                 style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
@@ -742,190 +635,19 @@ export default function DashboardPage() {
                 </div>
 
                 {dashboardData.starters && dashboardData.starters.length > 0 ? (
-                  <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-                    {[...dashboardData.starters].sort((a, b) => {
-                      const getRank = (p: typeof a) => {
-                        if (p.is_captain) return 0;
-                        if (p.is_vice_captain) return 1;
-                        return 2;
-                      };
-                      return getRank(a) - getRank(b);
-                    }).map((player) => {
-                      const roleColours: Record<string, { bg: string; text: string; border: string }> = {
-                        carry:        { bg: 'rgba(251,113,133,0.12)', text: '#fb7185', border: 'rgba(251,113,133,0.28)' },
-                        mid:          { bg: 'rgba(251,191,36,0.12)',  text: '#f59e0b', border: 'rgba(251,191,36,0.28)' },
-                        offlane:      { bg: 'rgba(52,211,153,0.12)',  text: '#34d399', border: 'rgba(52,211,153,0.28)' },
-                        support:      { bg: 'rgba(96,165,250,0.12)',  text: '#60a5fa', border: 'rgba(96,165,250,0.28)' },
-                        hard_support: { bg: 'rgba(167,139,250,0.12)', text: '#a78bfa', border: 'rgba(167,139,250,0.28)' },
-                      };
-                      const rc = roleColours[player.slot] ?? { bg: 'rgba(148,163,184,0.12)', text: '#94a3b8', border: 'rgba(148,163,184,0.28)' };
-                      const displayName = player.in_game_name || player.name;
-                      const initials = displayName.substring(0, 2).toUpperCase();
-                      const roleLabel = player.slot.replace('_', ' ');
-
-                      return (
-                        <div
+                  <div className="flex gap-3 overflow-x-auto pb-3 sm:grid sm:grid-cols-5 sm:overflow-visible">
+                    {[...dashboardData.starters]
+                      .sort((a, b) => {
+                        const getRank = (player: typeof a) => player.is_captain ? 0 : player.is_vice_captain ? 1 : 2;
+                        return getRank(a) - getRank(b);
+                      })
+                      .map((player) => (
+                        <DashboardStarterCard
                           key={`${player.slot}-${player.id}`}
-                          onClick={() => openPlayerDetails(player.id)}
-                          role="button"
-                          tabIndex={0}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter' || e.key === ' ') {
-                              e.preventDefault();
-                              openPlayerDetails(player.id);
-                            }
-                          }}
-                          className="relative flex flex-col rounded-2xl overflow-visible transition-all duration-200 hover:-translate-y-0.5 hover:shadow-xl hover:z-20 cursor-pointer select-none"
-                          style={{ background: 'var(--surface-raised)', border: '1px solid var(--border)' }}
-                        >
-                          {/* Role-coloured top accent bar */}
-                          <div className="h-0.75 w-full rounded-t-2xl" style={{ background: `linear-gradient(90deg, ${rc.text}, transparent)` }} />
-
-                          {/* Captain / VC badge */}
-                          {player.is_captain && (
-                            <span className="absolute -top-2 right-2 z-10 flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-black shadow-md"
-                              style={{ background: 'var(--accent-primary)', color: 'var(--background)' }}>
-                              C
-                            </span>
-                          )}
-                          {player.is_vice_captain && (
-                            <span className="absolute -top-2 right-2 z-10 flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-black shadow-md"
-                              style={{ background: 'var(--accent-secondary)', color: 'var(--background)' }}>
-                              V
-                            </span>
-                          )}
-
-                          <div className="flex flex-col gap-2 p-3 flex-1">
-                            {/* Avatar */}
-                            <div className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl overflow-hidden text-sm font-black"
-                              style={{ background: rc.bg, border: `1px solid ${rc.border}`, color: rc.text }}>
-                              {player.profile_image_url ? (
-                                // eslint-disable-next-line @next/next/no-img-element
-                                <img
-                                  src={player.profile_image_url}
-                                  alt={displayName}
-                                  className="h-full w-full object-cover object-top"
-                                  onError={(e) => {
-                                    (e.currentTarget as HTMLImageElement).style.display = 'none';
-                                    (e.currentTarget.nextSibling as HTMLElement | null)?.removeAttribute('hidden');
-                                  }}
-                                />
-                              ) : null}
-                              <span hidden={!!player.profile_image_url}>{initials}</span>
-                            </div>
-
-                            {/* Player name + team */}
-                            <div className="min-w-0">
-                              <p className="truncate text-[13px] font-bold leading-snug"
-                                style={{ color: 'var(--text-primary)' }}
-                                title={displayName}>
-                                {displayName}
-                              </p>
-                              <p className="mt-0.5 truncate text-[11px]" style={{ color: 'var(--text-muted)' }}>
-                                {player.team_name || 'Free Agent'}
-                              </p>
-                            </div>
-
-                            {/* Role pill on its own row (tightened spacing) */}
-                            <div>
-                              <span className="inline-block rounded-md px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide leading-none"
-                                style={{ background: rc.bg, border: `1px solid ${rc.border}`, color: rc.text }}>
-                                {roleLabel}
-                              </span>
-                            </div>
-                          </div>
-
-                          {/* Footer — always same structure: GW pts row + price row */}
-                          <div className="mt-auto px-3 pb-3">
-                            <div className="relative group/tooltip rounded-xl px-2.5 py-2"
-                              style={{ background: 'var(--surface-muted)', border: '1px solid var(--border)' }}>
-
-                              {/* Info hint indicator icon positioned half-in half-off the top-right corner */}
-                              <div
-                                className="absolute -top-2 -right-2 z-10 flex h-4 w-4 items-center justify-center rounded-full text-[10px] font-bold shadow-md transition-transform duration-150 group-hover/tooltip:scale-110"
-                                style={{
-                                  background: 'var(--accent-secondary, #f59e0b)',
-                                  color: 'var(--background, #0f172a)',
-                                  border: '1.5px solid var(--surface-raised, #1e293b)'
-                                }}
-                                title="Score breakdown info"
-                              >
-                                <Info className="h-2.5 w-2.5" />
-                              </div>
-
-                              {/* Row 1: GW Points */}
-                              <div className="flex items-center justify-between">
-                                <span className="text-[10px] font-medium" style={{ color: 'var(--text-muted)' }}>GW Pts</span>
-                                {player.gw_points != null ? (
-                                  <span className="font-mono text-sm font-black" style={{ color: 'var(--accent-primary)' }}>
-                                    {player.is_captain
-                                      ? (player.gw_points * 2).toFixed(2)
-                                      : player.gw_points.toFixed(2)}
-                                    {player.is_captain && (
-                                      <span className="ml-0.5 text-[9px] font-bold opacity-60">&times;2</span>
-                                    )}
-                                  </span>
-                                ) : (
-                                  <span className="font-mono text-sm font-semibold" style={{ color: 'var(--text-muted)', opacity: 0.4 }}>—</span>
-                                )}
-                              </div>
-
-                              {/* Row 2: Price — always present */}
-                              <div className="mt-0.5 flex items-center justify-between">
-                                <span className="text-[10px] font-medium" style={{ color: 'var(--text-muted)' }}>Price</span>
-                                <span className="font-mono text-[11px] font-semibold" style={{ color: 'var(--success)' }}>
-                                  ${Number(player.current_price || 0).toFixed(1)}M
-                                </span>
-                              </div>
-
-                              {/* Score breakdown tooltip */}
-                              <div
-                                className="pointer-events-none absolute bottom-full right-0 z-30 mb-2 hidden w-52 rounded-2xl p-3 shadow-2xl group-hover/tooltip:block"
-                                style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
-                                <p className="mb-2 text-[10px] font-bold uppercase tracking-widest"
-                                  style={{ color: 'var(--text-muted)' }}>
-                                  Score Breakdown
-                                </p>
-                                {player.score_breakdown ? (
-                                  <>
-                                    {([
-                                      ['\u2694\uFE0F Combat',    player.score_breakdown.combat],
-                                      ['\uD83D\uDCB0 Economy',   player.score_breakdown.economy],
-                                      ['\uD83C\uDFC6 Objective', player.score_breakdown.objective],
-                                      ['Teamfight',              player.score_breakdown.teamfight],
-                                      ['\uD83C\uDFC5 Win',       player.score_breakdown.win],
-                                      ['Series',                 player.score_breakdown.series],
-                                      ['\uD83D\uDCCA Perf.',     player.score_breakdown.performance],
-                                      ['Consistency',            player.score_breakdown.consistency],
-                                      ['Penalty',                player.score_breakdown.penalty],
-                                    ] as [string, number][]).map(([label, val]) => (
-                                      <div key={label} className="flex items-center justify-between py-0.75 text-[11px]">
-                                        <span style={{ color: 'var(--text-secondary)' }}>{label}</span>
-                                        <span className="font-mono font-semibold"
-                                          style={{ color: val >= 0 ? 'var(--text-primary)' : 'var(--danger)' }}>
-                                          {val >= 0 ? '+' : ''}{val.toFixed(2)}
-                                        </span>
-                                      </div>
-                                    ))}
-                                    <div className="mt-2 flex items-center justify-between border-t pt-2 text-[11px]"
-                                      style={{ borderColor: 'var(--border)' }}>
-                                      <span className="font-semibold" style={{ color: 'var(--text-secondary)' }}>Total</span>
-                                      <span className="font-mono font-black" style={{ color: 'var(--accent-primary)' }}>
-                                        {player.score_breakdown.total.toFixed(2)} pts
-                                      </span>
-                                    </div>
-                                  </>
-                                ) : (
-                                  <p className="text-xs leading-relaxed py-1" style={{ color: 'var(--text-muted)' }}>
-                                    This player does not yet have any fantasy points.
-                                  </p>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })}
+                          player={player}
+                          onOpenPlayer={openPlayerDetails}
+                        />
+                      ))}
                   </div>
                 ) : (
                   <div className="flex flex-col items-center rounded-2xl border border-dashed py-12 text-center"
@@ -1032,7 +754,11 @@ export default function DashboardPage() {
       <PlayerDetailModal
         player={selectedPlayer}
         loading={playerLoading}
-        onClose={() => setSelectedPlayer(null)}
+        scoreBreakdown={selectedScoreBreakdown}
+        onClose={() => {
+          setSelectedPlayer(null);
+          setSelectedScoreBreakdown(undefined);
+        }}
       />
       {showPointsBreakdown && <TotalPointsModal onClose={() => setShowPointsBreakdown(false)} />}
     </div>

@@ -12,7 +12,7 @@ async function getHandler(request: NextRequest) {
     const supabase = supabaseServer();
 
     // Phase 1: Parallel initial queries (fantasy_season, active/upcoming gameweek, user leagues)
-    const [fantasySeason, gameweeksRes, leaguesRes] = await Promise.all([
+    const [fantasySeason, gameweeksRes, leaguesRes, profileRes] = await Promise.all([
       getOrCreateFantasySeason(supabase, user.userId),
       supabase
         .from('gameweeks')
@@ -29,9 +29,18 @@ async function getHandler(request: NextRequest) {
         `)
         .eq('user_id', user.userId)
         .limit(3),
+      supabase
+        .from('users')
+        .select('display_name, username')
+        .eq('id', user.userId)
+        .maybeSingle(),
     ]);
 
     let gameweek = gameweeksRes.data && gameweeksRes.data.length > 0 ? gameweeksRes.data[0] : null;
+    if (profileRes.error) {
+      throw new Error(`Failed to fetch manager profile: ${profileRes.error.message}`);
+    }
+    const displayName = profileRes.data?.display_name?.trim() || profileRes.data?.username || null;
 
     // No active/upcoming GW — fall back to the latest closed one so lineup still renders
     if (!gameweek) {
@@ -49,6 +58,7 @@ async function getHandler(request: NextRequest) {
     if (!fantasySeason || !fantasySeason.id) {
       const emptyResponse = NextResponse.json({
         fantasySeasonId: null,
+        displayName,
         gameweek,
         totalPoints: 0,
         globalRank: null,
@@ -248,6 +258,7 @@ async function getHandler(request: NextRequest) {
 
     const response = NextResponse.json({
       fantasySeasonId: fantasySeason.id,
+      displayName,
       gameweek,
       totalPoints: fantasySeason.total_points || 0,
       globalRank: fantasySeason.global_rank,
