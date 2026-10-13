@@ -40,13 +40,13 @@ export function TestimonialsStrip() {
         >
           {/* Quote mark */}
           <div className="mb-4 text-4xl font-black leading-none text-slate-700 group-hover:text-slate-600 transition-colors">
-            "
+            &quot;
           </div>
 
           <p className="mb-6 text-sm leading-relaxed text-slate-300">{t.quote}</p>
 
           <div className="flex items-center gap-3">
-            <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br ${t.color} text-xs font-bold text-white`}>
+            <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-linear-to-br ${t.color} text-xs font-bold text-white`}>
               {t.initials}
             </div>
             <div className="min-w-0 flex-1">

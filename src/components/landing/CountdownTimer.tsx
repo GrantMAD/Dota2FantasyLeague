@@ -19,11 +19,8 @@ function pad(n: number) {
 
 export function CountdownTimer({ targetDate }: CountdownTimerProps) {
   const [timeLeft, setTimeLeft] = useState<TimeLeft | null>(null);
-  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    setMounted(true);
-
     function calculate(): TimeLeft {
       const diff = Math.max(0, targetDate.getTime() - Date.now());
       const days = Math.floor(diff / 86_400_000);
@@ -33,12 +30,15 @@ export function CountdownTimer({ targetDate }: CountdownTimerProps) {
       return { days, hours, minutes, seconds };
     }
 
-    setTimeLeft(calculate());
-    const id = setInterval(() => setTimeLeft(calculate()), 1000);
-    return () => clearInterval(id);
+    const initialUpdate = setTimeout(() => setTimeLeft(calculate()), 0);
+    const interval = setInterval(() => setTimeLeft(calculate()), 1000);
+    return () => {
+      clearTimeout(initialUpdate);
+      clearInterval(interval);
+    };
   }, [targetDate]);
 
-  if (!mounted || !timeLeft) {
+  if (!timeLeft) {
     return <div className="h-20" />;
   }
 
