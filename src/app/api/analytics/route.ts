@@ -19,6 +19,7 @@ interface AnalyticsPlayer {
 
 interface PerformanceAnalyticsRow {
   player_id: number;
+  gameweek_id?: number;
   fantasy_points_breakdown: FantasyBreakdownRow | FantasyBreakdownRow[] | null;
   professional_players?: AnalyticsPlayer | AnalyticsPlayer[] | null;
 }
@@ -90,36 +91,34 @@ async function getHandler(request: NextRequest) {
     // points across ALL gameweeks so the chart is meaningful even early in the season.
     let roleBreakdown: Array<{ role: string; points: number }> = [];
     if ((lineups ?? []).length > 0) {
-      // Map: slotLabel -> list of player IDs seen in that slot across all lineups
-      const slotRoleMap: Record<string, Set<number>> = {
-        Carry: new Set(),
-        Mid: new Set(),
-        Offlane: new Set(),
-        Support: new Set(),
-        'Hard Support': new Set(),
-      };
+      const playerRoleByGameweek = new Map<string, string>();
+      const playerIds = new Set<number>();
 
       for (const lineup of lineups ?? []) {
         const row = lineup as Record<string, unknown>;
-        if (row.carry_id) slotRoleMap['Carry'].add(Number(row.carry_id));
-        if (row.mid_id) slotRoleMap['Mid'].add(Number(row.mid_id));
-        if (row.offlane_id) slotRoleMap['Offlane'].add(Number(row.offlane_id));
-        if (row.support_id) slotRoleMap['Support'].add(Number(row.support_id));
-        if (row.hard_support_id) slotRoleMap['Hard Support'].add(Number(row.hard_support_id));
+        const gameweekId = Number(row.gameweek_id);
+        const slots = [
+          ['carry_id', 'Carry'],
+          ['mid_id', 'Mid'],
+          ['offlane_id', 'Offlane'],
+          ['support_id', 'Support'],
+          ['hard_support_id', 'Hard Support'],
+        ] as const;
+
+        for (const [column, role] of slots) {
+          const playerId = Number(row[column]);
+          if (!Number.isSafeInteger(playerId) || playerId <= 0) continue;
+          playerIds.add(playerId);
+          playerRoleByGameweek.set(`${gameweekId}:${playerId}`, role);
+        }
       }
 
-      // Invert: player_id -> slot role (last slot seen wins if a player moved)
-      const playerSlotRole = new Map<number, string>();
-      for (const [role, ids] of Object.entries(slotRoleMap)) {
-        for (const id of ids) playerSlotRole.set(id, role);
-      }
-
-      const allLineupPlayerIds = Array.from(playerSlotRole.keys());
+      const allLineupPlayerIds = Array.from(playerIds);
 
       if (allLineupPlayerIds.length) {
-        // Aggregate total fantasy points per player across ALL gameweeks
+        // Keep each performance attached to the role used in that game's lineup.
         const { data: allScoreData } = await supabase.from('player_performances')
-          .select('player_id, fantasy_points_breakdown(total_points)')
+          .select('player_id, gameweek_id, fantasy_points_breakdown(total_points)')
           .in('player_id', allLineupPlayerIds)
           .in('gameweek_id', allGameweekIds.length ? allGameweekIds : [0]);
         const scoreRows = (allScoreData ?? []) as PerformanceAnalyticsRow[];
@@ -128,7 +127,8 @@ async function getHandler(request: NextRequest) {
         ['Carry', 'Mid', 'Offlane', 'Support', 'Hard Support'].forEach((r) => totals.set(r, 0));
 
         for (const row of scoreRows) {
-          const role = playerSlotRole.get(Number(row.player_id)) ?? 'Support';
+          const role = playerRoleByGameweek.get(`${Number(row.gameweek_id)}:${Number(row.player_id)}`);
+          if (!role) continue;
           const breakdown = firstRelation(row.fantasy_points_breakdown);
           const pts = Number(breakdown?.total_points ?? 0);
           totals.set(role, (totals.get(role) ?? 0) + pts);

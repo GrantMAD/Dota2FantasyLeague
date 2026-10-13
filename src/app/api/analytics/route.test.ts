@@ -23,17 +23,27 @@ describe('GET /api/analytics - Finding 31: Dynamic gameweek resolution and role-
   });
 
   it('loads global gameweek averages from the database aggregate instead of downloading every lineup', async () => {
-    const lineup = {
+    const lineups = [{
+      gameweek_id: 6,
+      total_points: 10,
+      captain_player_id: null,
+      vice_captain_player_id: null,
+      carry_id: 99,
+      mid_id: null,
+      offlane_id: null,
+      support_id: null,
+      hard_support_id: null,
+    }, {
       gameweek_id: 7,
       total_points: 12.5,
       captain_player_id: null,
       vice_captain_player_id: null,
       carry_id: null,
-      mid_id: null,
+      mid_id: 99,
       offlane_id: null,
       support_id: null,
       hard_support_id: null,
-    };
+    }];
     const mockRpc = jest.fn().mockResolvedValue({
       data: [{ gameweek_id: 7, global_average: 18.4 }],
       error: null,
@@ -61,7 +71,7 @@ describe('GET /api/analytics - Finding 31: Dynamic gameweek resolution and role-
           select: jest.fn().mockReturnThis(),
           eq: jest.fn().mockReturnThis(),
           order: jest.fn().mockReturnThis(),
-          then: (resolve: (value: unknown) => void) => resolve({ data: [lineup], error: null }),
+          then: (resolve: (value: unknown) => void) => resolve({ data: lineups, error: null }),
         };
         return query;
       }
@@ -76,13 +86,27 @@ describe('GET /api/analytics - Finding 31: Dynamic gameweek resolution and role-
         };
       }
       if (table === 'player_performances') {
+        let selectedColumns = '';
         const query = {
-          select: jest.fn().mockReturnThis(),
+          select: jest.fn(),
           eq: jest.fn().mockReturnThis(),
+          in: jest.fn().mockReturnThis(),
           not: jest.fn().mockReturnThis(),
           limit: jest.fn().mockReturnThis(),
-          then: (resolve: (value: unknown) => void) => resolve({ data: [], error: null }),
+          then: jest.fn((resolve: (value: unknown) => void) => resolve({
+            data: selectedColumns.includes('gameweek_id')
+              ? [
+                  { player_id: 99, gameweek_id: 6, fantasy_points_breakdown: { total_points: 40 } },
+                  { player_id: 99, gameweek_id: 7, fantasy_points_breakdown: { total_points: 30 } },
+                ]
+              : [],
+            error: null,
+          })),
         };
+        query.select.mockImplementation((columns: string) => {
+          selectedColumns = columns;
+          return query;
+        });
         return query;
       }
       if (table === 'player_prices') {
@@ -100,10 +124,20 @@ describe('GET /api/analytics - Finding 31: Dynamic gameweek resolution and role-
 
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toMatchObject({
-      trend: [{ gameweekId: 7, userScore: 12.5, globalAverage: 18.4 }],
+      trend: [
+        { gameweekId: 6, userScore: 10, globalAverage: 0 },
+        { gameweekId: 7, userScore: 12.5, globalAverage: 18.4 },
+      ],
+      roleBreakdown: [
+        { role: 'Carry', points: 40 },
+        { role: 'Mid', points: 30 },
+        { role: 'Offlane', points: 0 },
+        { role: 'Support', points: 0 },
+        { role: 'Hard Support', points: 0 },
+      ],
     });
     expect(mockRpc).toHaveBeenCalledWith('get_global_gameweek_averages', {
-      p_gameweek_ids: [7],
+      p_gameweek_ids: [6, 7],
     });
     expect(mockFrom.mock.calls.filter(([table]) => table === 'fantasy_lineups')).toHaveLength(1);
   });
