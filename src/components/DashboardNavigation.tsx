@@ -22,6 +22,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { ThemeToggle } from './theme/ThemeToggle';
+import { BrandLogo } from './BrandLogo';
 
 type NavigationLink = {
   href: string;
@@ -133,9 +134,7 @@ export function DashboardNavigation({
       <aside className={`dashboard-sidebar fixed inset-y-0 left-0 z-50 hidden flex-col border-r border-slate-700 bg-slate-900 px-4 py-6 transition-[width] duration-200 md:flex ${sidebarCollapsed ? 'w-20' : 'w-64'}`}>
         <div className={`mb-6 flex items-center ${sidebarCollapsed ? 'justify-center' : 'justify-between'}`}>
           <Link href="/dashboard" className="flex items-center gap-2 px-2 font-bold text-xl">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-linear-to-br from-amber-500 to-orange-600">
-              <span className="font-bold text-white">D2</span>
-            </div>
+            <BrandLogo className="h-8 w-8" />
             {!sidebarCollapsed && <span className="bg-linear-to-r from-amber-500 to-orange-600 bg-clip-text text-transparent">Fantasy</span>}
           </Link>
           {!sidebarCollapsed && (
@@ -248,9 +247,7 @@ export function DashboardNavigation({
       >
         <div className="flex items-center justify-between px-4 py-4 border-b border-slate-700/80 shrink-0">
           <Link href="/dashboard" onClick={onMobileMenuClose} className="flex items-center gap-2 font-bold text-xl">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-linear-to-br from-amber-500 to-orange-600">
-              <span className="font-bold text-white">D2</span>
-            </div>
+            <BrandLogo className="h-8 w-8" />
             <span className="bg-linear-to-r from-amber-500 to-orange-600 bg-clip-text text-transparent">Fantasy</span>
           </Link>
           <button type="button" aria-label="Close navigation menu" onClick={onMobileMenuClose} className="rounded-lg p-2 text-slate-400 hover:bg-slate-800 hover:text-white transition-colors">

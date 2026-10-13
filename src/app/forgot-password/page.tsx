@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import { BrandLogo } from '@/components/BrandLogo';
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState('');
@@ -81,9 +82,7 @@ export default function ForgotPasswordPage() {
         {/* Header */}
         <div className="text-center mb-8">
           <Link href="/" className="inline-flex items-center gap-2 mb-6">
-            <div className="w-12 h-12 bg-linear-to-br from-amber-500 to-orange-600 rounded-lg flex items-center justify-center">
-              <span className="text-white font-bold text-lg">D2</span>
-            </div>
+            <BrandLogo className="h-12 w-12" />
             <span className="bg-linear-to-r from-amber-500 to-orange-600 bg-clip-text text-transparent font-bold text-xl">
               Fantasy Dota 2
             </span>

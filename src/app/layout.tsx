@@ -24,7 +24,7 @@ export const metadata: Metadata = {
   title: "Fantasy Dota 2",
   description: "Global fantasy esports platform for professional Dota 2",
   icons: {
-    icon: "/favicon.ico",
+    icon: "/Images/Dota2FantasyLeagueLogo-mark.png",
   },
 };
 

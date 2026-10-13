@@ -8,42 +8,13 @@ import { TeamMarquee } from '@/components/landing/TeamMarquee';
 import { MockSquadCard } from '@/components/landing/MockSquadCard';
 import { HowItWorksTabs } from '@/components/landing/HowItWorksTabs';
 import { TestimonialsStrip } from '@/components/landing/TestimonialsStrip';
+import { BrandLogo } from '@/components/BrandLogo';
 
 export const metadata = {
   title: 'Fantasy Dota 2 | Global Fantasy Esports Platform',
   description:
     'Build your ultimate Dota 2 fantasy squad. Manage your budget, transfer players, and compete against the world.',
 };
-
-function LogoMark({ size = 'md' }: { size?: 'sm' | 'md' | 'lg' }) {
-  const dim = size === 'lg' ? 'h-14 w-14' : size === 'sm' ? 'h-6 w-6' : 'h-9 w-9';
-  return (
-    <svg viewBox="0 0 64 64" className={`${dim} overflow-visible`} aria-hidden="true">
-      <defs>
-        <linearGradient id="logo-grad" x1="0%" x2="100%" y1="0%" y2="100%">
-          <stop offset="0%" stopColor="#fbbf24" />
-          <stop offset="50%" stopColor="#f59e0b" />
-          <stop offset="100%" stopColor="#f97316" />
-        </linearGradient>
-      </defs>
-      <rect x="5" y="5" width="54" height="54" rx="16" fill="url(#logo-grad)" />
-      <path
-        d="M21 18h16c8.8 0 16 7.2 16 16s-7.2 16-16 16H21V18zm8 8v16h8c4.4 0 8-3.6 8-8s-3.6-8-8-8h-8z"
-        fill="#fff"
-        opacity="0.95"
-      />
-      <path
-        d="M22 23l10 10-10 10"
-        stroke="#fff"
-        strokeWidth="3"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        fill="none"
-        opacity="0.85"
-      />
-    </svg>
-  );
-}
 
 const FEATURES = [
   {
@@ -141,9 +112,9 @@ export default async function Home() {
         <nav className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
           <Link href="/" className="group flex items-center gap-3 font-bold text-xl">
             <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-slate-950/80 ring-1 ring-amber-500/40 shadow-[0_0_20px_rgba(245,158,11,0.15)] transition-all group-hover:shadow-[0_0_30px_rgba(245,158,11,0.3)] group-hover:ring-amber-400/60">
-              <LogoMark size="sm" />
+              <BrandLogo className="h-8 w-8" priority />
             </div>
-            <span className="bg-gradient-to-r from-amber-400 via-orange-400 to-amber-500 bg-clip-text text-transparent">
+            <span className="bg-linear-to-r from-amber-400 via-orange-400 to-amber-500 bg-clip-text text-transparent">
               Fantasy Dota 2
             </span>
           </Link>
@@ -152,7 +123,7 @@ export default async function Home() {
             {isLoggedIn ? (
               <Link
                 href="/dashboard"
-                className="rounded-xl bg-gradient-to-r from-amber-500 to-orange-600 px-5 py-2 text-sm font-bold text-white shadow-lg shadow-orange-500/20 transition-all hover:-translate-y-0.5 hover:shadow-orange-500/35"
+                className="rounded-xl bg-linear-to-r from-amber-500 to-orange-600 px-5 py-2 text-sm font-bold text-white shadow-lg shadow-orange-500/20 transition-all hover:-translate-y-0.5 hover:shadow-orange-500/35"
               >
                 Dashboard &rarr;
               </Link>
@@ -163,7 +134,7 @@ export default async function Home() {
                 </Link>
                 <Link
                   href="/signup"
-                  className="rounded-xl bg-gradient-to-r from-amber-500 to-orange-600 px-5 py-2 text-sm font-bold text-white shadow-lg shadow-orange-500/20 transition-all hover:-translate-y-0.5 hover:shadow-orange-500/35"
+                  className="rounded-xl bg-linear-to-r from-amber-500 to-orange-600 px-5 py-2 text-sm font-bold text-white shadow-lg shadow-orange-500/20 transition-all hover:-translate-y-0.5 hover:shadow-orange-500/35"
                 >
                   Get Started
                 </Link>
@@ -180,15 +151,15 @@ export default async function Home() {
 
           {/* Ambient orbs */}
           <div
-            className="pointer-events-none absolute left-1/2 top-1/4 h-[700px] w-[700px] -translate-x-1/2 -translate-y-1/2 rounded-full opacity-30"
+            className="pointer-events-none absolute left-1/2 top-1/4 h-175 w-175 -translate-x-1/2 -translate-y-1/2 rounded-full opacity-30"
             style={{ background: 'radial-gradient(circle, rgba(245,158,11,0.18) 0%, rgba(245,158,11,0.04) 50%, transparent 70%)' }}
           />
           <div
-            className="pointer-events-none absolute right-0 top-1/3 h-[500px] w-[500px] translate-x-1/3 rounded-full opacity-20"
+            className="pointer-events-none absolute right-0 top-1/3 h-125 w-125 translate-x-1/3 rounded-full opacity-20"
             style={{ background: 'radial-gradient(circle, rgba(6,182,212,0.25) 0%, transparent 70%)' }}
           />
           <div
-            className="pointer-events-none absolute bottom-0 left-0 h-[400px] w-[400px] -translate-x-1/3 rounded-full opacity-20"
+            className="pointer-events-none absolute bottom-0 left-0 h-100 w-100 -translate-x-1/3 rounded-full opacity-20"
             style={{ background: 'radial-gradient(circle, rgba(139,92,246,0.2) 0%, transparent 70%)' }}
           />
 
@@ -206,7 +177,7 @@ export default async function Home() {
 
                 <h1 className="animate-fade-up-delay-1 mb-6 text-5xl font-black leading-[1.05] tracking-tight text-white md:text-7xl">
                   Pick Smarter.{' '}
-                  <span className="block bg-gradient-to-r from-amber-400 via-orange-400 to-amber-300 bg-clip-text text-transparent">
+                  <span className="block bg-linear-to-r from-amber-400 via-orange-400 to-amber-300 bg-clip-text text-transparent">
                     Score Bigger.
                   </span>
                 </h1>
@@ -222,7 +193,7 @@ export default async function Home() {
                     <Link
                       href="/dashboard"
                       id="hero-dashboard-cta"
-                      className="animate-glow-pulse inline-flex items-center gap-2 rounded-2xl bg-gradient-to-r from-amber-500 to-orange-600 px-8 py-4 text-lg font-black text-white transition-all hover:-translate-y-1 hover:from-amber-400 hover:to-orange-500"
+                      className="animate-glow-pulse inline-flex items-center gap-2 rounded-2xl bg-linear-to-r from-amber-500 to-orange-600 px-8 py-4 text-lg font-black text-white transition-all hover:-translate-y-1 hover:from-amber-400 hover:to-orange-500"
                     >
                       Go to Dashboard
                       <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M5 12h14M12 5l7 7-7 7" /></svg>
@@ -232,7 +203,7 @@ export default async function Home() {
                       <Link
                         href="/signup"
                         id="hero-signup-cta"
-                        className="animate-glow-pulse inline-flex items-center gap-2 rounded-2xl bg-gradient-to-r from-amber-500 to-orange-600 px-8 py-4 text-lg font-black text-white transition-all hover:-translate-y-1 hover:from-amber-400 hover:to-orange-500"
+                        className="animate-glow-pulse inline-flex items-center gap-2 rounded-2xl bg-linear-to-r from-amber-500 to-orange-600 px-8 py-4 text-lg font-black text-white transition-all hover:-translate-y-1 hover:from-amber-400 hover:to-orange-500"
                       >
                         Create Free Account
                         <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M5 12h14M12 5l7 7-7 7" /></svg>
@@ -282,7 +253,7 @@ export default async function Home() {
             </span>
             <h2 className="text-4xl font-black text-white md:text-5xl">
               Built for the{' '}
-              <span className="bg-gradient-to-r from-cyan-400 to-teal-300 bg-clip-text text-transparent">
+              <span className="bg-linear-to-r from-cyan-400 to-teal-300 bg-clip-text text-transparent">
                 serious fan
               </span>
             </h2>
@@ -320,7 +291,7 @@ export default async function Home() {
               </span>
               <h2 className="text-4xl font-black text-white md:text-5xl">
                 How it{' '}
-                <span className="bg-gradient-to-r from-amber-400 to-orange-400 bg-clip-text text-transparent">
+                <span className="bg-linear-to-r from-amber-400 to-orange-400 bg-clip-text text-transparent">
                   works
                 </span>
               </h2>
@@ -340,7 +311,7 @@ export default async function Home() {
             </span>
             <h2 className="text-4xl font-black text-white md:text-5xl">
               Managers who{' '}
-              <span className="bg-gradient-to-r from-violet-400 to-purple-400 bg-clip-text text-transparent">
+              <span className="bg-linear-to-r from-violet-400 to-purple-400 bg-clip-text text-transparent">
                 love it
               </span>
             </h2>
@@ -363,11 +334,11 @@ export default async function Home() {
           />
           <div className="relative mx-auto max-w-3xl text-center">
             <div className="animate-float mb-8 inline-flex h-24 w-24 items-center justify-center rounded-3xl border border-amber-500/40 bg-slate-900/70 shadow-[0_0_50px_rgba(245,158,11,0.2)] backdrop-blur-sm">
-              <LogoMark size="lg" />
+              <BrandLogo className="h-20 w-20" />
             </div>
             <h2 className="mb-4 text-4xl font-black text-white md:text-5xl">
               Ready to build your{' '}
-              <span className="bg-gradient-to-r from-amber-400 to-orange-400 bg-clip-text text-transparent">
+              <span className="bg-linear-to-r from-amber-400 to-orange-400 bg-clip-text text-transparent">
                 dream squad?
               </span>
             </h2>
@@ -379,7 +350,7 @@ export default async function Home() {
               <Link
                 href="/dashboard"
                 id="bottom-dashboard-cta"
-                className="inline-flex items-center gap-3 rounded-2xl bg-gradient-to-r from-amber-500 to-orange-600 px-10 py-5 text-xl font-black text-white shadow-2xl shadow-orange-500/25 transition-all hover:-translate-y-1 hover:shadow-orange-500/40"
+                className="inline-flex items-center gap-3 rounded-2xl bg-linear-to-r from-amber-500 to-orange-600 px-10 py-5 text-xl font-black text-white shadow-2xl shadow-orange-500/25 transition-all hover:-translate-y-1 hover:shadow-orange-500/40"
               >
                 Go to Dashboard
                 <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M5 12h14M12 5l7 7-7 7" /></svg>
@@ -388,7 +359,7 @@ export default async function Home() {
               <Link
                 href="/signup"
                 id="bottom-signup-cta"
-                className="inline-flex items-center gap-3 rounded-2xl bg-gradient-to-r from-amber-500 to-orange-600 px-10 py-5 text-xl font-black text-white shadow-2xl shadow-orange-500/25 transition-all hover:-translate-y-1 hover:shadow-orange-500/40"
+                className="inline-flex items-center gap-3 rounded-2xl bg-linear-to-r from-amber-500 to-orange-600 px-10 py-5 text-xl font-black text-white shadow-2xl shadow-orange-500/25 transition-all hover:-translate-y-1 hover:shadow-orange-500/40"
               >
                 Start Playing &mdash; It&apos;s Free
                 <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M5 12h14M12 5l7 7-7 7" /></svg>
@@ -403,7 +374,7 @@ export default async function Home() {
         <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-4 text-sm text-slate-500 md:flex-row">
           <div className="flex items-center gap-2.5">
             <div className="flex h-7 w-7 items-center justify-center rounded-xl bg-slate-900 ring-1 ring-amber-500/30">
-              <LogoMark size="sm" />
+              <BrandLogo className="h-6 w-6" />
             </div>
             <span className="font-semibold text-slate-400">Fantasy Dota 2</span>
             <span className="text-slate-700">&middot;</span>

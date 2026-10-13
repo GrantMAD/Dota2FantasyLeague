@@ -2,6 +2,7 @@
 
 import { FormEvent, useEffect, useState } from 'react';
 import Link from 'next/link';
+import { BrandLogo } from '@/components/BrandLogo';
 import { supabase } from '@/lib/supabase';
 
 export default function ResetPasswordPage() {
@@ -74,7 +75,7 @@ export default function ResetPasswordPage() {
     <main className="flex min-h-screen items-center justify-center bg-linear-to-br from-slate-950 to-slate-900 px-4">
       <section className="w-full max-w-md rounded-2xl border border-slate-800 bg-slate-900/80 p-8 shadow-2xl">
         <Link href="/" className="mb-8 inline-flex items-center gap-3">
-          <span className="flex h-11 w-11 items-center justify-center rounded-lg bg-linear-to-br from-amber-500 to-orange-600 font-bold text-white">D2</span>
+          <BrandLogo className="h-11 w-11" />
           <span className="bg-linear-to-r from-amber-500 to-orange-600 bg-clip-text text-xl font-bold text-transparent">Fantasy Dota 2</span>
         </Link>
 

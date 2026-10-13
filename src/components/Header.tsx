@@ -3,6 +3,7 @@
 import Image from 'next/image';
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
+import { BrandLogo } from './BrandLogo';
 import {
   Search,
   Command,
@@ -193,9 +194,7 @@ export function Header() {
             
             {/* Mobile Brand */}
             <Link href="/" className="flex items-center gap-2 font-bold text-xl md:hidden shrink-0">
-              <div className="w-8 h-8 bg-linear-to-br from-amber-500 to-orange-600 rounded-lg flex items-center justify-center">
-                <span className="text-white font-bold">D2</span>
-              </div>
+              <BrandLogo className="h-8 w-8" />
               <span className="bg-linear-to-r from-amber-500 to-orange-600 bg-clip-text text-transparent">
                 Fantasy
               </span>
