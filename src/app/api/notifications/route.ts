@@ -16,37 +16,69 @@ interface NotificationRecord {
 
 type NotificationCategory = 'all' | 'unread' | 'deadline' | 'market' | 'scoring' | 'league';
 
-const matchesCategory = (notification: NotificationRecord, category: NotificationCategory) => {
-  if (category === 'all') return true;
-  if (category === 'unread') return !notification.is_read;
-
-  const categoryMap: Record<string, NotificationCategory> = {
-    gameweek_deadline: 'deadline',
-    lineup_deadline: 'deadline',
-    deadline_reminder: 'deadline',
-    deadline: 'deadline',
-    price_change: 'market',
-    transfer_market: 'market',
-    wildcard_used: 'market',
-    score_posted: 'scoring',
-    gameweek_result: 'scoring',
-    rank_movement: 'scoring',
-    league_invite: 'league',
-    league_activity: 'league',
-    league_result: 'league',
-    h2h_result: 'league',
-  };
-
-  return categoryMap[notification.type] === category;
+const notificationTypesByCategory: Partial<Record<NotificationCategory, string[]>> = {
+  deadline: ['gameweek_deadline', 'lineup_deadline', 'deadline_reminder', 'deadline'],
+  market: ['price_change', 'transfer_market', 'wildcard_used'],
+  scoring: ['score_posted', 'gameweek_result', 'rank_movement'],
+  league: ['league_invite', 'league_activity', 'league_result', 'h2h_result'],
 };
+
+interface NotificationCursor {
+  createdAt: string;
+  id: number;
+}
+
+function decodeCursor(cursor: string): NotificationCursor | null {
+  try {
+    const parsed = JSON.parse(Buffer.from(cursor, 'base64url').toString('utf8')) as {
+      createdAt?: unknown;
+      id?: unknown;
+    };
+    if (
+      typeof parsed.createdAt !== 'string' ||
+      typeof parsed.id !== 'number' ||
+      !Number.isSafeInteger(parsed.id) ||
+      parsed.id <= 0
+    ) {
+      return null;
+    }
+    const createdAt = new Date(parsed.createdAt);
+    if (Number.isNaN(createdAt.getTime())) return null;
+    return { createdAt: createdAt.toISOString(), id: parsed.id };
+  } catch {
+    return null;
+  }
+}
+
+function encodeCursor(notification: NotificationRecord): string {
+  return Buffer.from(JSON.stringify({
+    createdAt: new Date(notification.created_at).toISOString(),
+    id: notification.id,
+  })).toString('base64url');
+}
 
 async function getHandler(request: NextRequest) {
   try {
     const user = await verifyAuth(request);
     const { searchParams } = new URL(request.url);
-    const category = (searchParams.get('category') ?? 'all') as NotificationCategory;
+    const rawCategory = searchParams.get('category') ?? 'all';
+    const validCategories: NotificationCategory[] = ['all', 'unread', 'deadline', 'market', 'scoring', 'league'];
+    if (!validCategories.includes(rawCategory as NotificationCategory)) {
+      return NextResponse.json({ error: 'Invalid notification category.' }, { status: 400 });
+    }
+    const category = rawCategory as NotificationCategory;
     const unreadOnly = searchParams.get('unreadOnly') === 'true' || category === 'unread';
-    const limit = Math.min(100, parseInt(searchParams.get('limit') ?? '30', 10));
+    const rawLimit = searchParams.get('limit') ?? '30';
+    const parsedLimit = Number(rawLimit);
+    if (!Number.isInteger(parsedLimit) || parsedLimit < 1 || parsedLimit > 100) {
+      return NextResponse.json({ error: 'Limit must be an integer between 1 and 100.' }, { status: 400 });
+    }
+    const limit = parsedLimit;
+    const rawCursor = searchParams.get('cursor');
+    const cursor = rawCursor ? decodeCursor(rawCursor) : null;
+    if (rawCursor && !cursor) {
+      return NextResponse.json({ error: 'Invalid notification cursor.' }, { status: 400 });
+    }
 
     const supabase = supabaseServer();
     const query = supabase
@@ -54,7 +86,16 @@ async function getHandler(request: NextRequest) {
       .select('id, type, title, message, is_read, created_at, metadata')
       .eq('user_id', user.userId)
       .order('created_at', { ascending: false })
-      .limit(limit);
+      .order('id', { ascending: false });
+
+    if (unreadOnly) query.eq('is_read', false);
+    if (notificationTypesByCategory[category]) {
+      query.in('type', notificationTypesByCategory[category]);
+    }
+    if (cursor) {
+      query.or(`created_at.lt.${cursor.createdAt},and(created_at.eq.${cursor.createdAt},id.lt.${cursor.id})`);
+    }
+    query.limit(limit + 1);
 
     const [notificationsResult, unreadCountResult] = await Promise.all([
       query,
@@ -75,13 +116,13 @@ async function getHandler(request: NextRequest) {
       );
     }
 
-    const notifications = (notificationsResult.data ?? []).filter((notification) => {
-      if (unreadOnly && notification.is_read) return false;
-      return matchesCategory(notification as NotificationRecord, category);
-    });
+    const rows = (notificationsResult.data ?? []) as NotificationRecord[];
+    const hasMore = rows.length > limit;
+    const notifications = hasMore ? rows.slice(0, limit) : rows;
 
     const response = NextResponse.json({
       notifications,
+      nextCursor: hasMore ? encodeCursor(notifications[notifications.length - 1]) : null,
       unreadCount: unreadCountResult.count ?? 0,
     });
     applyRefreshedTokens(response, user);

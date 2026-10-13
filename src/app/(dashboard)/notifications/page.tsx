@@ -1,7 +1,7 @@
 'use client';
 
 import { fetchWithAuth } from '@/lib/fetch-with-auth';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { Bell, CheckCircle2, Clock, Sparkles, TrendingUp, Trophy } from 'lucide-react';
 import { useToast } from '@/components/Toast';
@@ -21,22 +21,37 @@ const categories: Array<{ key: NotificationCategory; label: string; countKey?: s
 export default function NotificationsPage() {
   const toast = useToast();
   const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeCategory, setActiveCategory] = useState<NotificationCategory>('all');
+  const paginationController = useRef<AbortController | null>(null);
 
   useEffect(() => {
     const controller = new AbortController();
+    paginationController.current?.abort();
+    paginationController.current = null;
 
     async function fetchNotifications() {
       setLoading(true);
       setError(null);
+      setNotifications([]);
+      setNextCursor(null);
       try {
         const params = new URLSearchParams({ category: activeCategory });
         const res = await fetchWithAuth(`/api/notifications?${params.toString()}`, { signal: controller.signal });
-        const data = (await res.json()) as { notifications?: Notification[]; error?: string };
+        const data = (await res.json()) as {
+          notifications?: Notification[];
+          unreadCount?: number;
+          nextCursor?: string | null;
+          error?: string;
+        };
         if (!res.ok) throw new Error(data.error || 'Failed to load notifications');
         setNotifications(data.notifications || []);
+        setUnreadCount(data.unreadCount ?? 0);
+        setNextCursor(data.nextCursor ?? null);
       } catch (err: unknown) {
         if (!controller.signal.aborted) {
           setError(err instanceof Error ? err.message : 'Failed to load notifications');
@@ -48,16 +63,55 @@ export default function NotificationsPage() {
 
     void fetchNotifications();
 
-    return () => controller.abort();
+    return () => {
+      controller.abort();
+      paginationController.current?.abort();
+    };
   }, [activeCategory]);
 
-  const unreadCount = useMemo(() => notifications.filter((notification) => !notification.is_read).length, [notifications]);
+  const loadMoreNotifications = async () => {
+    if (!nextCursor || loadingMore) return;
+    const controller = new AbortController();
+    paginationController.current = controller;
+    setLoadingMore(true);
+    setError(null);
+    try {
+      const params = new URLSearchParams({
+        category: activeCategory,
+        cursor: nextCursor,
+      });
+      const response = await fetchWithAuth(`/api/notifications?${params.toString()}`, { signal: controller.signal });
+      const data = (await response.json()) as {
+        notifications?: Notification[];
+        unreadCount?: number;
+        nextCursor?: string | null;
+        error?: string;
+      };
+      if (!response.ok) throw new Error(data.error || 'Failed to load more notifications');
+      setNotifications((current) => {
+        const existingIds = new Set(current.map((notification) => notification.id));
+        return [...current, ...(data.notifications ?? []).filter((notification) => !existingIds.has(notification.id))];
+      });
+      setUnreadCount(data.unreadCount ?? 0);
+      setNextCursor(data.nextCursor ?? null);
+    } catch (requestError: unknown) {
+      if (!controller.signal.aborted) {
+        setError(requestError instanceof Error ? requestError.message : 'Failed to load more notifications');
+      }
+    } finally {
+      if (!controller.signal.aborted) setLoadingMore(false);
+      if (paginationController.current === controller) paginationController.current = null;
+    }
+  };
 
   const handleMarkAsRead = async (id: number) => {
     try {
       const res = await fetchWithAuth(`/api/notifications/${id}/read`, { method: 'PUT' });
       if (res.ok) {
-        setNotifications((current) => current.map((notification) => (notification.id === id ? { ...notification, is_read: true } : notification)));
+        if (notifications.some((notification) => notification.id === id && !notification.is_read)) {
+          setUnreadCount((count) => Math.max(0, count - 1));
+        }
+        setNotifications((current) => current.map((item) => (item.id === id ? { ...item, is_read: true } : item)));
         toast.info('Marked as Read');
       } else {
         toast.error('Action Failed', 'Could not mark notification as read');
@@ -73,6 +127,7 @@ export default function NotificationsPage() {
       const response = await fetchWithAuth('/api/notifications', { method: 'PUT' });
       if (!response.ok) throw new Error('Failed to mark notifications as read');
       setNotifications((current) => current.map((notification) => ({ ...notification, is_read: true })));
+      setUnreadCount(0);
       toast.info('All Notifications Marked as Read');
     } catch (requestError) {
       const msg = requestError instanceof Error ? requestError.message : 'Failed to mark notifications as read';
@@ -111,6 +166,7 @@ export default function NotificationsPage() {
         return 'scoring';
       case 'league_activity':
       case 'league_result':
+      case 'league_invite':
       case 'h2h_result':
         return 'league';
       default:
@@ -225,11 +281,7 @@ export default function NotificationsPage() {
     }
   };
 
-  const visibleNotifications = notifications.filter((notification) => {
-    if (activeCategory === 'all') return true;
-    if (activeCategory === 'unread') return !notification.is_read;
-    return getCategoryFromType(notification.type) === activeCategory;
-  });
+  const visibleNotifications = notifications;
 
   const getEmptyStateConfig = (category: NotificationCategory) => {
     switch (category) {
@@ -324,17 +376,22 @@ export default function NotificationsPage() {
 
       <div className="mb-6 flex flex-wrap gap-2 rounded-2xl border border-slate-800 bg-slate-900/80 p-2">
         {categories.map((category) => {
-          const count = category.key === 'all' ? notifications.length : category.key === 'unread' ? unreadCount : visibleNotifications.filter((notification) => getCategoryFromType(notification.type) === category.key).length;
+          const count = category.key === 'unread' ? unreadCount : null;
           const isActive = activeCategory === category.key;
           return (
             <button
               key={category.key}
               type="button"
-              onClick={() => setActiveCategory(category.key)}
+              onClick={() => {
+                setLoadingMore(false);
+                setActiveCategory(category.key);
+              }}
               className={`inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium transition ${isActive ? 'bg-cyan-500 text-slate-950' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'}`}
             >
               <span>{category.label}</span>
-              <span className={`rounded-full px-1.5 py-0.5 text-[10px] ${isActive ? 'bg-slate-950/20 text-slate-900' : 'bg-slate-700 text-slate-200'}`}>{count}</span>
+              {count !== null && (
+                <span className={`rounded-full px-1.5 py-0.5 text-[10px] ${isActive ? 'bg-slate-950/20 text-slate-900' : 'bg-slate-700 text-slate-200'}`}>{count}</span>
+              )}
             </button>
           );
         })}
@@ -416,6 +473,18 @@ export default function NotificationsPage() {
                       </button>
                     )}
                   </div>
+                  {!loading && nextCursor && (
+                    <div className="mt-6 text-center">
+                      <button
+                        type="button"
+                        onClick={() => void loadMoreNotifications()}
+                        disabled={loadingMore}
+                        className="rounded-xl border border-cyan-500/40 bg-cyan-500/10 px-5 py-3 text-sm font-semibold text-cyan-300 transition hover:bg-cyan-500/20 disabled:cursor-wait disabled:opacity-60"
+                      >
+                        {loadingMore ? 'Loading...' : 'Load more notifications'}
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
             );
