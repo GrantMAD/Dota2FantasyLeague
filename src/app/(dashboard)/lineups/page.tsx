@@ -3,7 +3,7 @@
 import { fetchWithAuth } from '@/lib/fetch-with-auth';
 import { useState, useEffect, useCallback } from 'react';
 import Image from 'next/image';
-import { UserCheck, TrendingUp, TrendingDown, Minus } from 'lucide-react';
+import { CircleAlert, UserCheck, TrendingUp, TrendingDown, Minus } from 'lucide-react';
 import { useToast } from '@/components/Toast';
 import type { ChipType, ChipStatus, FantasyPlayer as LineupPlayer, LineupEntry } from '@/types/fantasy';
 
@@ -21,6 +21,15 @@ const SpinnerIcon = () => (
     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
   </svg>
 );
+
+function formatTimeUntilDeadline(value: string): string {
+  const deadlineTime = new Date(value).getTime();
+  if (!Number.isFinite(deadlineTime)) return 'soon';
+  const minutesRemaining = Math.max(0, Math.ceil((deadlineTime - Date.now()) / 60_000));
+  const hours = Math.floor(minutesRemaining / 60);
+  const minutes = minutesRemaining % 60;
+  return hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`;
+}
 
 export default function LineupsPage() {
   const toast = useToast();
@@ -40,6 +49,7 @@ export default function LineupsPage() {
   const [lineup, setLineup] = useState<LineupEntry[]>([]);
   const [ownedPlayers, setOwnedPlayers] = useState<LineupPlayer[]>([]);
   const [saving, setSaving] = useState(false);
+  const [confirmDeadlineSave, setConfirmDeadlineSave] = useState(false);
 
   const loadFantasyContext = useCallback(async (requestedGameweekId?: number) => {
     try {
@@ -147,7 +157,7 @@ export default function LineupsPage() {
     );
   };
 
-  const saveLineup = async () => {
+  const saveLineup = async (confirmedNearDeadline = false) => {
     if (lineupLocked) {
       toast.error('Cannot Save Lineup', 'The gameweek deadline has passed. Lineup changes are locked.');
       return;
@@ -171,6 +181,23 @@ export default function LineupsPage() {
       toast.error('Cannot Save Lineup', 'Select exactly one captain and one vice-captain before saving.');
       return;
     }
+
+    const selectedDeadline = availableGameweeks.find((gameweek) => gameweek.id === gameweekId)?.deadline;
+    if (selectedDeadline) {
+      const timeUntilDeadline = new Date(selectedDeadline).getTime() - Date.now();
+      if (timeUntilDeadline <= 0) {
+        setConfirmDeadlineSave(false);
+        setLineupLocked(true);
+        toast.error('Cannot Save Lineup', 'The gameweek deadline has passed. Lineup changes are locked.');
+        return;
+      }
+      if (timeUntilDeadline <= 2 * 60 * 60 * 1000 && !confirmedNearDeadline) {
+        setConfirmDeadlineSave(true);
+        return;
+      }
+    }
+
+    setConfirmDeadlineSave(false);
     setSaving(true);
     try {
       const response = await fetchWithAuth('/api/fantasy/lineup', {
@@ -249,6 +276,9 @@ export default function LineupsPage() {
   const hasCaptainAndVice = lineup.filter((e) => e.is_captain).length === 1 && lineup.filter((e) => e.is_vice_captain).length === 1;
   const isLineupReady = hasAllStarters && hasCaptainAndVice;
   const selectedGameweek = availableGameweeks.find((gameweek) => gameweek.id === gameweekId);
+  const deadlineCountdown = selectedGameweek?.deadline
+    ? formatTimeUntilDeadline(selectedGameweek.deadline)
+    : null;
   const chipActivationAvailable = gameweekId !== null && gameweekId === defaultGameweekId;
 
   // Filter owned players matching a specific slot role
@@ -312,13 +342,26 @@ export default function LineupsPage() {
                     Planning ahead · this lineup is saved separately for Gameweek {selectedGameweek.gameweekNumber}.
                   </p>
                 )}
-                {lineupLocked && <p className="mt-1 text-xs font-semibold text-red-400">Deadline passed · lineup locked</p>}
+                {lineupLocked && (
+                  <div
+                    className="mt-4 flex items-start gap-3 rounded-lg border border-red-500/40 bg-red-500/10 p-4 text-sm text-red-100"
+                    role="status"
+                  >
+                    <CircleAlert className="mt-0.5 h-5 w-5 shrink-0 text-red-300" aria-hidden="true" />
+                    <div>
+                      <p className="font-bold">Lineup locked for Gameweek {selectedGameweek?.gameweekNumber ?? gameweekId}</p>
+                      <p className="mt-1 text-xs leading-5 text-red-100/80">
+                        The deadline has passed. Your saved lineup is read-only and can no longer be changed.
+                      </p>
+                    </div>
+                  </div>
+                )}
               </div>
               <button
                 type="button"
                 data-guide="lineup-save-btn"
                 data-tour="lineup-save-btn"
-                onClick={saveLineup}
+                onClick={() => void saveLineup()}
                 disabled={saving || !isLineupReady || lineupLocked}
                 className="rounded-lg bg-amber-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50 transition-opacity"
               >
@@ -489,7 +532,27 @@ export default function LineupsPage() {
                                   )}
                                 </div>
                                 <div className="min-w-0">
-                                  <p className="truncate text-sm font-semibold text-white">{selected.professional_players.in_game_name || selected.professional_players.name}</p>
+                                  <div className="flex min-w-0 items-center gap-2">
+                                    <p className="truncate text-sm font-semibold text-white">{selected.professional_players.in_game_name || selected.professional_players.name}</p>
+                                    {selected.is_captain && (
+                                      <span
+                                        aria-label="Captain"
+                                        title="Captain · earns 2× points"
+                                        className="inline-flex h-7 min-w-7 shrink-0 items-center justify-center rounded-full border border-amber-300/70 bg-amber-400 px-2 text-sm font-black text-slate-950 shadow-[0_0_12px_rgba(251,191,36,0.3)]"
+                                      >
+                                        C
+                                      </span>
+                                    )}
+                                    {selected.is_vice_captain && (
+                                      <span
+                                        aria-label="Vice-captain"
+                                        title="Vice-captain · backup captain"
+                                        className="inline-flex h-7 min-w-7 shrink-0 items-center justify-center rounded-full border border-cyan-300/70 bg-cyan-400 px-2 text-sm font-black text-slate-950 shadow-[0_0_12px_rgba(34,211,238,0.25)]"
+                                      >
+                                        VC
+                                      </span>
+                                    )}
+                                  </div>
                                   <p className="truncate text-xs text-slate-400">{selected.professional_players.professional_teams?.name || 'Free Agent'} · <span className="text-amber-400/90 font-medium">${Number(selected.professional_players.current_price || 0).toFixed(1)}M</span></p>
                                 </div>
                               </div>
@@ -691,6 +754,58 @@ export default function LineupsPage() {
           </div>
         </div>
       </div>
+
+      {confirmDeadlineSave && selectedGameweek && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4 py-6 backdrop-blur-sm"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) setConfirmDeadlineSave(false);
+          }}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="deadline-save-title"
+            aria-describedby="deadline-save-description"
+            className="w-full max-w-md rounded-xl border border-amber-500/40 bg-slate-900 shadow-2xl"
+          >
+            <div className="flex items-start gap-3 border-b border-slate-700 px-5 py-4">
+              <CircleAlert className="mt-0.5 h-5 w-5 shrink-0 text-amber-300" aria-hidden="true" />
+              <div>
+                <h2 id="deadline-save-title" className="text-lg font-bold text-white">Deadline approaching</h2>
+                <p className="mt-1 text-sm text-amber-100">
+                  Deadline is in {deadlineCountdown ?? 'less than two hours'} for Gameweek {selectedGameweek.gameweekNumber}.
+                </p>
+              </div>
+            </div>
+            <div className="space-y-4 p-5">
+              <p id="deadline-save-description" className="text-sm leading-6 text-slate-300">
+                Are you sure you want to save these lineup changes before the deadline locks your team?
+                {selectedGameweek.deadline
+                  ? ` Deadline: ${new Date(selectedGameweek.deadline).toLocaleString()}.`
+                  : ''}
+              </p>
+              <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+                <button
+                  type="button"
+                  onClick={() => setConfirmDeadlineSave(false)}
+                  className="rounded-lg border border-slate-600 px-4 py-2.5 text-sm font-semibold text-slate-200 transition-colors hover:bg-slate-800"
+                >
+                  Keep Editing
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void saveLineup(true)}
+                  disabled={saving}
+                  className="rounded-lg bg-amber-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-amber-500 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {saving ? 'Saving...' : 'Save Lineup'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Chip Activation Modal */}
       {activeModal && (

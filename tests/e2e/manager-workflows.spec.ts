@@ -79,22 +79,30 @@ async function signIn(page: Page) {
   await expect(page).toHaveURL(/\/dashboard$/);
 }
 
-function lineupContext(isLocked = false, targetGameweekId = 12) {
+function lineupContext(isLocked = false, targetGameweekId = 12, withinTwoHours = false) {
   const isPlanningAhead = targetGameweekId === 13;
+  const activeDeadline = isLocked
+    ? '2026-10-01T12:00:00.000Z'
+    : targetGameweekId === 12 && withinTwoHours
+      ? new Date(Date.now() + 60 * 60 * 1000).toISOString()
+      : '2026-11-01T12:00:00.000Z';
+  const upcomingDeadline = targetGameweekId === 13 && withinTwoHours
+    ? new Date(Date.now() + 60 * 60 * 1000).toISOString()
+    : '2026-11-08T12:00:00.000Z';
   return {
     fantasySeasonId: 1,
     gameweek: {
       id: targetGameweekId,
       gameweekNumber: targetGameweekId,
       status: isPlanningAhead ? 'upcoming' : 'active',
-      deadline: isLocked ? '2026-10-01T12:00:00.000Z' : '2026-11-01T12:00:00.000Z',
+      deadline: isPlanningAhead ? upcomingDeadline : activeDeadline,
       isLocked,
       hasUpcoming: true,
     },
     defaultGameweekId: 12,
     availableGameweeks: [
-      { id: 12, gameweekNumber: 12, status: 'active', deadline: '2026-11-01T12:00:00.000Z', isLocked },
-      { id: 13, gameweekNumber: 13, status: 'upcoming', deadline: '2026-11-08T12:00:00.000Z', isLocked: false },
+      { id: 12, gameweekNumber: 12, status: 'active', deadline: activeDeadline, isLocked },
+      { id: 13, gameweekNumber: 13, status: 'upcoming', deadline: upcomingDeadline, isLocked: false },
     ],
     lineup: [],
     ownedPlayers: players.slice(0, 8),
@@ -116,7 +124,7 @@ test.describe('manager fantasy workflows', () => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify(lineupContext(false, requestedGameweekId)),
+        body: JSON.stringify(lineupContext(false, requestedGameweekId, true)),
       });
     });
     await page.route('**/api/fantasy/lineup', async (route) => {
@@ -139,7 +147,20 @@ test.describe('manager fantasy workflows', () => {
     await page.locator('#lineup-hard_support').selectOption('5');
     await page.getByLabel('Captain · 2x points').selectOption('1');
     await page.getByLabel('Vice-Captain · backup').selectOption('2');
+    await expect(page.getByLabel('Captain', { exact: true })).toBeVisible();
+    await expect(page.getByLabel('Vice-captain', { exact: true })).toBeVisible();
     await page.getByRole('button', { name: 'Save Lineup' }).click();
+
+    const deadlineDialog = page.getByRole('dialog', { name: 'Deadline approaching' });
+    await expect(deadlineDialog).toBeVisible();
+    await expect(deadlineDialog.getByText(/Deadline is in .* for Gameweek 13/)).toBeVisible();
+    expect(savedLineup.gameweekId).toBeUndefined();
+    await deadlineDialog.getByRole('button', { name: 'Keep Editing' }).click();
+    await expect(deadlineDialog).toBeHidden();
+    expect(savedLineup.gameweekId).toBeUndefined();
+    await page.getByRole('button', { name: 'Save Lineup' }).click();
+    await expect(deadlineDialog).toBeVisible();
+    await deadlineDialog.getByRole('button', { name: 'Save Lineup' }).click();
 
     await expect(page.getByText('Lineup Saved')).toBeVisible();
     expect(savedLineup.gameweekId).toBe(13);
@@ -161,7 +182,7 @@ test.describe('manager fantasy workflows', () => {
 
     await page.goto('/lineups');
 
-    await expect(page.getByText('Deadline passed · lineup locked')).toBeVisible();
+    await expect(page.getByText('Lineup locked for Gameweek 12')).toBeVisible();
     await expect(page.getByRole('button', { name: 'Lineup Locked' })).toBeDisabled();
     await expect(page.locator('#lineup-carry')).toBeDisabled();
   });
