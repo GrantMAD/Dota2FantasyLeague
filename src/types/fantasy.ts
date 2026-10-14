@@ -56,6 +56,7 @@ export interface FantasyPlayer {
   in_game_name?: string | null;
   primary_role?: string | null;
   profile_image_url?: string | null;
+  team_id?: number | null;
   current_price?: number | null;
   price_change?: number | null;
   availability_status?: string | null;
@@ -79,7 +80,13 @@ export interface PlayerPerformanceRecord {
   assists: number;
   gold_per_minute?: number;
   experience_per_minute?: number;
-  matches?: { team_b?: { name?: string | null } | null } | null;
+  matches?: {
+    id?: number;
+    winner_team_id?: number | null;
+    duration_minutes?: number | null;
+    team_a?: { id?: number; name?: string | null } | null;
+    team_b?: { id?: number; name?: string | null } | null;
+  } | null;
   fantasy_points_breakdown?: { total_points?: number | null } | null;
 }
 

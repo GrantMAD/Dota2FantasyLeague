@@ -1124,23 +1124,42 @@ export default function TransfersPage() {
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-800/80 bg-slate-900/50 font-mono">
-                        {modalPlayer.performances.map((perf) => (
-                          <tr key={perf.id} className="hover:bg-slate-800/40 transition-colors">
-                            <td className="px-3 py-2.5 text-slate-300 font-sans font-medium">GW {perf.gameweek_id}</td>
-                            <td className="px-3 py-2.5 text-white font-sans">
-                              vs {perf.matches?.team_b?.name || 'Opponent'}
-                            </td>
-                            <td className="px-3 py-2.5 text-center text-slate-300">
-                              {perf.kills}/{perf.deaths}/{perf.assists}
-                            </td>
-                            <td className="px-3 py-2.5 text-center text-slate-400">
-                              {perf.gold_per_minute} / {perf.experience_per_minute}
-                            </td>
-                            <td className="px-3 py-2.5 text-right font-bold text-amber-400">
-                              {perf.fantasy_points_breakdown?.total_points ?? 16.5} pts
-                            </td>
-                          </tr>
-                        ))}
+                        {modalPlayer.performances.map((perf) => {
+                          const playerTeamId = modalPlayer.team_id ?? modalPlayer.professional_teams?.id;
+                          const teamA = perf.matches?.team_a;
+                          const teamB = perf.matches?.team_b;
+                          let oppName = 'Opponent';
+
+                          if (playerTeamId) {
+                            if (teamA?.id === playerTeamId) {
+                              oppName = teamB?.name || 'Opponent';
+                            } else if (teamB?.id === playerTeamId) {
+                              oppName = teamA?.name || 'Opponent';
+                            } else {
+                              oppName = teamB?.name || teamA?.name || 'Opponent';
+                            }
+                          } else {
+                            oppName = teamB?.name || teamA?.name || 'Opponent';
+                          }
+
+                          return (
+                            <tr key={perf.id} className="hover:bg-slate-800/40 transition-colors">
+                              <td className="px-3 py-2.5 text-slate-300 font-sans font-medium">GW {perf.gameweek_id}</td>
+                              <td className="px-3 py-2.5 text-white font-sans">
+                                vs {oppName}
+                              </td>
+                              <td className="px-3 py-2.5 text-center text-slate-300">
+                                {perf.kills}/{perf.deaths}/{perf.assists}
+                              </td>
+                              <td className="px-3 py-2.5 text-center text-slate-400">
+                                {perf.gold_per_minute} / {perf.experience_per_minute}
+                              </td>
+                              <td className="px-3 py-2.5 text-right font-bold text-amber-400">
+                                {perf.fantasy_points_breakdown?.total_points ?? 16.5} pts
+                              </td>
+                            </tr>
+                          );
+                        })}
                       </tbody>
                     </table>
                   </div>
