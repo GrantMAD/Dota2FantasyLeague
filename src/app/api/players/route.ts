@@ -9,6 +9,7 @@ type PriceRow = {
   player_id: number;
   price: number | null;
   price_change: number | null;
+  ownership_percentage: number | null;
   gameweek_id: number;
 };
 type ScoreRow = { player_id: number; total_points: number | null; gameweek_id: number };
@@ -112,7 +113,7 @@ async function getHandler(request: NextRequest) {
     ] = await Promise.all([
       playerIds.length > 0
         ? (supabase.from('player_prices') as unknown as DynamicPlayerQuery<{ data: PriceRow[] | null; error: { message: string } | null }>)
-            .select('player_id, price, price_change, gameweek_id')
+            .select('player_id, price, price_change, ownership_percentage, gameweek_id')
             .in('player_id', playerIds)
             .order('gameweek_id', { ascending: false })
         : Promise.resolve({ data: [], error: null }),
@@ -133,12 +134,17 @@ async function getHandler(request: NextRequest) {
 
     const latestPrices = new Map<number, number>();
     const latestPriceChanges = new Map<number, number | null>();
+    const latestOwnerships = new Map<number, number | null>();
     for (const price of prices ?? []) {
       if (!latestPrices.has(price.player_id)) {
         latestPrices.set(price.player_id, Number(price.price ?? 0));
         latestPriceChanges.set(
           price.player_id,
           price.price_change == null ? null : Number(price.price_change),
+        );
+        latestOwnerships.set(
+          price.player_id,
+          price.ownership_percentage == null ? null : Number(price.ownership_percentage),
         );
       }
     }
@@ -161,6 +167,7 @@ async function getHandler(request: NextRequest) {
           player.current_price == null ? null : Number(player.current_price)
         ),
         price_change: latestPriceChanges.get(player.id) ?? null,
+        ownership_percentage: latestOwnerships.get(player.id) ?? null,
         gameweek_points: playerScores[0] ?? 0,
         recent_points: playerScores.length ? Number((playerScores.reduce((sum, score) => sum + score, 0) / playerScores.length).toFixed(2)) : 0,
       };

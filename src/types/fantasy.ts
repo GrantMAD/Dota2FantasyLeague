@@ -57,6 +57,7 @@ export interface FantasyPlayer {
   primary_role?: string | null;
   profile_image_url?: string | null;
   current_price?: number | null;
+  price_change?: number | null;
   availability_status?: string | null;
   availability_reason?: string | null;
   professional_teams?: ProfessionalTeamRef | null;

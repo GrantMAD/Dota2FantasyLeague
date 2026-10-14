@@ -1,9 +1,22 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { ArrowLeftRight, CheckCircle2, Minus, Plus } from 'lucide-react';
+import {
+  ArrowDown,
+  ArrowLeftRight,
+  ArrowUp,
+  CheckCircle2,
+  Minus,
+  Pin,
+  Plus,
+  Sparkles,
+  TrendingDown,
+  TrendingUp,
+  X,
+  Zap,
+} from 'lucide-react';
 import { fetchWithAuth } from '@/lib/fetch-with-auth';
 import { useToast } from '@/components/Toast';
 import type { FantasyPlayer as TransferPlayer } from '@/types/fantasy';
@@ -15,6 +28,7 @@ type StarterRole = typeof STARTER_ROLES[number];
 
 export default function TransfersPage() {
   const toast = useToast();
+  const tableContainerRef = useRef<HTMLDivElement>(null);
   const [players, setPlayers] = useState<TransferPlayer[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -22,6 +36,8 @@ export default function TransfersPage() {
   const [roleFilter, setRoleFilter] = useState('');
   const [ownershipFilter, setOwnershipFilter] = useState<'all' | 'owned' | 'available'>('all');
   const [pinOwnedFirst, setPinOwnedFirst] = useState(true);
+  const [sortBy, setSortBy] = useState<'price' | 'name' | 'points' | 'ownership'>('price');
+  const [sortDesc, setSortDesc] = useState(true);
   const [fantasySeasonId, setFantasySeasonId] = useState<number | null>(null);
   const [budget, setBudget] = useState(100);
   const [freeTransfers, setFreeTransfers] = useState(2);
@@ -88,8 +104,8 @@ export default function TransfersPage() {
         const queryParams = new URLSearchParams({
           limit: pageSize.toString(),
           offset: ((page - 1) * pageSize).toString(),
-          sort: 'price',
-          desc: 'true',
+          sort: sortBy,
+          desc: sortDesc ? 'true' : 'false',
         });
         if (search.trim()) queryParams.set('search', search.trim());
         if (roleFilter) queryParams.set('role', roleFilter);
@@ -114,7 +130,7 @@ export default function TransfersPage() {
       cancelled = true;
       clearTimeout(timeoutId);
     };
-  }, [search, roleFilter, page]);
+  }, [search, roleFilter, page, sortBy, sortDesc]);
 
   const openPlayerModal = async (playerSummary: TransferPlayer) => {
     setModalPlayer(playerSummary);
@@ -368,6 +384,45 @@ export default function TransfersPage() {
         </div>
       </div>
 
+      {/* Wildcard Alert Banner */}
+      {!wildcardUsed ? (
+        <div className="mb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 rounded-xl border border-amber-500/40 bg-linear-to-r from-amber-500/15 via-amber-500/10 to-transparent p-4 shadow-sm backdrop-blur-xs">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-500/20 text-amber-400 border border-amber-500/30 shadow-inner">
+              <Sparkles className="h-5 w-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="text-sm font-bold text-amber-400">Wildcard Chip Available</h3>
+                <span className="rounded bg-amber-500/20 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-amber-300 border border-amber-500/30">
+                  Ready
+                </span>
+              </div>
+              <p className="text-xs text-slate-300">
+                You can play your season Wildcard this gameweek to make unlimited free transfers with zero point deductions.
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            disabled={actionLoading}
+            onClick={activateWildcard}
+            className="shrink-0 inline-flex items-center gap-1.5 rounded-lg bg-amber-500 px-4 py-2 text-xs font-bold text-slate-950 hover:bg-amber-400 transition-colors shadow-md disabled:opacity-50"
+          >
+            <Zap className="h-3.5 w-3.5 fill-current" />
+            Play Wildcard
+          </button>
+        </div>
+      ) : (
+        <div className="mb-6 flex items-center justify-between gap-3 rounded-xl border border-slate-700 bg-slate-800/40 px-4 py-3 text-xs text-slate-400">
+          <div className="flex items-center gap-2">
+            <Sparkles className="h-4 w-4 text-slate-500" />
+            <span>Wildcard chip has already been played for this season. Standard transfer allowances apply.</span>
+          </div>
+          <span className="text-[11px] font-mono text-slate-500 uppercase tracking-wider">Used</span>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
         {/* Sidebar Filters */}
         <div className="lg:col-span-1 space-y-6">
@@ -427,16 +482,27 @@ export default function TransfersPage() {
                 </select>
               </div>
 
-              <div className="pt-1 space-y-2">
-                <label className="flex items-center gap-2 cursor-pointer select-none">
-                  <input
-                    type="checkbox"
-                    checked={pinOwnedFirst}
-                    onChange={(e) => setPinOwnedFirst(e.target.checked)}
-                    className="w-4 h-4 rounded border-slate-700 bg-slate-900 text-amber-500 focus:ring-amber-500 accent-amber-500 cursor-pointer"
-                  />
-                  <span className="text-xs text-slate-300">Show My Squad at Top</span>
-                </label>
+              <div className="pt-2">
+                <button
+                  type="button"
+                  onClick={() => setPinOwnedFirst((prev) => !prev)}
+                  className={`w-full flex items-center justify-between gap-2 px-3 py-2 rounded-lg border text-xs font-semibold transition-all ${
+                    pinOwnedFirst
+                      ? 'border-amber-500/50 bg-amber-500/15 text-amber-300 shadow-sm'
+                      : 'border-slate-700 bg-slate-900/60 text-slate-400 hover:text-slate-200 hover:bg-slate-800'
+                  }`}
+                  aria-pressed={pinOwnedFirst}
+                >
+                  <span className="flex items-center gap-2">
+                    <Pin className={`h-3.5 w-3.5 ${pinOwnedFirst ? 'text-amber-400 fill-amber-400/30' : 'text-slate-400'}`} />
+                    <span>Pin Owned Squad at Top</span>
+                  </span>
+                  <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
+                    pinOwnedFirst ? 'bg-amber-500/30 text-amber-300' : 'bg-slate-800 text-slate-500'
+                  }`}>
+                    {pinOwnedFirst ? 'ON' : 'OFF'}
+                  </span>
+                </button>
               </div>
             </div>
           </div>
@@ -595,17 +661,132 @@ export default function TransfersPage() {
             </div>
           )}
 
-          <div data-tour="transfers-table" className="bg-slate-800/40 border border-slate-700 rounded-xl overflow-hidden shadow-sm">
+          {/* Sort Controls Bar & Table Header */}
+          <div ref={tableContainerRef} data-tour="transfers-table" className="bg-slate-800/40 border border-slate-700 rounded-xl overflow-hidden shadow-sm">
+            {/* Top Toolbar with Sort & View Controls */}
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-700 bg-slate-800/80 px-4 py-3">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">Sort by:</span>
+                <div className="flex flex-wrap items-center gap-1.5">
+                  {(
+                    [
+                      { id: 'price', label: 'Price' },
+                      { id: 'points', label: 'Points / Form' },
+                      { id: 'ownership', label: 'Ownership' },
+                      { id: 'name', label: 'Name' },
+                    ] as const
+                  ).map((option) => {
+                    const isActive = sortBy === option.id;
+                    return (
+                      <button
+                        key={option.id}
+                        type="button"
+                        onClick={() => {
+                          if (isActive) {
+                            setSortDesc((prev) => !prev);
+                          } else {
+                            setSortBy(option.id);
+                            setSortDesc(true);
+                          }
+                          setPage(1);
+                        }}
+                        className={`flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-semibold transition-all ${
+                          isActive
+                            ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40 shadow-xs'
+                            : 'bg-slate-900/60 text-slate-400 hover:text-slate-200 hover:bg-slate-700/60 border border-slate-700/60'
+                        }`}
+                        aria-pressed={isActive}
+                      >
+                        <span>{option.label}</span>
+                        {isActive && (
+                          sortDesc ? (
+                            <ArrowDown className="h-3 w-3 text-amber-400" />
+                          ) : (
+                            <ArrowUp className="h-3 w-3 text-amber-400" />
+                          )
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="text-xs text-slate-400">
+                Sorted by <strong className="text-white capitalize">{sortBy}</strong> ({sortDesc ? 'Descending' : 'Ascending'})
+              </div>
+            </div>
+
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse">
                 <thead>
-                  <tr className="bg-slate-800/80 border-b border-slate-700">
-                    <th className="px-4 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wider">Player</th>
-                    <th className="px-4 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wider text-center">Role</th>
-                    <th className="px-4 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wider text-right">Price</th>
-                    <th className="px-4 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wider text-right">Form (Avg)</th>
-                    <th className="px-4 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wider text-right">Last GW</th>
-                    <th className="px-4 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wider text-center">Action</th>
+                  <tr className="bg-slate-800/90 border-b border-slate-700">
+                    <th
+                      scope="col"
+                      onClick={() => {
+                        if (sortBy === 'name') setSortDesc((prev) => !prev);
+                        else { setSortBy('name'); setSortDesc(false); }
+                        setPage(1);
+                      }}
+                      className="px-4 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wider cursor-pointer hover:text-amber-400 transition-colors select-none"
+                    >
+                      <div className="flex items-center gap-1">
+                        <span>Player</span>
+                        {sortBy === 'name' && (
+                          sortDesc ? <ArrowDown className="h-3 w-3 text-amber-400" /> : <ArrowUp className="h-3 w-3 text-amber-400" />
+                        )}
+                      </div>
+                    </th>
+                    <th scope="col" className="px-4 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wider text-center">Role</th>
+                    <th
+                      scope="col"
+                      onClick={() => {
+                        if (sortBy === 'price') setSortDesc((prev) => !prev);
+                        else { setSortBy('price'); setSortDesc(true); }
+                        setPage(1);
+                      }}
+                      className="px-4 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wider text-right cursor-pointer hover:text-amber-400 transition-colors select-none"
+                    >
+                      <div className="flex items-center justify-end gap-1">
+                        <span>Price</span>
+                        {sortBy === 'price' && (
+                          sortDesc ? <ArrowDown className="h-3 w-3 text-amber-400" /> : <ArrowUp className="h-3 w-3 text-amber-400" />
+                        )}
+                      </div>
+                    </th>
+                    <th
+                      scope="col"
+                      onClick={() => {
+                        if (sortBy === 'points') setSortDesc((prev) => !prev);
+                        else { setSortBy('points'); setSortDesc(true); }
+                        setPage(1);
+                      }}
+                      className="px-4 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wider text-right cursor-pointer hover:text-amber-400 transition-colors select-none"
+                    >
+                      <div className="flex items-center justify-end gap-1">
+                        <span>Form (Avg)</span>
+                        {sortBy === 'points' && (
+                          sortDesc ? <ArrowDown className="h-3 w-3 text-amber-400" /> : <ArrowUp className="h-3 w-3 text-amber-400" />
+                        )}
+                      </div>
+                    </th>
+                    <th
+                      scope="col"
+                      onClick={() => {
+                        if (sortBy === 'ownership') setSortDesc((prev) => !prev);
+                        else { setSortBy('ownership'); setSortDesc(true); }
+                        setPage(1);
+                      }}
+                      className="px-4 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wider text-right cursor-pointer hover:text-amber-400 transition-colors select-none"
+                    >
+                      <div className="flex items-center justify-end gap-1">
+                        <span>Own %</span>
+                        {sortBy === 'ownership' && (
+                          sortDesc ? <ArrowDown className="h-3 w-3 text-amber-400" /> : <ArrowUp className="h-3 w-3 text-amber-400" />
+                        )}
+                      </div>
+                    </th>
+                    <th scope="col" className="px-4 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wider text-right">Last GW</th>
+                    <th scope="col" className="px-4 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wider text-center">Action</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-700/50">
@@ -622,7 +803,8 @@ export default function TransfersPage() {
                           </div>
                         </td>
                         <td className="px-4 py-3"><div className="mx-auto h-6 w-16 rounded-full bg-slate-700" /></td>
-                        <td className="px-4 py-3"><div className="ml-auto h-4 w-14 rounded bg-slate-700" /></td>
+                        <td className="px-4 py-3"><div className="ml-auto h-4 w-16 rounded bg-slate-700" /></td>
+                        <td className="px-4 py-3"><div className="ml-auto h-4 w-12 rounded bg-slate-700" /></td>
                         <td className="px-4 py-3"><div className="ml-auto h-4 w-12 rounded bg-slate-700" /></td>
                         <td className="px-4 py-3"><div className="ml-auto h-4 w-12 rounded bg-slate-700" /></td>
                         <td className="px-4 py-3"><div className="mx-auto h-8 w-20 rounded-lg bg-slate-700" /></td>
@@ -630,11 +812,12 @@ export default function TransfersPage() {
                     ))
                   ) : displayedPlayers.length === 0 ? (
                     <tr>
-                      <td colSpan={6} className="px-4 py-8 text-center text-slate-400">No players found matching your criteria.</td>
+                      <td colSpan={7} className="px-4 py-8 text-center text-slate-400">No players found matching your criteria.</td>
                     </tr>
                   ) : (
                     displayedPlayers.map((player) => {
                       const isOwned = ownedPlayerIds.includes(player.id);
+                      const priceChange = typeof player.price_change === 'number' ? player.price_change : null;
                       return (
                         <tr
                           key={player.id}
@@ -678,10 +861,36 @@ export default function TransfersPage() {
                             </span>
                           </td>
                           <td className="px-4 py-3 text-right">
-                            <div className="font-mono font-bold text-amber-400">${player.current_price}M</div>
+                            <div className="flex flex-col items-end">
+                              <span className="font-mono font-bold text-amber-400">${player.current_price}M</span>
+                              {priceChange !== null && priceChange !== 0 ? (
+                                <span className={`inline-flex items-center gap-0.5 text-[10px] font-mono font-semibold ${
+                                  priceChange > 0 ? 'text-emerald-400' : 'text-rose-400'
+                                }`}>
+                                  {priceChange > 0 ? (
+                                    <>
+                                      <TrendingUp className="h-2.5 w-2.5 shrink-0" />
+                                      +${priceChange.toFixed(1)}M
+                                    </>
+                                  ) : (
+                                    <>
+                                      <TrendingDown className="h-2.5 w-2.5 shrink-0" />
+                                      -${Math.abs(priceChange).toFixed(1)}M
+                                    </>
+                                  )}
+                                </span>
+                              ) : (
+                                <span className="text-[10px] font-mono text-slate-500">—</span>
+                              )}
+                            </div>
                           </td>
                           <td className="px-4 py-3 text-right">
                             <div className="transfer-form-average text-sm text-slate-200 font-mono">{player.recent_points ?? '-'}</div>
+                          </td>
+                          <td className="px-4 py-3 text-right">
+                            <div className="text-sm text-slate-300 font-mono">
+                              {player.ownership_percentage != null ? `${Number(player.ownership_percentage).toFixed(1)}%` : '—'}
+                            </div>
                           </td>
                           <td className="px-4 py-3 text-right">
                             <div className="text-sm font-bold text-white font-mono">{player.gameweek_points ?? '-'}</div>
@@ -747,7 +956,10 @@ export default function TransfersPage() {
                 <button
                   type="button"
                   disabled={page <= 1 || loading}
-                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  onClick={() => {
+                    setPage((p) => Math.max(1, p - 1));
+                    tableContainerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                  }}
                   className="px-3 py-1.5 rounded-lg border border-slate-700 bg-slate-800 text-xs font-medium text-slate-300 hover:bg-slate-700 hover:text-white transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   ← Previous
@@ -766,7 +978,10 @@ export default function TransfersPage() {
                 <button
                   type="button"
                   disabled={page >= Math.ceil(totalPlayers / pageSize) || loading}
-                  onClick={() => setPage((p) => p + 1)}
+                  onClick={() => {
+                    setPage((p) => p + 1);
+                    tableContainerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                  }}
                   className="px-3 py-1.5 rounded-lg border border-slate-700 bg-slate-800 text-xs font-medium text-slate-300 hover:bg-slate-700 hover:text-white transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   Next →
@@ -779,17 +994,26 @@ export default function TransfersPage() {
 
       {/* Comprehensive Player Details Modal */}
       {modalPlayer && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="relative max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-2xl border border-slate-700 bg-slate-900 shadow-2xl">
+        <div
+          role="dialog"
+          aria-modal="true"
+          onClick={() => setModalPlayer(null)}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm animate-in fade-in duration-200"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="relative max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-2xl border border-slate-700 bg-slate-900 shadow-2xl"
+          >
             {/* Modal Header Banner */}
             <div className="relative border-b border-slate-800 bg-linear-to-r from-slate-900 via-slate-800 to-slate-900 p-6">
               <button
                 type="button"
                 onClick={() => setModalPlayer(null)}
-                className="absolute right-4 top-4 rounded-lg p-2 text-slate-400 hover:bg-slate-800 hover:text-white transition-colors"
+                className="absolute right-4 top-4 z-10 flex h-8 w-8 items-center justify-center rounded-lg border border-slate-700 bg-slate-800/90 text-slate-300 hover:bg-slate-700 hover:text-white hover:border-slate-600 transition-all shadow-sm"
+                aria-label="Close modal"
                 title="Close modal"
               >
-                ✕
+                <X className="h-4 w-4" />
               </button>
 
               <div className="flex flex-col sm:flex-row items-center sm:items-start gap-5">
