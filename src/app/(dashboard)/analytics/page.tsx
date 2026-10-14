@@ -6,6 +6,7 @@ import type { KeyboardEvent } from 'react';
 import Link from 'next/link';
 import { useTheme } from '@/components/theme/ThemeProvider';
 import { useToast } from '@/components/Toast';
+import { getCaptainEfficiencyAssessment, getTrendRowsForRange, type TrendRange } from '@/lib/analytics-presentation';
 import {
   ResponsiveContainer,
   LineChart,
@@ -26,7 +27,6 @@ type TrendRow = {
 };
 
 type AnalyticsTab = 'my' | 'market' | 'dream';
-
 type RoleBreakdownRow = {
   role: string;
   points: number;
@@ -100,6 +100,7 @@ export default function AnalyticsDashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [tab, setTab] = useState<AnalyticsTab>('my');
+  const [trendRange, setTrendRange] = useState<TrendRange>('all');
   const tabRefs = useRef<Record<AnalyticsTab, HTMLButtonElement | null>>({
     my: null,
     market: null,
@@ -176,6 +177,14 @@ export default function AnalyticsDashboard() {
       subtitle: 'Your recent form, captain efficiency, and role contribution over time.'
     };
   }, [tab]);
+
+  const visibleTrend = useMemo(() => {
+    return getTrendRowsForRange(data.trend, trendRange);
+  }, [data.trend, trendRange]);
+
+  const captainEfficiencyAssessment = useMemo(() => {
+    return getCaptainEfficiencyAssessment(data.captainEfficiency.efficiency);
+  }, [data.captainEfficiency.efficiency]);
 
   function handleTabKeyDown(event: KeyboardEvent<HTMLButtonElement>, currentTab: AnalyticsTab) {
     const tabs: AnalyticsTab[] = ['my', 'market', 'dream'];
@@ -303,26 +312,47 @@ export default function AnalyticsDashboard() {
               {tab === 'my' && (
                 <div className="space-y-8">
                   <div className="analytics-chart-panel rounded-2xl border border-slate-800 bg-slate-950/70 p-5">
-                    <div className="mb-4 flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                       <div>
                         <h3 className="analytics-chart-heading text-lg font-bold text-white">Gameweek Trajectory</h3>
                         <p className="text-xs text-slate-400">Your gameweek performance compared against the global manager average</p>
                       </div>
-                      <div className="flex items-center gap-4 text-xs">
-                        <span className="inline-flex items-center gap-1.5 font-medium text-cyan-400">
-                          <span className="h-2.5 w-2.5 rounded-full bg-cyan-400" /> Your Score
-                        </span>
-                        <span className="inline-flex items-center gap-1.5 font-medium text-slate-400">
-                          <span className="h-2.5 w-2.5 rounded-full bg-slate-400" /> Global Avg
-                        </span>
+                      <div className="flex flex-wrap items-center gap-4">
+                        <div className="flex items-center gap-4 text-xs">
+                          <span className="inline-flex items-center gap-1.5 font-medium text-cyan-400">
+                            <span className="h-2.5 w-2.5 rounded-full bg-cyan-400" /> Your Score
+                          </span>
+                          <span className="inline-flex items-center gap-1.5 font-medium text-slate-400">
+                            <span className="h-2.5 w-2.5 rounded-full bg-slate-400" /> Global Avg
+                          </span>
+                        </div>
+                        <div role="group" aria-label="Gameweek trend range" className="inline-flex rounded-lg border border-slate-700 bg-slate-900 p-1">
+                          {([
+                            ['3', 'Last 3'],
+                            ['6', 'Last 6'],
+                            ['all', 'All'],
+                          ] as const).map(([value, label]) => (
+                            <button
+                              key={value}
+                              type="button"
+                              aria-pressed={trendRange === value}
+                              onClick={() => setTrendRange(value)}
+                              className={`rounded-md px-2.5 py-1.5 text-xs font-medium transition ${
+                                trendRange === value ? 'bg-cyan-500 text-slate-950' : 'text-slate-300 hover:bg-slate-800'
+                              }`}
+                            >
+                              {label}
+                            </button>
+                          ))}
+                        </div>
                       </div>
                     </div>
-                    {data.trend.length ? (
+                    {visibleTrend.length ? (
                       <>
                         <div className="h-64 w-full" aria-hidden="true">
                           <ResponsiveContainer width="100%" height="100%">
                             <LineChart
-                              data={data.trend.map((row: TrendRow) => ({
+                              data={visibleTrend.map((row: TrendRow) => ({
                                 name: `GW${row.gameweekId}`,
                                 userScore: row.userScore,
                                 globalAverage: row.globalAverage,
@@ -357,6 +387,10 @@ export default function AnalyticsDashboard() {
                                 type="monotone"
                                 dataKey="userScore"
                                 name="Your Score"
+                                isAnimationActive
+                                animationBegin={0}
+                                animationDuration={900}
+                                animationEasing="ease-out"
                                 stroke="#06b6d4"
                                 strokeWidth={3}
                                 dot={{ r: 4, fill: '#06b6d4', stroke: isLight ? '#ffffff' : '#083344', strokeWidth: 2 }}
@@ -366,6 +400,10 @@ export default function AnalyticsDashboard() {
                                 type="monotone"
                                 dataKey="globalAverage"
                                 name="Global Average"
+                                isAnimationActive
+                                animationBegin={120}
+                                animationDuration={900}
+                                animationEasing="ease-out"
                                 stroke={chartTheme.globalAvgLine}
                                 strokeWidth={2}
                                 strokeDasharray="4 4"
@@ -385,7 +423,7 @@ export default function AnalyticsDashboard() {
                               </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-800 text-slate-200">
-                              {data.trend.map((row) => (
+                              {visibleTrend.map((row) => (
                                 <tr key={row.gameweekId}>
                                   <th scope="row" className="px-3 py-2 font-medium text-slate-300">
                                     Gameweek {row.gameweekId}
@@ -449,7 +487,7 @@ export default function AnalyticsDashboard() {
                                 labelStyle={{ fontWeight: 'bold', color: isLight ? '#0f766e' : '#2dd4bf', marginBottom: '4px' }}
                                 formatter={(value) => [`${value ?? 0} pts`, 'Points']}
                               />
-                              <Bar dataKey="points" radius={[0, 8, 8, 0]}>
+                              <Bar dataKey="points" radius={[0, 8, 8, 0]} isAnimationActive animationBegin={0} animationDuration={900} animationEasing="ease-out">
                                 {data.roleBreakdown.map((entry: RoleBreakdownRow, index: number) => {
                                   const colors = ['#06b6d4', '#10b981', '#3b82f6', '#f59e0b', '#8b5cf6'];
                                   return <Cell key={`cell-${entry.role}-${index}`} fill={colors[index % colors.length]} />;
@@ -482,11 +520,26 @@ export default function AnalyticsDashboard() {
                         <div>
                           <div className="mb-1 flex items-center justify-between text-sm">
                             <span className="analytics-chart-label text-sm text-slate-400">Efficiency</span>
-                            <span className="font-semibold text-emerald-400">{data.captainEfficiency.efficiency}%</span>
+                            <span className={`inline-flex items-center gap-2 font-semibold ${captainEfficiencyAssessment.color}`}>
+                              {data.captainEfficiency.efficiency}%
+                              <span className="rounded-full border border-current/30 px-2 py-0.5 text-[10px] uppercase tracking-wider">
+                                {captainEfficiencyAssessment.label}
+                              </span>
+                            </span>
                           </div>
-                          <div className="analytics-bar-track h-2.5 rounded-full bg-slate-800">
-                            <div className="analytics-efficiency-bar h-full rounded-full bg-linear-to-r from-amber-500 to-emerald-500" style={{ width: `${Math.min(data.captainEfficiency.efficiency, 100)}%` }} />
+                          <div
+                            className="analytics-bar-track h-2.5 overflow-hidden rounded-full bg-slate-800"
+                            role="progressbar"
+                            aria-label={`Captain efficiency: ${captainEfficiencyAssessment.label}`}
+                            aria-valuemin={0}
+                            aria-valuemax={100}
+                            aria-valuenow={Math.min(100, Math.max(0, data.captainEfficiency.efficiency))}
+                          >
+                            <div className="analytics-efficiency-bar h-full rounded-full bg-linear-to-r from-amber-500 to-emerald-500 transition-[width] duration-700" style={{ width: `${Math.min(100, Math.max(0, data.captainEfficiency.efficiency))}%` }} />
                           </div>
+                          <p className={`mt-2 text-xs ${captainEfficiencyAssessment.color}`}>
+                            {captainEfficiencyAssessment.description} · Good ≥80%, Average ≥50%, Poor &lt;50%
+                          </p>
                         </div>
                       </div>
                     </div>
@@ -497,32 +550,40 @@ export default function AnalyticsDashboard() {
               {tab === 'market' && (
                 <div className="space-y-6">
                   <div className="rounded-2xl border border-slate-800 bg-slate-950/70 p-4">
-                    <h3 className="analytics-market-heading mb-4 text-lg font-semibold text-white">Value for Money</h3>
-                    <div className="overflow-hidden rounded-xl border border-slate-800">
-                      <table className="min-w-full text-left text-sm">
-                        <thead className="bg-slate-900 text-slate-400">
-                          <tr>
-                            <th className="p-3">Player</th>
-                            <th className="p-3">Role</th>
-                            <th className="p-3">Team</th>
-                            <th className="p-3">Price</th>
-                            <th className="p-3">Ownership</th>
-                            <th className="p-3">ROI</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {(data.market.length ? data.market : [{ playerName: 'No data', team: '—', role: 'Support', price: 0, ownership: 0, roi: 0 }]).map((row: MarketRow, index: number) => (
-                            <tr key={`${row.playerName}-${index}`} className="border-t border-slate-800 bg-slate-950/60">
-                              <td className="analytics-market-value p-3 text-white">{row.playerName}</td>
-                              <td className="analytics-market-value p-3 text-slate-300">{row.role}</td>
-                              <td className="analytics-market-value p-3 text-slate-300">{row.team}</td>
-                              <td className="analytics-market-value p-3 text-slate-300">${row.price}M</td>
-                              <td className="analytics-market-value p-3 text-slate-300">{row.ownership}%</td>
-                              <td className="p-3 text-emerald-400">{row.roi}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
+                    <div className="mb-4">
+                      <h3 className="analytics-market-heading text-lg font-semibold text-white">Value for Money</h3>
+                      <p className="mt-1 text-xs text-slate-400">High-return players by points per million</p>
+                    </div>
+                    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                      {data.market.length ? data.market.map((row: MarketRow, index: number) => (
+                        <article key={`${row.playerName}-${index}`} className="analytics-market-card rounded-xl border border-slate-800 bg-slate-900/70 p-4 transition hover:border-cyan-500/40 hover:bg-slate-900">
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0">
+                              <h4 className="truncate font-bold text-white">{row.playerName}</h4>
+                              <p className="mt-1 truncate text-xs text-slate-400">{row.team}</p>
+                            </div>
+                            <span className="shrink-0 rounded-full border border-cyan-500/30 bg-cyan-500/10 px-2.5 py-1 text-xs font-semibold text-cyan-300">{row.role}</span>
+                          </div>
+                          <div className="mt-4 grid grid-cols-3 gap-2 border-t border-slate-800 pt-3">
+                            <div>
+                              <p className="text-[10px] uppercase tracking-wider text-slate-500">Price</p>
+                              <p className="mt-1 text-sm font-semibold text-slate-200">${row.price}M</p>
+                            </div>
+                            <div>
+                              <p className="text-[10px] uppercase tracking-wider text-slate-500">Owned</p>
+                              <p className="mt-1 text-sm font-semibold text-slate-200">{row.ownership}%</p>
+                            </div>
+                            <div>
+                              <p className="text-[10px] uppercase tracking-wider text-slate-500">ROI</p>
+                              <p className="mt-1 text-sm font-bold text-emerald-400">{row.roi}</p>
+                            </div>
+                          </div>
+                        </article>
+                      )) : (
+                        <div className="rounded-xl border border-dashed border-slate-700 bg-slate-900/40 p-6 text-sm text-slate-400 sm:col-span-2 xl:col-span-3">
+                          No value-for-money player data is available yet.
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -531,32 +592,59 @@ export default function AnalyticsDashboard() {
               {tab === 'dream' && (
                 <div className="grid gap-6 lg:grid-cols-2">
                   <div className="rounded-2xl border border-slate-800 bg-slate-950/70 p-4">
-                    <h3 className="analytics-dream-heading mb-4 text-lg font-semibold text-white">Gameweek Dream Team</h3>
-                    <div className="space-y-3">
-                      {(data.dreamTeam.length ? data.dreamTeam : [{ playerName: 'Awaiting data', team: '—', role: 'Support', points: 0 }]).map((player: DreamTeamRow, index: number) => (
-                        <div key={`${player.playerName}-${index}`} className="flex items-center justify-between rounded-xl border border-slate-800 bg-slate-900/60 p-3">
-                          <div>
-                            <p className="font-semibold text-white">{player.playerName}</p>
-                            <p className="text-xs text-slate-400">{player.team} · {player.role}</p>
+                    <div className="mb-4">
+                      <h3 className="analytics-dream-heading text-lg font-semibold text-white">Gameweek Dream Team</h3>
+                      <p className="mt-1 text-xs text-slate-400">Top role-balanced performers from the latest scoring window</p>
+                    </div>
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      {data.dreamTeam.length ? data.dreamTeam.map((player: DreamTeamRow, index: number) => (
+                        <article key={`${player.playerName}-${index}`} className={`analytics-dream-card rounded-xl border p-4 transition hover:border-cyan-500/40 ${
+                          index < 5 ? 'border-cyan-500/25 bg-cyan-500/5' : 'border-slate-800 bg-slate-900/60'
+                        }`}>
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0">
+                              <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">{index < 5 ? `Starter ${index + 1}` : `Bench ${index - 4}`}</p>
+                              <h4 className="mt-1 truncate font-bold text-white">{player.playerName}</h4>
+                              <p className="mt-1 truncate text-xs text-slate-400">{player.team}</p>
+                            </div>
+                            <span className="shrink-0 text-lg font-black tabular-nums text-cyan-300">{player.points}<span className="ml-1 text-[10px] font-semibold text-cyan-400">PTS</span></span>
                           </div>
-                          <span className="text-lg font-bold text-cyan-300">{player.points} pts</span>
+                          <span className="mt-3 inline-flex rounded-full border border-slate-700 bg-slate-950/60 px-2.5 py-1 text-xs font-medium text-slate-300">{player.role}</span>
+                        </article>
+                      )) : (
+                        <div className="rounded-xl border border-dashed border-slate-700 bg-slate-900/40 p-6 text-sm text-slate-400 sm:col-span-2">
+                          Dream Team results will appear after gameweek scoring is available.
                         </div>
-                      ))}
+                      )}
                     </div>
                   </div>
 
                   <div className="rounded-2xl border border-slate-800 bg-slate-950/70 p-4">
-                    <h3 className="analytics-dream-heading mb-4 text-lg font-semibold text-white">Top Individual Performances</h3>
-                    <div className="space-y-3">
-                      {(data.valueForMoney.length ? data.valueForMoney : [{ playerName: 'No standout performers yet', team: '—', role: 'Support', ownership: 0, price: 0, roi: 0 }]).map((row: MarketRow, index: number) => (
-                        <div key={`${row.playerName}-${index}`} className="flex items-center justify-between rounded-xl border border-slate-800 bg-slate-900/60 p-3">
-                          <div>
-                            <p className="font-semibold text-white">{row.playerName}</p>
-                            <p className="text-xs text-slate-400">{row.team} · {row.role}</p>
+                    <div className="mb-4">
+                      <h3 className="analytics-dream-heading text-lg font-semibold text-white">Top Individual Performances</h3>
+                      <p className="mt-1 text-xs text-slate-400">Standout scoring and value signals</p>
+                    </div>
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      {data.valueForMoney.length ? data.valueForMoney.map((row: MarketRow, index: number) => (
+                        <article key={`${row.playerName}-${index}`} className="analytics-performance-card rounded-xl border border-slate-800 bg-slate-900/60 p-4 transition hover:border-amber-500/40">
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0">
+                              <h4 className="truncate font-bold text-white">{row.playerName}</h4>
+                              <p className="mt-1 truncate text-xs text-slate-400">{row.team}</p>
+                            </div>
+                            <span className="shrink-0 rounded-lg bg-amber-500/10 px-2.5 py-1.5 text-sm font-bold text-amber-300">{row.roi} ROI</span>
                           </div>
-                          <span className="text-emerald-400">{row.roi} ROI</span>
+                          <div className="mt-3 flex flex-wrap gap-2">
+                            <span className="rounded-full border border-slate-700 px-2.5 py-1 text-xs text-slate-300">{row.role}</span>
+                            <span className="rounded-full border border-slate-700 px-2.5 py-1 text-xs text-slate-300">${row.price}M</span>
+                            <span className="rounded-full border border-slate-700 px-2.5 py-1 text-xs text-slate-300">{row.ownership}% owned</span>
+                          </div>
+                        </article>
+                      )) : (
+                        <div className="rounded-xl border border-dashed border-slate-700 bg-slate-900/40 p-6 text-sm text-slate-400 sm:col-span-2">
+                          No standout performances are available yet.
                         </div>
-                      ))}
+                      )}
                     </div>
                   </div>
                 </div>
