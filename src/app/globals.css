@@ -721,6 +721,10 @@ body {
   color: #92400e !important;
 }
 
+[data-theme='light'] .dashboard-header a.bg-amber-500\/10 .text-amber-900 {
+  color: #78350f !important;
+}
+
 [data-theme='light'] .dashboard-header .bg-slate-700\/80 {
   background-color: var(--border) !important;
 }

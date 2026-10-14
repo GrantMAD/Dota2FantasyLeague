@@ -5,7 +5,7 @@ interface DashboardQuickActionsProps {
   activeSquadCount: number;
   bankBalance: number;
   freeTransfers: number;
-  deadlineCountdown: string;
+  deadlineCountdown?: string;
   hasLeagues: boolean;
 }
 
@@ -13,7 +13,7 @@ export function DashboardQuickActions({
   activeSquadCount,
   bankBalance,
   freeTransfers,
-  deadlineCountdown,
+  deadlineCountdown = '',
   hasLeagues,
 }: DashboardQuickActionsProps) {
   const deadlinePassed = deadlineCountdown === 'Deadline passed';

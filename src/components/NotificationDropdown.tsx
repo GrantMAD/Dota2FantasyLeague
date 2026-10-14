@@ -119,14 +119,23 @@ export function NotificationDropdown({
           () => void refreshNotifications(),
         )
         .subscribe((status, error) => {
+          if (disposed) return;
           if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
-            console.error('Realtime notification subscription failed:', error?.message ?? status);
+            const msg = error?.message ?? status;
+            // WebSocket 1006 indicates abnormal close (common on page navigations, tab backgrounding, or dev-server HMR reconnects)
+            if (msg.includes('1006') || msg.includes('socket closed')) {
+              console.warn('[Realtime] Notification channel disconnected (reconnecting automatically):', msg);
+            } else {
+              console.error('Realtime notification subscription failed:', msg);
+            }
           }
         });
     };
 
     void setupRealtimeNotifications().catch((error: unknown) => {
-      console.error('Unable to set up realtime notification subscription:', error);
+      if (!disposed) {
+        console.error('Unable to set up realtime notification subscription:', error);
+      }
     });
 
     return () => {

@@ -9,9 +9,11 @@ import {
   Calendar,
   ChevronLeft,
   ChevronRight,
+  Command,
   Gamepad2,
   LayoutDashboard,
   Medal,
+  Search,
   Shield,
   Swords,
   Trophy,
@@ -58,7 +60,6 @@ const navSections: NavigationSection[] = [
       { href: '/leagues', label: 'Leagues', description: 'Create or follow league standings', icon: Trophy },
       { href: '/leaderboard', label: 'Leaderboard', description: 'Compare global manager ranks', icon: Medal },
       { href: '/gameweeks', label: 'Gameweeks', description: 'View schedules and deadlines', icon: Calendar },
-      { href: '/season-recap', label: 'Season Recap', description: 'Review a finished season', icon: Trophy },
     ],
   },
   {
@@ -78,6 +79,7 @@ const navSections: NavigationSection[] = [
 ];
 
 const bottomNavLinks: NavigationLink[] = [
+  { href: '/season-recap', label: 'Season Recap', description: 'Review a finished season', icon: Trophy },
   { href: '/learn', label: 'Learn', description: 'Rules, guides, and fantasy basics', icon: BookOpen },
 ];
 
@@ -90,11 +92,14 @@ export function DashboardNavigation({
   isAdmin,
   mobileMenuOpen,
   onMobileMenuClose,
+  onOpenSearch,
 }: {
   pathname: string;
   isAdmin: boolean;
   mobileMenuOpen: boolean;
   onMobileMenuClose: () => void;
+  quickStats?: unknown;
+  onOpenSearch?: () => void;
 }) {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const mobileDrawerRef = useRef<HTMLDivElement>(null);
@@ -129,6 +134,8 @@ export function DashboardNavigation({
     };
   }, [onMobileMenuClose]);
 
+
+
   return (
     <>
       <aside className={`dashboard-sidebar fixed inset-y-0 left-0 z-50 hidden flex-col border-r border-slate-700 bg-slate-900 px-4 py-6 transition-[width] duration-200 md:flex ${sidebarCollapsed ? 'w-20' : 'w-64'}`}>
@@ -161,30 +168,48 @@ export function DashboardNavigation({
                   {section.links.map((link) => {
                     const Icon = link.icon;
                     const active = isActive(pathname, link.href);
+
                     return (
-                      <Link
-                        key={link.href}
-                        href={link.href}
-                        title={sidebarCollapsed ? `${link.label}: ${link.description}` : undefined}
-                        aria-current={active ? 'page' : undefined}
-                        className={`flex items-center rounded-lg text-sm transition-colors ${sidebarCollapsed ? 'justify-center p-2.5' : 'items-start gap-3 px-3 py-2'} ${active ? 'bg-amber-500/20 text-amber-500' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}
-                      >
-                        <Icon className={`mt-0.5 h-5 w-5 shrink-0 ${active ? 'text-amber-500' : 'text-slate-400'}`} />
-                        {!sidebarCollapsed && (
-                          <span className="min-w-0">
-                            <span className="block truncate font-medium">{link.label}</span>
-                            <span className={`mt-0.5 block text-[10px] leading-tight ${active ? 'text-teal-700 dark:text-teal-200' : 'text-slate-500'}`}>
-                              {link.description}
+                      <div key={link.href} className="group relative">
+                        <Link
+                          href={link.href}
+                          title={sidebarCollapsed ? `${link.label}: ${link.description}` : undefined}
+                          aria-label={sidebarCollapsed ? `${link.label}: ${link.description}` : undefined}
+                          aria-current={active ? 'page' : undefined}
+                          className={`flex items-center rounded-lg text-sm transition-colors ${sidebarCollapsed ? 'relative justify-center p-2.5' : 'items-start gap-3 px-3 py-2'} ${active ? 'bg-amber-500/20 text-amber-500' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}
+                        >
+                          <Icon className={`mt-0.5 h-5 w-5 shrink-0 ${active ? 'text-amber-500' : 'text-slate-400'}`} />
+                          {!sidebarCollapsed && (
+                            <span className="min-w-0">
+                              <span className="block truncate font-medium">{link.label}</span>
+                              <span className={`mt-0.5 block text-[10px] leading-tight ${active ? 'text-teal-700 dark:text-teal-200' : 'text-slate-500'}`}>
+                                {link.description}
+                              </span>
                             </span>
-                          </span>
+                          )}
+                        </Link>
+
+                        {/* Collapsed flyout tooltip with touch support */}
+                        {sidebarCollapsed && (
+                          <div
+                            role="tooltip"
+                            className="pointer-events-none fixed left-20 ml-2 z-70 hidden max-w-xs -translate-y-1/2 whitespace-nowrap rounded-lg border border-slate-700 bg-slate-900/95 px-3 py-2 shadow-2xl backdrop-blur-md transition-opacity group-hover:pointer-events-auto group-hover:flex group-focus-within:pointer-events-auto group-focus-within:flex group-active:pointer-events-auto group-active:flex"
+                            style={{ top: 'auto' }}
+                          >
+                            <div>
+                              <p className="text-xs font-semibold text-white">{link.label}</p>
+                              <p className="text-[10px] text-slate-400">{link.description}</p>
+                            </div>
+                          </div>
                         )}
-                      </Link>
+                      </div>
                     );
                   })}
                 </div>
               </section>
             ))}
           </div>
+
           <div className="mt-auto border-t border-slate-800/80 pt-3">
             {!sidebarCollapsed && (
               <h2 className="mb-1 px-3 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">
@@ -196,39 +221,91 @@ export function DashboardNavigation({
                 const Icon = link.icon;
                 const active = isActive(pathname, link.href);
                 return (
+                  <div key={link.href} className="group relative">
+                    <Link
+                      href={link.href}
+                      title={sidebarCollapsed ? `${link.label}: ${link.description}` : undefined}
+                      aria-label={sidebarCollapsed ? `${link.label}: ${link.description}` : undefined}
+                      aria-current={active ? 'page' : undefined}
+                      className={`flex items-center rounded-lg text-sm transition-colors ${sidebarCollapsed ? 'justify-center p-2.5' : 'gap-3 px-3 py-2.5'} ${active ? 'bg-amber-500/20 text-amber-500' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}
+                    >
+                      <Icon className={`h-5 w-5 shrink-0 ${active ? 'text-amber-500' : 'text-slate-400'}`} />
+                      {!sidebarCollapsed && (
+                        <span className="min-w-0">
+                          <span className="block truncate font-medium">{link.label}</span>
+                          <span className={`mt-0.5 block truncate text-[10px] leading-tight ${active ? 'text-teal-700 dark:text-teal-200' : 'text-slate-500'}`}>{link.description}</span>
+                        </span>
+                      )}
+                    </Link>
+
+                    {/* Collapsed flyout tooltip with touch/focus support */}
+                    {sidebarCollapsed && (
+                      <div
+                        role="tooltip"
+                        className="pointer-events-none fixed left-20 ml-2 z-70 hidden max-w-xs -translate-y-1/2 whitespace-nowrap rounded-lg border border-slate-700 bg-slate-900/95 px-3 py-2 shadow-2xl backdrop-blur-md transition-opacity group-hover:pointer-events-auto group-hover:flex group-focus-within:pointer-events-auto group-focus-within:flex group-active:pointer-events-auto group-active:flex"
+                      >
+                        <div>
+                          <p className="text-xs font-semibold text-white">{link.label}</p>
+                          <p className="text-[10px] text-slate-400">{link.description}</p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+
+              {isAdmin && (
+                <div className="group relative">
                   <Link
-                    key={link.href}
-                    href={link.href}
-                    title={sidebarCollapsed ? `${link.label}: ${link.description}` : undefined}
-                    aria-current={active ? 'page' : undefined}
-                    className={`flex items-center rounded-lg text-sm transition-colors ${sidebarCollapsed ? 'justify-center p-2.5' : 'gap-3 px-3 py-2.5'} ${active ? 'bg-amber-500/20 text-amber-500' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}
+                    href="/admin/dashboard"
+                    title={sidebarCollapsed ? 'Admin Console: Manage app operations' : undefined}
+                    aria-label={sidebarCollapsed ? 'Admin Console: Manage app operations' : undefined}
+                    aria-current={pathname.startsWith('/admin') ? 'page' : undefined}
+                    className={`flex items-center rounded-lg text-sm font-medium transition-colors ${sidebarCollapsed ? 'justify-center p-2.5' : 'gap-3 px-3 py-2.5'} ${pathname.startsWith('/admin') ? 'bg-amber-500/20 text-amber-400 font-semibold' : 'text-amber-400/80 hover:bg-amber-500/10 hover:text-amber-300'}`}
                   >
-                    <Icon className={`h-5 w-5 shrink-0 ${active ? 'text-amber-500' : 'text-slate-400'}`} />
+                    <Shield className="h-5 w-5 shrink-0 text-amber-400" />
                     {!sidebarCollapsed && (
                       <span className="min-w-0">
-                        <span className="block truncate font-medium">{link.label}</span>
-                        <span className={`mt-0.5 block truncate text-[10px] leading-tight ${active ? 'text-teal-700 dark:text-teal-200' : 'text-slate-500'}`}>{link.description}</span>
+                        <span className="block truncate">Admin Console</span>
+                        <span className={`mt-0.5 block truncate text-[10px] leading-tight ${pathname.startsWith('/admin') ? 'text-teal-700 dark:text-teal-200' : 'text-slate-500'}`}>Manage app operations</span>
                       </span>
                     )}
                   </Link>
-                );
-              })}
-              {isAdmin && (
-                <Link
-                  href="/admin/dashboard"
-                  title={sidebarCollapsed ? 'Admin Console: Manage app operations' : undefined}
-                  aria-current={pathname.startsWith('/admin') ? 'page' : undefined}
-                  className={`flex items-center rounded-lg text-sm font-medium transition-colors ${sidebarCollapsed ? 'justify-center p-2.5' : 'gap-3 px-3 py-2.5'} ${pathname.startsWith('/admin') ? 'bg-amber-500/20 text-amber-400 font-semibold' : 'text-amber-400/80 hover:bg-amber-500/10 hover:text-amber-300'}`}
-                >
-                  <Shield className="h-5 w-5 shrink-0 text-amber-400" />
-                  {!sidebarCollapsed && (
-                    <span className="min-w-0">
-                      <span className="block truncate">Admin Console</span>
-                      <span className={`mt-0.5 block truncate text-[10px] leading-tight ${pathname.startsWith('/admin') ? 'text-teal-700 dark:text-teal-200' : 'text-slate-500'}`}>Manage app operations</span>
-                    </span>
+
+                  {sidebarCollapsed && (
+                    <div
+                      role="tooltip"
+                      className="pointer-events-none fixed left-20 ml-2 z-70 hidden max-w-xs -translate-y-1/2 whitespace-nowrap rounded-lg border border-slate-700 bg-slate-900/95 px-3 py-2 shadow-2xl backdrop-blur-md transition-opacity group-hover:pointer-events-auto group-hover:flex group-focus-within:pointer-events-auto group-focus-within:flex group-active:pointer-events-auto group-active:flex"
+                    >
+                      <div>
+                        <p className="text-xs font-semibold text-amber-400">Admin Console</p>
+                        <p className="text-[10px] text-slate-400">Manage app operations</p>
+                      </div>
+                    </div>
                   )}
-                </Link>
+                </div>
               )}
+            </div>
+
+            {/* Sidebar Command Palette Trigger & Keyboard Shortcut */}
+            <div className="mt-3 pt-3 border-t border-slate-800/80">
+              <button
+                type="button"
+                onClick={onOpenSearch}
+                title={sidebarCollapsed ? 'Command Palette (⌘K / Ctrl+K)' : undefined}
+                aria-label="Open Command Palette"
+                className={`group flex w-full items-center rounded-lg border border-slate-700/70 bg-slate-800/40 text-slate-400 hover:border-amber-500/40 hover:bg-slate-800 hover:text-slate-200 transition-all text-xs ${sidebarCollapsed ? 'justify-center p-2' : 'justify-between px-3 py-2'}`}
+              >
+                <div className="flex items-center gap-2">
+                  <Search className="h-4 w-4 shrink-0 text-slate-400 group-hover:text-amber-400 transition-colors" />
+                  {!sidebarCollapsed && <span className="font-medium">Quick Search</span>}
+                </div>
+                {!sidebarCollapsed && (
+                  <kbd className="inline-flex items-center gap-0.5 rounded border border-slate-700 bg-slate-900/90 px-1.5 py-0.5 text-[10px] font-mono text-slate-400 shadow-xs group-hover:text-amber-400 transition-colors">
+                    <Command className="h-2.5 w-2.5" /> K
+                  </kbd>
+                )}
+              </button>
             </div>
           </div>
         </nav>
@@ -254,9 +331,15 @@ export function DashboardNavigation({
             <X className="h-5 w-5" />
           </button>
         </div>
-        <p className="px-4 pt-1.5 pb-0.5 text-[10px] text-slate-600 flex items-center gap-1 shrink-0">
-          <span aria-hidden="true">←</span> Swipe left to close
-        </p>
+
+        {/* Mobile Swipe Left Pill Badge */}
+        <div className="px-4 pt-2.5 pb-1 flex items-center justify-center shrink-0">
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-slate-700/70 bg-slate-800/80 px-2.5 py-0.5 text-[10px] font-medium text-slate-400 shadow-xs">
+            <span aria-hidden="true" className="text-amber-400">←</span>
+            <span>Swipe left to close</span>
+          </span>
+        </div>
+
         <nav className="no-scrollbar flex-1 overflow-y-auto px-3 py-2">
           <div className="space-y-4">
             {navSections.map((section) => (
@@ -266,6 +349,7 @@ export function DashboardNavigation({
                   {section.links.map((link) => {
                     const Icon = link.icon;
                     const active = isActive(pathname, link.href);
+
                     return (
                       <Link
                         key={link.href}
@@ -332,3 +416,4 @@ export function DashboardNavigation({
     </>
   );
 }
+

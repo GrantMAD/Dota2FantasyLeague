@@ -186,7 +186,14 @@ export function Header() {
 
   return (
     <>
-      <DashboardNavigation pathname={pathname} isAdmin={profile?.role === 'admin'} mobileMenuOpen={mobileMenuOpen} onMobileMenuClose={closeMobileMenu} />
+      <DashboardNavigation
+        pathname={pathname}
+        isAdmin={profile?.role === 'admin'}
+        mobileMenuOpen={mobileMenuOpen}
+        onMobileMenuClose={closeMobileMenu}
+        quickStats={quickStats}
+        onOpenSearch={() => setSearchOpen(true)}
+      />
 
       <header className="dashboard-header sticky top-0 z-40 border-b border-slate-700/80 bg-slate-900/95 backdrop-blur-md">
         <nav ref={userMenuRef} className="mx-auto px-4 sm:px-6">

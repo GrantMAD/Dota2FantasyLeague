@@ -74,41 +74,6 @@ interface WhatsNewData {
 
 type WhatsNewTab = 'tournaments' | 'players';
 
-function useCountdown(targetDateStr: string | null | undefined): string {
-  const [countdown, setCountdown] = useState<{ targetDateStr: string | null | undefined; label: string }>({
-    targetDateStr: undefined,
-    label: '',
-  });
-  useEffect(() => {
-    if (!targetDateStr) return;
-    const tick = () => {
-      const diff = new Date(targetDateStr).getTime() - Date.now();
-      if (diff <= 0) {
-        setCountdown({ targetDateStr, label: 'Deadline passed' });
-        return;
-      }
-      const h = Math.floor(diff / 3_600_000);
-      const m = Math.floor((diff % 3_600_000) / 60_000);
-      const s = Math.floor((diff % 60_000) / 1_000);
-      if (h > 48) {
-        const d = Math.floor(h / 24);
-        setCountdown({ targetDateStr, label: `${d}d ${h % 24}h` });
-      } else if (h > 0) {
-        setCountdown({ targetDateStr, label: `${h}h ${m}m` });
-      } else {
-        setCountdown({ targetDateStr, label: `${m}m ${s}s` });
-      }
-    };
-    const initialTick = setTimeout(tick, 0);
-    const id = setInterval(tick, 1000);
-    return () => {
-      clearTimeout(initialTick);
-      clearInterval(id);
-    };
-  }, [targetDateStr]);
-  return countdown.targetDateStr === targetDateStr ? countdown.label : '';
-}
-
 export default function DashboardPage() {
   const router = useRouter();
   const toast = useToast();
@@ -239,7 +204,6 @@ export default function DashboardPage() {
     };
   }, []);
 
-  const countdown = useCountdown(whatsNew?.gameweek?.deadline);
   const hasTournamentUpdates = (whatsNew?.events.length ?? 0) > 0;
   const hasPlayerUpdates = (whatsNew?.updates.length ?? 0) > 0;
   const activeWhatsNewTab: WhatsNewTab = whatsNewTab === 'tournaments'
@@ -332,13 +296,6 @@ export default function DashboardPage() {
                   Live
                 </span>
               </div>
-              {whatsNew.gameweek && countdown && (
-                <div className="wn-countdown" aria-label={`Deadline in ${countdown}`}>
-                  <Clock className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-                  <span className="wn-countdown-label">Deadline in</span>
-                  <span className="wn-countdown-value">{countdown}</span>
-                </div>
-              )}
             </div>
 
             {/* ── Gameweek — always visible, above the tabs ── */}
@@ -556,7 +513,6 @@ export default function DashboardPage() {
                 activeSquadCount={dashboardData.activeSquadCount}
                 bankBalance={Number(dashboardData.bankBalance)}
                 freeTransfers={dashboardData.freeTransfers}
-                deadlineCountdown={countdown}
                 hasLeagues={dashboardData.leagueStandings.length > 0}
               />
             ) : null}
