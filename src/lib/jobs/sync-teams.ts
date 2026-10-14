@@ -220,10 +220,11 @@ async function processSyncBatch(
         const changedFields = detectFieldChanges(existingObj, updateData);
         if (Object.keys(changedFields.changed).length > 0) {
           try {
+            const nextVersion = await getNextVersionNumber(supabase, 'team', existing.id.toString());
             const versionRecord = createVersionRecord(
               'team',
               existing.id.toString(),
-              1,
+              nextVersion,
               existingObj,
               updateData,
               'sync',
@@ -317,10 +318,11 @@ async function processSyncBatch(
         // Create version record
         if (insertedTeam) {
           try {
+            const nextVersion = await getNextVersionNumber(supabase, 'team', insertedTeam.id.toString());
             const versionRecord = createVersionRecord(
               'team',
               insertedTeam.id.toString(),
-              1,
+              nextVersion,
               {},
               newTeamData,
               'sync',
@@ -381,6 +383,25 @@ async function processSyncBatch(
   }
 
   return results;
+}
+
+/**
+ * Get the next version number for a data entity
+ */
+async function getNextVersionNumber(
+  supabase: ReturnType<typeof getSupabaseServerClient>,
+  entityType: string,
+  entityId: string
+): Promise<number> {
+  const { data } = await supabase
+    .from('data_version_history')
+    .select('version_number')
+    .eq('entity_type', entityType)
+    .eq('entity_id', entityId)
+    .order('version_number', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  return (data?.version_number ?? 0) + 1;
 }
 
 /**
