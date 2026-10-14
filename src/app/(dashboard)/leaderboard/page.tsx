@@ -3,7 +3,7 @@
 import { fetchWithAuth } from '@/lib/fetch-with-auth';
 import { useState, useEffect, useCallback } from 'react';
 import Image from 'next/image';
-import { Medal, RefreshCw } from 'lucide-react';
+import { Medal, RefreshCw, Star } from 'lucide-react';
 
 type LeaderboardEntry = {
    id: number;
@@ -11,6 +11,7 @@ type LeaderboardEntry = {
    previous_rank: number | null;
    total_points: number;
    gameweek_points: number;
+   is_pinned?: boolean;
    fantasy_teams?: {
       id?: string;
       name?: string;
@@ -44,6 +45,7 @@ export default function LeaderboardPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [lastRecalculatedAt, setLastRecalculatedAt] = useState<string | null>(null);
+  const [topGameweekScorer, setTopGameweekScorer] = useState<{ id: number; manager: string; points: number } | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [page, setPage] = useState(1);
   const [countryFilter, setCountryFilter] = useState('');
@@ -99,10 +101,12 @@ export default function LeaderboardPage() {
         leaderboard?: LeaderboardEntry[];
         error?: string;
         lastRecalculatedAt?: string | null;
+        topGameweekScorer?: { id: number; manager: string; points: number } | null;
       };
       if (!res.ok) throw new Error(data.error || 'Failed to load leaderboard');
       setEntries(data.leaderboard || []);
       setLastRecalculatedAt(data.lastRecalculatedAt ?? null);
+      setTopGameweekScorer(data.topGameweekScorer ?? null);
       setError(null);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Failed to load leaderboard';
@@ -124,19 +128,20 @@ export default function LeaderboardPage() {
 
   const renderRankChange = (current: number, previous: number | null) => {
     if (!previous || current === previous) {
-       return <span className="text-slate-500 font-bold text-lg">-</span>;
+       const label = previous === current ? 'No rank change' : 'No previous rank available';
+       return <span role="img" aria-label={label} title={label} className="text-slate-500 font-bold text-lg">-</span>;
     }
     const diff = previous - current;
     if (diff > 0) {
        return (
-          <div className="flex flex-col items-center justify-center">
+          <div role="img" className="flex flex-col items-center justify-center" aria-label={`Up ${diff} places`} title={`Up ${diff} places`}>
              <svg className="w-4 h-4 text-emerald-500" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M14.707 12.707a1 1 0 01-1.414 0L10 9.414l-3.293 3.293a1 1 0 01-1.414-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 010 1.414z" clipRule="evenodd"></path></svg>
              <span className="text-emerald-500 text-[10px] font-bold">{diff}</span>
           </div>
        );
     }
     return (
-       <div className="flex flex-col items-center justify-center">
+       <div role="img" className="flex flex-col items-center justify-center" aria-label={`Down ${Math.abs(diff)} places`} title={`Down ${Math.abs(diff)} places`}>
           <svg className="w-4 h-4 text-red-500" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd"></path></svg>
           <span className="text-red-500 text-[10px] font-bold">{Math.abs(diff)}</span>
        </div>
@@ -193,6 +198,16 @@ export default function LeaderboardPage() {
         {' · '}Auto-refreshes every minute
       </p>
 
+      {topGameweekScorer && (
+        <div className="mb-6 flex items-center gap-3 rounded-xl border border-amber-400/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
+          <Star className="h-5 w-5 shrink-0 fill-amber-400 text-amber-400" aria-hidden="true" />
+          <p>
+            <span className="font-semibold text-amber-300">Top gameweek scorer:</span>{' '}
+            {topGameweekScorer.manager} with {topGameweekScorer.points} points
+          </p>
+        </div>
+      )}
+
       {error && (
         <div className="bg-red-900/50 border border-red-500/50 text-red-200 px-4 py-3 rounded-lg mb-8 text-sm">
           {error}
@@ -241,6 +256,7 @@ export default function LeaderboardPage() {
                         const team = entry.fantasy_teams;
                         const profile = team?.profiles;
                         const isTop3 = entry.rank <= 3;
+                        const isTopGameweekScorer = entry.id === topGameweekScorer?.id;
                         const managerName = profile?.display_name || profile?.username || 'Anonymous Manager';
                         const isCurrentUser = Boolean(currentUserId && team?.user_id === currentUserId);
                         
@@ -261,7 +277,9 @@ export default function LeaderboardPage() {
                                  country: profile?.country || null,
                               })}
                               className={`transition-colors group cursor-pointer ${
-                                 isCurrentUser
+                                 isTopGameweekScorer
+                                    ? 'bg-amber-950/30 border-l-4 border-l-amber-400 hover:bg-amber-900/30'
+                                    : isCurrentUser
                                     ? 'bg-teal-950/40 border-l-4 border-l-teal-400 hover:bg-teal-900/40'
                                     : 'border-l-4 border-l-transparent hover:bg-slate-700/50'
                               }`}
@@ -313,7 +331,10 @@ export default function LeaderboardPage() {
                                  </div>
                               </td>
                               <td className="px-6 py-4 text-right font-mono">
-                                 <span className={`font-medium ${isCurrentUser ? 'text-teal-200' : 'text-slate-300'}`}>{entry.gameweek_points || 0}</span>
+                                 <span className={`inline-flex items-center justify-end gap-1.5 font-medium ${isTopGameweekScorer ? 'text-amber-300' : isCurrentUser ? 'text-teal-200' : 'text-slate-300'}`}>
+                                    {isTopGameweekScorer && <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" aria-label="Top gameweek scorer" />}
+                                    {entry.gameweek_points || 0}
+                                 </span>
                               </td>
                               <td className="px-6 py-4 text-right font-mono">
                                  <span className={`text-lg font-bold ${isCurrentUser ? 'text-teal-400' : 'text-amber-400'}`}>{entry.total_points || 0}</span>
@@ -330,7 +351,10 @@ export default function LeaderboardPage() {
          {!loading && entries.length > 0 && (
             <div className="px-6 py-4 border-t border-slate-700 bg-slate-800/80 flex items-center justify-between">
                <div className="text-sm text-slate-400">
-                  Showing top {(page - 1) * 50 + 1} to {(page - 1) * 50 + entries.length}
+                  {entries.some((entry) => !entry.is_pinned)
+                    ? `Showing top ${(page - 1) * 50 + 1} to ${(page - 1) * 50 + entries.filter((entry) => !entry.is_pinned).length}`
+                    : 'No leaderboard entries on this page.'}
+                  {entries.some((entry) => entry.is_pinned) && <span className="ml-2 text-teal-300">Your rank is pinned below.</span>}
                </div>
                <div className="flex gap-2">
                   <button 
