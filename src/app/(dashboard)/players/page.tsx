@@ -17,6 +17,7 @@ import {
   Crosshair,
   Star,
   HelpCircle,
+  Plus,
 } from 'lucide-react';
 import { fetchWithAuth } from '@/lib/fetch-with-auth';
 import { useToast } from '@/components/Toast';
@@ -58,6 +59,21 @@ const getRoleBadgeClass = (role: string) => {
 };
 
 const formatPrice = (price: number) => `$${Number(price ?? 0).toFixed(1)}M`;
+
+const getAvailabilityBadgeStyle = (status: string | null | undefined): React.CSSProperties => {
+  const normalizedStatus = status?.toLowerCase();
+  const color = !normalizedStatus
+    ? 'var(--text-muted)'
+    : normalizedStatus === 'available' || normalizedStatus === 'active'
+      ? 'var(--success)'
+      : 'var(--danger)';
+
+  return {
+    color,
+    borderColor: `color-mix(in srgb, ${color} 40%, transparent)`,
+    backgroundColor: `color-mix(in srgb, ${color} 12%, transparent)`,
+  };
+};
 
 // ──────────────────────────────────────────────────────────────────────────────
 // Team dropdown component
@@ -363,7 +379,7 @@ export default function PlayersPage() {
   };
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-12">
+    <div className={`max-w-7xl mx-auto px-4 pt-12 ${comparePlayerIds.length > 0 ? 'pb-36' : 'pb-12'}`}>
       <h1 className="text-3xl font-bold text-white mb-2 flex items-center gap-3">
         <Users className="w-8 h-8 text-amber-400 shrink-0" />
         <span>Professional Players</span>
@@ -373,7 +389,8 @@ export default function PlayersPage() {
       {comparePlayerIds.length > 0 && (
         <section
           aria-label="Player comparison selection"
-          className="mb-5 flex flex-col gap-3 rounded-xl border border-cyan-500/30 bg-cyan-950/20 p-4 sm:flex-row sm:items-center sm:justify-between"
+          aria-live="polite"
+          className="fixed inset-x-4 bottom-4 z-40 mx-auto flex max-w-7xl flex-col gap-3 rounded-xl border border-cyan-500/30 bg-slate-950/95 p-4 shadow-2xl shadow-black/40 backdrop-blur sm:flex-row sm:items-center sm:justify-between"
         >
           <div>
             <p className="text-sm font-semibold text-white">
@@ -398,7 +415,7 @@ export default function PlayersPage() {
               className="inline-flex items-center justify-center gap-2 rounded-lg bg-cyan-500 px-4 py-2 text-sm font-semibold text-slate-950 transition-colors hover:bg-cyan-400 disabled:cursor-not-allowed disabled:opacity-50"
             >
               <ArrowLeftRight className="h-4 w-4" />
-              Compare players
+              Compare {comparePlayerIds.length} players
             </button>
           </div>
         </section>
@@ -694,22 +711,38 @@ export default function PlayersPage() {
                         {formatPrice(player.current_price)}
                       </td>
 
-                      {/* Status dot */}
+                      {/* Availability */}
                       <td className="px-6 py-4 whitespace-nowrap text-center">
                         <span
-                          className={`inline-block w-2 h-2 rounded-full ${player.availability_status === 'available' ? 'bg-green-500' : 'bg-red-500'}`}
-                          title={player.availability_status}
-                        />
+                          aria-label={`Availability: ${player.availability_status || 'Available'}`}
+                          title={player.availability_status || 'Available'}
+                          style={getAvailabilityBadgeStyle(player.availability_status)}
+                          className="inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-semibold capitalize"
+                        >
+                          {player.availability_status || 'Available'}
+                        </span>
                       </td>
 
                       {/* Action */}
                       <td className="px-6 py-4 whitespace-nowrap text-right">
-                        <Link
-                          href={`/players/${player.id}`}
-                          className="text-xs px-3 py-1.5 border border-slate-600 rounded text-slate-300 hover:bg-slate-700 transition-colors"
-                        >
-                          Profile
-                        </Link>
+                        <div className="inline-flex items-center gap-2">
+                          {!isOwned && player.availability_status?.toLowerCase() === 'available' && (
+                            <Link
+                              href={`/transfers?playerId=${player.id}`}
+                              aria-label={`Start a transfer with ${player.in_game_name || player.name}`}
+                              title="Select this player in the Transfer Market"
+                              className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-emerald-500/40 bg-emerald-500/10 text-[var(--success)] transition-colors hover:bg-emerald-500/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400"
+                            >
+                              <Plus className="h-4 w-4" />
+                            </Link>
+                          )}
+                          <Link
+                            href={`/players/${player.id}`}
+                            className="text-xs px-3 py-1.5 border border-slate-600 rounded text-slate-300 hover:bg-slate-700 transition-colors"
+                          >
+                            Profile
+                          </Link>
+                        </div>
                       </td>
                     </tr>
                   );

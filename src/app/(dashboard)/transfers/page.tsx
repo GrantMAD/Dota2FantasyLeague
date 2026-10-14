@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { Suspense, useState, useEffect, useRef } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import {
   ArrowDown,
   ArrowLeftRight,
@@ -26,8 +27,13 @@ const SQUAD_MAX_SIZE = 8;
 const STARTER_ROLES = ['Carry', 'Mid', 'Offlane', 'Support', 'Hard Support'] as const;
 type StarterRole = typeof STARTER_ROLES[number];
 
-export default function TransfersPage() {
+function TransfersPageContent() {
   const toast = useToast();
+  const searchParams = useSearchParams();
+  const quickAddPlayerIdParam = searchParams.get('playerId');
+  const quickAddPlayerId = quickAddPlayerIdParam ? Number(quickAddPlayerIdParam) : null;
+  const lastHandledQuickAddPlayerId = useRef<number | null>(null);
+  const currentQuickAddPlayerId = useRef<number | null>(quickAddPlayerId);
   const tableContainerRef = useRef<HTMLDivElement>(null);
   const [players, setPlayers] = useState<TransferPlayer[]>([]);
   const [loading, setLoading] = useState(true);
@@ -43,6 +49,8 @@ export default function TransfersPage() {
   const [freeTransfers, setFreeTransfers] = useState(2);
   const [wildcardUsed, setWildcardUsed] = useState(false);
   const [ownedPlayerIds, setOwnedPlayerIds] = useState<number[]>([]);
+  const [transferContextReady, setTransferContextReady] = useState(false);
+  const [quickAddPlayer, setQuickAddPlayer] = useState<TransferPlayer | null>(null);
   // Building mode: multi-select keyed by player ID so details survive filter/page changes
   const [buildingSelections, setBuildingSelections] = useState<Map<number, TransferPlayer>>(new Map());
   // Transfer mode: single swap
@@ -90,10 +98,69 @@ export default function TransfersPage() {
         }
       } catch (err: unknown) {
         setError(err instanceof Error ? err.message : 'Failed to load transfer context');
+      } finally {
+        setTransferContextReady(true);
       }
     }
     fetchContext();
   }, []);
+
+  useEffect(() => {
+    currentQuickAddPlayerId.current = quickAddPlayerId;
+  }, [quickAddPlayerId]);
+
+  useEffect(() => {
+    if (!Number.isInteger(quickAddPlayerId) || !quickAddPlayerId || quickAddPlayerId <= 0) {
+      lastHandledQuickAddPlayerId.current = null;
+      return;
+    }
+    if (!transferContextReady || lastHandledQuickAddPlayerId.current === quickAddPlayerId) return;
+
+    const playerId = quickAddPlayerId;
+    lastHandledQuickAddPlayerId.current = playerId;
+
+    async function selectQuickAddPlayer() {
+      try {
+        if (!fantasySeasonId) {
+          throw new Error('Create a fantasy team before selecting players for your squad.');
+        }
+        if (ownedPlayerIds.includes(playerId)) {
+          toast.info('Already in squad', 'This player is already part of your squad.');
+          return;
+        }
+
+        const response = await fetchWithAuth(`/api/players?ids=${playerId}&show_all=true`);
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || 'Failed to load the selected player.');
+        const player = (data.data as TransferPlayer[] | undefined)?.find((item) => item.id === playerId);
+        if (!player) throw new Error('This player could not be found in the transfer market.');
+        if (player.availability_status?.toLowerCase() !== 'available') {
+          throw new Error('This player is currently unavailable for selection.');
+        }
+        if (currentQuickAddPlayerId.current !== playerId) return;
+
+        setQuickAddPlayer(player);
+
+        if (ownedPlayerIds.length < SQUAD_MAX_SIZE) {
+          if (ownedPlayerIds.length + buildingSelections.size >= SQUAD_MAX_SIZE) {
+            toast.info('Squad full', 'Remove a selected player before adding another.');
+            return;
+          }
+          setBuildingSelections((current) => new Map(current).set(player.id, player));
+          toast.success('Player selected', `${player.in_game_name || player.name} is ready to add to your squad.`);
+        } else {
+          setSelectedPlayerIn(player.id);
+          toast.info('Player selected', 'Choose a player from your squad to sell, then confirm the transfer.');
+        }
+      } catch (err: unknown) {
+        if (currentQuickAddPlayerId.current === playerId) {
+          toast.error('Unable to select player', err instanceof Error ? err.message : 'Please try again.');
+        }
+      }
+    }
+
+    void selectQuickAddPlayer();
+  }, [buildingSelections.size, fantasySeasonId, ownedPlayerIds, quickAddPlayerId, toast, transferContextReady]);
 
   // 2. Fetch paginated players with debounce
   useEffect(() => {
@@ -167,25 +234,29 @@ export default function TransfersPage() {
     return true;
   });
 
-  // When pinOwnedFirst is active, gather owned squad players matching current filters (even if on another page)
-  // and prioritize them at the very top of the list.
+  // Keep a quick-added selection visible above the owned-squad pin and paginated market results.
   const displayedPlayers = (() => {
-    if (!pinOwnedFirst || ownershipFilter === 'available') {
-      return filteredPlayers;
-    }
+    const pinnedSelection = quickAddPlayer && (
+      buildingSelections.has(quickAddPlayer.id) || selectedPlayerIn === quickAddPlayer.id
+    ) ? quickAddPlayer : null;
+    const availablePlayers = filteredPlayers.filter((player) => player.id !== pinnedSelection?.id);
 
     // Get all owned players from our map that match search and role filters
     const matchingOwnedSquad: TransferPlayer[] = [];
-    ownedPlayersMap.forEach((p) => {
-      if (search && !(p.in_game_name || p.name || '').toLowerCase().includes(search.toLowerCase())) return;
-      if (roleFilter && !roleMatches(p.primary_role, roleFilter)) return;
-      matchingOwnedSquad.push(p);
-    });
+    if (pinOwnedFirst && ownershipFilter !== 'available') {
+      ownedPlayersMap.forEach((p) => {
+        if (search && !(p.in_game_name || p.name || '').toLowerCase().includes(search.toLowerCase())) return;
+        if (roleFilter && !roleMatches(p.primary_role, roleFilter)) return;
+        matchingOwnedSquad.push(p);
+      });
+    }
 
     const ownedIdSet = new Set(matchingOwnedSquad.map((p) => p.id));
-    const nonOwned = filteredPlayers.filter((p) => !ownedIdSet.has(p.id) && !ownedPlayerIds.includes(p.id));
+    const marketPlayers = pinOwnedFirst && ownershipFilter !== 'available'
+      ? availablePlayers.filter((p) => !ownedIdSet.has(p.id) && !ownedPlayerIds.includes(p.id))
+      : availablePlayers;
 
-    return [...matchingOwnedSquad, ...nonOwned];
+    return [...(pinnedSelection ? [pinnedSelection] : []), ...matchingOwnedSquad, ...marketPlayers];
   })();
 
   // Normalise player role for squad slot purposes:
@@ -197,7 +268,8 @@ export default function TransfersPage() {
     return role as StarterRole;
   };
 
-  const selectedPlayerInDetails = players.find((player) => player.id === selectedPlayerIn);
+  const selectedPlayerInDetails = players.find((player) => player.id === selectedPlayerIn) ||
+    (quickAddPlayer?.id === selectedPlayerIn ? quickAddPlayer : undefined);
   const selectedPlayerOutDetails = players.find((player) => player.id === selectedPlayerOut) || (selectedPlayerOut ? ownedPlayersMap.get(selectedPlayerOut) : null);
   const rolesMatch = Boolean(
     selectedPlayerInDetails &&
@@ -817,15 +889,18 @@ export default function TransfersPage() {
                   ) : (
                     displayedPlayers.map((player) => {
                       const isOwned = ownedPlayerIds.includes(player.id);
+                      const isSelected = buildingSelections.has(player.id) || selectedPlayerIn === player.id;
                       const priceChange = typeof player.price_change === 'number' ? player.price_change : null;
                       return (
                         <tr
                           key={player.id}
                           onClick={() => openPlayerModal(player)}
                           className={`transition-colors group cursor-pointer ${
-                            isOwned
-                              ? 'bg-emerald-950/20 hover:bg-emerald-950/35 border-l-2 border-l-emerald-500'
-                              : 'hover:bg-slate-700/40'
+                            isSelected
+                              ? 'bg-amber-500/10 ring-1 ring-inset ring-amber-400/60'
+                              : isOwned
+                                ? 'bg-emerald-950/20 hover:bg-emerald-950/35 border-l-2 border-l-emerald-500'
+                                : 'hover:bg-slate-700/40'
                           }`}
                         >
                           <td className="px-4 py-3">
@@ -848,6 +923,12 @@ export default function TransfersPage() {
                                     <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/20 text-emerald-400 text-[10px] font-semibold px-2 py-0.5 border border-emerald-500/30">
                                       <CheckCircle2 className="w-3 h-3" />
                                       In Squad
+                                    </span>
+                                  )}
+                                  {isSelected && (
+                                    <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/20 text-amber-300 text-[10px] font-semibold px-2 py-0.5 border border-amber-500/30">
+                                      <CheckCircle2 className="w-3 h-3" />
+                                      Selected
                                     </span>
                                   )}
                                 </div>
@@ -916,14 +997,14 @@ export default function TransfersPage() {
                               }`}
                               title={
                                 isOwned ? 'In your squad' :
-                                isBuilding && buildingSelections.has(player.id) ? 'Click to deselect' :
+                                isSelected ? 'Click to deselect' :
                                 isBuilding && spotsRemaining <= 0 ? 'Squad full' :
                                 isBuilding ? 'Click to select' : 'Select to buy'
                               }
                             >
                               {isOwned ? (
                                 <Minus className="w-4 h-4" />
-                              ) : isBuilding && buildingSelections.has(player.id) ? (
+                              ) : isSelected ? (
                                 <CheckCircle2 className="w-4 h-4" />
                               ) : (
                                 <Plus className="w-4 h-4" />
@@ -1178,5 +1259,19 @@ export default function TransfersPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function TransfersPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="mx-auto max-w-7xl px-4 py-12 text-center text-sm text-slate-400" role="status">
+          Loading Transfer Market…
+        </div>
+      }
+    >
+      <TransfersPageContent />
+    </Suspense>
   );
 }
