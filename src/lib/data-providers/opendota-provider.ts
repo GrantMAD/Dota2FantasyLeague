@@ -129,15 +129,27 @@ export class OpenDotaProvider extends DataProviderBase implements DataProvider {
   }
 
   async healthCheck(): Promise<boolean> {
+    const headers = {
+      'User-Agent': 'FantasyDota/1.0',
+      Accept: 'application/json',
+    };
+
     try {
       const response = await fetch(`${this.apiUrl}/health`, {
-        headers: {
-          'User-Agent': 'FantasyDota/1.0',
-          Accept: 'application/json',
-        },
+        headers,
         signal: AbortSignal.timeout(5000),
       });
-      return response.ok;
+      if (response.ok) return true;
+    } catch {
+      // /health failed or timed out; fall through to probe a lightweight data endpoint
+    }
+
+    try {
+      const fallbackResponse = await fetch(`${this.apiUrl}/constants/heroes`, {
+        headers,
+        signal: AbortSignal.timeout(5000),
+      });
+      return fallbackResponse.ok;
     } catch (error) {
       this.log('warn', 'OpenDota health check failed', error);
       return false;

@@ -201,32 +201,34 @@ export class StratzProvider extends DataProviderBase implements DataProvider {
 
   async fetchPlayers(filters?: DataProviderFilters): Promise<PlayerData[]> {
     try {
-      // STRATZ API v2 schema: bulk pro player data is via proSteamAccounts.
+      // STRATZ API schema: bulk pro player data is via constants.proSteamAccounts.
       // The account identifier is `id`; player() requires steamAccountId for
       // single-player lookups only.
       const query = `
         query GetProPlayers {
-          proSteamAccounts {
-            id
-            name
-            isPro
-            fantasyRole
-            team {
+          constants {
+            proSteamAccounts {
               id
               name
-              tag
-            }
-            countries
-            steam {
-              avatar
-              profileUrl
+              isPro
+              fantasyRole
+              team {
+                id
+                name
+                tag
+              }
+              countries
+              steam {
+                avatar
+                profileUrl
+              }
             }
           }
         }
       `;
 
-      const response = await this.graphqlRequest<{ proSteamAccounts?: StratzProSteamAccountRecord[] }>(query);
-      const accounts = response.data?.proSteamAccounts;
+      const response = await this.graphqlRequest<{ constants?: { proSteamAccounts?: StratzProSteamAccountRecord[] } }>(query);
+      const accounts = response.data?.constants?.proSteamAccounts;
       if (!Array.isArray(accounts)) {
         throw new Error('STRATZ proSteamAccounts response is missing or invalid');
       }
@@ -349,23 +351,25 @@ export class StratzProvider extends DataProviderBase implements DataProvider {
     try {
       const query = `
         query GetProTeams {
-          proSteamAccounts {
-            id
-            name
-            isPro
-            team {
+          constants {
+            proSteamAccounts {
               id
               name
-              tag
-              countryCode
-              logo
+              isPro
+              team {
+                id
+                name
+                tag
+                countryCode
+                logo
+              }
             }
           }
         }
       `;
 
-      const response = await this.graphqlRequest<{ proSteamAccounts?: StratzProSteamAccountRecord[] }>(query);
-      const accounts = response.data?.proSteamAccounts;
+      const response = await this.graphqlRequest<{ constants?: { proSteamAccounts?: StratzProSteamAccountRecord[] } }>(query);
+      const accounts = response.data?.constants?.proSteamAccounts;
       if (!Array.isArray(accounts)) {
         throw new Error('STRATZ proSteamAccounts response is missing or invalid');
       }

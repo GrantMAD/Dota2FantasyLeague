@@ -20,15 +20,17 @@ describe('STRATZ pro player identifiers', () => {
     const fetchSpy = jest.spyOn(global, 'fetch').mockResolvedValue(
       new Response(JSON.stringify({
         data: {
-          proSteamAccounts: [{
-            id: 123456,
-            name: 'Player One',
-            isPro: true,
-            fantasyRole: 1,
-            team: { id: 42, name: 'Team One', tag: 'ONE' },
-            countries: ['US'],
-            steam: { avatar: 'https://example.com/avatar.png', profileUrl: 'https://example.com/player' },
-          }],
+          constants: {
+            proSteamAccounts: [{
+              id: 123456,
+              name: 'Player One',
+              isPro: true,
+              fantasyRole: 1,
+              team: { id: 42, name: 'Team One', tag: 'ONE' },
+              countries: ['US'],
+              steam: { avatar: 'https://example.com/avatar.png', profileUrl: 'https://example.com/player' },
+            }],
+          },
         },
       }), { status: 200 })
     );
@@ -51,12 +53,14 @@ describe('STRATZ pro player identifiers', () => {
     jest.spyOn(global, 'fetch').mockResolvedValue(
       new Response(JSON.stringify({
         data: {
-          proSteamAccounts: [{
-            id,
-            name: 'Player Without ID',
-            isPro: true,
-            team: { id: 42, name: 'Team One' },
-          }],
+          constants: {
+            proSteamAccounts: [{
+              id,
+              name: 'Player Without ID',
+              isPro: true,
+              team: { id: 42, name: 'Team One' },
+            }],
+          },
         },
       }), { status: 200 })
     );
@@ -92,32 +96,34 @@ describe('STRATZ pro player identifiers', () => {
     const fetchSpy = jest.spyOn(global, 'fetch').mockResolvedValue(
       new Response(JSON.stringify({
         data: {
-          proSteamAccounts: [
-            {
-              id: 101,
-              name: 'Player One',
-              isPro: true,
-              team: {
-                id: 42,
-                name: 'Team One',
-                tag: 'ONE',
-                countryCode: 'US',
-                logo: 'https://example.com/team.png',
+          constants: {
+            proSteamAccounts: [
+              {
+                id: 101,
+                name: 'Player One',
+                isPro: true,
+                team: {
+                  id: 42,
+                  name: 'Team One',
+                  tag: 'ONE',
+                  countryCode: 'US',
+                  logo: 'https://example.com/team.png',
+                },
               },
-            },
-            {
-              id: 102,
-              name: 'Player Two',
-              isPro: true,
-              team: { id: 42, name: 'Team One', tag: 'ONE', countryCode: 'US' },
-            },
-            {
-              id: 103,
-              name: 'Inactive Player',
-              isPro: false,
-              team: { id: 43, name: 'Inactive Team' },
-            },
-          ],
+              {
+                id: 102,
+                name: 'Player Two',
+                isPro: true,
+                team: { id: 42, name: 'Team One', tag: 'ONE', countryCode: 'US' },
+              },
+              {
+                id: 103,
+                name: 'Inactive Player',
+                isPro: false,
+                team: { id: 43, name: 'Inactive Team' },
+              },
+            ],
+          },
         },
       }), { status: 200 })
     );
@@ -149,12 +155,14 @@ describe('STRATZ pro player identifiers', () => {
     jest.spyOn(global, 'fetch').mockResolvedValue(
       new Response(JSON.stringify({
         data: {
-          proSteamAccounts: [1, 2, 3].map((id) => ({
-            id,
-            name: `Player ${id}`,
-            isPro: true,
-            team: { id, name: `Team ${id}` },
-          })),
+          constants: {
+            proSteamAccounts: [1, 2, 3].map((id) => ({
+              id,
+              name: `Player ${id}`,
+              isPro: true,
+              team: { id, name: `Team ${id}` },
+            })),
+          },
         },
       }), { status: 200 })
     );
@@ -218,12 +226,14 @@ describe('STRATZ pro player identifiers', () => {
       .mockResolvedValueOnce(new Response(
         JSON.stringify({
           data: {
-            proSteamAccounts: [{
-              id: 101,
-              name: 'Player One',
-              isPro: true,
-              team: { id: 42, name: 'Team One', tag: 'ONE' },
-            }],
+            constants: {
+              proSteamAccounts: [{
+                id: 101,
+                name: 'Player One',
+                isPro: true,
+                team: { id: 42, name: 'Team One', tag: 'ONE' },
+              }],
+            },
           },
         }),
         { status: 200 },
