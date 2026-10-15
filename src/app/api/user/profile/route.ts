@@ -13,6 +13,7 @@ type UserProfileRecord = {
   country_code: string | null;
   timezone: string | null;
   theme_preference: 'light' | 'dark';
+  banner_theme?: string | null;
   email_notifications?: boolean | null;
   push_notifications?: boolean | null;
   role?: string | null;
@@ -47,7 +48,7 @@ async function getHandler(request: NextRequest) {
 
     const users = supabase.from('users') as unknown as UserQuery;
     const { data, error } = await users
-      .select('id, username, display_name, avatar_url, bio, country_code, timezone, theme_preference, email_notifications, push_notifications, role, created_at, updated_at')
+      .select('id, username, display_name, avatar_url, bio, country_code, timezone, theme_preference, banner_theme, email_notifications, push_notifications, role, created_at, updated_at')
       .eq('id', userId)
       .maybeSingle();
 
@@ -128,6 +129,11 @@ async function putHandler(request: NextRequest) {
       payload.timezone = timezone || null;
     }
 
+    if (typeof body.banner_theme === 'string') {
+      const bannerTheme = body.banner_theme.trim();
+      if (bannerTheme) payload.banner_theme = bannerTheme;
+    }
+
     const emailNotifications = body.email_notifications ?? body.emailNotifications;
     if (typeof emailNotifications === 'boolean') {
       payload.email_notifications = emailNotifications;
@@ -146,7 +152,7 @@ async function putHandler(request: NextRequest) {
     const { data, error } = await users
       .update({ ...payload, updated_at: new Date().toISOString() })
       .eq('id', userId)
-      .select('id, username, display_name, avatar_url, bio, country_code, timezone, theme_preference, email_notifications, push_notifications, created_at, updated_at')
+      .select('id, username, display_name, avatar_url, bio, country_code, timezone, theme_preference, banner_theme, email_notifications, push_notifications, created_at, updated_at')
       .maybeSingle();
 
     if (error) {

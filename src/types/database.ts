@@ -7,6 +7,7 @@ export interface User {
   bio?: string;
   role?: string;
   theme_preference: 'light' | 'dark';
+  banner_theme?: string;
   email_notifications?: boolean;
   push_notifications?: boolean;
   created_at: string;
