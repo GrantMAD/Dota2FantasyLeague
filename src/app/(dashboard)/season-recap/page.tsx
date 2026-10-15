@@ -2,12 +2,15 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { ArrowLeft, Download, Share2, Sparkles, Trophy } from 'lucide-react';
 import { fetchWithAuth } from '@/lib/fetch-with-auth';
 import {
   createSeasonRecapShareCardSvg,
   formatSeasonDate,
   getSeasonRecapShareText,
+  SEASON_RECAP_CARD_THEMES,
+  type SeasonRecapCardTheme,
   type SeasonRecap,
 } from '@/lib/season-recap';
 
@@ -18,6 +21,7 @@ export default function SeasonRecapPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [sharingConsent, setSharingConsent] = useState(false);
+  const [cardTheme, setCardTheme] = useState<SeasonRecapCardTheme>('radiant');
   const [feedback, setFeedback] = useState<string | null>(null);
   const [busyRecapId, setBusyRecapId] = useState<number | null>(null);
 
@@ -68,7 +72,7 @@ export default function SeasonRecapPage() {
 
   const downloadCard = (recap: SeasonRecap) => {
     if (!sharingConsent) return;
-    const blob = new Blob([createSeasonRecapShareCardSvg(recap)], { type: 'image/svg+xml;charset=utf-8' });
+    const blob = new Blob([createSeasonRecapShareCardSvg(recap, cardTheme)], { type: 'image/svg+xml;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement('a');
     anchor.href = url;
@@ -77,6 +81,9 @@ export default function SeasonRecapPage() {
     URL.revokeObjectURL(url);
     setFeedback('Privacy-safe recap card downloaded.');
   };
+
+  const selectedCardTheme = SEASON_RECAP_CARD_THEMES.find((theme) => theme.id === cardTheme)
+    ?? SEASON_RECAP_CARD_THEMES[0];
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-10">
@@ -159,21 +166,55 @@ export default function SeasonRecapPage() {
 
       {recaps.length > 0 && (
         <section className="mb-6 rounded-xl border border-slate-700 bg-slate-800/40 p-5">
-          <label className="flex cursor-pointer items-start gap-3">
+          <div className="flex items-start gap-3">
             <input
+              id="season-recap-sharing-consent"
               type="checkbox"
               checked={sharingConsent}
               onChange={(event) => setSharingConsent(event.target.checked)}
               className="mt-1 h-4 w-4 accent-cyan-400"
             />
-            <span>
-              <span className="block text-sm font-semibold text-white">I choose to share a privacy-safe recap</span>
-              <span className="mt-1 block text-xs leading-relaxed text-slate-400">
-                Sharing includes season results and selected player statistics only. It does not include your manager name,
-                account details, squad name, league name, or a public link.
-              </span>
-            </span>
-          </label>
+            <div>
+              <label htmlFor="season-recap-sharing-consent" className="cursor-pointer text-sm font-semibold text-white">
+                I choose to enable recap sharing and downloads
+              </label>
+              <p className="mt-1 text-sm leading-relaxed text-slate-300">
+                Sharing and downloading create a copy you can give to others, so both actions stay disabled until you opt in.
+                Nothing is published automatically.
+              </p>
+              <details className="group mt-3 text-sm">
+                <summary className="w-fit cursor-pointer font-medium text-cyan-300 hover:text-cyan-200">
+                  What information is included?
+                </summary>
+                <p className="mt-2 max-w-3xl leading-relaxed text-slate-400">
+                  A shared recap may include your season results and selected player statistics, such as points, rankings,
+                  best gameweek, top-scoring pick, and transfer count. It excludes your manager name, account details,
+                  squad name, league name, and public links.
+                </p>
+              </details>
+            </div>
+          </div>
+          <fieldset className="mt-5">
+            <legend className="mb-2 text-sm font-semibold text-white">Recap card theme</legend>
+            <div role="group" aria-label="Recap card theme" className="flex flex-wrap gap-2">
+              {SEASON_RECAP_CARD_THEMES.map((theme) => (
+                <button
+                  key={theme.id}
+                  type="button"
+                  aria-pressed={cardTheme === theme.id}
+                  onClick={() => setCardTheme(theme.id)}
+                  className={`rounded-lg border px-3 py-2 text-left transition ${
+                    cardTheme === theme.id
+                      ? 'border-cyan-400 bg-cyan-500/15 text-white'
+                      : 'border-slate-700 bg-slate-900 text-slate-300 hover:border-slate-500'
+                  }`}
+                >
+                  <span className="block text-sm font-semibold">{theme.name}</span>
+                  <span className="mt-0.5 block text-xs text-slate-400">{theme.description}</span>
+                </button>
+              ))}
+            </div>
+          </fieldset>
         </section>
       )}
 
@@ -209,6 +250,21 @@ export default function SeasonRecapPage() {
                 </button>
               </div>
             </div>
+
+            <figure className="border-b border-slate-700 bg-slate-950/40 p-4 sm:p-6">
+              <Image
+                src={`data:image/svg+xml;charset=utf-8,${encodeURIComponent(createSeasonRecapShareCardSvg(recap, cardTheme))}`}
+                alt={`Preview of the ${recap.seasonName} ${selectedCardTheme.name} recap card`}
+                width={800}
+                height={640}
+                unoptimized
+                sizes="(max-width: 672px) 100vw, 672px"
+                className="mx-auto h-auto w-full max-w-2xl rounded-xl border border-slate-700 shadow-2xl"
+              />
+              <figcaption className="mt-3 text-center text-xs text-slate-400">
+                Download preview · {selectedCardTheme.name} theme
+              </figcaption>
+            </figure>
 
             <div className="grid gap-4 p-5 sm:grid-cols-2 lg:grid-cols-3">
               <RecapStat label="Season points" value={recap.totalPoints.toFixed(1)} />

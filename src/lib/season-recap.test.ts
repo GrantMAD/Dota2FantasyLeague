@@ -1,6 +1,7 @@
 import {
   createSeasonRecapShareCardSvg,
   getSeasonRecapShareText,
+  SEASON_RECAP_CARD_THEMES,
   type SeasonRecap,
 } from './season-recap';
 
@@ -39,5 +40,25 @@ describe('season recap sharing', () => {
     expect(svg).toContain('Aegis &amp; Shield');
     expect(svg).not.toContain('Season <One>');
     expect(svg).toContain('No manager name or account details included');
+  });
+
+  it('offers three distinct card themes while preserving the same recap content', () => {
+    expect(SEASON_RECAP_CARD_THEMES.map(({ id }) => id)).toEqual(['radiant', 'dire', 'aegis']);
+
+    const themedCards = SEASON_RECAP_CARD_THEMES.map((theme) => ({
+      theme,
+      svg: createSeasonRecapShareCardSvg(recap, theme.id),
+    }));
+
+    expect(new Set(themedCards.map(({ svg }) => svg)).size).toBe(3);
+    for (const { theme, svg } of themedCards) {
+      expect(svg).toContain(`stop-color="${theme.startColor}"`);
+      expect(svg).toContain(`stop-color="${theme.endColor}"`);
+      expect(svg).toContain(`stroke="${theme.borderColor}"`);
+      expect(svg).toContain('Season points');
+      expect(svg).toContain('1234.5');
+      expect(svg).toContain('Aegis &amp; Shield');
+      expect(svg).toContain('No manager name or account details included');
+    }
   });
 });

@@ -3,7 +3,10 @@
 import { OpenDotaProvider } from '@/lib/data-providers/opendota-provider';
 
 describe('OpenDota health check', () => {
-  afterEach(() => jest.restoreAllMocks());
+  afterEach(() => {
+    jest.useRealTimers();
+    jest.restoreAllMocks();
+  });
 
   it('probes the API health endpoint rather than assuming availability', async () => {
     const fetchSpy = jest.spyOn(global, 'fetch').mockResolvedValue(
@@ -39,6 +42,7 @@ describe('OpenDota health check', () => {
 
   it('reserves spaced request slots for concurrent calls on the same provider instance', async () => {
     const requestTimes: number[] = [];
+    jest.useFakeTimers();
     jest.spyOn(global, 'fetch').mockImplementation(async () => {
       requestTimes.push(Date.now());
       return new Response('[]', { status: 200 });
@@ -49,10 +53,15 @@ describe('OpenDota health check', () => {
       rateLimit: { requestsPerMinute: 60_000 / intervalMs },
     });
 
-    await Promise.all([provider.fetchTeams(), provider.fetchTeams(), provider.fetchTeams()]);
+    const requests = Promise.all([provider.fetchTeams(), provider.fetchTeams(), provider.fetchTeams()]);
+    await jest.advanceTimersByTimeAsync(intervalMs * 2);
+    await requests;
 
     expect(requestTimes).toHaveLength(3);
-    expect(requestTimes[1] - requestTimes[0]).toBeGreaterThanOrEqual(intervalMs - 2);
-    expect(requestTimes[2] - requestTimes[1]).toBeGreaterThanOrEqual(intervalMs - 2);
+    expect(requestTimes.map((time) => time - requestTimes[0])).toEqual([
+      0,
+      intervalMs,
+      intervalMs * 2,
+    ]);
   });
 });
