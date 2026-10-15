@@ -6,8 +6,15 @@ import Link from 'next/link';
 import { Bell, CheckCircle2, Clock, Sparkles, TrendingUp, Trophy } from 'lucide-react';
 import { useToast } from '@/components/Toast';
 import type { NotificationRecord as Notification } from '@/types/fantasy';
-
-type NotificationCategory = 'all' | 'unread' | 'deadline' | 'market' | 'scoring' | 'league';
+import {
+  groupNotificationsByDay,
+  isNotificationCategoryCacheFresh,
+  markAllCachedNotificationsRead,
+  markCachedNotificationRead,
+  removeReadCachedNotifications,
+  type NotificationCategory,
+  type NotificationCategoryCacheEntry,
+} from './notification-view-model';
 
 const categories: Array<{ key: NotificationCategory; label: string; countKey?: string }> = [
   { key: 'all', label: 'All' },
@@ -26,22 +33,31 @@ export default function NotificationsPage() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [markingAllRead, setMarkingAllRead] = useState(false);
   const [activeCategory, setActiveCategory] = useState<NotificationCategory>('all');
   const paginationController = useRef<AbortController | null>(null);
+  const categoryCache = useRef(new Map<NotificationCategory, NotificationCategoryCacheEntry>());
 
   useEffect(() => {
     const controller = new AbortController();
     paginationController.current?.abort();
     paginationController.current = null;
 
+    const cached = categoryCache.current.get(activeCategory);
+
+    if (cached && isNotificationCategoryCacheFresh(cached)) {
+      return () => {
+        controller.abort();
+        paginationController.current?.abort();
+      };
+    }
+
     async function fetchNotifications() {
-      setLoading(true);
-      setError(null);
-      setNotifications([]);
-      setNextCursor(null);
+      if (!cached) setLoading(true);
       try {
         const params = new URLSearchParams({ category: activeCategory });
         const res = await fetchWithAuth(`/api/notifications?${params.toString()}`, { signal: controller.signal });
+        if (controller.signal.aborted) return;
         const data = (await res.json()) as {
           notifications?: Notification[];
           unreadCount?: number;
@@ -49,9 +65,16 @@ export default function NotificationsPage() {
           error?: string;
         };
         if (!res.ok) throw new Error(data.error || 'Failed to load notifications');
-        setNotifications(data.notifications || []);
-        setUnreadCount(data.unreadCount ?? 0);
-        setNextCursor(data.nextCursor ?? null);
+        const entry = {
+          notifications: data.notifications ?? [],
+          unreadCount: data.unreadCount ?? 0,
+          nextCursor: data.nextCursor ?? null,
+          fetchedAt: Date.now(),
+        };
+        categoryCache.current.set(activeCategory, entry);
+        setNotifications(entry.notifications);
+        setUnreadCount(entry.unreadCount);
+        setNextCursor(entry.nextCursor);
       } catch (err: unknown) {
         if (!controller.signal.aborted) {
           setError(err instanceof Error ? err.message : 'Failed to load notifications');
@@ -87,13 +110,24 @@ export default function NotificationsPage() {
         nextCursor?: string | null;
         error?: string;
       };
+      if (controller.signal.aborted) return;
       if (!response.ok) throw new Error(data.error || 'Failed to load more notifications');
-      setNotifications((current) => {
-        const existingIds = new Set(current.map((notification) => notification.id));
-        return [...current, ...(data.notifications ?? []).filter((notification) => !existingIds.has(notification.id))];
-      });
-      setUnreadCount(data.unreadCount ?? 0);
-      setNextCursor(data.nextCursor ?? null);
+      const existing = categoryCache.current.get(activeCategory)?.notifications ?? notifications;
+      const existingIds = new Set(existing.map((notification) => notification.id));
+      const mergedNotifications = [
+        ...existing,
+        ...(data.notifications ?? []).filter((notification) => !existingIds.has(notification.id)),
+      ];
+      const entry = {
+        notifications: mergedNotifications,
+        unreadCount: data.unreadCount ?? unreadCount,
+        nextCursor: data.nextCursor ?? null,
+        fetchedAt: Date.now(),
+      };
+      categoryCache.current.set(activeCategory, entry);
+      setNotifications(entry.notifications);
+      setUnreadCount(entry.unreadCount);
+      setNextCursor(entry.nextCursor);
     } catch (requestError: unknown) {
       if (!controller.signal.aborted) {
         setError(requestError instanceof Error ? requestError.message : 'Failed to load more notifications');
@@ -108,10 +142,18 @@ export default function NotificationsPage() {
     try {
       const res = await fetchWithAuth(`/api/notifications/${id}/read`, { method: 'PUT' });
       if (res.ok) {
-        if (notifications.some((notification) => notification.id === id && !notification.is_read)) {
-          setUnreadCount((count) => Math.max(0, count - 1));
-        }
-        setNotifications((current) => current.map((item) => (item.id === id ? { ...item, is_read: true } : item)));
+        const wasUnread = notifications.some((notification) => notification.id === id && !notification.is_read);
+        const nextUnreadCount = wasUnread ? Math.max(0, unreadCount - 1) : unreadCount;
+        categoryCache.current = markCachedNotificationRead(
+          categoryCache.current,
+          id,
+          nextUnreadCount
+        );
+        setNotifications((current) => current
+          .map((item) => item.id === id ? { ...item, is_read: true } : item)
+          .filter((item) => activeCategory !== 'unread' || !item.is_read));
+        setUnreadCount(nextUnreadCount);
+        if (activeCategory === 'unread' && notifications.length <= 1) setNextCursor(null);
         toast.info('Marked as Read');
       } else {
         toast.error('Action Failed', 'Could not mark notification as read');
@@ -123,16 +165,23 @@ export default function NotificationsPage() {
   };
 
   const handleMarkAllAsRead = async () => {
+    setMarkingAllRead(true);
     try {
       const response = await fetchWithAuth('/api/notifications', { method: 'PUT' });
       if (!response.ok) throw new Error('Failed to mark notifications as read');
-      setNotifications((current) => current.map((notification) => ({ ...notification, is_read: true })));
+      categoryCache.current = markAllCachedNotificationsRead(categoryCache.current);
+      setNotifications((current) => activeCategory === 'unread'
+        ? []
+        : current.map((notification) => ({ ...notification, is_read: true })));
       setUnreadCount(0);
+      if (activeCategory === 'unread') setNextCursor(null);
       toast.info('All Notifications Marked as Read');
     } catch (requestError) {
       const msg = requestError instanceof Error ? requestError.message : 'Failed to mark notifications as read';
       setError(msg);
       toast.error('Action Failed', msg);
+    } finally {
+      setMarkingAllRead(false);
     }
   };
 
@@ -140,6 +189,7 @@ export default function NotificationsPage() {
     try {
       const response = await fetchWithAuth('/api/notifications', { method: 'DELETE' });
       if (!response.ok) throw new Error('Failed to clear read notifications');
+      categoryCache.current = removeReadCachedNotifications(categoryCache.current);
       setNotifications((current) => current.filter((notification) => !notification.is_read));
       toast.success('Cleared', 'Read notifications have been removed');
     } catch (requestError) {
@@ -345,6 +395,7 @@ export default function NotificationsPage() {
 
   const emptyConfig = getEmptyStateConfig(activeCategory);
   const EmptyIcon = emptyConfig.icon;
+  const notificationGroups = groupNotificationsByDay(visibleNotifications);
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-12">
@@ -358,9 +409,14 @@ export default function NotificationsPage() {
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          {notifications.some((notification) => !notification.is_read) && (
-            <button onClick={handleMarkAllAsRead} className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm font-medium text-amber-300 transition hover:bg-amber-500/20">
-              Mark all as read
+          {unreadCount > 0 && (
+            <button
+              type="button"
+              onClick={handleMarkAllAsRead}
+              disabled={markingAllRead}
+              className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm font-medium text-amber-300 transition hover:bg-amber-500/20 disabled:cursor-wait disabled:opacity-60"
+            >
+              {markingAllRead ? 'Marking as read...' : 'Mark all as read'}
             </button>
           )}
           {notifications.some((notification) => notification.is_read) && (
@@ -383,6 +439,12 @@ export default function NotificationsPage() {
               key={category.key}
               type="button"
               onClick={() => {
+                const cached = categoryCache.current.get(category.key);
+                setNotifications(cached?.notifications ?? []);
+                setUnreadCount(cached?.unreadCount ?? unreadCount);
+                setNextCursor(cached?.nextCursor ?? null);
+                setLoading(!cached);
+                setError(null);
                 setLoadingMore(false);
                 setActiveCategory(category.key);
               }}
@@ -427,68 +489,82 @@ export default function NotificationsPage() {
             )}
           </div>
         ) : (
-          visibleNotifications.map((notification) => {
-            const accentClass = notification.is_read
-              ? 'border-slate-800 bg-slate-900/60 opacity-80'
-              : getCategoryFromType(notification.type) === 'deadline'
-                ? 'border-red-500/35 bg-red-500/5'
-                : getCategoryFromType(notification.type) === 'market'
-                  ? 'border-amber-500/30 bg-amber-500/5'
-                  : getCategoryFromType(notification.type) === 'league'
-                    ? 'border-cyan-500/35 bg-cyan-500/5'
-                    : 'border-emerald-500/35 bg-emerald-500/5';
+          <>
+          {notificationGroups.map((group) => (
+            <section key={group.label} aria-labelledby={`notification-group-${group.label.toLowerCase().replaceAll(' ', '-')}`}>
+              <h2
+                id={`notification-group-${group.label.toLowerCase().replaceAll(' ', '-')}`}
+                className="mb-3 text-sm font-semibold uppercase tracking-[0.18em] text-slate-400"
+              >
+                {group.label}
+              </h2>
+              <div className="space-y-4">
+                {group.notifications.map((notification) => {
+                  const accentClass = notification.is_read
+                    ? 'border-slate-800 bg-slate-900/60 opacity-80'
+                    : getCategoryFromType(notification.type) === 'deadline'
+                      ? 'border-red-500/35 bg-red-500/5'
+                      : getCategoryFromType(notification.type) === 'market'
+                        ? 'border-amber-500/30 bg-amber-500/5'
+                        : getCategoryFromType(notification.type) === 'league'
+                          ? 'border-cyan-500/35 bg-cyan-500/5'
+                          : 'border-emerald-500/35 bg-emerald-500/5';
 
-            return (
-              <div key={notification.id} className={`flex flex-col gap-4 rounded-2xl border p-4 md:flex-row md:items-start ${accentClass}`}>
-                <div className="flex shrink-0 items-start gap-3">
-                  {getIconForType(notification.type)}
-                  <div className="mt-1 hidden h-2 w-2 rounded-full bg-emerald-400 md:block" />
-                </div>
+                  return (
+                    <div key={notification.id} className={`flex flex-col gap-4 rounded-2xl border p-4 md:flex-row md:items-start ${accentClass}`}>
+                      <div className="flex shrink-0 items-start gap-3">
+                        {getIconForType(notification.type)}
+                        <div className="mt-1 hidden h-2 w-2 rounded-full bg-emerald-400 md:block" />
+                      </div>
 
-                <div className="flex-1">
-                  <div className="mb-2 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-                    <div className="flex items-center gap-2">
-                      <span className="rounded-full border border-slate-700 bg-slate-800 px-2 py-1 text-[10px] uppercase tracking-[0.2em] text-slate-300">
-                        {getCategoryFromType(notification.type)}
-                      </span>
-                      {!notification.is_read && (
-                        <span className="rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-1 text-[10px] uppercase tracking-[0.2em] text-amber-300">
-                          Unread
-                        </span>
-                      )}
+                      <div className="flex-1">
+                        <div className="mb-2 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+                          <div className="flex items-center gap-2">
+                            <span className="rounded-full border border-slate-700 bg-slate-800 px-2 py-1 text-[10px] uppercase tracking-[0.2em] text-slate-300">
+                              {getCategoryFromType(notification.type)}
+                            </span>
+                            {!notification.is_read && (
+                              <span className="rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-1 text-[10px] uppercase tracking-[0.2em] text-amber-300">
+                                Unread
+                              </span>
+                            )}
+                          </div>
+                          <span className="text-xs text-slate-400">{timeAgo(notification.created_at)}</span>
+                        </div>
+
+                        <h3 className="text-lg font-semibold text-white">{notification.title}</h3>
+                        <p className="mt-2 text-sm leading-6 text-slate-300">{notification.message}</p>
+
+                        <div className="mt-4 flex flex-wrap items-center gap-3">
+                          <Link href={getActionHref(notification.type)} className="rounded-lg bg-cyan-500 px-3 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-slate-950 transition hover:bg-cyan-400">
+                            {getActionLabel(notification.type)}
+                          </Link>
+                          {!notification.is_read && (
+                            <button onClick={() => handleMarkAsRead(notification.id)} className="rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-slate-300 transition hover:border-slate-500 hover:text-white">
+                              Mark read
+                            </button>
+                          )}
+                        </div>
+                      </div>
                     </div>
-                    <span className="text-xs text-slate-400">{timeAgo(notification.created_at)}</span>
-                  </div>
-
-                  <h3 className="text-lg font-semibold text-white">{notification.title}</h3>
-                  <p className="mt-2 text-sm leading-6 text-slate-300">{notification.message}</p>
-
-                  <div className="mt-4 flex flex-wrap items-center gap-3">
-                    <Link href={getActionHref(notification.type)} className="rounded-lg bg-cyan-500 px-3 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-slate-950 transition hover:bg-cyan-400">
-                      {getActionLabel(notification.type)}
-                    </Link>
-                    {!notification.is_read && (
-                      <button onClick={() => handleMarkAsRead(notification.id)} className="rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-slate-300 transition hover:border-slate-500 hover:text-white">
-                        Mark read
-                      </button>
-                    )}
-                  </div>
-                  {!loading && nextCursor && (
-                    <div className="mt-6 text-center">
-                      <button
-                        type="button"
-                        onClick={() => void loadMoreNotifications()}
-                        disabled={loadingMore}
-                        className="rounded-xl border border-cyan-500/40 bg-cyan-500/10 px-5 py-3 text-sm font-semibold text-cyan-300 transition hover:bg-cyan-500/20 disabled:cursor-wait disabled:opacity-60"
-                      >
-                        {loadingMore ? 'Loading...' : 'Load more notifications'}
-                      </button>
-                    </div>
-                  )}
-                </div>
+                  );
+                })}
               </div>
-            );
-          })
+            </section>
+          ))}
+          {!loading && nextCursor && (
+            <div className="pt-2 text-center">
+              <button
+                type="button"
+                onClick={() => void loadMoreNotifications()}
+                disabled={loadingMore}
+                className="rounded-xl border border-cyan-500/40 bg-cyan-500/10 px-5 py-3 text-sm font-semibold text-cyan-300 transition hover:bg-cyan-500/20 disabled:cursor-wait disabled:opacity-60"
+              >
+                {loadingMore ? 'Loading...' : 'Load more notifications'}
+              </button>
+            </div>
+          )}
+          </>
         )}
       </div>
     </div>
