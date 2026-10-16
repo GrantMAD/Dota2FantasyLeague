@@ -1,4 +1,26 @@
 import { supabase } from '@/lib/supabase';
+import type { Session } from '@supabase/supabase-js';
+
+let refreshSessionPromise: Promise<Session | null> | null = null;
+
+async function refreshClientSession(): Promise<Session | null> {
+  if (!refreshSessionPromise) {
+    refreshSessionPromise = (async () => {
+      const { data, error } = await supabase.auth.refreshSession();
+      if (error || !data.session) return null;
+
+      const { error: setSessionError } = await supabase.auth.setSession({
+        access_token: data.session.access_token,
+        refresh_token: data.session.refresh_token,
+      });
+      if (setSessionError) return null;
+      return data.session;
+    })().finally(() => {
+      refreshSessionPromise = null;
+    });
+  }
+  return refreshSessionPromise;
+}
 
 /**
  * A drop-in replacement for fetch() that automatically attaches the current
@@ -37,14 +59,8 @@ export async function fetchWithAuth(
     // try an explicit refresh. This handles hard reloads where getSession()
     // returns null before the local session storage is warmed up.
     if (!token && !retried) {
-      const { data: refreshed } = await supabase.auth.refreshSession();
-      if (refreshed.session?.access_token) {
-        await supabase.auth.setSession({
-          access_token: refreshed.session.access_token,
-          refresh_token: refreshed.session.refresh_token,
-        });
-        token = refreshed.session.access_token;
-      }
+      const refreshed = await refreshClientSession();
+      token = refreshed?.access_token;
     }
 
     const headers = new Headers(init.headers);
@@ -58,15 +74,8 @@ export async function fetchWithAuth(
 
     // On 401, force a full session refresh and retry once with the new token.
     if (response.status === 401 && !retried) {
-      const { data: refreshed } = await supabase.auth.refreshSession();
-      if (refreshed.session) {
-        // Persist the refreshed session so the retry uses the new access token.
-        await supabase.auth.setSession({
-          access_token: refreshed.session.access_token,
-          refresh_token: refreshed.session.refresh_token,
-        });
-      }
-      return doRequest(true);
+      const refreshed = await refreshClientSession();
+      if (refreshed?.access_token) return doRequest(true);
     }
 
     return response;

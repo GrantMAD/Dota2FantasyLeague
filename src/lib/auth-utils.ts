@@ -22,6 +22,20 @@ export interface AuthResult {
   refreshedRefreshToken?: string;
 }
 
+function readCookieValue(cookies: string[], names: string[]): string | undefined {
+  const cookie = cookies.find((item) => {
+    const separator = item.indexOf('=');
+    return separator > -1 && names.includes(item.slice(0, separator));
+  });
+  if (!cookie) return undefined;
+  const value = cookie.slice(cookie.indexOf('=') + 1);
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
+}
+
 /**
  * Check if a request has valid authentication headers
  * Returns the session if valid, or throws an error
@@ -30,19 +44,8 @@ export async function verifyAuth(request: Request): Promise<AuthResult> {
   const authHeader = request.headers.get('authorization');
   const cookieHeader = request.headers.get('cookie') ?? '';
   const cookies = cookieHeader.split(';').map((c) => c.trim());
-  // Supabase JS v2 uses the pattern: sb-<project-ref>-auth-token
-  const authCookie = cookies.find(
-    (c) => c.startsWith('sb-') && c.includes('-auth-token=')
-  );
-  const cookieToken = authCookie
-    ? authCookie.slice(authCookie.indexOf('=') + 1)
-    : undefined;
-  const refreshCookie = cookies.find(
-    (c) => c.startsWith('sb-') && c.includes('-refresh-token=')
-  );
-  const refreshToken = refreshCookie
-    ? refreshCookie.slice(refreshCookie.indexOf('=') + 1)
-    : undefined;
+  const cookieToken = readCookieValue(cookies, ['sb-auth-token']);
+  const refreshToken = readCookieValue(cookies, ['sb-refresh-token']);
 
   const token = authHeader?.startsWith('Bearer ')
     ? authHeader.substring(7)

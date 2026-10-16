@@ -32,6 +32,12 @@ export default function PrivacyPage() {
             required to operate the app and to deliver a functioning fantasy experience.
           </p>
           <p>
+            If you choose to join the Premium waitlist, we store the email address you provide, your account ID, and
+            the time you gave consent so we can manage your request for future Premium launch updates. Joining does
+            not send an email. You can change the address or withdraw at any time using the waitlist controls on the
+            Premium page; withdrawal deletes the waitlist entry.
+          </p>
+          <p>
             If you have questions about how your data is used, please contact the platform admin or support team.
           </p>
         </div>
