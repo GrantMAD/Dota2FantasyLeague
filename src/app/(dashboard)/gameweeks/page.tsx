@@ -1,7 +1,7 @@
 'use client';
 
 import { fetchWithAuth } from '@/lib/fetch-with-auth';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 import Link from 'next/link';
 import { ActiveGameweekHero } from './components/ActiveGameweekHero';
 import { GameweekCard } from './components/GameweekCard';
@@ -9,6 +9,12 @@ import { GameweekHistoryModal } from './components/GameweekHistoryModal';
 import { GameweekFilters } from './components/GameweekFilters';
 
 import type { GameweekRow } from '@/types/fantasy';
+import {
+  getServerGameweekViewMode,
+  getStoredGameweekViewMode,
+  saveGameweekViewMode,
+  subscribeToGameweekViewMode,
+} from './gameweeks-utils';
 export type { GameweekRow };
 
 export type GameweekTab = 'all' | 'planning' | 'past';
@@ -20,7 +26,11 @@ export default function GameweeksPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<GameweekTab>('all');
-  const [viewMode, setViewMode] = useState<'compact' | 'detailed'>('detailed');
+  const viewMode = useSyncExternalStore(
+    subscribeToGameweekViewMode,
+    getStoredGameweekViewMode,
+    getServerGameweekViewMode,
+  );
   const [historyGameweek, setHistoryGameweek] = useState<GameweekRow | null>(null);
 
   useEffect(() => {
@@ -70,35 +80,60 @@ export default function GameweeksPage() {
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           <Link
             href="/gameweeks/planner"
             className="inline-flex items-center gap-2 rounded-xl border border-cyan-500/40 bg-cyan-500/10 px-3 py-2 text-sm font-medium text-cyan-200 transition hover:border-cyan-400 hover:bg-cyan-500/15"
           >
             My Squad Planner
           </Link>
+          <details className="relative hidden md:block xl:hidden">
+            <summary className="flex cursor-pointer list-none items-center gap-2 rounded-xl border border-slate-700 bg-slate-900/80 px-3 py-2 text-sm font-medium text-slate-200 transition hover:border-slate-500 hover:text-white">
+              More actions
+              <span aria-hidden="true">⌄</span>
+            </summary>
+            <div className="absolute right-0 z-20 mt-2 grid min-w-48 gap-1 rounded-xl border border-slate-700 bg-slate-900 p-2 shadow-xl shadow-slate-950/50">
+              <Link href="/season-recap" className="rounded-lg px-3 py-2 text-sm text-slate-200 hover:bg-slate-800">
+                Season Recap
+              </Link>
+              <Link href="/lineups" className="rounded-lg px-3 py-2 text-sm text-amber-300 hover:bg-slate-800">
+                Edit Lineup
+              </Link>
+              <Link href="/transfers" className="gameweeks-transfer-link rounded-lg px-3 py-2 text-sm text-slate-200 hover:bg-slate-800">
+                Transfer Market
+              </Link>
+              {activeGameweek && (
+                <Link
+                  href={`/matches?gameweekId=${activeGameweek.id}`}
+                  className="rounded-lg px-3 py-2 text-sm text-slate-200 hover:bg-slate-800"
+                >
+                  Gameweek Matches
+                </Link>
+              )}
+            </div>
+          </details>
           <Link
             href="/season-recap"
-            className="inline-flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-900/80 px-3 py-2 text-sm font-medium text-slate-200 transition hover:border-slate-500 hover:text-white"
+            className="inline-flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-900/80 px-3 py-2 text-sm font-medium text-slate-200 transition hover:border-slate-500 hover:text-white md:hidden xl:inline-flex"
           >
             Season Recap
           </Link>
           <Link
             href="/lineups"
-            className="inline-flex items-center gap-2 rounded-xl border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm font-medium text-amber-300 transition hover:border-amber-400 hover:bg-amber-500/15"
+            className="inline-flex items-center gap-2 rounded-xl border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm font-medium text-amber-300 transition hover:border-amber-400 hover:bg-amber-500/15 md:hidden xl:inline-flex"
           >
             Edit Lineup
           </Link>
           <Link
             href="/transfers"
-            className="gameweeks-transfer-link inline-flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-900/80 px-3 py-2 text-sm font-medium text-slate-200 transition hover:border-slate-500 hover:text-white"
+            className="gameweeks-transfer-link inline-flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-900/80 px-3 py-2 text-sm font-medium text-slate-200 transition hover:border-slate-500 hover:text-white md:hidden xl:inline-flex"
           >
             Transfer Market
           </Link>
           {activeGameweek && (
             <Link
               href={`/matches?gameweekId=${activeGameweek.id}`}
-              className="gameweeks-matches-link inline-flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-900/80 px-3 py-2 text-sm font-medium text-slate-200 transition hover:border-slate-500 hover:text-white"
+              className="gameweeks-matches-link inline-flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-900/80 px-3 py-2 text-sm font-medium text-slate-200 transition hover:border-slate-500 hover:text-white md:hidden xl:inline-flex"
             >
               Gameweek Matches
             </Link>
@@ -136,7 +171,7 @@ export default function GameweeksPage() {
             activeTab={activeTab}
             onTabChange={setActiveTab}
             viewMode={viewMode}
-            onViewModeChange={setViewMode}
+            onViewModeChange={saveGameweekViewMode}
           />
 
           <div className={viewMode === 'compact' ? 'grid gap-4 md:grid-cols-2 xl:grid-cols-3' : 'space-y-5'}>
