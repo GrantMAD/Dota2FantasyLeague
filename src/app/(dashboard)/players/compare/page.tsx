@@ -16,6 +16,7 @@ type ComparisonPlayer = {
   team_id: number | null;
   current_price: number | null;
   price_change: number | null;
+  ownership_percentage?: number | null;
   gameweek_points: number | null;
   recent_points: number | null;
   availability_status: string | null;
@@ -99,7 +100,7 @@ function PlayerComparisonSkeleton() {
               </div>
             ))}
           </div>
-          {['Professional team', 'Current price', 'Latest price movement', 'Latest gameweek points', 'Average recent points', 'Availability', 'Upcoming fixtures'].map((label) => (
+          {['Professional team', 'Current price', 'Latest price movement', 'Ownership %', 'Latest gameweek points', 'Average recent points', 'Availability', 'Upcoming fixtures'].map((label) => (
             <div key={label} className="grid grid-cols-[minmax(8rem,0.8fr)_repeat(3,minmax(0,1fr))] border-b border-slate-700/70 last:border-0">
               <div className="p-4"><div className="h-4 w-24 max-w-full rounded bg-slate-800" /></div>
               {[1, 2, 3].map((column) => (
@@ -402,6 +403,47 @@ function PlayerComparisonContent() {
                     return (
                       <td key={player.id} className={`p-4 text-sm font-medium ${color}`}>
                         {formatPriceChange(movement)}
+                      </td>
+                    );
+                  })}
+                </ComparisonRow>
+                <ComparisonRow label="Ownership %">
+                  {players.map((player) => {
+                    const own = player.ownership_percentage;
+                    return (
+                      <td key={player.id} className="p-4 text-sm">
+                        {own != null ? (
+                          <div className="space-y-1.5">
+                            <div className="flex items-center gap-2">
+                              <span className="font-mono text-sm font-semibold text-white">
+                                {Number(own).toFixed(1)}%
+                              </span>
+                              <span className={`inline-flex rounded px-1.5 py-0.2 text-[9px] font-bold uppercase tracking-wider border ${
+                                Number(own) >= 35
+                                  ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/30'
+                                  : Number(own) >= 15
+                                    ? 'text-cyan-400 bg-cyan-500/10 border-cyan-500/30'
+                                    : 'text-amber-400 bg-amber-500/10 border-amber-500/30'
+                              }`}>
+                                {Number(own) >= 35 ? 'Meta' : Number(own) >= 15 ? 'Popular' : 'Differential'}
+                              </span>
+                            </div>
+                            <div className="h-1.5 w-24 overflow-hidden rounded-full bg-slate-700/80">
+                              <div
+                                className={`h-full rounded-full transition-all duration-300 ${
+                                  Number(own) >= 35
+                                    ? 'bg-emerald-400'
+                                    : Number(own) >= 15
+                                      ? 'bg-cyan-400'
+                                      : 'bg-amber-400'
+                                }`}
+                                style={{ width: `${Math.min(100, Math.max(4, Number(own)))}%` }}
+                              />
+                            </div>
+                          </div>
+                        ) : (
+                          <span className="font-mono text-slate-500">—</span>
+                        )}
                       </td>
                     );
                   })}

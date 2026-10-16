@@ -1156,9 +1156,42 @@ function TransfersPageContent() {
                   <div className="text-[11px] uppercase tracking-wider text-slate-400 mb-1">Market Price</div>
                   <div className="text-xl font-mono font-bold text-amber-400">${modalPlayer.current_price}M</div>
                 </div>
-                <div className="bg-slate-800/60 border border-slate-700/80 rounded-xl p-3 text-center">
-                  <div className="text-[11px] uppercase tracking-wider text-slate-400 mb-1">Ownership</div>
-                  <div className="text-xl font-bold text-white">{modalPlayer.ownership_percentage ?? 24.5}%</div>
+                <div className="bg-slate-800/60 border border-slate-700/80 rounded-xl p-3 text-center flex flex-col justify-between">
+                  <div>
+                    <div className="text-[11px] uppercase tracking-wider text-slate-400 mb-1">Ownership</div>
+                    <div className="text-xl font-bold text-white">
+                      {modalPlayer.ownership_percentage != null ? `${Number(modalPlayer.ownership_percentage).toFixed(1)}%` : '—'}
+                    </div>
+                  </div>
+                  {modalPlayer.ownership_percentage != null && (
+                    <div className="mt-1 flex flex-col items-center gap-1">
+                      <div className="h-1 w-16 overflow-hidden rounded-full bg-slate-700">
+                        <div
+                          className={`h-full rounded-full ${
+                            Number(modalPlayer.ownership_percentage) >= 35
+                              ? 'bg-emerald-400'
+                              : Number(modalPlayer.ownership_percentage) >= 15
+                                ? 'bg-cyan-400'
+                                : 'bg-amber-400'
+                          }`}
+                          style={{ width: `${Math.min(100, Math.max(4, Number(modalPlayer.ownership_percentage)))}%` }}
+                        />
+                      </div>
+                      <span className={`inline-flex rounded px-1.5 py-0.2 text-[8px] font-bold uppercase tracking-wider border ${
+                        Number(modalPlayer.ownership_percentage) >= 35
+                          ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/30'
+                          : Number(modalPlayer.ownership_percentage) >= 15
+                            ? 'text-cyan-400 bg-cyan-500/10 border-cyan-500/30'
+                            : 'text-amber-400 bg-amber-500/10 border-amber-500/30'
+                      }`}>
+                        {Number(modalPlayer.ownership_percentage) >= 35
+                          ? 'Meta'
+                          : Number(modalPlayer.ownership_percentage) >= 15
+                            ? 'Popular'
+                            : 'Differential'}
+                      </span>
+                    </div>
+                  )}
                 </div>
                 <div className="bg-slate-800/60 border border-slate-700/80 rounded-xl p-3 text-center">
                   <div className="text-[11px] uppercase tracking-wider text-slate-400 mb-1">Season Points</div>

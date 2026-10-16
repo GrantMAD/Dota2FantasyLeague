@@ -6,6 +6,8 @@ import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import {
   ArrowLeftRight,
+  ArrowDown,
+  ArrowUp,
   Users,
   CheckCircle2,
   ShieldCheck,
@@ -35,6 +37,7 @@ interface Player {
   primary_role: string;
   current_price: number;
   price_change?: number | null;
+  ownership_percentage?: number | null;
   professional_teams?: { name: string; logo_url: string | null };
   availability_status: string;
 }
@@ -59,6 +62,14 @@ const getRoleBadgeClass = (role: string) => {
 };
 
 const formatPrice = (price: number) => `$${Number(price ?? 0).toFixed(1)}M`;
+
+const getOwnershipClassification = (ownership: number | null | undefined) => {
+  if (ownership == null) return { label: 'Unranked', color: 'text-slate-400', bg: 'bg-slate-800/80', border: 'border-slate-700/60' };
+  const val = Number(ownership);
+  if (val >= 35) return { label: 'Meta Pick', color: 'text-emerald-400', bg: 'bg-emerald-500/10', border: 'border-emerald-500/30' };
+  if (val >= 15) return { label: 'Popular', color: 'text-cyan-400', bg: 'bg-cyan-500/10', border: 'border-cyan-500/30' };
+  return { label: 'Differential', color: 'text-amber-400', bg: 'bg-amber-500/10', border: 'border-amber-500/30' };
+};
 
 const getAvailabilityBadgeStyle = (status: string | null | undefined): React.CSSProperties => {
   const normalizedStatus = status?.toLowerCase();
@@ -208,11 +219,13 @@ export default function PlayersPage() {
     setBrokenTeamLogos((prev) => new Set(prev).add(teamId));
   }, []);
 
-  // Filters
+  // Filters & Sorting
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [roleFilter, setRoleFilter] = useState('');
   const [teamIdFilter, setTeamIdFilter] = useState<number | null>(null);
+  const [sortBy, setSortBy] = useState<'price' | 'ownership' | 'name'>('price');
+  const [sortDesc, setSortDesc] = useState(true);
   const [pinOwnedFirst, setPinOwnedFirst] = useState(true);
   const [comparePlayerIds, setComparePlayerIds] = useState<number[]>([]);
 
@@ -293,8 +306,8 @@ export default function PlayersPage() {
         const params = new URLSearchParams({
           limit: limit.toString(),
           offset: offset.toString(),
-          sort: 'price',
-          desc: 'true',
+          sort: sortBy,
+          desc: sortDesc ? 'true' : 'false',
         });
         if (debouncedSearch) params.append('search', debouncedSearch);
         if (roleFilter)      params.append('role', roleFilter);
@@ -322,7 +335,7 @@ export default function PlayersPage() {
 
     void loadPlayers();
     return () => { cancelled = true; };
-  }, [page, limit, debouncedSearch, roleFilter, teamIdFilter, toast]);
+  }, [page, limit, debouncedSearch, roleFilter, teamIdFilter, sortBy, sortDesc, toast]);
 
   const totalPages = Math.ceil(total / limit);
 
@@ -556,6 +569,57 @@ export default function PlayersPage() {
               })()}
             </div>
           )}
+          {/* Row 3: Sort Controls Bar */}
+          <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-slate-700/60">
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">Sort by:</span>
+              <div className="flex flex-wrap items-center gap-1.5">
+                {(
+                  [
+                    { id: 'price', label: 'Price' },
+                    { id: 'ownership', label: 'Ownership' },
+                    { id: 'name', label: 'Name' },
+                  ] as const
+                ).map((option) => {
+                  const isActive = sortBy === option.id;
+                  return (
+                    <button
+                      key={option.id}
+                      type="button"
+                      onClick={() => {
+                        if (isActive) {
+                          setSortDesc((prev) => !prev);
+                        } else {
+                          setSortBy(option.id);
+                          setSortDesc(true);
+                        }
+                        setPage(1);
+                      }}
+                      className={`flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-semibold transition-all ${
+                        isActive
+                          ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40 shadow-xs'
+                          : 'bg-slate-900/60 text-slate-400 hover:text-slate-200 hover:bg-slate-700/60 border border-slate-700/60'
+                      }`}
+                      aria-pressed={isActive}
+                    >
+                      <span>{option.label}</span>
+                      {isActive && (
+                        sortDesc ? (
+                          <ArrowDown className="h-3 w-3 text-amber-400" />
+                        ) : (
+                          <ArrowUp className="h-3 w-3 text-amber-400" />
+                        )
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="text-xs text-slate-400">
+              Sorted by <strong className="text-white capitalize">{sortBy}</strong> ({sortDesc ? 'Descending' : 'Ascending'})
+            </div>
+          </div>
         </div>
 
         {/* ── Data Table ────────────────────────────────────────────────────── */}
@@ -564,10 +628,56 @@ export default function PlayersPage() {
             <thead>
               <tr className="bg-slate-800/50 border-b border-slate-700 text-slate-400 text-sm">
                 <th className="px-4 py-4 font-medium whitespace-nowrap">Compare</th>
-                <th className="px-6 py-4 font-medium whitespace-nowrap">Player</th>
+                <th className="px-6 py-4 font-medium whitespace-nowrap">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (sortBy === 'name') setSortDesc((prev) => !prev);
+                      else { setSortBy('name'); setSortDesc(false); }
+                      setPage(1);
+                    }}
+                    className="inline-flex items-center gap-1 hover:text-amber-400 transition-colors"
+                  >
+                    <span>Player</span>
+                    {sortBy === 'name' && (
+                      sortDesc ? <ArrowDown className="h-3.5 w-3.5 text-amber-400" /> : <ArrowUp className="h-3.5 w-3.5 text-amber-400" />
+                    )}
+                  </button>
+                </th>
                 <th className="px-6 py-4 font-medium whitespace-nowrap">Team</th>
                 <th className="px-6 py-4 font-medium whitespace-nowrap">Role</th>
-                <th className="px-6 py-4 font-medium whitespace-nowrap text-right">Price</th>
+                <th className="px-6 py-4 font-medium whitespace-nowrap text-right">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (sortBy === 'price') setSortDesc((prev) => !prev);
+                      else { setSortBy('price'); setSortDesc(true); }
+                      setPage(1);
+                    }}
+                    className="inline-flex items-center gap-1 hover:text-amber-400 transition-colors ml-auto"
+                  >
+                    <span>Price</span>
+                    {sortBy === 'price' && (
+                      sortDesc ? <ArrowDown className="h-3.5 w-3.5 text-amber-400" /> : <ArrowUp className="h-3.5 w-3.5 text-amber-400" />
+                    )}
+                  </button>
+                </th>
+                <th className="px-6 py-4 font-medium whitespace-nowrap text-right">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (sortBy === 'ownership') setSortDesc((prev) => !prev);
+                      else { setSortBy('ownership'); setSortDesc(true); }
+                      setPage(1);
+                    }}
+                    className="inline-flex items-center gap-1 hover:text-amber-400 transition-colors ml-auto"
+                  >
+                    <span>Ownership</span>
+                    {sortBy === 'ownership' && (
+                      sortDesc ? <ArrowDown className="h-3.5 w-3.5 text-amber-400" /> : <ArrowUp className="h-3.5 w-3.5 text-amber-400" />
+                    )}
+                  </button>
+                </th>
                 <th className="px-6 py-4 font-medium whitespace-nowrap text-center">Status</th>
                 <th className="px-6 py-4 font-medium whitespace-nowrap text-right">Action</th>
               </tr>
@@ -589,13 +699,14 @@ export default function PlayersPage() {
                     <td className="px-6 py-4"><div className="h-4 w-24 max-w-[20vw] rounded bg-slate-700" /></td>
                     <td className="px-6 py-4"><div className="h-6 w-16 rounded-full bg-slate-700" /></td>
                     <td className="px-6 py-4"><div className="ml-auto h-4 w-14 rounded bg-slate-700" /></td>
+                    <td className="px-6 py-4"><div className="ml-auto h-5 w-20 rounded bg-slate-700" /></td>
                     <td className="px-6 py-4 text-center"><div className="mx-auto h-6 w-16 rounded-full bg-slate-700" /></td>
                     <td className="px-6 py-4"><div className="ml-auto h-8 w-20 rounded-lg bg-slate-700" /></td>
                   </tr>
                 ))
               ) : error ? (
                 <tr>
-                  <td colSpan={7} className="px-6 py-16 text-center">
+                  <td colSpan={8} className="px-6 py-16 text-center">
                     <div className="flex flex-col items-center gap-2 text-rose-400">
                       <p className="font-semibold text-sm">{error}</p>
                       <button
@@ -610,7 +721,7 @@ export default function PlayersPage() {
                 </tr>
               ) : displayedPlayers.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-6 py-16 text-center">
+                  <td colSpan={8} className="px-6 py-16 text-center">
                     <div className="flex flex-col items-center gap-3 text-slate-400">
                       <Users className="w-8 h-8 text-slate-600" />
                       <p className="text-sm">No players found matching your filters.</p>
@@ -709,6 +820,42 @@ export default function PlayersPage() {
                       {/* Price */}
                       <td className="px-6 py-4 whitespace-nowrap text-right font-semibold text-white">
                         {formatPrice(player.current_price)}
+                      </td>
+
+                      {/* Ownership */}
+                      <td className="px-6 py-4 whitespace-nowrap text-right">
+                        {player.ownership_percentage != null ? (
+                          <div className="inline-flex flex-col items-end gap-1">
+                            <div className="flex items-center gap-1.5 font-mono text-sm font-semibold text-slate-200">
+                              <span>{Number(player.ownership_percentage).toFixed(1)}%</span>
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                              {/* Visual gauge bar */}
+                              <div className="h-1.5 w-14 overflow-hidden rounded-full bg-slate-700/80">
+                                <div
+                                  className={`h-full rounded-full transition-all duration-300 ${
+                                    Number(player.ownership_percentage) >= 35
+                                      ? 'bg-emerald-400'
+                                      : Number(player.ownership_percentage) >= 15
+                                        ? 'bg-cyan-400'
+                                        : 'bg-amber-400'
+                                  }`}
+                                  style={{ width: `${Math.min(100, Math.max(4, Number(player.ownership_percentage)))}%` }}
+                                />
+                              </div>
+                              {(() => {
+                                const classification = getOwnershipClassification(player.ownership_percentage);
+                                return (
+                                  <span className={`inline-flex rounded px-1.5 py-0.2 text-[9px] font-bold uppercase tracking-wider border ${classification.color} ${classification.bg} ${classification.border}`}>
+                                    {classification.label}
+                                  </span>
+                                );
+                              })()}
+                            </div>
+                          </div>
+                        ) : (
+                          <span className="font-mono text-sm text-slate-500">—</span>
+                        )}
                       </td>
 
                       {/* Availability */}

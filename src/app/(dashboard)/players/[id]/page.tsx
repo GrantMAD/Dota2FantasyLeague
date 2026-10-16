@@ -419,9 +419,40 @@ export default function PlayerDetailPage() {
             <div className="text-xs text-slate-400 uppercase mb-1">Last GW Pts</div>
             <div className="text-2xl font-bold text-emerald-400 font-mono">+{player.last_gw_points != null ? Number(player.last_gw_points).toFixed(2) : '24.50'}</div>
          </div>
-         <div className="bg-slate-800/40 border border-slate-700 rounded-xl p-5 text-center shadow-sm">
-            <div className="text-xs text-slate-400 uppercase mb-1">Selected By</div>
-            <div className="text-2xl font-bold text-white font-mono">{player.ownership_percentage != null ? Number(player.ownership_percentage).toFixed(1) : '48.5'}%</div>
+         <div className="bg-slate-800/40 border border-slate-700 rounded-xl p-5 text-center shadow-sm flex flex-col justify-between">
+            <div>
+              <div className="text-xs text-slate-400 uppercase mb-1">Selected By</div>
+              <div className="text-2xl font-bold text-white font-mono">
+                {player.ownership_percentage != null ? `${Number(player.ownership_percentage).toFixed(1)}%` : '0.0%'}
+              </div>
+            </div>
+            <div className="mt-2.5 flex flex-col items-center gap-1.5">
+              <div className="h-1.5 w-full max-w-28 overflow-hidden rounded-full bg-slate-700/80">
+                <div
+                  className={`h-full rounded-full transition-all duration-300 ${
+                    Number(player.ownership_percentage ?? 0) >= 35
+                      ? 'bg-emerald-400'
+                      : Number(player.ownership_percentage ?? 0) >= 15
+                        ? 'bg-cyan-400'
+                        : 'bg-amber-400'
+                  }`}
+                  style={{ width: `${Math.min(100, Math.max(4, Number(player.ownership_percentage ?? 0)))}%` }}
+                />
+              </div>
+              <span className={`inline-flex rounded px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider border ${
+                Number(player.ownership_percentage ?? 0) >= 35
+                  ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/30'
+                  : Number(player.ownership_percentage ?? 0) >= 15
+                    ? 'text-cyan-400 bg-cyan-500/10 border-cyan-500/30'
+                    : 'text-amber-400 bg-amber-500/10 border-amber-500/30'
+              }`}>
+                {Number(player.ownership_percentage ?? 0) >= 35
+                  ? 'Meta Pick'
+                  : Number(player.ownership_percentage ?? 0) >= 15
+                    ? 'Popular'
+                    : 'Differential Pick'}
+              </span>
+            </div>
          </div>
          <div className="bg-slate-800/40 border border-slate-700 rounded-xl p-5 text-center shadow-sm">
             <div className="text-xs text-slate-400 uppercase mb-1">Form Rating</div>
