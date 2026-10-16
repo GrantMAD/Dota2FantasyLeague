@@ -8,6 +8,9 @@ import { Share2, Check, ArrowLeft } from 'lucide-react';
 import { useToast } from '@/components/Toast';
 import { TeamLogo } from '../components/TeamLogo';
 
+import { MatchFantasyImpactBanner, type UserFantasyImpact } from '../components/MatchFantasyImpactBanner';
+import { MatchLeadersStrip } from '../components/MatchLeadersStrip';
+
 type MatchDetail = {
   id: number;
   status: string;
@@ -36,8 +39,10 @@ type PlayerStat = {
   gold_per_minute?: number;
   experience_per_minute?: number;
   hero_damage?: number;
+  tower_damage?: number;
   tower_participation?: number;
   wards_placed?: number;
+  wards_destroyed?: number;
   healing?: number;
   professional_players?: {
     id: number;
@@ -54,13 +59,19 @@ type FantasyBreakdown = {
   combat_points?: number;
   economy_points?: number;
   objective_points?: number;
+  teamfight_points?: number;
   win_points?: number;
+  series_points?: number;
+  performance_index_points?: number;
+  consistency_points?: number;
+  penalty_points?: number;
 };
 
 type MatchApiResponse = {
   match?: MatchDetail;
   playerStats?: PlayerStat[];
   fantasyBreakdown?: FantasyBreakdown[];
+  userFantasyImpact?: UserFantasyImpact | null;
 };
 
 function MatchDetailSkeleton() {
@@ -110,6 +121,8 @@ function MatchDetailInner({ params }: { params: Promise<{ id: string }> }) {
   const [match, setMatch] = useState<MatchDetail | null>(null);
   const [playerStats, setPlayerStats] = useState<PlayerStat[]>([]);
   const [fantasyBreakdown, setFantasyBreakdown] = useState<FantasyBreakdown[]>([]);
+  const [userFantasyImpact, setUserFantasyImpact] = useState<UserFantasyImpact | null>(null);
+  const [viewMode, setViewMode] = useState<'fantasy' | 'traditional'>('fantasy');
   const [copied, setCopied] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -123,6 +136,7 @@ function MatchDetailInner({ params }: { params: Promise<{ id: string }> }) {
         setMatch(data.match ?? null);
         setPlayerStats(data.playerStats ?? []);
         setFantasyBreakdown(data.fantasyBreakdown ?? []);
+        setUserFantasyImpact(data.userFantasyImpact ?? null);
       } catch (requestError: unknown) {
         setError(requestError instanceof Error ? requestError.message : 'Failed to load match');
       } finally {
@@ -167,9 +181,17 @@ function MatchDetailInner({ params }: { params: Promise<{ id: string }> }) {
   const isCompleted = match.status === 'completed';
   const isLive = match.status === 'live';
 
+  const fantasyMap = new Map<number, FantasyBreakdown>(
+    fantasyBreakdown.map((f) => [f.player_id, f])
+  );
   const fantasyPointsByPlayer = new Map<number, number>(
     fantasyBreakdown.map((f) => [f.player_id, Number(f.total_points || 0)])
   );
+
+  const lineupDetailMap = new Map<number, { slot: string; isCaptain: boolean; isViceCaptain: boolean; isStarter: boolean }>(
+    (userFantasyImpact?.lineupDetails ?? []).map((d) => [d.playerId, d])
+  );
+  const userOwnedSet = new Set<number>(userFantasyImpact?.userOwnedPlayerIds ?? []);
 
   // Some teams were auto-registered during ingestion with their numeric provider ID as the name or 'Team null'.
   const formatTeamName = (name: string | undefined | null, teamId: number | undefined | null, fallback: string) => {
@@ -180,12 +202,9 @@ function MatchDetailInner({ params }: { params: Promise<{ id: string }> }) {
     return name;
   };
 
-  // Some players were auto-registered during ingestion as "Player (HeroName)" or "Player (Unknown)".
-  // If that pattern is detected, prefer the hero_name from match_player_stats instead.
   const cleanPlayerName = (stat: PlayerStat): string => {
     const raw = stat.professional_players?.in_game_name || stat.professional_players?.name || '';
     if (!raw || /^Player\s*\(/i.test(raw)) {
-      // Use hero name from the match stat row if available
       if (stat.hero_name && stat.hero_name.toLowerCase() !== 'unknown' && !/^Hero\s+\d+$/i.test(stat.hero_name)) return stat.hero_name;
       return `Player #${stat.player_id}`;
     }
@@ -194,6 +213,178 @@ function MatchDetailInner({ params }: { params: Promise<{ id: string }> }) {
 
   const radiantStats = playerStats.filter((p) => p.team_id === match.radiant_team_id);
   const direStats = playerStats.filter((p) => p.team_id === match.dire_team_id);
+
+  // Calculate Match Leaders
+  let fantasyMVP: { playerId: number; playerName: string; heroName?: string | null; role: string; value: number; formattedValue: string } | null = null;
+  let highestDamage: { playerId: number; playerName: string; heroName?: string | null; role: string; value: number; formattedValue: string } | null = null;
+  let highestGPM: { playerId: number; playerName: string; heroName?: string | null; role: string; value: number; formattedValue: string } | null = null;
+  let highestKills: { playerId: number; playerName: string; heroName?: string | null; role: string; value: number; formattedValue: string } | null = null;
+
+  for (const s of playerStats) {
+    const pName = cleanPlayerName(s);
+    const role = s.professional_players?.primary_role || 'Core';
+    const pts = fantasyPointsByPlayer.get(s.player_id) ?? 0;
+    const dmg = Number(s.hero_damage || 0);
+    const gpm = Number(s.gold_per_minute || 0);
+    const kills = Number(s.kills || 0);
+
+    if (!fantasyMVP || pts > fantasyMVP.value) {
+      fantasyMVP = { playerId: s.player_id, playerName: pName, heroName: s.hero_name, role, value: pts, formattedValue: `${pts.toFixed(1)} pts` };
+    }
+    if (!highestDamage || dmg > highestDamage.value) {
+      highestDamage = { playerId: s.player_id, playerName: pName, heroName: s.hero_name, role, value: dmg, formattedValue: dmg.toLocaleString() };
+    }
+    if (!highestGPM || gpm > highestGPM.value) {
+      highestGPM = { playerId: s.player_id, playerName: pName, heroName: s.hero_name, role, value: gpm, formattedValue: `${gpm} GPM` };
+    }
+    if (!highestKills || kills > highestKills.value) {
+      highestKills = { playerId: s.player_id, playerName: pName, heroName: s.hero_name, role, value: kills, formattedValue: `${kills} kills` };
+    }
+  }
+
+  const renderRosterTable = (stats: PlayerStat[], teamFaction: 'radiant' | 'dire', teamName: string, isWinner: boolean) => {
+    const isRadiant = teamFaction === 'radiant';
+    const borderTheme = isRadiant ? 'border-emerald-900/40' : 'border-rose-900/40';
+    const headerBg = isRadiant ? 'bg-emerald-950/30' : 'bg-rose-950/30';
+    const textTheme = isRadiant ? 'text-emerald-400' : 'text-rose-400';
+
+    return (
+      <div className={`rounded-2xl border ${borderTheme} bg-slate-900/60 overflow-hidden shadow-lg`}>
+        <div className={`px-5 py-3 ${headerBg} border-b ${borderTheme} flex items-center justify-between`}>
+          <span className={`text-xs font-bold ${textTheme} tracking-wider uppercase flex items-center gap-2`}>
+            <span>{isRadiant ? '🟢' : '🔴'}</span>
+            <span>{teamName} Performances</span>
+          </span>
+          {isWinner && (
+            <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${isRadiant ? 'bg-emerald-500/20 text-emerald-300' : 'bg-rose-500/20 text-rose-300'}`}>
+              Winner
+            </span>
+          )}
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-xs">
+            <thead>
+              <tr className="border-b border-slate-800 text-slate-400 font-semibold bg-slate-950/40">
+                <th className="py-3 px-4">Player</th>
+                <th className="py-3 px-3">Role</th>
+                {viewMode === 'fantasy' ? (
+                  <>
+                    <th className="py-3 px-3" title="Combat: Kills, Deaths, Assists">Combat</th>
+                    <th className="py-3 px-3" title="Economy: GPM, Last Hits, Denies">Economy</th>
+                    <th className="py-3 px-3" title="Objectives: Tower kills, Roshan kills, Wards">Objectives</th>
+                    <th className="py-3 px-3" title="Teamfight: Participation & Fight impact">Teamfight</th>
+                    <th className="py-3 px-3" title="Match victory bonus">Win</th>
+                    <th className="py-3 px-4 text-right">Total Fantasy</th>
+                  </>
+                ) : (
+                  <>
+                    <th className="py-3 px-3">K / D / A</th>
+                    <th className="py-3 px-3">GPM / XPM</th>
+                    <th className="py-3 px-3">Damage</th>
+                    <th className="py-3 px-3">Wards</th>
+                    <th className="py-3 px-3">Healing</th>
+                    <th className="py-3 px-4 text-right">Fantasy Points</th>
+                  </>
+                )}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-800/60">
+              {stats.map((stat) => {
+                const playerName = cleanPlayerName(stat);
+                const role = stat.professional_players?.primary_role || 'Core';
+                const fBreakdown = fantasyMap.get(stat.player_id);
+                const fp = fBreakdown?.total_points ?? fantasyPointsByPlayer.get(stat.player_id);
+                const lineupDetail = lineupDetailMap.get(stat.player_id);
+                const isOwned = userOwnedSet.has(stat.player_id);
+
+                return (
+                  <tr key={stat.id} className="hover:bg-slate-800/40 transition-colors">
+                    <td className="py-3 px-4 font-bold text-white">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <Link href={`/players/${stat.player_id}`} className="hover:text-amber-400 transition-colors">
+                          {playerName}
+                        </Link>
+                        {stat.hero_name && (
+                          <span className="text-[10px] font-normal text-slate-400 bg-slate-800 px-1.5 py-0.5 rounded border border-slate-700">
+                            {stat.hero_name}
+                          </span>
+                        )}
+                        {lineupDetail?.isCaptain && (
+                          <span className="text-[9px] font-extrabold bg-amber-500 text-slate-950 px-1 py-0.5 rounded">
+                            CAPTAIN
+                          </span>
+                        )}
+                        {lineupDetail?.isViceCaptain && (
+                          <span className="text-[9px] font-extrabold bg-slate-700 text-slate-200 px-1 py-0.5 rounded">
+                            VC
+                          </span>
+                        )}
+                        {isOwned && !lineupDetail && (
+                          <span className="text-[9px] font-medium text-emerald-400 bg-emerald-950/60 border border-emerald-500/30 px-1 py-0.5 rounded">
+                            OWNED
+                          </span>
+                        )}
+                      </div>
+                    </td>
+                    <td className="py-3 px-3 text-slate-400">{role}</td>
+
+                    {viewMode === 'fantasy' ? (
+                      <>
+                        <td className="py-3 px-3 font-mono text-slate-300">
+                          {fBreakdown?.combat_points !== undefined ? fBreakdown.combat_points.toFixed(1) : '-'}
+                        </td>
+                        <td className="py-3 px-3 font-mono text-slate-300">
+                          {fBreakdown?.economy_points !== undefined ? fBreakdown.economy_points.toFixed(1) : '-'}
+                        </td>
+                        <td className="py-3 px-3 font-mono text-slate-300">
+                          {fBreakdown?.objective_points !== undefined ? fBreakdown.objective_points.toFixed(1) : '-'}
+                        </td>
+                        <td className="py-3 px-3 font-mono text-slate-300">
+                          {fBreakdown?.teamfight_points !== undefined ? fBreakdown.teamfight_points.toFixed(1) : '-'}
+                        </td>
+                        <td className="py-3 px-3 font-mono text-slate-300">
+                          {fBreakdown?.win_points !== undefined ? `+${fBreakdown.win_points.toFixed(1)}` : '-'}
+                        </td>
+                        <td className="py-3 px-4 text-right">
+                          <span className="font-mono font-bold text-amber-400 bg-amber-500/10 px-2.5 py-1 rounded-lg border border-amber-500/20">
+                            {fp !== undefined ? `${fp.toFixed(1)} pts` : '-'}
+                          </span>
+                        </td>
+                      </>
+                    ) : (
+                      <>
+                        <td className="py-3 px-3 font-mono text-slate-300">
+                          {stat.kills} / <span className="text-rose-400">{stat.deaths}</span> / {stat.assists}
+                        </td>
+                        <td className="py-3 px-3 font-mono text-slate-400">
+                          {stat.gold_per_minute || '-'} / {stat.experience_per_minute || '-'}
+                        </td>
+                        <td className="py-3 px-3 font-mono text-slate-400">
+                          {stat.hero_damage ? Number(stat.hero_damage).toLocaleString() : '-'}
+                        </td>
+                        <td className="py-3 px-3 font-mono text-slate-400">
+                          {stat.wards_placed ?? '-'}
+                        </td>
+                        <td className="py-3 px-3 font-mono text-slate-400">
+                          {stat.healing ? Number(stat.healing).toLocaleString() : '-'}
+                        </td>
+                        <td className="py-3 px-4 text-right">
+                          <span className="font-mono font-bold text-amber-400 bg-amber-500/10 px-2.5 py-1 rounded-lg border border-amber-500/20">
+                            {fp !== undefined ? `${fp.toFixed(1)} pts` : '-'}
+                          </span>
+                        </td>
+                      </>
+                    )}
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    );
+  };
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-10 space-y-8">
@@ -403,128 +594,68 @@ function MatchDetailInner({ params }: { params: Promise<{ id: string }> }) {
         </div>
       </div>
 
+      {/* Match Leaders Strip */}
+      <MatchLeadersStrip
+        fantasyMVP={fantasyMVP}
+        highestDamage={highestDamage}
+        highestGPM={highestGPM}
+        highestKills={highestKills}
+      />
+
+      {/* User Fantasy Impact Banner */}
+      <MatchFantasyImpactBanner
+        impact={userFantasyImpact}
+        playerStats={playerStats}
+        fantasyPointsByPlayer={fantasyPointsByPlayer}
+        gameweekNumber={match.gameweeks?.gameweek_number}
+      />
+
       {/* Player Stats & Fantasy Breakdown Section */}
       {playerStats.length > 0 ? (
         <div className="space-y-6">
-          <div className="flex items-center justify-between">
-            <h3 className="text-lg font-bold text-white flex items-center gap-2">
-              <span>📊</span>
-              <span>Player Performance & Fantasy Points</span>
-            </h3>
-            <span className="text-xs text-slate-500">Calculated under official league rules</span>
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+            <div>
+              <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                <span>📊</span>
+                <span>Player Performance & Box Score</span>
+              </h3>
+              <p className="text-xs text-slate-400">
+                Official in-game statistics and calculated fantasy point impacts
+              </p>
+            </div>
+
+            {/* View Mode Toggle */}
+            <div className="inline-flex rounded-xl bg-slate-900 border border-slate-800 p-1">
+              <button
+                type="button"
+                onClick={() => setViewMode('fantasy')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition ${
+                  viewMode === 'fantasy'
+                    ? 'bg-amber-500 text-slate-950 shadow'
+                    : 'text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                Fantasy Breakdown
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewMode('traditional')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition ${
+                  viewMode === 'traditional'
+                    ? 'bg-amber-500 text-slate-950 shadow'
+                    : 'text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                Traditional Box Score
+              </button>
+            </div>
           </div>
 
           {/* Radiant Roster Stats */}
-          <div className="rounded-2xl border border-emerald-900/40 bg-slate-900/60 overflow-hidden">
-            <div className="px-5 py-3 bg-emerald-950/30 border-b border-emerald-900/40 flex items-center justify-between">
-              <span className="text-xs font-bold text-emerald-400 tracking-wider uppercase">
-                {formatTeamName(match.radiant_team?.name, match.radiant_team_id, 'Radiant')} Performances
-              </span>
-              {isRadiantWinner && <span className="text-[11px] font-bold text-emerald-400">Winner</span>}
-            </div>
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs">
-                <thead>
-                  <tr className="border-b border-slate-800 text-slate-400 font-semibold">
-                    <th className="py-3 px-4">Player</th>
-                    <th className="py-3 px-3">Role</th>
-                    <th className="py-3 px-3">K / D / A</th>
-                    <th className="py-3 px-3">GPM / XPM</th>
-                    <th className="py-3 px-3">Damage</th>
-                    <th className="py-3 px-4 text-right">Fantasy Points</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-800/60">
-                  {radiantStats.map((stat) => {
-                    const playerName = cleanPlayerName(stat);
-                    const role = stat.professional_players?.primary_role || 'Core';
-                    const fp = fantasyPointsByPlayer.get(stat.player_id);
-
-                    return (
-                      <tr key={stat.id} className="hover:bg-slate-800/40 transition-colors">
-                        <td className="py-3 px-4 font-bold text-white flex items-center gap-2">
-                          <Link href={`/players/${stat.player_id}`} className="hover:text-amber-400 transition-colors">
-                            {playerName}
-                          </Link>
-                        </td>
-                        <td className="py-3 px-3 text-slate-400">{role}</td>
-                        <td className="py-3 px-3 font-mono text-slate-300">
-                          {stat.kills} / <span className="text-rose-400">{stat.deaths}</span> / {stat.assists}
-                        </td>
-                        <td className="py-3 px-3 font-mono text-slate-400">
-                          {stat.gold_per_minute || '-'} / {stat.experience_per_minute || '-'}
-                        </td>
-                        <td className="py-3 px-3 font-mono text-slate-400">
-                          {stat.hero_damage ? Number(stat.hero_damage).toLocaleString() : '-'}
-                        </td>
-                        <td className="py-3 px-4 text-right">
-                          <span className="font-mono font-bold text-amber-400 bg-amber-500/10 px-2.5 py-1 rounded-lg border border-amber-500/20">
-                            {fp !== undefined ? `${fp.toFixed(1)} pts` : '-'}
-                          </span>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </div>
+          {renderRosterTable(radiantStats, 'radiant', formatTeamName(match.radiant_team?.name, match.radiant_team_id, 'Radiant'), isRadiantWinner)}
 
           {/* Dire Roster Stats */}
-          <div className="rounded-2xl border border-rose-900/40 bg-slate-900/60 overflow-hidden">
-            <div className="px-5 py-3 bg-rose-950/30 border-b border-rose-900/40 flex items-center justify-between">
-              <span className="text-xs font-bold text-rose-400 tracking-wider uppercase">
-                {formatTeamName(match.dire_team?.name, match.dire_team_id, 'Dire')} Performances
-              </span>
-              {isDireWinner && <span className="text-[11px] font-bold text-rose-400">Winner</span>}
-            </div>
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs">
-                <thead>
-                  <tr className="border-b border-slate-800 text-slate-400 font-semibold">
-                    <th className="py-3 px-4">Player</th>
-                    <th className="py-3 px-3">Role</th>
-                    <th className="py-3 px-3">K / D / A</th>
-                    <th className="py-3 px-3">GPM / XPM</th>
-                    <th className="py-3 px-3">Damage</th>
-                    <th className="py-3 px-4 text-right">Fantasy Points</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-800/60">
-                  {direStats.map((stat) => {
-                    const playerName = cleanPlayerName(stat);
-                    const role = stat.professional_players?.primary_role || 'Core';
-                    const fp = fantasyPointsByPlayer.get(stat.player_id);
-
-                    return (
-                      <tr key={stat.id} className="hover:bg-slate-800/40 transition-colors">
-                        <td className="py-3 px-4 font-bold text-white flex items-center gap-2">
-                          <Link href={`/players/${stat.player_id}`} className="hover:text-amber-400 transition-colors">
-                            {playerName}
-                          </Link>
-                        </td>
-                        <td className="py-3 px-3 text-slate-400">{role}</td>
-                        <td className="py-3 px-3 font-mono text-slate-300">
-                          {stat.kills} / <span className="text-rose-400">{stat.deaths}</span> / {stat.assists}
-                        </td>
-                        <td className="py-3 px-3 font-mono text-slate-400">
-                          {stat.gold_per_minute || '-'} / {stat.experience_per_minute || '-'}
-                        </td>
-                        <td className="py-3 px-3 font-mono text-slate-400">
-                          {stat.hero_damage ? Number(stat.hero_damage).toLocaleString() : '-'}
-                        </td>
-                        <td className="py-3 px-4 text-right">
-                          <span className="font-mono font-bold text-amber-400 bg-amber-500/10 px-2.5 py-1 rounded-lg border border-amber-500/20">
-                            {fp !== undefined ? `${fp.toFixed(1)} pts` : '-'}
-                          </span>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </div>
+          {renderRosterTable(direStats, 'dire', formatTeamName(match.dire_team?.name, match.dire_team_id, 'Dire'), isDireWinner)}
         </div>
       ) : (
         <div className="p-8 rounded-2xl border border-slate-800 bg-slate-900/40 text-center">

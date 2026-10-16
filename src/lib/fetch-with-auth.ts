@@ -3,9 +3,50 @@ import type { Session } from '@supabase/supabase-js';
 
 let refreshSessionPromise: Promise<Session | null> | null = null;
 
+/**
+ * Bootstrap the client-side Supabase in-memory session by asking the server
+ * to exchange the httpOnly `sb-refresh-token` cookie for a new access token.
+ *
+ * This is necessary because the browser-side Supabase JS client cannot read
+ * httpOnly cookies directly. After a hard reload or cold dev-server start the
+ * in-memory session is empty even though the user's refresh token is safely
+ * stored in a cookie — this call bridges that gap.
+ */
+async function bootstrapSessionFromServer(): Promise<Session | null> {
+  try {
+    const res = await fetch('/api/auth/session', {
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+    });
+    if (!res.ok) return null;
+
+    const { access_token, refresh_token } = (await res.json()) as {
+      access_token: string;
+      refresh_token: string;
+    };
+    if (!access_token || !refresh_token) return null;
+
+    // Seed the Supabase JS client's in-memory session so that subsequent
+    // getSession() calls return a valid token without another round-trip.
+    const { data, error } = await supabase.auth.setSession({ access_token, refresh_token });
+    if (error || !data.session) return null;
+    return data.session;
+  } catch {
+    return null;
+  }
+}
+
 async function refreshClientSession(): Promise<Session | null> {
   if (!refreshSessionPromise) {
     refreshSessionPromise = (async () => {
+      // First try to bootstrap from the server cookie — this handles the
+      // hard-reload / cold-start case where the JS client has no in-memory
+      // session but the user IS logged in (refresh token lives in httpOnly cookie).
+      const bootstrapped = await bootstrapSessionFromServer();
+      if (bootstrapped) return bootstrapped;
+
+      // Fallback: client-side Supabase refresh (works when the JS client
+      // already has a refresh token in memory / localStorage).
       const { data, error } = await supabase.auth.refreshSession();
       if (error || !data.session) return null;
 
@@ -32,7 +73,11 @@ async function refreshClientSession(): Promise<Session | null> {
  *     refresh token is present, so this is the primary and reliable source.
  *
  * If getSession returns no token (e.g. after a hard reload before the local
- * session is re-seeded) an explicit refreshSession() call is attempted first.
+ * session is re-seeded) an explicit refresh is attempted first:
+ *  2a. Server-side session bootstrap via GET /api/auth/session — reads the
+ *      httpOnly sb-refresh-token cookie and returns a fresh token pair, which
+ *      is then seeded into the in-memory client via setSession().
+ *  2b. Client-side supabase.auth.refreshSession() fallback.
  *
  * If the request returns 401 despite having a token, the session is force-refreshed
  * once, the client in-memory session is updated, and the request is retried before
@@ -57,7 +102,9 @@ export async function fetchWithAuth(
 
     // If no session token is available yet and this is the first attempt,
     // try an explicit refresh. This handles hard reloads where getSession()
-    // returns null before the local session storage is warmed up.
+    // returns null before the local session storage is warmed up, as well as
+    // cold dev-server starts where the httpOnly cookie holds the refresh token
+    // but the JS client has no in-memory session yet.
     if (!token && !retried) {
       const refreshed = await refreshClientSession();
       token = refreshed?.access_token;

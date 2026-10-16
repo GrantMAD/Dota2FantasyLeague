@@ -183,11 +183,113 @@ async function getHandler(request: NextRequest, context: RouteContext) {
       `)
       .eq('match_id', matchId);
 
+    // Optional user fantasy context enrichment if user is authenticated
+    let userFantasyImpact: {
+      userOwnedPlayerIds: number[];
+      lineupDetails: Array<{
+        playerId: number;
+        slot: string;
+        isCaptain: boolean;
+        isViceCaptain: boolean;
+        isStarter: boolean;
+      }>;
+    } | null = null;
+
+    try {
+      const authHeader = request.headers.get('authorization');
+      const cookieHeader = request.headers.get('cookie') ?? '';
+      if (authHeader || cookieHeader.includes('sb-auth-token')) {
+        const { verifyAuth } = await import('@/lib/auth-utils');
+        const user = await verifyAuth(request);
+        if (user?.userId && matchRecord.gameweek_id) {
+          // Find the user's fantasy season for this gameweek's tournament season
+          const { data: fantasySeasonData } = await supabase
+            .from('fantasy_seasons')
+            .select('id')
+            .eq('user_id', user.userId)
+            .limit(1);
+
+          const fantasySeason = fantasySeasonData?.[0];
+          if (fantasySeason?.id) {
+            // Find lineup for this gameweek
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const { data: lineupRow } = await (supabase.from('fantasy_lineups') as any)
+              .select('carry_id, mid_id, offlane_id, support_id, hard_support_id, bench_1_id, bench_2_id, bench_3_id, captain_player_id, vice_captain_player_id')
+              .eq('fantasy_season_id', fantasySeason.id)
+              .eq('gameweek_id', matchRecord.gameweek_id)
+              .maybeSingle();
+
+            // Find squad members
+            const { data: squadMembers } = await supabase
+              .from('fantasy_squad_members')
+              .select('player_id')
+              .eq('fantasy_season_id', fantasySeason.id);
+
+            const ownedIds = (squadMembers ?? []).map((m: { player_id: number }) => m.player_id);
+
+            const lineupDetails: Array<{
+              playerId: number;
+              slot: string;
+              isCaptain: boolean;
+              isViceCaptain: boolean;
+              isStarter: boolean;
+            }> = [];
+
+            if (lineupRow) {
+              const starterSlots: Array<[string, number | null]> = [
+                ['Carry', lineupRow.carry_id],
+                ['Mid', lineupRow.mid_id],
+                ['Offlane', lineupRow.offlane_id],
+                ['Support', lineupRow.support_id],
+                ['Hard Support', lineupRow.hard_support_id],
+              ];
+              const benchSlots: Array<[string, number | null]> = [
+                ['Bench 1', lineupRow.bench_1_id],
+                ['Bench 2', lineupRow.bench_2_id],
+                ['Bench 3', lineupRow.bench_3_id],
+              ];
+
+              for (const [slot, pId] of starterSlots) {
+                if (pId) {
+                  lineupDetails.push({
+                    playerId: pId,
+                    slot,
+                    isCaptain: lineupRow.captain_player_id === pId,
+                    isViceCaptain: lineupRow.vice_captain_player_id === pId,
+                    isStarter: true,
+                  });
+                }
+              }
+              for (const [slot, pId] of benchSlots) {
+                if (pId) {
+                  lineupDetails.push({
+                    playerId: pId,
+                    slot,
+                    isCaptain: false,
+                    isViceCaptain: false,
+                    isStarter: false,
+                  });
+                }
+              }
+            }
+
+            userFantasyImpact = {
+              userOwnedPlayerIds: ownedIds,
+              lineupDetails,
+            };
+          }
+        }
+      }
+    } catch {
+      // Gracefully ignore auth or lookup errors for unauthenticated/unrelated callers
+    }
+
     return NextResponse.json({
       match,
       playerStats: playerStats ?? [],
       fantasyBreakdown: fantasyBreakdown ?? [],
       substitutions: substitutions ?? [],
+      userFantasyImpact,
     });
   } catch {
     return NextResponse.json({ error: 'An unexpected error occurred.' }, { status: 500 });
