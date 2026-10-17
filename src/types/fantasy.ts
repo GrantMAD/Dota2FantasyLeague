@@ -128,6 +128,7 @@ export interface DashboardStarter {
   current_price?: number | null;
   is_captain?: boolean;
   is_vice_captain?: boolean;
+  team_id?: number | null;
   team_name?: string | null;
   // Gameweek scoring (populated when a closed/active GW has breakdown data)
   gw_points?: number | null;

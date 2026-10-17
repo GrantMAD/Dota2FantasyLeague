@@ -29,6 +29,8 @@ import { DashboardQuickActions } from './components/DashboardQuickActions';
 import { DashboardStatCards, type DashboardStatCardData } from './components/DashboardStatCards';
 import { DashboardStarterCard } from './components/DashboardStarterCard';
 import { EmptySquadState } from './components/EmptySquadState';
+import { DashboardLiveMatches } from './components/DashboardLiveMatches';
+import type { MatchData } from '@/app/(dashboard)/matches/components/MatchCard';
 
 interface WhatsNewEvent {
   kind: 'tournament';
@@ -90,6 +92,8 @@ export default function DashboardPage() {
   const [whatsNewTab, setWhatsNewTab] = useState<WhatsNewTab>('tournaments');
   const [tournamentsExpanded, setTournamentsExpanded] = useState(false);
   const [playersExpanded, setPlayersExpanded] = useState(false);
+  const [liveMatches, setLiveMatches] = useState<MatchData[]>([]);
+  const [liveMatchesLoading, setLiveMatchesLoading] = useState(true);
 
   const openPlayerDetails = async (starter: DashboardStarter) => {
     setSelectedScoreBreakdown(starter.score_breakdown ?? null);
@@ -197,6 +201,36 @@ export default function DashboardPage() {
 
     void fetchWhatsNew();
     const intervalId = window.setInterval(() => void fetchWhatsNew(), 5 * 60 * 1000);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(intervalId);
+    };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const fetchLiveMatches = async () => {
+      try {
+        const response = await fetchWithAuth('/api/matches?status=live&limit=6');
+        if (!response.ok) return;
+        const data = await response.json();
+        if (!cancelled && data && Array.isArray(data.matches)) {
+          setLiveMatches(data.matches);
+        }
+      } catch {
+        // Silently tolerate live match polling error
+      } finally {
+        if (!cancelled) {
+          setLiveMatchesLoading(false);
+        }
+      }
+    };
+
+    void fetchLiveMatches();
+    // Poll live matches every 60 seconds
+    const intervalId = window.setInterval(() => void fetchLiveMatches(), 60 * 1000);
 
     return () => {
       cancelled = true;
@@ -516,6 +550,17 @@ export default function DashboardPage() {
                 hasLeagues={dashboardData.leagueStandings.length > 0}
               />
             ) : null}
+
+            {/* Live Matches In Progress */}
+            <DashboardLiveMatches
+              matches={liveMatches}
+              loading={liveMatchesLoading}
+              userSquadTeamIds={
+                dashboardData?.starters
+                  ?.map((s) => s.team_id)
+                  .filter((id): id is number => typeof id === 'number') ?? []
+              }
+            />
 
             {/* Squads Status Section */}
             {loading ? (

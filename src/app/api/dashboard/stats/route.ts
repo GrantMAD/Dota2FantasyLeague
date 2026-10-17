@@ -127,6 +127,7 @@ async function getHandler(request: NextRequest) {
       in_game_name: string | null;
       primary_role: string;
       profile_image_url: string | null;
+      team_id: number | null;
       professional_teams: { name: string } | null;
     };
 
@@ -143,7 +144,7 @@ async function getHandler(request: NextRequest) {
       allDetailPlayerIds.length > 0
         ? (supabase
             .from('professional_players')
-            .select('id, name, in_game_name, primary_role, profile_image_url, professional_teams(name)')
+            .select('id, name, in_game_name, primary_role, profile_image_url, team_id, professional_teams(name)')
             .in('id', allDetailPlayerIds) as unknown as Promise<{ data: StarterQueryPlayer[] | null }>)
         : Promise.resolve({ data: [] }),
     ]);
@@ -191,6 +192,7 @@ async function getHandler(request: NextRequest) {
               current_price: latestPrices.get(p.id) ?? 0,
               is_captain: lineupRow.captain_player_id === p.id,
               is_vice_captain: lineupRow.vice_captain_player_id === p.id,
+              team_id: p.team_id ?? null,
               team_name: p.professional_teams?.name || null,
               gw_points: null as number | null,
               score_breakdown: null as {
