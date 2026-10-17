@@ -48,6 +48,7 @@ function TransfersPageContent() {
   const [budget, setBudget] = useState(100);
   const [freeTransfers, setFreeTransfers] = useState(2);
   const [wildcardUsed, setWildcardUsed] = useState(false);
+  const [wildcardUsedGameweekNumber, setWildcardUsedGameweekNumber] = useState<number | null>(null);
   const [ownedPlayerIds, setOwnedPlayerIds] = useState<number[]>([]);
   const [transferContextReady, setTransferContextReady] = useState(false);
   const [quickAddPlayer, setQuickAddPlayer] = useState<TransferPlayer | null>(null);
@@ -83,6 +84,7 @@ function TransfersPageContent() {
         setBudget(context.budget || 0);
         setFreeTransfers(context.freeTransfers || 0);
         setWildcardUsed(context.wildcardUsed || false);
+        setWildcardUsedGameweekNumber(context.wildcardUsedGameweekNumber ?? null);
         setOwnedPlayerIds(ownedIds);
 
         if (ownedIds.length > 0) {
@@ -421,6 +423,9 @@ function TransfersPageContent() {
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || 'Wildcard activation failed');
       setWildcardUsed(true);
+      setWildcardUsedGameweekNumber(
+        Number.isInteger(data.gameweekNumber) ? data.gameweekNumber : null,
+      );
       setFreeTransfers(99);
       if (typeof window !== 'undefined') {
         window.dispatchEvent(new CustomEvent('fantasy:stats-updated'));
@@ -486,10 +491,20 @@ function TransfersPageContent() {
           </button>
         </div>
       ) : (
-        <div className="mb-6 flex items-center justify-between gap-3 rounded-xl border border-slate-700 bg-slate-800/40 px-4 py-3 text-xs text-slate-400">
-          <div className="flex items-center gap-2">
-            <Sparkles className="h-4 w-4 text-slate-500" />
-            <span>Wildcard chip has already been played for this season. Standard transfer allowances apply.</span>
+        <div className="mb-6 flex flex-col gap-3 rounded-xl border border-slate-700 bg-slate-800/40 px-4 py-3 text-xs text-slate-300 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-start gap-2">
+            <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-amber-300" />
+            <div>
+              <p className="font-semibold text-slate-200">
+                {wildcardUsedGameweekNumber !== null
+                  ? `Wildcard used in Gameweek ${wildcardUsedGameweekNumber}.`
+                  : 'Wildcard has been used this season.'}
+              </p>
+              <p className="mt-1 text-slate-400">
+                Wildcard is available once per season. You will have a new Wildcard when you join the next season.
+                Standard transfer allowances apply now.
+              </p>
+            </div>
           </div>
           <span className="text-[11px] font-mono text-slate-500 uppercase tracking-wider">Used</span>
         </div>

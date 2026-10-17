@@ -51,9 +51,24 @@ async function postHandler(request: NextRequest) {
       );
     }
 
+    let gameweekNumber: number | null = null;
+    if (result?.gameweek_id) {
+      const { data: gameweek, error: gameweekError } = await supabase
+        .from('gameweeks')
+        .select('gameweek_number')
+        .eq('id', result.gameweek_id)
+        .maybeSingle();
+      if (gameweekError) {
+        console.error('[Wildcard] Activated successfully but failed to resolve gameweek number:', gameweekError.message);
+      } else {
+        gameweekNumber = gameweek?.gameweek_number ?? null;
+      }
+    }
+
     return NextResponse.json({
       message: result?.message || 'Wildcard activated successfully.',
       gameweekId: result?.gameweek_id,
+      gameweekNumber,
     });
   } catch (error: unknown) {
     console.error('Wildcard API Error:', error);
