@@ -6,6 +6,11 @@ import { matchesCronSchedule } from '../job-schedule';
 import { getNextCronDate } from '../cron-utils';
 
 describe('scheduled job cadence', () => {
+  it('checks deadline and lineup reminders every 15 minutes', () => {
+    expect(getJobs().find((job) => job.name === 'send-deadline-notifications')?.schedule)
+      .toBe('*/15 * * * *');
+  });
+
   it('allows every configured job to run on the deployed Vercel cadence', () => {
     const vercelSchedules = vercelConfig.crons.map((cron) => cron.schedule);
     const firstSlot = Date.UTC(2026, 9, 4, 0, 0);

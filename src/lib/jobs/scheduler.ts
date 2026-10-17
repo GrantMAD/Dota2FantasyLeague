@@ -179,7 +179,7 @@ const JOBS: JobDefinition[] = [
   },
   {
     name: 'send-deadline-notifications',
-    schedule: '0 * * * *', // Every hour to catch approaching deadlines
+    schedule: '*/15 * * * *', // Check approaching deadlines and lineup status every 15 minutes
     handler: sendDeadlineNotifications,
     enabled: process.env.ENABLE_NOTIFICATIONS !== 'false',
     timeout: 5 * 60 * 1000,

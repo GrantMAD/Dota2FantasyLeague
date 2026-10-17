@@ -116,6 +116,38 @@ describe('push notification delivery', () => {
     );
   });
 
+  it('uses notification-specific copy for deadline push reminders', async () => {
+    const token = 'ExponentPushToken[device-123]';
+    const { client } = createSupabase({
+      users: { data: [{ id: 'user-1', push_notifications: true }], error: null },
+      user_push_tokens: {
+        data: [{ user_id: 'user-1', expo_push_token: token }],
+        error: null,
+      },
+      push_notification_receipts: { data: null, error: null },
+    });
+    jest.spyOn(globalThis, 'fetch').mockResolvedValue(
+      expoResponse({ data: [{ status: 'ok', id: 'receipt-1' }] }),
+    );
+
+    await deliverPushNotifications(client, [{
+      userId: 'user-1',
+      type: 'deadline_reminder',
+      metadata: { gameweek_id: 12, gameweek_number: 4 },
+      title: 'Gameweek 4 lineup deadline within 2 hours',
+      body: 'Your Gameweek 4 lineup is not set. Set your lineup now.',
+    }]);
+
+    const requestBody = JSON.parse(String(jest.mocked(fetch).mock.calls[0][1]?.body)) as {
+      body: string;
+      title: string;
+    }[];
+    expect(requestBody[0]).toMatchObject({
+      title: 'Gameweek 4 lineup deadline within 2 hours',
+      body: 'Your Gameweek 4 lineup is not set. Set your lineup now.',
+    });
+  });
+
   it('does not contact Expo when the account preference is disabled', async () => {
     const { client } = createSupabase({
       users: { data: [{ id: 'user-1', push_notifications: false }], error: null },

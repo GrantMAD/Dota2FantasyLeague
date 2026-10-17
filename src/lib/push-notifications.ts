@@ -8,6 +8,8 @@ export interface PushNotificationCandidate {
   userId: string;
   type: string;
   metadata: Record<string, unknown> | null;
+  title?: string;
+  body?: string;
 }
 
 export interface PushDeliveryResult {
@@ -229,8 +231,8 @@ export async function deliverPushNotifications(
       messages.push({
         to: token,
         sound: 'default',
-        title: 'Fantasy Dota 2',
-        body: 'You have a new fantasy update.',
+        title: candidate.title ?? 'Fantasy Dota 2',
+        body: candidate.body ?? 'You have a new fantasy update.',
         data: { route: pushRouteForNotification(candidate.type, candidate.metadata) },
         priority: 'high',
         channelId: 'default',
