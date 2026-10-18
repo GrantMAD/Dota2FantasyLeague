@@ -26,6 +26,7 @@ import type { DashboardData, DashboardStarter, ScoreBreakdown } from '@/types/fa
 import { PlayerDetailModal, type PlayerDetails } from '@/app/(dashboard)/squads/components/PlayerDetailModal';
 import { TotalPointsModal } from './components/TotalPointsModal';
 import { DashboardQuickActions } from './components/DashboardQuickActions';
+import { DashboardOnboardingChecklist } from './components/DashboardOnboardingChecklist';
 import { DashboardStatCards, type DashboardStatCardData } from './components/DashboardStatCards';
 import { DashboardStarterCard } from './components/DashboardStarterCard';
 import { EmptySquadState } from './components/EmptySquadState';
@@ -315,6 +316,15 @@ export default function DashboardPage() {
 
       {/* Main Content */}
       <section className="max-w-7xl mx-auto px-4 py-12">
+        {!loading && dashboardData?.fantasySeasonId ? (
+          <DashboardOnboardingChecklist
+            hasSquad={dashboardData.activeSquadCount > 0}
+            ownedPlayerCount={dashboardData.ownedPlayerCount}
+            hasCompleteLineup={(dashboardData.starters?.length ?? 0) === 5 && Boolean(dashboardData.captain)}
+            hasLeague={dashboardData.leagueStandings.length > 0}
+          />
+        ) : null}
+
         {whatsNew && (whatsNew.events.length > 0 || whatsNew.gameweek || whatsNew.updates.length > 0) && (
           <section className="wn-panel" aria-labelledby="whats-new-heading">
             {/* ── Header ── */}

@@ -151,6 +151,7 @@ export interface DashboardData {
   fantasySeasonId?: number | null;
   displayName?: string | null;
   activeSquadCount: number;
+  ownedPlayerCount: number;
   squadValue: number;
   bankBalance: number;
   totalPoints: number;
