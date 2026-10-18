@@ -13,6 +13,7 @@ import {
   X,
 } from 'lucide-react';
 import Link from 'next/link';
+import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { fetchWithAuth } from '@/lib/fetch-with-auth';
 import { buildOwnedSquadRoster, type OwnedSquadPlayer } from '@/lib/squad-roster';
 import type { FantasyPlayer as SquadPlayer, LineupEntry } from '@/types/fantasy';
@@ -28,8 +29,41 @@ interface TransferHistoryRecord {
   createdAt: string;
   gameweekNumber: number | null;
   penaltyPoints: number | null;
-  moves: Array<{ playerOut: string | null; playerIn: string | null }>;
+  budgetImpact: number | null;
+  moves: Array<{
+    playerOut: string | null;
+    playerIn: string | null;
+    budgetImpact: number | null;
+    netPointsNextThreeGameweeks: number | null;
+    scoredGameweeks: number;
+    scoringGameweeks: number[];
+  }>;
 }
+
+interface TransferInsight {
+  playerOut: string;
+  playerIn: string;
+  netPoints: number;
+  gameweekNumbers: number[];
+}
+
+interface TransferHistoryAnalytics {
+  netBudgetChange: number | null;
+  pricedTransactions: number;
+  totalTransactions: number;
+  squadValueHistory: Array<{ gameweekNumber: number; value: number | null }>;
+  bestTransfer: TransferInsight | null;
+  worstTransfer: TransferInsight | null;
+}
+
+const emptyTransferAnalytics: TransferHistoryAnalytics = {
+  netBudgetChange: null,
+  pricedTransactions: 0,
+  totalTransactions: 0,
+  squadValueHistory: [],
+  bestTransfer: null,
+  worstTransfer: null,
+};
 
 export default function SquadsPage() {
   const [lineup, setLineup] = useState<LineupEntry[]>([]);
@@ -43,6 +77,7 @@ export default function SquadsPage() {
   const [activeTab, setActiveTab] = useState<SquadTab>('squad');
   const [viewMode, setViewMode] = useState<ViewMode>('pitch');
   const [transferHistory, setTransferHistory] = useState<TransferHistoryRecord[]>([]);
+  const [transferAnalytics, setTransferAnalytics] = useState<TransferHistoryAnalytics>(emptyTransferAnalytics);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyError, setHistoryError] = useState<string | null>(null);
 
@@ -103,6 +138,7 @@ export default function SquadsPage() {
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || 'Failed to load transfer history.');
       setTransferHistory(Array.isArray(data.transfers) ? data.transfers : []);
+      setTransferAnalytics(data.analytics ?? emptyTransferAnalytics);
     } catch (historyLoadError) {
       setHistoryError(historyLoadError instanceof Error ? historyLoadError.message : 'Failed to load transfer history.');
     } finally {
@@ -433,6 +469,115 @@ export default function SquadsPage() {
             </div>
           </div>
 
+          <div className="mb-8 grid gap-4 xl:grid-cols-3">
+            <div className="rounded-xl border border-slate-800 bg-slate-950/70 p-4">
+              <span className="block text-[11px] font-medium uppercase tracking-wider text-slate-400">
+                Net Budget Change
+              </span>
+              <span className={`mt-1 block font-mono text-2xl font-bold ${
+                transferAnalytics.netBudgetChange === null
+                  ? 'text-slate-400'
+                  : transferAnalytics.netBudgetChange > 0
+                    ? 'text-emerald-400'
+                    : transferAnalytics.netBudgetChange < 0
+                      ? 'text-rose-400'
+                      : 'text-white'
+              }`}>
+                {transferAnalytics.netBudgetChange === null
+                  ? 'Unavailable'
+                  : `${transferAnalytics.netBudgetChange > 0 ? '+$' : transferAnalytics.netBudgetChange < 0 ? '-$' : '$'}${Math.abs(transferAnalytics.netBudgetChange).toFixed(1)}M`}
+              </span>
+              <p className="mt-1 text-xs text-slate-400">
+                {transferAnalytics.totalTransactions === 0
+                  ? 'No transfer transactions are recorded.'
+                  : `Based on ${transferAnalytics.pricedTransactions} of ${transferAnalytics.totalTransactions} fully priced transactions.`}
+              </p>
+            </div>
+
+            <div className="rounded-xl border border-slate-800 bg-slate-950/70 p-4 xl:col-span-2">
+              <div className="mb-3">
+                <h3 className="text-sm font-bold text-white">Owned Squad Value</h3>
+                <p className="text-xs text-slate-400">Historical player market value by completed gameweek, excluding bank balance.</p>
+              </div>
+              {transferAnalytics.squadValueHistory.some((point) => point.value !== null) ? (
+                <div className="h-52 w-full" role="img" aria-label="Squad market value history chart">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={transferAnalytics.squadValueHistory} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
+                      <CartesianGrid stroke="#334155" strokeDasharray="3 3" />
+                      <XAxis
+                        dataKey="gameweekNumber"
+                        tickFormatter={(value: number) => `GW ${value}`}
+                        stroke="#94a3b8"
+                        tick={{ fontSize: 11 }}
+                      />
+                      <YAxis
+                        stroke="#94a3b8"
+                        tick={{ fontSize: 11 }}
+                        tickFormatter={(value: number) => `$${value.toFixed(0)}M`}
+                        width={54}
+                      />
+                      <Tooltip
+                        labelFormatter={(value) => `Gameweek ${value}`}
+                        formatter={(value) => typeof value === 'number' ? [`$${value.toFixed(1)}M`, 'Squad value'] : ['Unavailable', 'Squad value']}
+                        contentStyle={{ backgroundColor: '#020617', border: '1px solid #334155', borderRadius: '0.75rem' }}
+                        labelStyle={{ color: '#e2e8f0' }}
+                      />
+                      <Line
+                        type="monotone"
+                        dataKey="value"
+                        name="Squad value"
+                        stroke="#22d3ee"
+                        strokeWidth={2}
+                        dot={{ r: 3, fill: '#22d3ee' }}
+                        activeDot={{ r: 5 }}
+                        connectNulls={false}
+                      />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+              ) : (
+                <p className="py-8 text-center text-sm text-slate-400">
+                  Squad value history is unavailable until completed gameweeks have complete player price records.
+                </p>
+              )}
+              {transferAnalytics.squadValueHistory.some((point) => point.value === null) && (
+                <p className="mt-2 text-xs text-slate-500">Gaps indicate missing price or ownership history for that gameweek.</p>
+              )}
+            </div>
+          </div>
+
+          <div className="mb-8 grid gap-4 sm:grid-cols-2">
+            {[
+              { title: 'Best Transfer', insight: transferAnalytics.bestTransfer, positive: true },
+              { title: 'Worst Transfer', insight: transferAnalytics.worstTransfer, positive: false },
+            ].map(({ title, insight, positive }) => (
+              <div key={title} className="rounded-xl border border-slate-800 bg-slate-950/70 p-4">
+                <h3 className="text-sm font-bold text-white">{title}</h3>
+                {insight ? (
+                  <>
+                    <p className="mt-2 flex flex-wrap items-center gap-2 text-sm">
+                      <span className="text-rose-300">{insight.playerOut}</span>
+                      <ArrowRight className="h-3.5 w-3.5 text-slate-500" aria-hidden="true" />
+                      <span className="text-emerald-300">{insight.playerIn}</span>
+                    </p>
+                    <p className={`mt-2 font-mono text-lg font-bold ${positive ? 'text-emerald-400' : 'text-rose-400'}`}>
+                      {insight.netPoints > 0 ? '+' : ''}{insight.netPoints.toFixed(1)} pts
+                    </p>
+                    <p className="text-xs text-slate-400">
+                      Net player points over GW {insight.gameweekNumbers.join(', ')}.
+                    </p>
+                  </>
+                ) : (
+                  <p className="mt-2 text-sm text-slate-400">
+                    {transferHistory.length === 0
+                      ? 'No transfer swaps are recorded yet.'
+                      : 'No transfers have a fully completed three-gameweek scoring window yet.'}
+                  </p>
+                )}
+              </div>
+            ))}
+          </div>
+
           <div className="mb-4">
             <h2 className="text-xl font-bold text-white">Transfer Timeline</h2>
             <p className="mt-1 text-sm text-slate-400">Chronological audit of all player transactions and penalties.</p>
@@ -475,7 +620,7 @@ export default function SquadsPage() {
                             ) : null}
                             <span className="text-xs text-slate-400">{dateStr}</span>
                           </div>
-                          <div>
+                          <div className="flex flex-wrap items-center gap-2">
                             {transfer.penaltyPoints === null ? (
                               <span className="text-xs font-medium text-slate-400">Free move</span>
                             ) : transfer.penaltyPoints > 0 ? (
@@ -487,6 +632,11 @@ export default function SquadsPage() {
                                 Free Transfer
                               </span>
                             )}
+                            <span className="rounded-md border border-slate-700 bg-slate-800/70 px-2.5 py-0.5 text-xs font-medium text-slate-300">
+                              {transfer.budgetImpact === null
+                                ? 'Budget impact unavailable'
+                                : `Budget ${transfer.budgetImpact > 0 ? '+$' : transfer.budgetImpact < 0 ? '-$' : '$'}${Math.abs(transfer.budgetImpact).toFixed(1)}M`}
+                            </span>
                           </div>
                         </div>
 
