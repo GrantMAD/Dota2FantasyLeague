@@ -176,7 +176,9 @@ class CalculateGlobalRankings {
         .select('id')
         .eq('season_id', seasonId)
         .eq('status', 'active')
-        .single();
+        .order('id', { ascending: false })
+        .limit(1)
+        .maybeSingle();
              const currentGameweek = currentGameweekData as GameweekIdRow | null;
 
        if (!currentGameweek) return 0;
@@ -220,12 +222,15 @@ class CalculateGlobalRankings {
     };
 
     try {
-      // Get active season
+      // Get active season — use maybeSingle + ordering so this works
+      // even when multiple seasons are marked active simultaneously.
       const { data: seasonData } = await this.supabase
         .from('seasons')
         .select('id')
         .eq('status', 'active')
-        .single();
+        .order('id', { ascending: false })
+        .limit(1)
+        .maybeSingle();
       const season = seasonData as SeasonIdRow | null;
       
       if (!season) {
