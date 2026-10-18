@@ -159,6 +159,10 @@ const JOB_METADATA: Record<string, {
     description: 'Permanently removes players absent from provider data for 7+ days and empty teams. Automatically refunds fantasy squad budgets, clears captain assignments, and notifies owners.',
     category: 'maintenance',
   },
+  'purge-interaction-telemetry': {
+    description: 'Deletes detailed interaction telemetry older than 7 days and minute-level summaries older than 180 days to limit stored telemetry while retaining long-term aggregate trends.',
+    category: 'maintenance',
+  },
   'auto-resolve-conflicts': {
     manualStep: 13,
     requires: ['sync-players', 'sync-teams'],

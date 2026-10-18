@@ -27,6 +27,29 @@ const SQUAD_MAX_SIZE = 8;
 const STARTER_ROLES = ['Carry', 'Mid', 'Offlane', 'Support', 'Hard Support'] as const;
 type StarterRole = typeof STARTER_ROLES[number];
 
+interface TransferSuggestion {
+  player_out_id: number;
+  player_out_name: string;
+  player_out_role: string;
+  player_out_recent_points: number[];
+  player_out_price_change: number | null;
+  player_in_id: number;
+  player_in_name: string;
+  player_in_role: string;
+  player_in_current_price: number;
+  player_in_recent_points: number[];
+  player_in_price_change: number | null;
+  budget_after: number;
+  reasons: string[];
+}
+
+interface TransferSuggestionSummary {
+  status: string;
+  completed_gameweeks: number;
+  required_gameweeks: number;
+  priced_role_matched_candidates: number;
+}
+
 function TransfersPageContent() {
   const toast = useToast();
   const searchParams = useSearchParams();
@@ -51,6 +74,10 @@ function TransfersPageContent() {
   const [wildcardUsedGameweekNumber, setWildcardUsedGameweekNumber] = useState<number | null>(null);
   const [ownedPlayerIds, setOwnedPlayerIds] = useState<number[]>([]);
   const [transferContextReady, setTransferContextReady] = useState(false);
+  const [transferSuggestions, setTransferSuggestions] = useState<TransferSuggestion[]>([]);
+  const [transferSuggestionsSummary, setTransferSuggestionsSummary] = useState<TransferSuggestionSummary | null>(null);
+  const [transferSuggestionsLoading, setTransferSuggestionsLoading] = useState(false);
+  const [transferSuggestionsError, setTransferSuggestionsError] = useState<string | null>(null);
   const [quickAddPlayer, setQuickAddPlayer] = useState<TransferPlayer | null>(null);
   // Building mode: multi-select keyed by player ID so details survive filter/page changes
   const [buildingSelections, setBuildingSelections] = useState<Map<number, TransferPlayer>>(new Map());
@@ -110,6 +137,54 @@ function TransfersPageContent() {
   useEffect(() => {
     currentQuickAddPlayerId.current = quickAddPlayerId;
   }, [quickAddPlayerId]);
+
+  const ownedPlayerIdsKey = ownedPlayerIds.join(',');
+
+  useEffect(() => {
+    if (!transferContextReady || !fantasySeasonId || ownedPlayerIds.length < SQUAD_MAX_SIZE) {
+      return;
+    }
+
+    let cancelled = false;
+    async function fetchSuggestions() {
+      setTransferSuggestionsLoading(true);
+      setTransferSuggestionsError(null);
+      try {
+        const response = await fetchWithAuth('/api/fantasy/transfer-suggestions');
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || 'Failed to load transfer suggestions.');
+        if (
+          !Array.isArray(data.recommendations) ||
+          typeof data.status !== 'string' ||
+          !Number.isInteger(data.completed_gameweeks) ||
+          !Number.isInteger(data.required_gameweeks) ||
+          !Number.isInteger(data.priced_role_matched_candidates)
+        ) {
+          throw new Error('Transfer suggestions were returned in an unexpected format.');
+        }
+        if (!cancelled) {
+          setTransferSuggestions(data.recommendations as TransferSuggestion[]);
+          setTransferSuggestionsSummary({
+            status: data.status,
+            completed_gameweeks: data.completed_gameweeks,
+            required_gameweeks: data.required_gameweeks,
+            priced_role_matched_candidates: data.priced_role_matched_candidates,
+          });
+        }
+      } catch (err: unknown) {
+        if (!cancelled) {
+          setTransferSuggestionsError(err instanceof Error ? err.message : 'Failed to load transfer suggestions.');
+        }
+      } finally {
+        if (!cancelled) setTransferSuggestionsLoading(false);
+      }
+    }
+    void fetchSuggestions();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [fantasySeasonId, ownedPlayerIds.length, ownedPlayerIdsKey, transferContextReady]);
 
   useEffect(() => {
     if (!Number.isInteger(quickAddPlayerId) || !quickAddPlayerId || quickAddPlayerId <= 0) {
@@ -408,6 +483,42 @@ function TransfersPageContent() {
     }
   };
 
+  const selectSuggestedTransfer = async (suggestion: TransferSuggestion) => {
+    setActionLoading(true);
+    try {
+      const response = await fetchWithAuth(
+        `/api/players?ids=${suggestion.player_out_id},${suggestion.player_in_id}&show_all=true`,
+      );
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Failed to load the suggested players.');
+      const matchingPlayers = (data.data as TransferPlayer[] | undefined) ?? [];
+      const outgoing = matchingPlayers.find((player) => player.id === suggestion.player_out_id);
+      const incoming = matchingPlayers.find((player) => player.id === suggestion.player_in_id);
+      if (!outgoing || !incoming) throw new Error('A suggested player is no longer available.');
+      if (incoming.availability_status?.toLowerCase() !== 'available') {
+        throw new Error('The suggested replacement is no longer available.');
+      }
+
+      setOwnedPlayersMap((current) => new Map(current).set(outgoing.id, outgoing));
+      setQuickAddPlayer(incoming);
+      setPlayers((current) => [
+        ...current.filter((player) => player.id !== incoming.id),
+        incoming,
+      ]);
+      setSelectedPlayerOut(outgoing.id);
+      setSelectedPlayerIn(incoming.id);
+      setSearch('');
+      setRoleFilter('');
+      setOwnershipFilter('all');
+      setPage(1);
+      toast.info('Suggested swap selected', 'Review the transfer details before confirming.');
+    } catch (err: unknown) {
+      toast.error('Unable to select suggestion', err instanceof Error ? err.message : 'Please try again.');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   const activateWildcard = async () => {
     if (!fantasySeasonId) {
       toast.info('No Squad', 'Create a fantasy team before using the wildcard.');
@@ -509,6 +620,88 @@ function TransfersPageContent() {
           <span className="text-[11px] font-mono text-slate-500 uppercase tracking-wider">Used</span>
         </div>
       )}
+
+      {ownedPlayerIds.length >= SQUAD_MAX_SIZE && fantasySeasonId ? (
+        <section className="mb-6 rounded-xl border border-indigo-500/30 bg-indigo-950/30 p-5">
+          <div className="flex items-start gap-3">
+            <Sparkles className="mt-0.5 h-5 w-5 shrink-0 text-indigo-300" />
+            <div className="min-w-0 flex-1">
+              <h2 className="text-base font-bold text-white">Smart Transfer Suggestions</h2>
+              <p className="mt-1 text-xs leading-5 text-slate-300">
+                Role-matched swaps based on the last three completed gameweeks, price movement, your budget, and squad limits.
+                Suggestions are advisory; the transfer server rechecks eligibility and budget.
+              </p>
+              {transferSuggestionsLoading ? (
+                <p className="mt-3 text-sm text-slate-300">Finding suitable swaps…</p>
+              ) : transferSuggestionsError ? (
+                <p role="alert" className="mt-3 text-sm text-red-300">{transferSuggestionsError}</p>
+              ) : transferSuggestions.length > 0 ? (
+                <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                  {transferSuggestions.map((suggestion) => (
+                    <article
+                      key={`${suggestion.player_out_id}-${suggestion.player_in_id}`}
+                      className="rounded-lg border border-slate-700 bg-slate-900/80 p-4"
+                    >
+                      <p className="text-sm font-semibold text-white">
+                        <span className="text-rose-300">{suggestion.player_out_name}</span>
+                        <span className="mx-2 text-slate-500">→</span>
+                        <span className="text-emerald-300">{suggestion.player_in_name}</span>
+                      </p>
+                      <p className="mt-1 text-xs text-slate-400">
+                        {suggestion.player_in_role} · ${suggestion.player_in_current_price.toFixed(1)}M ·
+                        {' '}estimated bank after swap ${suggestion.budget_after.toFixed(1)}M
+                      </p>
+                      <ul className="mt-3 list-disc space-y-1 pl-4 text-xs leading-5 text-slate-300">
+                        {suggestion.reasons.map((reason) => <li key={reason}>{reason}</li>)}
+                      </ul>
+                      <button
+                        type="button"
+                        disabled={actionLoading}
+                        onClick={() => void selectSuggestedTransfer(suggestion)}
+                        className="mt-4 w-full rounded-lg bg-indigo-500/20 px-3 py-2 text-xs font-semibold text-indigo-200 transition-colors hover:bg-indigo-500/30 disabled:opacity-50"
+                      >
+                        Select this swap
+                      </button>
+                    </article>
+                  ))}
+                </div>
+              ) : (
+                <div className="mt-3 space-y-2 text-sm text-slate-300">
+                  {transferSuggestionsSummary &&
+                  transferSuggestionsSummary.status !== 'no_fantasy_season' &&
+                  transferSuggestionsSummary.status !== 'no_open_gameweek' &&
+                  transferSuggestionsSummary.status !== 'no_squad' &&
+                  transferSuggestionsSummary.completed_gameweeks < transferSuggestionsSummary.required_gameweeks ? (
+                    <p>
+                      More scoring history is needed: {transferSuggestionsSummary.completed_gameweeks} of
+                      {' '}{transferSuggestionsSummary.required_gameweeks} gameweeks are complete.
+                    </p>
+                  ) : null}
+                  {transferSuggestionsSummary &&
+                  transferSuggestionsSummary.status !== 'no_fantasy_season' &&
+                  transferSuggestionsSummary.status !== 'no_open_gameweek' &&
+                  transferSuggestionsSummary.status !== 'no_squad' &&
+                  transferSuggestionsSummary.priced_role_matched_candidates === 0 ? (
+                    <p>No available same-role replacements have a price recorded for the upcoming gameweek yet.</p>
+                  ) : null}
+                  {transferSuggestionsSummary?.status === 'no_squad' ? (
+                    <p>Build your squad before getting transfer suggestions.</p>
+                  ) : null}
+                  {transferSuggestionsSummary?.status === 'no_open_gameweek' ? (
+                    <p>Suggestions are unavailable because there is no gameweek currently open for transfers.</p>
+                  ) : null}
+                  {transferSuggestionsSummary?.status === 'no_fantasy_season' ? (
+                    <p>Join a fantasy season and build your squad to get transfer suggestions.</p>
+                  ) : null}
+                  {transferSuggestionsSummary?.status === 'no_recommendations' ? (
+                    <p>No swaps currently meet the budget, form, price-trend, and team-limit criteria.</p>
+                  ) : null}
+                </div>
+              )}
+            </div>
+          </div>
+        </section>
+      ) : null}
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
         {/* Sidebar Filters */}
