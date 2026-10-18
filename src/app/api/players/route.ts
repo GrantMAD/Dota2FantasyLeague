@@ -135,6 +135,7 @@ async function getHandler(request: NextRequest) {
     const latestPrices = new Map<number, number>();
     const latestPriceChanges = new Map<number, number | null>();
     const latestOwnerships = new Map<number, number | null>();
+    const priceHistoryByPlayer = new Map<number, number[]>();
     for (const price of prices ?? []) {
       if (!latestPrices.has(price.player_id)) {
         latestPrices.set(price.player_id, Number(price.price ?? 0));
@@ -146,6 +147,11 @@ async function getHandler(request: NextRequest) {
           price.player_id,
           price.ownership_percentage == null ? null : Number(price.ownership_percentage),
         );
+      }
+      const history = priceHistoryByPlayer.get(price.player_id) ?? [];
+      if (history.length < 7 && price.price != null) {
+        history.push(Number(price.price));
+        priceHistoryByPlayer.set(price.player_id, history);
       }
     }
     const recentScoresByGameweek = new Map<number, Map<number, number>>();
@@ -161,12 +167,19 @@ async function getHandler(request: NextRequest) {
         .sort(([gameweekA], [gameweekB]) => gameweekB - gameweekA)
         .slice(0, 5)
         .map(([, points]) => points);
+      // Historical prices collected from newest to oldest; reverse to chronological [oldest ... newest]
+      const rawHistory = priceHistoryByPlayer.get(player.id);
+      const currentPriceVal = latestPrices.get(player.id) ?? (
+        player.current_price == null ? null : Number(player.current_price)
+      );
+      const priceHistory = rawHistory && rawHistory.length > 0
+        ? [...rawHistory].reverse()
+        : (currentPriceVal !== null ? [currentPriceVal] : []);
       return {
         ...player,
-        current_price: latestPrices.get(player.id) ?? (
-          player.current_price == null ? null : Number(player.current_price)
-        ),
+        current_price: currentPriceVal,
         price_change: latestPriceChanges.get(player.id) ?? null,
+        price_history: priceHistory,
         ownership_percentage: latestOwnerships.get(player.id) ?? null,
         gameweek_points: playerScores[0] ?? 0,
         recent_points: playerScores.length ? Number((playerScores.reduce((sum, score) => sum + score, 0) / playerScores.length).toFixed(2)) : 0,

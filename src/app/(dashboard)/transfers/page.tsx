@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { fetchWithAuth } from '@/lib/fetch-with-auth';
 import { useToast } from '@/components/Toast';
+import { PriceSparkline } from '@/components/PriceSparkline';
 import type { FantasyPlayer as TransferPlayer } from '@/types/fantasy';
 
 // 5 starters + 3 bench = 8 player squad
@@ -1150,27 +1151,30 @@ function TransfersPageContent() {
                             </span>
                           </td>
                           <td className="px-4 py-3 text-right">
-                            <div className="flex flex-col items-end">
+                            <div className="flex flex-col items-end gap-1">
                               <span className="font-mono font-bold text-amber-400">${player.current_price}M</span>
-                              {priceChange !== null && priceChange !== 0 ? (
-                                <span className={`inline-flex items-center gap-0.5 text-[10px] font-mono font-semibold ${
-                                  priceChange > 0 ? 'text-emerald-400' : 'text-rose-400'
-                                }`}>
-                                  {priceChange > 0 ? (
-                                    <>
-                                      <TrendingUp className="h-2.5 w-2.5 shrink-0" />
-                                      +${priceChange.toFixed(1)}M
-                                    </>
-                                  ) : (
-                                    <>
-                                      <TrendingDown className="h-2.5 w-2.5 shrink-0" />
-                                      -${Math.abs(priceChange).toFixed(1)}M
-                                    </>
-                                  )}
-                                </span>
-                              ) : (
-                                <span className="text-[10px] font-mono text-slate-500">—</span>
-                              )}
+                              <div className="flex items-center gap-1.5">
+                                <PriceSparkline data={player.price_history} width={48} height={14} />
+                                {priceChange !== null && priceChange !== 0 ? (
+                                  <span className={`inline-flex items-center gap-0.5 text-[10px] font-mono font-semibold ${
+                                    priceChange > 0 ? 'text-emerald-400' : 'text-rose-400'
+                                  }`}>
+                                    {priceChange > 0 ? (
+                                      <>
+                                        <TrendingUp className="h-2.5 w-2.5 shrink-0" />
+                                        +${priceChange.toFixed(1)}M
+                                      </>
+                                    ) : (
+                                      <>
+                                        <TrendingDown className="h-2.5 w-2.5 shrink-0" />
+                                        -${Math.abs(priceChange).toFixed(1)}M
+                                      </>
+                                    )}
+                                  </span>
+                                ) : (
+                                  <span className="text-[10px] font-mono text-slate-500">—</span>
+                                )}
+                              </div>
                             </div>
                           </td>
                           <td className="px-4 py-3 text-right">
@@ -1360,9 +1364,15 @@ function TransfersPageContent() {
             {/* Quick Metrics Cards */}
             <div className="p-6">
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
-                <div className="bg-slate-800/60 border border-slate-700/80 rounded-xl p-3 text-center">
-                  <div className="text-[11px] uppercase tracking-wider text-slate-400 mb-1">Market Price</div>
-                  <div className="text-xl font-mono font-bold text-amber-400">${modalPlayer.current_price}M</div>
+                <div className="bg-slate-800/60 border border-slate-700/80 rounded-xl p-3 text-center flex flex-col justify-between items-center">
+                  <div>
+                    <div className="text-[11px] uppercase tracking-wider text-slate-400 mb-1">Market Price</div>
+                    <div className="text-xl font-mono font-bold text-amber-400">${modalPlayer.current_price}M</div>
+                  </div>
+                  <div className="mt-2 flex flex-col items-center">
+                    <PriceSparkline data={modalPlayer.price_history} width={72} height={20} strokeWidth={2} />
+                    <span className="text-[9px] text-slate-400 mt-0.5">Trend</span>
+                  </div>
                 </div>
                 <div className="bg-slate-800/60 border border-slate-700/80 rounded-xl p-3 text-center flex flex-col justify-between">
                   <div>

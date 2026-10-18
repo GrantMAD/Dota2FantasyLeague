@@ -93,4 +93,36 @@ describe('GET /api/players availability filtering', () => {
     expect(response.status).toBe(200);
     expect(availabilityFilters).toEqual(['available']);
   });
+
+  it('enriches player data with price_history', async () => {
+    const availabilityFilters: string[] = [];
+    mockSupabaseServer.mockReturnValue({
+      from: (table: string) => {
+        if (table === 'player_prices') {
+          return {
+            select: () => ({
+              in: () => ({
+                order: () => Promise.resolve({
+                  data: [
+                    { player_id: 17, price: 8.5, price_change: 0.5, gameweek_id: 3 },
+                    { player_id: 17, price: 8.0, price_change: 0.2, gameweek_id: 2 },
+                    { player_id: 17, price: 7.8, price_change: 0.0, gameweek_id: 1 },
+                  ],
+                  error: null,
+                }),
+              }),
+            }),
+          };
+        }
+        return createQuery(table, availabilityFilters);
+      },
+    });
+
+    const response = await GET(new NextRequest('http://localhost:3000/api/players?ids=17&show_all=true'));
+    expect(response.status).toBe(200);
+    const body = await response.json();
+    expect(body.data[0].price_history).toEqual([7.8, 8.0, 8.5]);
+    expect(body.data[0].current_price).toBe(8.5);
+    expect(body.data[0].price_change).toBe(0.5);
+  });
 });

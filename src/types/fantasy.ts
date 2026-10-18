@@ -59,6 +59,7 @@ export interface FantasyPlayer {
   team_id?: number | null;
   current_price?: number | null;
   price_change?: number | null;
+  price_history?: number[] | null;
   availability_status?: string | null;
   availability_reason?: string | null;
   professional_teams?: ProfessionalTeamRef | null;
