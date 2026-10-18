@@ -9,11 +9,9 @@ import {
   Calendar,
   ChevronLeft,
   ChevronRight,
-  Command,
   Gamepad2,
   LayoutDashboard,
   Medal,
-  Search,
   Shield,
   Swords,
   Trophy,
@@ -92,14 +90,12 @@ export function DashboardNavigation({
   isAdmin,
   mobileMenuOpen,
   onMobileMenuClose,
-  onOpenSearch,
 }: {
   pathname: string;
   isAdmin: boolean;
   mobileMenuOpen: boolean;
   onMobileMenuClose: () => void;
   quickStats?: unknown;
-  onOpenSearch?: () => void;
 }) {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const mobileDrawerRef = useRef<HTMLDivElement>(null);
@@ -285,27 +281,6 @@ export function DashboardNavigation({
                   )}
                 </div>
               )}
-            </div>
-
-            {/* Sidebar Command Palette Trigger & Keyboard Shortcut */}
-            <div className="mt-3 pt-3 border-t border-slate-800/80">
-              <button
-                type="button"
-                onClick={onOpenSearch}
-                title={sidebarCollapsed ? 'Command Palette (⌘K / Ctrl+K)' : undefined}
-                aria-label="Open Command Palette"
-                className={`group flex w-full items-center rounded-lg border border-slate-700/70 bg-slate-800/40 text-slate-400 hover:border-amber-500/40 hover:bg-slate-800 hover:text-slate-200 transition-all text-xs ${sidebarCollapsed ? 'justify-center p-2' : 'justify-between px-3 py-2'}`}
-              >
-                <div className="flex items-center gap-2">
-                  <Search className="h-4 w-4 shrink-0 text-slate-400 group-hover:text-amber-400 transition-colors" />
-                  {!sidebarCollapsed && <span className="font-medium">Quick Search</span>}
-                </div>
-                {!sidebarCollapsed && (
-                  <kbd className="inline-flex items-center gap-0.5 rounded border border-slate-700 bg-slate-900/90 px-1.5 py-0.5 text-[10px] font-mono text-slate-400 shadow-xs group-hover:text-amber-400 transition-colors">
-                    <Command className="h-2.5 w-2.5" /> K
-                  </kbd>
-                )}
-              </button>
             </div>
           </div>
         </nav>

@@ -192,7 +192,6 @@ export function Header() {
         mobileMenuOpen={mobileMenuOpen}
         onMobileMenuClose={closeMobileMenu}
         quickStats={quickStats}
-        onOpenSearch={() => setSearchOpen(true)}
       />
 
       <header className="dashboard-header sticky top-0 z-40 border-b border-slate-700/80 bg-slate-900/95 backdrop-blur-md">
