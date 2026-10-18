@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import {
@@ -14,6 +14,7 @@ import {
   Swords,
   Users,
   RefreshCw,
+  Activity,
 } from 'lucide-react';
 import { fetchWithAuth } from '@/lib/fetch-with-auth';
 import { useToast } from '@/components/Toast';
@@ -24,6 +25,39 @@ import { LeagueCard } from './components/LeagueCard';
 import { LeagueActionModal } from './components/LeagueActionModal';
 
 type ActionMode = 'create' | 'join' | null;
+
+interface LeagueActivityEntry {
+  id: number;
+  type: 'transfer' | 'captain_pick' | 'rank_change';
+  createdAt: string;
+  manager: string;
+  gameweekNumber: number | null;
+  fromRank: number | null;
+  toRank: number | null;
+  playersIn: string[];
+  playersOut: string[];
+  captain: string | null;
+  viceCaptain: string | null;
+}
+
+function isLeagueActivityEntry(value: unknown): value is LeagueActivityEntry {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return false;
+  const activity = value as Record<string, unknown>;
+  return Number.isSafeInteger(activity.id)
+    && (activity.type === 'transfer' || activity.type === 'captain_pick' || activity.type === 'rank_change')
+    && typeof activity.createdAt === 'string'
+    && !Number.isNaN(Date.parse(activity.createdAt))
+    && typeof activity.manager === 'string'
+    && (activity.gameweekNumber === null || Number.isInteger(activity.gameweekNumber))
+    && (activity.fromRank === null || Number.isInteger(activity.fromRank))
+    && (activity.toRank === null || Number.isInteger(activity.toRank))
+    && Array.isArray(activity.playersIn)
+    && activity.playersIn.every((player) => typeof player === 'string')
+    && Array.isArray(activity.playersOut)
+    && activity.playersOut.every((player) => typeof player === 'string')
+    && (activity.captain === null || typeof activity.captain === 'string')
+    && (activity.viceCaptain === null || typeof activity.viceCaptain === 'string');
+}
 
 export default function LeaguesPage() {
   const toast = useToast();
@@ -47,6 +81,37 @@ export default function LeaguesPage() {
   const [selectedUser, setSelectedUser] = useState<StandingEntry | null>(null);
   const [selectedFixture, setSelectedFixture] = useState<FixtureEntry | null>(null);
   const [copiedInvite, setCopiedInvite] = useState(false);
+  const [leagueActivity, setLeagueActivity] = useState<LeagueActivityEntry[]>([]);
+  const [activityLoading, setActivityLoading] = useState(false);
+  const [activityError, setActivityError] = useState<string | null>(null);
+  const activityRequestId = useRef(0);
+
+  const loadLeagueActivity = async (leagueId: number) => {
+    const requestId = ++activityRequestId.current;
+    setActivityLoading(true);
+    setActivityError(null);
+    setLeagueActivity([]);
+    try {
+      const response = await fetchWithAuth(`/api/leagues/${leagueId}/activity`);
+      const body = await response.json();
+      if (!response.ok) throw new Error(body.error || 'Unable to load league activity.');
+      if (!Array.isArray(body.activities) || !body.activities.every(isLeagueActivityEntry)) {
+        throw new Error('League activity response was invalid.');
+      }
+      if (activityRequestId.current === requestId) setLeagueActivity(body.activities);
+    } catch (error: unknown) {
+      if (activityRequestId.current === requestId) {
+        setActivityError(error instanceof Error ? error.message : 'Unable to load league activity.');
+      }
+    } finally {
+      if (activityRequestId.current === requestId) setActivityLoading(false);
+    }
+  };
+
+  const openLeague = (league: LeagueRecord) => {
+    setSelectedLeague(league);
+    void loadLeagueActivity(league.id);
+  };
 
   const loadLeagues = useCallback(async (isBackgroundRefresh = false) => {
     try {
@@ -268,7 +333,7 @@ export default function LeaguesPage() {
           {heroLeague && (
             <LeagueHero
               league={heroLeague}
-              onOpen={() => setSelectedLeague(heroLeague)}
+              onOpen={() => openLeague(heroLeague)}
             />
           )}
 
@@ -320,7 +385,7 @@ export default function LeaguesPage() {
                     <LeagueCard
                       key={league.id}
                       league={league}
-                      onClick={() => setSelectedLeague(league)}
+                      onClick={() => openLeague(league)}
                     />
                   ))}
                 </div>
@@ -458,7 +523,10 @@ export default function LeaguesPage() {
                 </div>
                 <button
                   type="button"
-                  onClick={() => setSelectedLeague(null)}
+                  onClick={() => {
+                    activityRequestId.current += 1;
+                    setSelectedLeague(null);
+                  }}
                   className="shrink-0 rounded-xl p-2 text-slate-400 transition hover:bg-slate-800 hover:text-white"
                 >
                   <X className="h-5 w-5" />
@@ -557,6 +625,59 @@ export default function LeaguesPage() {
                     </table>
                   </div>
                 )}
+
+                <div className="mt-6">
+                  <h3 className="mb-3 flex items-center gap-2 text-base font-bold text-white">
+                    <Activity className="h-4 w-4 text-sky-400" /> League Activity
+                  </h3>
+                  {activityLoading ? (
+                    <p className="text-sm text-slate-400">Loading recent activity...</p>
+                  ) : activityError ? (
+                    <div role="alert" className="flex items-center justify-between gap-3 rounded-xl border border-red-900 bg-red-950/60 p-3">
+                      <p className="text-sm text-red-200">{activityError}</p>
+                      <button
+                        type="button"
+                        onClick={() => void loadLeagueActivity(selectedLeague.id)}
+                        className="shrink-0 rounded-lg bg-slate-800 px-3 py-1.5 text-xs font-semibold text-white hover:bg-slate-700"
+                      >
+                        Retry
+                      </button>
+                    </div>
+                  ) : leagueActivity.length === 0 ? (
+                    <p className="rounded-xl border border-dashed border-slate-700 p-4 text-center text-sm text-slate-400">
+                      No league activity yet.
+                    </p>
+                  ) : (
+                    <div className="max-h-72 space-y-2 overflow-y-auto pr-1">
+                      {leagueActivity.map((activity) => {
+                        let description: string;
+                        if (activity.type === 'transfer') {
+                          const incoming = activity.playersIn.join(', ');
+                          const outgoing = activity.playersOut.join(', ');
+                          description = `Transferred ${incoming || 'players'}${outgoing ? ` in for ${outgoing}` : ''}`;
+                        } else if (activity.type === 'captain_pick') {
+                          description = `Captain: ${activity.captain ?? 'not set'} · Vice-captain: ${activity.viceCaptain ?? 'not set'}`;
+                        } else {
+                          description = activity.fromRank === null
+                            ? `Joined the rankings at #${activity.toRank ?? '?'}`
+                            : `Moved from #${activity.fromRank} to #${activity.toRank ?? '?'}`;
+                        }
+                        return (
+                          <div key={activity.id} className="rounded-xl border border-slate-800 bg-slate-950/50 p-3">
+                            <p className="text-sm font-medium text-slate-200">
+                              <span className="font-semibold text-white">{activity.manager}</span> {description}
+                            </p>
+                            <p className="mt-1 text-xs text-slate-500">
+                              {activity.gameweekNumber === null ? 'League update' : `Gameweek ${activity.gameweekNumber}`}
+                              {' · '}
+                              {new Date(activity.createdAt).toLocaleString()}
+                            </p>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
               </div>
 
               {/* H2H Fixtures in detail modal */}
