@@ -133,6 +133,7 @@ export interface DashboardStarter {
   team_name?: string | null;
   // Gameweek scoring (populated when a closed/active GW has breakdown data)
   gw_points?: number | null;
+  prev_gw_points?: number | null;
   score_breakdown?: ScoreBreakdown | null;
 }
 

@@ -646,7 +646,7 @@ export default function DashboardPage() {
                 </div>
 
                 {dashboardData.starters && dashboardData.starters.length > 0 ? (
-                  <div className="flex gap-3 overflow-x-auto pb-3 sm:grid sm:grid-cols-5 sm:overflow-visible">
+                  <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
                     {[...dashboardData.starters]
                       .sort((a, b) => {
                         const getRank = (player: typeof a) => player.is_captain ? 0 : player.is_vice_captain ? 1 : 2;

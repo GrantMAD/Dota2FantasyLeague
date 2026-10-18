@@ -2,12 +2,20 @@
 
 import type { DashboardStarter } from '@/types/fantasy';
 
-const ROLE_COLOURS: Record<string, { bg: string; text: string; border: string }> = {
-  carry: { bg: 'rgba(251,113,133,0.12)', text: '#fb7185', border: 'rgba(251,113,133,0.28)' },
-  mid: { bg: 'rgba(251,191,36,0.12)', text: '#f59e0b', border: 'rgba(251,191,36,0.28)' },
-  offlane: { bg: 'rgba(52,211,153,0.12)', text: '#34d399', border: 'rgba(52,211,153,0.28)' },
-  support: { bg: 'rgba(96,165,250,0.12)', text: '#60a5fa', border: 'rgba(96,165,250,0.28)' },
-  hard_support: { bg: 'rgba(167,139,250,0.12)', text: '#a78bfa', border: 'rgba(167,139,250,0.28)' },
+const ROLE_COLOURS: Record<string, { bg: string; text: string; border: string; glow: string; gradient: string }> = {
+  carry:        { bg: 'rgba(251,113,133,0.10)', text: '#fb7185', border: 'rgba(251,113,133,0.30)', glow: 'rgba(251,113,133,0.20)', gradient: 'linear-gradient(180deg, rgba(251,113,133,0.18) 0%, transparent 60%)' },
+  mid:          { bg: 'rgba(251,191,36,0.10)',  text: '#f59e0b', border: 'rgba(251,191,36,0.30)',  glow: 'rgba(251,191,36,0.20)',  gradient: 'linear-gradient(180deg, rgba(251,191,36,0.18) 0%, transparent 60%)'  },
+  offlane:      { bg: 'rgba(52,211,153,0.10)',  text: '#34d399', border: 'rgba(52,211,153,0.30)',  glow: 'rgba(52,211,153,0.20)',  gradient: 'linear-gradient(180deg, rgba(52,211,153,0.18) 0%, transparent 60%)'  },
+  support:      { bg: 'rgba(96,165,250,0.10)',  text: '#60a5fa', border: 'rgba(96,165,250,0.30)',  glow: 'rgba(96,165,250,0.20)',  gradient: 'linear-gradient(180deg, rgba(96,165,250,0.18) 0%, transparent 60%)'  },
+  hard_support: { bg: 'rgba(167,139,250,0.10)', text: '#a78bfa', border: 'rgba(167,139,250,0.30)', glow: 'rgba(167,139,250,0.20)', gradient: 'linear-gradient(180deg, rgba(167,139,250,0.18) 0%, transparent 60%)' },
+};
+
+const ROLE_LABELS: Record<string, string> = {
+  carry: 'Carry',
+  mid: 'Mid',
+  offlane: 'Offlane',
+  support: 'Support',
+  hard_support: 'Hard Sup',
 };
 
 interface DashboardStarterCardProps {
@@ -19,80 +27,153 @@ export function DashboardStarterCard({ player, onOpenPlayer }: DashboardStarterC
   const displayName = player.in_game_name || player.name;
   const initials = displayName.substring(0, 2).toUpperCase();
   const role = ROLE_COLOURS[player.slot] ?? {
-    bg: 'rgba(148,163,184,0.12)',
+    bg: 'rgba(148,163,184,0.10)',
     text: '#94a3b8',
-    border: 'rgba(148,163,184,0.28)',
+    border: 'rgba(148,163,184,0.30)',
+    glow: 'rgba(148,163,184,0.15)',
+    gradient: 'linear-gradient(180deg, rgba(148,163,184,0.15) 0%, transparent 60%)',
   };
+
+  // Form trend
+  const formTrend: 'up' | 'down' | 'flat' | 'none' =
+    player.gw_points != null && player.prev_gw_points != null
+      ? player.gw_points > player.prev_gw_points
+        ? 'up'
+        : player.gw_points < player.prev_gw_points
+        ? 'down'
+        : 'flat'
+      : 'none';
+
+  const formColour = formTrend === 'up' ? '#34d399' : formTrend === 'down' ? '#fb7185' : '#64748b';
+  const formArrow = formTrend === 'up' ? '▲' : formTrend === 'down' ? '▼' : formTrend === 'flat' ? '▬' : null;
 
   return (
     <button
       type="button"
       onClick={() => onOpenPlayer(player)}
       aria-label={`View ${displayName} player details`}
-      className="relative flex w-40 shrink-0 cursor-pointer flex-col overflow-visible rounded-2xl text-left transition-all duration-200 hover:-translate-y-0.5 hover:shadow-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 sm:w-auto sm:min-w-0"
-      style={{ background: 'var(--surface-raised)', border: '1px solid var(--border)' }}
+      className="relative flex w-full cursor-pointer flex-col overflow-hidden rounded-2xl text-left transition-all duration-300 hover:-translate-y-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
+      style={{
+        background: 'var(--surface-raised)',
+        border: `1px solid ${role.border}`,
+      }}
+      onMouseEnter={(e) => {
+        (e.currentTarget as HTMLButtonElement).style.boxShadow = `0 0 20px 4px ${role.glow}, 0 8px 24px rgba(0,0,0,0.22)`;
+        (e.currentTarget as HTMLButtonElement).style.borderColor = role.text;
+      }}
+      onMouseLeave={(e) => {
+        (e.currentTarget as HTMLButtonElement).style.boxShadow = 'none';
+        (e.currentTarget as HTMLButtonElement).style.borderColor = role.border;
+      }}
     >
-      <div className="h-0.75 w-full rounded-t-2xl" style={{ background: `linear-gradient(90deg, ${role.text}, transparent)` }} />
-      {player.is_captain && (
-        <span aria-label="Captain" className="absolute -top-2 right-2 z-10 flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-black shadow-md"
-          style={{ background: 'var(--accent-primary)', color: 'var(--background)' }}>
-          C
-        </span>
-      )}
-      {player.is_vice_captain && (
-        <span aria-label="Vice-captain" className="absolute -top-2 right-2 z-10 flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-black shadow-md"
-          style={{ background: 'var(--accent-secondary)', color: 'var(--background)' }}>
-          V
+      {/* Top role colour bar */}
+      <div className="h-1 w-full" style={{ background: `linear-gradient(90deg, ${role.text}, transparent)` }} />
+
+      {/* Captain / Vice-Captain badge */}
+      {(player.is_captain || player.is_vice_captain) && (
+        <span
+          aria-label={player.is_captain ? 'Captain' : 'Vice-captain'}
+          className="absolute right-2.5 top-3 z-10 flex h-7 w-7 items-center justify-center rounded-full text-[12px] font-black shadow-lg"
+          style={{
+            background: player.is_captain ? 'var(--accent-primary)' : 'var(--accent-secondary)',
+            color: 'var(--background)',
+            boxShadow: `0 2px 8px ${player.is_captain ? 'rgba(20,184,166,0.5)' : 'rgba(139,92,246,0.5)'}`,
+          }}
+        >
+          {player.is_captain ? 'C' : 'V'}
         </span>
       )}
 
-      <div className="flex min-h-40 flex-1 flex-col gap-2 p-3">
-        <div className="relative flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl text-sm font-black"
-          style={{ background: role.bg, border: `1px solid ${role.border}`, color: role.text }}>
-          {player.profile_image_url ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={player.profile_image_url}
-              alt=""
-              className="h-full w-full object-cover object-top"
-              onError={(event) => {
-                event.currentTarget.style.display = 'none';
-                event.currentTarget.nextElementSibling?.removeAttribute('hidden');
-              }}
-            />
-          ) : null}
-          <span hidden={!!player.profile_image_url}>{initials}</span>
-        </div>
-        <span className="min-w-0">
-          <span className="block truncate text-[13px] font-bold leading-snug" style={{ color: 'var(--text-primary)' }} title={displayName}>
-            {displayName}
-          </span>
-          <span className="mt-0.5 block truncate text-[11px]" style={{ color: 'var(--text-muted)' }}>
-            {player.team_name || 'Free Agent'}
-          </span>
-        </span>
-        <span className="mt-auto inline-block self-start rounded-md px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide leading-none"
-          style={{ background: role.bg, border: `1px solid ${role.border}`, color: role.text }}>
-          {player.slot.replace('_', ' ')}
+      {/* Avatar section — large hero image */}
+      <div
+        className="relative mx-3 mt-3 flex h-24 w-[calc(100%-1.5rem)] items-center justify-center overflow-hidden rounded-xl"
+        style={{ background: role.gradient + ', ' + role.bg, border: `1px solid ${role.border}` }}
+      >
+        {player.profile_image_url ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={player.profile_image_url}
+            alt=""
+            className="h-full w-full object-cover object-top"
+            onError={(event) => {
+              event.currentTarget.style.display = 'none';
+              event.currentTarget.nextElementSibling?.removeAttribute('hidden');
+            }}
+          />
+        ) : null}
+        <span
+          hidden={!!player.profile_image_url}
+          className="text-3xl font-black"
+          style={{ color: role.text }}
+        >
+          {initials}
         </span>
       </div>
 
-      <div className="mt-auto px-3 pb-3">
-        <div className="rounded-xl px-2.5 py-2" style={{ background: 'var(--surface-muted)', border: '1px solid var(--border)' }}>
-          <div className="flex items-center justify-between gap-2">
-            <span className="text-[10px] font-medium" style={{ color: 'var(--text-muted)' }}>GW Pts</span>
+      {/* Info section */}
+      <div className="flex flex-col gap-2 p-3 pt-2.5">
+        {/* Name + form trend */}
+        <div className="flex items-start justify-between gap-1">
+          <div className="min-w-0">
+            <span
+              className="block truncate text-[13px] font-bold leading-snug"
+              style={{ color: 'var(--text-primary)' }}
+              title={displayName}
+            >
+              {displayName}
+            </span>
+            <span className="mt-0.5 block truncate text-[11px] leading-snug" style={{ color: 'var(--text-muted)' }}>
+              {player.team_name || 'Free Agent'}
+            </span>
+          </div>
+          {formArrow && (
+            <span className="mt-0.5 shrink-0 text-[11px] font-bold" style={{ color: formColour }}>
+              {formArrow}
+            </span>
+          )}
+        </div>
+
+        {/* Role pill */}
+        <span
+          className="inline-block self-start rounded-md px-2 py-1 text-[9px] font-bold uppercase tracking-widest leading-none"
+          style={{ background: role.bg, border: `1px solid ${role.border}`, color: role.text }}
+        >
+          {ROLE_LABELS[player.slot] ?? player.slot.replace('_', ' ')}
+        </span>
+
+        {/* Stats block */}
+        <div
+          className="flex flex-col rounded-xl overflow-hidden"
+          style={{ border: '1px solid var(--border)' }}
+        >
+          {/* GW Points row */}
+          <div
+            className="flex items-center justify-between gap-2 px-2.5 py-2"
+            style={{ background: 'var(--surface-muted)' }}
+          >
+            <span className="text-[9px] font-medium uppercase tracking-wide leading-none shrink-0" style={{ color: 'var(--text-muted)' }}>GW Pts</span>
             {player.gw_points != null ? (
-              <span className="font-mono text-sm font-black" style={{ color: 'var(--accent-primary)' }}>
-                {player.is_captain ? (player.gw_points * 2).toFixed(2) : player.gw_points.toFixed(2)}
-                {player.is_captain && <span className="ml-0.5 text-[9px] font-bold opacity-60">&times;2</span>}
+              <span className="font-mono text-sm font-black leading-none" style={{ color: 'var(--accent-primary)' }}>
+                {player.is_captain ? (player.gw_points * 2).toFixed(1) : player.gw_points.toFixed(1)}
+                {player.is_captain && (
+                  <span className="ml-0.5 text-[9px] font-bold opacity-60">×2</span>
+                )}
               </span>
             ) : (
-              <span className="font-mono text-sm font-semibold opacity-50" style={{ color: 'var(--text-muted)' }}>—</span>
+              <span className="font-mono text-sm font-semibold leading-none opacity-40" style={{ color: 'var(--text-muted)' }}>—</span>
             )}
           </div>
-          <div className="mt-0.5 flex items-center justify-between">
-            <span className="text-[10px] font-medium" style={{ color: 'var(--text-muted)' }}>Price</span>
-            <span className="font-mono text-[11px] font-semibold" style={{ color: 'var(--success)' }}>
+
+          {/* Divider */}
+          <div className="h-px w-full" style={{ background: 'var(--border)' }} />
+
+          {/* Price row */}
+          <div
+            className="flex items-center justify-between gap-2 px-2.5 py-2"
+            style={{ background: 'var(--surface-muted)' }}
+          >
+            <span className="text-[9px] font-medium uppercase tracking-wide leading-none shrink-0" style={{ color: 'var(--text-muted)' }}>Price</span>
+            <span className="font-mono text-sm font-bold leading-none" style={{ color: 'var(--success)' }}>
               ${Number(player.current_price || 0).toFixed(1)}M
             </span>
           </div>

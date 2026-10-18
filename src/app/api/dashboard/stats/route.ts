@@ -201,6 +201,7 @@ async function getHandler(request: NextRequest) {
                 teamfight: number; win: number; series: number; performance: number;
                 consistency: number; penalty: number; total: number;
               } | null,
+              prev_gw_points: null as number | null,
             };
           })
           .filter(Boolean)
@@ -254,6 +255,43 @@ async function getHandler(request: NextRequest) {
             };
           }
         });
+      }
+    }
+
+    // Fetch previous closed gameweek performance for form trend arrows
+    if (starterObjects.length > 0) {
+      const { data: prevGwData } = await supabase
+        .from('gameweeks')
+        .select('id')
+        .eq('status', 'closed')
+        .order('id', { ascending: false })
+        .limit(1);
+
+      const prevGwId = prevGwData && prevGwData.length > 0 ? prevGwData[0].id : null;
+
+      if (prevGwId && gameweek && prevGwId !== gameweek.id) {
+        const starterPlayerIds2 = starterObjects.map((s) => s!.id);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { data: prevPerfRows } = await (supabase.from('player_performances') as any)
+          .select('player_id, fantasy_points_breakdown(total_points)')
+          .eq('gameweek_id', prevGwId)
+          .in('player_id', starterPlayerIds2);
+
+        if (prevPerfRows && Array.isArray(prevPerfRows)) {
+          type PrevPerfRow = { player_id: number; fantasy_points_breakdown: { total_points: number | null } | null };
+          const prevTotals = new Map<number, number>();
+          for (const row of prevPerfRows as PrevPerfRow[]) {
+            const pts = row.fantasy_points_breakdown?.total_points;
+            if (pts != null) {
+              prevTotals.set(row.player_id, (prevTotals.get(row.player_id) ?? 0) + pts);
+            }
+          }
+          starterObjects.forEach((starter) => {
+            if (!starter) return;
+            const prev = prevTotals.get(starter.id);
+            starter.prev_gw_points = prev ?? null;
+          });
+        }
       }
     }
 
