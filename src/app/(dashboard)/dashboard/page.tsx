@@ -10,15 +10,7 @@ import {
   Wallet,
   BarChart3,
   Zap,
-  Megaphone,
-  ArrowRight,
-  AlertTriangle,
-  TrendingUp,
   Shield,
-  Calendar,
-  Clock,
-  ChevronDown,
-  ChevronUp,
 } from 'lucide-react';
 import { fetchWithAuth } from '@/lib/fetch-with-auth';
 import { useToast } from '@/components/Toast';
@@ -31,51 +23,8 @@ import { DashboardStatCards, type DashboardStatCardData } from './components/Das
 import { DashboardStarterCard } from './components/DashboardStarterCard';
 import { EmptySquadState } from './components/EmptySquadState';
 import { DashboardLiveMatches } from './components/DashboardLiveMatches';
+import { DashboardWhatsNew, type WhatsNewData } from './components/DashboardWhatsNew';
 import type { MatchData } from '@/app/(dashboard)/matches/components/MatchCard';
-
-interface WhatsNewEvent {
-  kind: 'tournament';
-  id: number;
-  title: string;
-  startedAt: string;
-  href: string;
-  tier?: string | null;
-  seriesCount?: number;
-  matchCount?: number;
-  bestOfFormats?: number[];
-  deadline?: string | null;
-  matchStatuses?: Record<string, number>;
-}
-
-interface WhatsNewGameweek {
-  id: number;
-  number: number;
-  status: string;
-  startsAt: string;
-  isCurrent: boolean;
-  endsSoon: boolean;
-  deadline: string;
-  matchCount: number;
-  matchStatuses: Record<string, number>;
-  href: string;
-}
-
-interface WhatsNewUpdate {
-  id: number;
-  kind: 'price_change' | 'availability';
-  title: string;
-  message: string;
-  createdAt: string;
-  href: string;
-}
-
-interface WhatsNewData {
-  events: WhatsNewEvent[];
-  gameweek: WhatsNewGameweek | null;
-  updates: WhatsNewUpdate[];
-}
-
-type WhatsNewTab = 'tournaments' | 'players';
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -90,9 +39,6 @@ export default function DashboardPage() {
   const [showPointsBreakdown, setShowPointsBreakdown] = useState(false);
   const [whatsNew, setWhatsNew] = useState<WhatsNewData | null>(null);
   const [whatsNewError, setWhatsNewError] = useState<string | null>(null);
-  const [whatsNewTab, setWhatsNewTab] = useState<WhatsNewTab>('tournaments');
-  const [tournamentsExpanded, setTournamentsExpanded] = useState(false);
-  const [playersExpanded, setPlayersExpanded] = useState(false);
   const [liveMatches, setLiveMatches] = useState<MatchData[]>([]);
   const [liveMatchesLoading, setLiveMatchesLoading] = useState(true);
 
@@ -239,32 +185,7 @@ export default function DashboardPage() {
     };
   }, []);
 
-  const hasTournamentUpdates = (whatsNew?.events.length ?? 0) > 0;
-  const hasPlayerUpdates = (whatsNew?.updates.length ?? 0) > 0;
-  const activeWhatsNewTab: WhatsNewTab = whatsNewTab === 'tournaments'
-    ? hasTournamentUpdates || !hasPlayerUpdates ? 'tournaments' : 'players'
-    : hasPlayerUpdates || !hasTournamentUpdates ? 'players' : 'tournaments';
 
-  const formatUtcDate = (date: string) =>
-    new Intl.DateTimeFormat('en', {
-      dateStyle: 'medium',
-      timeStyle: 'short',
-      timeZone: 'UTC',
-    }).format(new Date(date));
-
-  const describeMatchStatuses = (statuses: Record<string, number>) => {
-    const labels: Record<string, string> = {
-      scheduled: 'scheduled',
-      in_progress: 'live',
-      completed: 'completed',
-      cancelled: 'cancelled',
-      postponed: 'postponed',
-    };
-    return Object.entries(statuses)
-      .filter(([, count]) => count > 0)
-      .map(([status, count]) => `${count} ${labels[status] ?? status.replaceAll('_', ' ')}`)
-      .join(' · ');
-  };
 
   return (
     <div className="dashboard-page min-h-screen">
@@ -325,218 +246,7 @@ export default function DashboardPage() {
           />
         ) : null}
 
-        {whatsNew && (whatsNew.events.length > 0 || whatsNew.gameweek || whatsNew.updates.length > 0) && (
-          <section className="wn-panel" aria-labelledby="whats-new-heading">
-            {/* ── Header ── */}
-            <div className="wn-header">
-              <div className="wn-header-left">
-                <span className="wn-heading-icon" aria-hidden="true">
-                  <Megaphone className="h-5 w-5" />
-                </span>
-                <h3 id="whats-new-heading" className="wn-title">What&apos;s New</h3>
-                <span className="wn-live-badge">
-                  <span className="wn-live-dot" aria-hidden="true" />
-                  <span className="wn-live-ring" aria-hidden="true" />
-                  Live
-                </span>
-              </div>
-            </div>
-
-            {/* ── Gameweek — always visible, above the tabs ── */}
-            {whatsNew.gameweek && (
-              <div className="wn-gw-strip">
-                <Link href={whatsNew.gameweek.href} className="wn-gw-card group">
-                  {/* Row 1: icon + label + GW number + match meta + urgency */}
-                  <div className="wn-gw-row1">
-                    <span className="wn-icon-bubble wn-icon-bubble--gw">
-                      <Calendar className="h-4 w-4" aria-hidden="true" />
-                    </span>
-                    <span className="wn-gw-label">
-                      {whatsNew.gameweek.isCurrent ? 'Current' : 'Next'} Gameweek
-                    </span>
-                    <span className="wn-gw-number">GW {whatsNew.gameweek.number}</span>
-                    <span className="wn-gw-dot" aria-hidden="true">·</span>
-                    <span className="wn-gw-meta">
-                      {whatsNew.gameweek.matchCount} matches
-                      {describeMatchStatuses(whatsNew.gameweek.matchStatuses) && (
-                        <> · {describeMatchStatuses(whatsNew.gameweek.matchStatuses)}</>
-                      )}
-                    </span>
-                    {whatsNew.gameweek.endsSoon && (
-                      <span className="wn-urgency-badge">⚡ Ends soon</span>
-                    )}
-                  </div>
-                  {/* Row 2: deadline + CTA */}
-                  <div className="wn-gw-row2">
-                    <span className="wn-gw-deadline-inline">
-                      <Clock className="h-3 w-3" aria-hidden="true" />
-                      Deadline: {formatUtcDate(whatsNew.gameweek.deadline)} UTC
-                    </span>
-                    <span className="wn-gw-cta">
-                      View details
-                      <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-1" aria-hidden="true" />
-                    </span>
-                  </div>
-                </Link>
-              </div>
-            )}
-
-            {/* ── Tabs (Tournaments & Player Updates only) ── */}
-            {(whatsNew.events.length > 0 || whatsNew.updates.length > 0) && (
-              <>
-                <div className="wn-tabs" role="tablist" aria-label="Recent updates">
-                  {whatsNew.events.length > 0 && (
-                    <button
-                      role="tab"
-                      id="wn-tab-tournaments"
-                      aria-controls="wn-panel-tournaments"
-                      aria-selected={activeWhatsNewTab === 'tournaments'}
-                      className={`wn-tab ${activeWhatsNewTab === 'tournaments' ? 'wn-tab--active' : ''}`}
-                      onClick={() => setWhatsNewTab('tournaments')}
-                    >
-                      <Trophy className="h-3.5 w-3.5" aria-hidden="true" />
-                      Tournaments
-                      <span className="wn-tab-badge wn-tab-badge--tournament">{whatsNew.events.length}</span>
-                    </button>
-                  )}
-                  {whatsNew.updates.length > 0 && (
-                    <button
-                      role="tab"
-                      id="wn-tab-players"
-                      aria-controls="wn-panel-players"
-                      aria-selected={activeWhatsNewTab === 'players'}
-                      className={`wn-tab ${activeWhatsNewTab === 'players' ? 'wn-tab--active' : ''}`}
-                      onClick={() => setWhatsNewTab('players')}
-                    >
-                      <TrendingUp className="h-3.5 w-3.5" aria-hidden="true" />
-                      Player Updates
-                      <span className="wn-tab-badge wn-tab-badge--player">{whatsNew.updates.length}</span>
-                    </button>
-                  )}
-                </div>
-
-                {/* ── Tournaments panel ── */}
-                {whatsNew.events.length > 0 && (
-                  <div
-                    role="tabpanel"
-                    id="wn-panel-tournaments"
-                    aria-labelledby="wn-tab-tournaments"
-                    hidden={activeWhatsNewTab !== 'tournaments'}
-                    className="wn-tab-content"
-                  >
-                    <div className="wn-list">
-                      {(tournamentsExpanded
-                        ? whatsNew.events
-                        : whatsNew.events.slice(0, 4)
-                      ).map((event) => (
-                        <Link
-                          href={event.href}
-                          key={`tournament-${event.id}`}
-                          className="wn-row wn-row--tournament group"
-                        >
-                          <span className="wn-icon-bubble wn-icon-bubble--tournament">
-                            <Trophy className="h-4 w-4" aria-hidden="true" />
-                          </span>
-                          <div className="wn-row-body">
-                            <span className="wn-row-type">Tournament active</span>
-                            <span className="wn-row-title">{event.title}</span>
-                            <span className="wn-row-detail">
-                              {[event.tier, `${event.seriesCount ?? 0} series`, `${event.matchCount ?? 0} matches`,
-                                ...(event.bestOfFormats && event.bestOfFormats.length > 0
-                                  ? [`Bo${event.bestOfFormats.join(' / Bo')}`]
-                                  : [])]
-                                .filter(Boolean)
-                                .join(' · ')}
-                            </span>
-                          </div>
-                          <ArrowRight aria-hidden="true" className="wn-row-arrow h-4 w-4 shrink-0 transition-transform group-hover:translate-x-1" />
-                        </Link>
-                      ))}
-                      {whatsNew.events.length > 4 && (
-                        <button
-                          type="button"
-                          className="wn-more-btn"
-                          onClick={() => setTournamentsExpanded((prev) => !prev)}
-                        >
-                          {tournamentsExpanded ? (
-                            <>
-                              <span>Show less</span>
-                              <ChevronUp className="h-4 w-4" aria-hidden="true" />
-                            </>
-                          ) : (
-                            <>
-                              <span>Show {whatsNew.events.length - 4} more tournaments</span>
-                              <ChevronDown className="h-4 w-4" aria-hidden="true" />
-                            </>
-                          )}
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                {/* ── Player Updates panel ── */}
-                {whatsNew.updates.length > 0 && (
-                  <div
-                    role="tabpanel"
-                    id="wn-panel-players"
-                    aria-labelledby="wn-tab-players"
-                    hidden={activeWhatsNewTab !== 'players'}
-                    className="wn-tab-content"
-                  >
-                    <div className="wn-list">
-                      {(playersExpanded
-                        ? whatsNew.updates
-                        : whatsNew.updates.slice(0, 4)
-                      ).map((update) => {
-                        const isAvailability = update.kind === 'availability';
-                        const UpdateIcon = isAvailability ? AlertTriangle : TrendingUp;
-                        return (
-                          <Link
-                            href={update.href}
-                            key={`${update.kind}-${update.id}`}
-                            className={`wn-row group ${isAvailability ? 'wn-row--availability' : 'wn-row--price'}`}
-                          >
-                            <span className={`wn-icon-bubble ${isAvailability ? 'wn-icon-bubble--availability' : 'wn-icon-bubble--price'}`}>
-                              <UpdateIcon className="h-4 w-4" aria-hidden="true" />
-                            </span>
-                            <div className="wn-row-body">
-                              <span className="wn-row-type">
-                                {isAvailability ? 'Squad availability' : 'Player price'}
-                              </span>
-                              <span className="wn-row-title">{update.title}</span>
-                              <span className="wn-row-detail">{update.message}</span>
-                            </div>
-                            <ArrowRight aria-hidden="true" className="wn-row-arrow h-4 w-4 shrink-0 transition-transform group-hover:translate-x-1" />
-                          </Link>
-                        );
-                      })}
-                      {whatsNew.updates.length > 4 && (
-                        <button
-                          type="button"
-                          className="wn-more-btn"
-                          onClick={() => setPlayersExpanded((prev) => !prev)}
-                        >
-                          {playersExpanded ? (
-                            <>
-                              <span>Show less</span>
-                              <ChevronUp className="h-4 w-4" aria-hidden="true" />
-                            </>
-                          ) : (
-                            <>
-                              <span>Show {whatsNew.updates.length - 4} more updates</span>
-                              <ChevronDown className="h-4 w-4" aria-hidden="true" />
-                            </>
-                          )}
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                )}
-              </>
-            )}
-          </section>
-        )}
+        {whatsNew && <DashboardWhatsNew whatsNew={whatsNew} />}
         {whatsNewError && (
           <div role="status" className="mb-8 rounded-xl border border-rose-500/30 bg-rose-950/30 px-5 py-4 text-sm text-rose-200">
             What&apos;s New could not be loaded: {whatsNewError}
