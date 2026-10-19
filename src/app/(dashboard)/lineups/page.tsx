@@ -367,6 +367,12 @@ export default function LineupsPage() {
               </span>
             )}
 
+            {selectedGameweek?.status === 'upcoming' && !lineupLocked && (
+              <p className="mt-2 text-xs font-semibold text-cyan-400" role="status">
+                Planning ahead · this lineup is saved separately for Gameweek {selectedGameweek.gameweekNumber}.
+              </p>
+            )}
+
             {/* Deadline Countdown */}
             {selectedGameweek?.deadline && !lineupLocked && (
               <span className="inline-flex items-center gap-1.5 text-xs font-semibold" style={{ color: 'var(--text-muted)' }}>
@@ -392,7 +398,7 @@ export default function LineupsPage() {
               {saving ? (
                 <><SpinnerIcon /> Saving...</>
               ) : lineupLocked ? (
-                <><Lock className="h-4 w-4" /> Locked</>
+                <><Lock className="h-4 w-4" /> Lineup Locked</>
               ) : (
                 <><ShieldCheck className="h-4 w-4" /> Save Lineup</>
               )}
@@ -677,7 +683,7 @@ export default function LineupsPage() {
                                     <p className="truncate text-sm font-bold" style={{ color: "var(--text-primary)" }}>{selected.professional_players.in_game_name || selected.professional_players.name}</p>
                                     {selected.is_captain && (
                                       <span
-                                        aria-label="Captain (2x Points)"
+                                        aria-label="Captain"
                                         title="Captain · earns 2× points"
                                         className="inline-flex items-center gap-0.5 rounded-full px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-white shadow-md"
                                         style={{

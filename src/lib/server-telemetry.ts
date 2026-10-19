@@ -64,8 +64,7 @@ export function flushTelemetryEvents(): void {
 function persistTelemetryEvents(events: TelemetryEvent[]): void {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!url || !serviceRoleKey) {
-    console.warn('[Telemetry] Supabase telemetry storage is not configured.');
+  if (!url || !serviceRoleKey || url.includes('ci-placeholder')) {
     return;
   }
 
