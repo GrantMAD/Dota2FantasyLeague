@@ -190,25 +190,44 @@ export default function DashboardPage() {
 
 
   return (
-    <div className="dashboard-page min-h-screen">
+    <div className="dashboard-page min-h-screen" style={{ background: 'var(--background)' }}>
       {/* Hero Section */}
-      <section className="dashboard-hero bg-linear-to-r from-slate-900 via-slate-800 to-slate-900 border-b border-slate-700 py-12 px-4">
-        <div className="max-w-7xl mx-auto">
+      <section
+        className="dashboard-hero relative overflow-hidden border-b py-10 px-4 transition-colors"
+        style={{
+          background: 'var(--surface)',
+          borderColor: 'var(--border)',
+        }}
+      >
+        {/* Subtle ambient Dota aura gradients (Radiant teal + Dire crimson glows) */}
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute -top-24 -left-24 h-72 w-72 rounded-full opacity-15 blur-3xl"
+          style={{ background: 'var(--accent-primary)' }}
+        />
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute -top-24 -right-24 h-72 w-72 rounded-full opacity-10 blur-3xl"
+          style={{ background: '#f59e0b' }}
+        />
+
+        <div className="relative max-w-7xl mx-auto">
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8">
             <div>
               <div className="flex flex-wrap items-center gap-3 mb-2">
-                <h1 className="dashboard-hero-title text-3xl md:text-4xl font-bold text-white">
+                <h1 className="dashboard-hero-title text-3xl md:text-4xl font-bold" style={{ color: 'var(--text-primary)' }}>
                   Welcome back{dashboardData?.displayName ? `, ${dashboardData.displayName}` : ''}
                 </h1>
                 <DataFreshnessBadge page="dashboard" />
               </div>
-              <p className="text-slate-400 text-lg">
+              <p className="text-base sm:text-lg" style={{ color: 'var(--text-secondary)' }}>
                 Manage your fantasy squads and compete with players worldwide
               </p>
             </div>
             <Link
               href="/squads"
-              className="mt-4 md:mt-0 bg-linear-to-r from-amber-500 to-orange-600 text-white px-6 py-3 rounded-lg font-semibold hover:shadow-lg hover:shadow-orange-500/20 transition-all"
+              className="mt-4 md:mt-0 px-6 py-2.5 rounded-xl font-semibold text-white shadow-sm transition hover:opacity-90"
+              style={{ background: 'var(--accent-primary)' }}
             >
               Manage Squad
             </Link>
@@ -241,7 +260,7 @@ export default function DashboardPage() {
       </section>
 
       {/* Main Content */}
-      <section className="max-w-7xl mx-auto px-4 py-12">
+      <section className="max-w-7xl mx-auto px-4 py-8">
         {!loading && dashboardData?.fantasySeasonId ? (
           <DashboardOnboardingChecklist
             hasSquad={dashboardData.activeSquadCount > 0}
@@ -251,83 +270,53 @@ export default function DashboardPage() {
           />
         ) : null}
 
-        {whatsNew && <DashboardWhatsNew whatsNew={whatsNew} />}
-        {whatsNewError && (
-          <div role="status" className="mb-8 rounded-xl border border-rose-500/30 bg-rose-950/30 px-5 py-4 text-sm text-rose-200">
-            What&apos;s New could not be loaded: {whatsNewError}
-          </div>
-        )}
-
-        {!loading && dashboardData?.fantasySeasonId ? (
-          <DashboardGoalProgress
-            initialTargetPoints={dashboardData.targetPoints}
-            initialTargetRank={dashboardData.targetRank}
-            totalPoints={dashboardData.totalPoints}
-            globalRank={dashboardData.globalRank}
-            onGoalsUpdated={({ targetPoints, targetRank }) => {
-              setDashboardData((prev) =>
-                prev ? { ...prev, targetPoints, targetRank } : prev
-              );
-            }}
-          />
-        ) : null}
-
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Primary Actions */}
-          <div className="lg:col-span-2">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
+          {/* Primary Column */}
+          <div className="lg:col-span-2 space-y-8">
+            {/* Squads Status & Starting Five Section */}
             {loading ? (
-              <div className="mb-8 grid grid-cols-1 gap-4 md:grid-cols-2">
-                {[0, 1, 2, 3].map((item) => (
-                  <div key={item} className="h-36 animate-pulse rounded-lg border border-slate-700 bg-slate-800/50" />
-                ))}
-              </div>
-            ) : dashboardData ? (
-              <DashboardQuickActions
-                activeSquadCount={dashboardData.activeSquadCount}
-                bankBalance={Number(dashboardData.bankBalance)}
-                freeTransfers={dashboardData.freeTransfers}
-                hasLeagues={dashboardData.leagueStandings.length > 0}
-              />
-            ) : null}
-
-            {/* Live Matches In Progress */}
-            <DashboardLiveMatches
-              matches={liveMatches}
-              loading={liveMatchesLoading}
-              userSquadTeamIds={
-                dashboardData?.starters
-                  ?.map((s) => s.team_id)
-                  .filter((id): id is number => typeof id === 'number') ?? []
-              }
-            />
-
-            {/* Squads Status Section */}
-            {loading ? (
-              <div className="bg-slate-800/30 border border-slate-700/80 rounded-lg p-8 animate-pulse text-center">
-                <div className="h-10 w-10 bg-slate-700/60 rounded-full mx-auto mb-4" />
-                <div className="h-5 w-48 bg-slate-700/60 rounded mx-auto mb-2" />
-                <div className="h-4 w-64 bg-slate-700/40 rounded mx-auto" />
+              <div
+                className="rounded-2xl p-8 animate-pulse text-center"
+                style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
+              >
+                <div className="h-10 w-10 rounded-full mx-auto mb-4" style={{ background: 'var(--surface-muted)' }} />
+                <div className="h-5 w-48 rounded mx-auto mb-2" style={{ background: 'var(--surface-muted)' }} />
+                <div className="h-4 w-64 rounded mx-auto" style={{ background: 'var(--surface-muted)' }} />
               </div>
             ) : !dashboardData ? null : !dashboardData.activeSquadCount ? (
               <EmptySquadState />
             ) : (
-              <div className="rounded-2xl p-5 shadow-sm"
-                style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
-
+              <div
+                className="rounded-2xl p-5 shadow-sm transition-colors"
+                style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
+              >
                 {/* Panel header */}
-                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-5 mb-5"
-                  style={{ borderBottom: '1px solid var(--border)' }}>
+                <div
+                  className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-5 mb-5"
+                  style={{ borderBottom: '1px solid var(--border)' }}
+                >
                   <div>
                     <div className="flex items-center gap-2.5 mb-1">
-                      <div className="flex h-8 w-8 items-center justify-center rounded-xl"
-                        style={{ background: 'color-mix(in srgb, var(--accent-primary) 12%, transparent)', border: '1px solid color-mix(in srgb, var(--accent-primary) 30%, transparent)' }}>
+                      <div
+                        className="flex h-8 w-8 items-center justify-center rounded-xl"
+                        style={{
+                          background: 'color-mix(in srgb, var(--accent-primary) 12%, transparent)',
+                          border: '1px solid color-mix(in srgb, var(--accent-primary) 30%, transparent)',
+                        }}
+                      >
                         <Shield className="h-4 w-4" style={{ color: 'var(--accent-primary)' }} />
                       </div>
                       <h3 className="text-base font-bold" style={{ color: 'var(--text-primary)' }}>
                         {dashboardData.squadName || 'Active Squad'}
                       </h3>
-                      <span className="rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider"
-                        style={{ background: 'color-mix(in srgb, var(--success) 12%, transparent)', color: 'var(--success)', border: '1px solid color-mix(in srgb, var(--success) 30%, transparent)' }}>
+                      <span
+                        className="rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider"
+                        style={{
+                          background: 'color-mix(in srgb, var(--success) 12%, transparent)',
+                          color: 'var(--success)',
+                          border: '1px solid color-mix(in srgb, var(--success) 30%, transparent)',
+                        }}
+                      >
                         Active
                       </span>
                     </div>
@@ -360,9 +349,15 @@ export default function DashboardPage() {
                     <span className="text-[11px] font-bold uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>
                       Starting Five
                     </span>
-                    {dashboardData.starters && dashboardData.starters.some(s => s.gw_points != null) && (
-                      <span className="rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider"
-                        style={{ background: 'color-mix(in srgb, var(--accent-primary) 12%, transparent)', color: 'var(--accent-primary)', border: '1px solid color-mix(in srgb, var(--accent-primary) 25%, transparent)' }}>
+                    {dashboardData.starters && dashboardData.starters.some((s) => s.gw_points != null) && (
+                      <span
+                        className="rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider"
+                        style={{
+                          background: 'color-mix(in srgb, var(--accent-primary) 12%, transparent)',
+                          color: 'var(--accent-primary)',
+                          border: '1px solid color-mix(in srgb, var(--accent-primary) 25%, transparent)',
+                        }}
+                      >
                         Live Scores
                       </span>
                     )}
@@ -378,7 +373,7 @@ export default function DashboardPage() {
                   <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
                     {[...dashboardData.starters]
                       .sort((a, b) => {
-                        const getRank = (player: typeof a) => player.is_captain ? 0 : player.is_vice_captain ? 1 : 2;
+                        const getRank = (player: typeof a) => (player.is_captain ? 0 : player.is_vice_captain ? 1 : 2);
                         return getRank(a) - getRank(b);
                       })
                       .map((player) => (
@@ -390,10 +385,14 @@ export default function DashboardPage() {
                       ))}
                   </div>
                 ) : (
-                  <div className="flex flex-col items-center rounded-2xl border border-dashed py-12 text-center"
-                    style={{ borderColor: 'var(--border)', background: 'var(--surface-muted)' }}>
-                    <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl"
-                      style={{ background: 'var(--surface-raised)', border: '1px solid var(--border)' }}>
+                  <div
+                    className="flex flex-col items-center rounded-2xl border border-dashed py-12 text-center"
+                    style={{ borderColor: 'var(--border)', background: 'var(--surface-muted)' }}
+                  >
+                    <div
+                      className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl"
+                      style={{ background: 'var(--surface-raised)', border: '1px solid var(--border)' }}
+                    >
                       <Shield className="h-7 w-7" style={{ color: 'var(--text-muted)' }} />
                     </div>
                     <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
@@ -413,32 +412,91 @@ export default function DashboardPage() {
                 )}
               </div>
             )}
+
+            {/* Live Matches In Progress */}
+            <DashboardLiveMatches
+              matches={liveMatches}
+              loading={liveMatchesLoading}
+              userSquadTeamIds={
+                dashboardData?.starters
+                  ?.map((s) => s.team_id)
+                  .filter((id): id is number => typeof id === 'number') ?? []
+              }
+            />
+
+            {/* Next Moves / Quick Actions */}
+            {loading ? (
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                {[0, 1, 2, 3].map((item) => (
+                  <div
+                    key={item}
+                    className="h-36 animate-pulse rounded-2xl"
+                    style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
+                  />
+                ))}
+              </div>
+            ) : dashboardData ? (
+              <DashboardQuickActions
+                activeSquadCount={dashboardData.activeSquadCount}
+                bankBalance={Number(dashboardData.bankBalance)}
+                freeTransfers={dashboardData.freeTransfers}
+                hasLeagues={dashboardData.leagueStandings.length > 0}
+              />
+            ) : null}
+
+            {/* What's New Feed */}
+            {whatsNew && <DashboardWhatsNew whatsNew={whatsNew} />}
+            {whatsNewError && (
+              <div role="status" className="rounded-xl border border-rose-500/30 bg-rose-950/30 px-5 py-4 text-sm text-rose-200">
+                What&apos;s New could not be loaded: {whatsNewError}
+              </div>
+            )}
           </div>
 
           {/* Sidebar */}
-          <div className="space-y-6 lg:pt-14">
+          <div className="space-y-6">
 
             {/* Upcoming Gameweek */}
-            <div data-guide="dashboard-gameweek" data-tour="dashboard-gameweek" className="bg-slate-800/50 border border-slate-700 rounded-lg p-6">
+            <div
+              data-guide="dashboard-gameweek"
+              data-tour="dashboard-gameweek"
+              className="rounded-2xl p-5 shadow-sm transition-colors"
+              style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
+            >
               <div className="flex items-center justify-between gap-3 mb-4">
-                <h3 className="font-semibold text-white">Current Gameweek</h3>
+                <h3 className="font-bold text-sm" style={{ color: 'var(--text-primary)' }}>Current Gameweek</h3>
                 {dashboardData?.gameweek?.status === 'active' && (
-                  <span className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-1 text-xs font-semibold uppercase tracking-wide text-emerald-400">
+                  <span
+                    className="rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider"
+                    style={{
+                      background: 'color-mix(in srgb, var(--success) 12%, transparent)',
+                      color: 'var(--success)',
+                      border: '1px solid color-mix(in srgb, var(--success) 30%, transparent)',
+                    }}
+                  >
                     Active
                   </span>
                 )}
               </div>
               <div className="space-y-3">
                 <div>
-                  <p className="text-slate-400 text-sm">Gameweek</p>
-                  <p className="text-2xl font-bold text-white">
+                  <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Gameweek</p>
+                  <p className="text-2xl font-black" style={{ color: 'var(--text-primary)' }}>
                     {dashboardData?.gameweek?.gameweek_number || '-'}
                   </p>
                 </div>
                 <div>
-                  <p className="text-slate-400 text-sm">Deadline</p>
-                  <p className="text-sm text-amber-500 font-semibold">
-                    {dashboardData?.gameweek?.deadline ? new Date(dashboardData.gameweek.deadline).toLocaleString() : 'Not Set'}
+                  <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Deadline</p>
+                  <p className="text-sm font-semibold" style={{ color: 'var(--accent-primary)' }}>
+                    {dashboardData?.gameweek?.deadline
+                      ? new Intl.DateTimeFormat('en-US', {
+                          month: 'short',
+                          day: 'numeric',
+                          hour: 'numeric',
+                          minute: '2-digit',
+                          timeZoneName: 'short',
+                        }).format(new Date(dashboardData.gameweek.deadline))
+                      : 'Not Set'}
                   </p>
                 </div>
               </div>
@@ -446,43 +504,69 @@ export default function DashboardPage() {
 
             {/* Captain Status */}
             {dashboardData?.captain && (
-              <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-6">
-                <h3 className="font-semibold text-white mb-4">Leadership</h3>
+              <div
+                className="rounded-2xl p-5 shadow-sm transition-colors"
+                style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
+              >
+                <h3 className="font-bold text-sm mb-4" style={{ color: 'var(--text-primary)' }}>Leadership</h3>
                 <div className="space-y-3">
-                  <div className="flex justify-between items-center border-b border-slate-700 pb-2">
-                    <span className="text-slate-400 text-sm">Captain (2x)</span>
-                    <span className="font-semibold text-white">{dashboardData.captain.name}</span>
+                  <div className="flex justify-between items-center pb-2.5" style={{ borderBottom: '1px solid var(--border)' }}>
+                    <span className="text-xs" style={{ color: 'var(--text-muted)' }}>Captain (2x)</span>
+                    <span className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>{dashboardData.captain.name}</span>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="text-slate-400 text-sm">Vice-Captain</span>
-                    <span className="font-semibold text-slate-300">{dashboardData.viceCaptain?.name || 'None'}</span>
+                    <span className="text-xs" style={{ color: 'var(--text-muted)' }}>Vice-Captain</span>
+                    <span className="text-sm font-semibold" style={{ color: 'var(--text-secondary)' }}>{dashboardData.viceCaptain?.name || 'None'}</span>
                   </div>
                 </div>
               </div>
             )}
 
+            {/* Season Goals */}
+            {!loading && dashboardData?.fantasySeasonId ? (
+              <DashboardGoalProgress
+                initialTargetPoints={dashboardData.targetPoints}
+                initialTargetRank={dashboardData.targetRank}
+                totalPoints={dashboardData.totalPoints}
+                globalRank={dashboardData.globalRank}
+                onGoalsUpdated={({ targetPoints, targetRank }) => {
+                  setDashboardData((prev) =>
+                    prev ? { ...prev, targetPoints, targetRank } : prev
+                  );
+                }}
+              />
+            ) : null}
+
             {/* Leaderboard Preview */}
-            <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-6">
-              <h3 className="font-semibold text-white mb-4">Leagues Overview</h3>
+            <div
+              className="rounded-2xl p-5 shadow-sm transition-colors"
+              style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
+            >
+              <h3 className="font-bold text-sm mb-4" style={{ color: 'var(--text-primary)' }}>Leagues Overview</h3>
               {dashboardData && dashboardData.leagueStandings.length > 0 ? (
                 <div className="space-y-3">
                   {dashboardData.leagueStandings.map((l, idx) => (
-                    <div key={idx} className="flex justify-between items-center text-sm border-b border-slate-700 pb-2 last:border-0 last:pb-0">
-                      <span className="text-slate-300 truncate pr-2">{l.leagues?.name}</span>
-                      <span className="text-amber-500 font-semibold">Rank {l.rank || '-'}</span>
+                    <div
+                      key={idx}
+                      className="flex justify-between items-center text-sm pb-2.5 last:pb-0"
+                      style={{ borderBottom: idx === dashboardData.leagueStandings.length - 1 ? 'none' : '1px solid var(--border)' }}
+                    >
+                      <span className="truncate pr-2 text-xs font-medium" style={{ color: 'var(--text-primary)' }}>{l.leagues?.name}</span>
+                      <span className="text-xs font-bold font-mono" style={{ color: 'var(--accent-primary)' }}>Rank {l.rank || '-'}</span>
                     </div>
                   ))}
                 </div>
               ) : (
-                <p className="text-slate-400 text-sm text-center py-4">
+                <p className="text-xs text-center py-4" style={{ color: 'var(--text-muted)' }}>
                   Sign up and join to see global rankings
                 </p>
               )}
               <Link
                 href="/leagues"
-                className="block text-center text-amber-500 hover:text-orange-600 text-sm font-semibold mt-4"
+                className="inline-flex items-center justify-center gap-1.5 w-full text-center text-xs font-bold mt-4 transition-colors hover:opacity-80"
+                style={{ color: 'var(--accent-primary)' }}
               >
-                View Leaderboards â†’
+                View Leaderboards &rarr;
               </Link>
             </div>
 

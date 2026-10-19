@@ -105,10 +105,10 @@ export function DashboardWhatsNew({ whatsNew }: DashboardWhatsNewProps) {
         },
       ];
 
-  // Compile full feed list
+  // Compile full feed list: prioritize critical squad & price updates before tournaments
   const allFeedItems = [
-    ...(events || []).map((e) => ({ type: 'tournament' as const, data: e })),
     ...displayUpdates.map((u) => ({ type: 'update' as const, data: u })),
+    ...(events || []).map((e) => ({ type: 'tournament' as const, data: e })),
   ];
 
   const tournamentCount = events?.length ?? 0;
@@ -124,17 +124,31 @@ export function DashboardWhatsNew({ whatsNew }: DashboardWhatsNewProps) {
     <section aria-label="What's New Updates" className="mb-8 space-y-3.5">
       {/* ── ROW 1: Dedicated Gameweek Command Banner ── */}
       {gameweek && (
-        <div className="relative overflow-hidden rounded-2xl border border-slate-200/90 dark:border-slate-800 bg-white dark:bg-slate-900/90 p-4 sm:p-5 shadow-sm dark:shadow-md transition-all">
+        <div
+          className="relative overflow-hidden rounded-2xl p-4 sm:p-5 shadow-sm transition-all"
+          style={{
+            background: 'var(--surface)',
+            border: '1px solid var(--border)',
+          }}
+        >
           {/* Subtle Accent Edge */}
           <div
-            className="absolute top-0 left-0 bottom-0 w-1.5 bg-linear-to-b from-amber-500 to-orange-500"
+            className="absolute top-0 left-0 bottom-0 w-1.5"
+            style={{ background: 'linear-gradient(180deg, var(--accent-primary), var(--accent-secondary))' }}
             aria-hidden="true"
           />
 
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pl-1 sm:pl-2">
             {/* Gameweek Badge & Round Info */}
             <div className="flex items-center gap-3.5">
-              <div className="relative flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-amber-500/10 dark:bg-amber-500/15 border border-amber-500/25 text-amber-600 dark:text-amber-400">
+              <div
+                className="relative flex h-12 w-12 shrink-0 items-center justify-center rounded-xl"
+                style={{
+                  background: 'color-mix(in srgb, var(--accent-primary) 12%, transparent)',
+                  border: '1px solid color-mix(in srgb, var(--accent-primary) 25%, transparent)',
+                  color: 'var(--accent-primary)',
+                }}
+              >
                 <Radio className="h-6 w-6" />
                 {liveMatchesCount > 0 && (
                   <span className="absolute -top-1 -right-1 flex h-3 w-3">
@@ -204,11 +218,23 @@ export function DashboardWhatsNew({ whatsNew }: DashboardWhatsNewProps) {
 
       {/* ── ROW 2: Thin, Clean Feed Rows ── */}
       {allFeedItems.length > 0 && (
-        <div className="rounded-2xl border border-slate-200/90 dark:border-slate-800 bg-white dark:bg-slate-900/90 overflow-hidden shadow-xs dark:shadow-md">
+        <div
+          className="rounded-2xl overflow-hidden shadow-xs transition-all"
+          style={{
+            background: 'var(--surface)',
+            border: '1px solid var(--border)',
+          }}
+        >
           {/* Feed Header with Filtering Pills */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-4 py-2.5 border-b border-slate-100 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-950/40">
+          <div
+            className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-4 py-2.5"
+            style={{
+              background: 'var(--surface-raised)',
+              borderBottom: '1px solid var(--border)',
+            }}
+          >
             <div className="flex items-center gap-1.5 flex-wrap">
-              <span className="text-xs font-bold uppercase tracking-wider text-slate-400 dark:text-slate-400 mr-1.5 hidden md:inline">
+              <span className="text-xs font-bold uppercase tracking-wider mr-1.5 hidden md:inline" style={{ color: 'var(--text-muted)' }}>
                 Updates:
               </span>
 
@@ -216,21 +242,44 @@ export function DashboardWhatsNew({ whatsNew }: DashboardWhatsNewProps) {
               <button
                 type="button"
                 onClick={() => setFilter('all')}
-                className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold transition-all cursor-pointer ${
-                  filter === 'all'
-                    ? 'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900 shadow-2xs'
-                    : 'text-slate-600 dark:text-slate-400 hover:bg-slate-200/60 dark:hover:bg-slate-800'
-                }`}
+                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold transition-all cursor-pointer"
+                style={{
+                  background: filter === 'all' ? 'var(--text-primary)' : 'transparent',
+                  color: filter === 'all' ? 'var(--background)' : 'var(--text-secondary)',
+                }}
               >
                 <span>All</span>
                 <span
-                  className={`text-[10px] font-bold px-1.5 py-0.2 rounded-full ${
-                    filter === 'all'
-                      ? 'bg-slate-800 text-slate-200 dark:bg-slate-200 dark:text-slate-800'
-                      : 'bg-slate-200/70 dark:bg-slate-800 text-slate-500 dark:text-slate-400'
-                  }`}
+                  className="text-[10px] font-bold px-1.5 py-0.2 rounded-full"
+                  style={{
+                    background: filter === 'all' ? 'color-mix(in srgb, var(--background) 30%, transparent)' : 'var(--surface-muted)',
+                    color: filter === 'all' ? 'var(--background)' : 'var(--text-muted)',
+                  }}
                 >
                   {allFeedItems.length}
+                </span>
+              </button>
+
+              {/* Pill: Squad Updates (highlighted priority) */}
+              <button
+                type="button"
+                onClick={() => setFilter('squad')}
+                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold transition-all cursor-pointer"
+                style={{
+                  background: filter === 'squad' ? '#10b981' : 'transparent',
+                  color: filter === 'squad' ? '#ffffff' : 'var(--text-secondary)',
+                }}
+              >
+                <TrendingUp className="h-3 w-3" />
+                <span>Squad Alerts</span>
+                <span
+                  className="text-[10px] font-bold px-1.5 py-0.2 rounded-full"
+                  style={{
+                    background: filter === 'squad' ? 'rgba(0,0,0,0.2)' : 'var(--surface-muted)',
+                    color: filter === 'squad' ? '#ffffff' : 'var(--text-muted)',
+                  }}
+                >
+                  {squadUpdateCount}
                 </span>
               </button>
 
@@ -238,52 +287,30 @@ export function DashboardWhatsNew({ whatsNew }: DashboardWhatsNewProps) {
               <button
                 type="button"
                 onClick={() => setFilter('tournaments')}
-                className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold transition-all cursor-pointer ${
-                  filter === 'tournaments'
-                    ? 'bg-amber-500 text-white shadow-2xs shadow-amber-500/20'
-                    : 'text-slate-600 dark:text-slate-400 hover:bg-slate-200/60 dark:hover:bg-slate-800'
-                }`}
+                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold transition-all cursor-pointer"
+                style={{
+                  background: filter === 'tournaments' ? '#f59e0b' : 'transparent',
+                  color: filter === 'tournaments' ? '#ffffff' : 'var(--text-secondary)',
+                }}
               >
                 <Trophy className="h-3 w-3" />
                 <span>Tournaments</span>
                 <span
-                  className={`text-[10px] font-bold px-1.5 py-0.2 rounded-full ${
-                    filter === 'tournaments'
-                      ? 'bg-amber-600 text-amber-50'
-                      : 'bg-slate-200/70 dark:bg-slate-800 text-slate-500 dark:text-slate-400'
-                  }`}
+                  className="text-[10px] font-bold px-1.5 py-0.2 rounded-full"
+                  style={{
+                    background: filter === 'tournaments' ? 'rgba(0,0,0,0.2)' : 'var(--surface-muted)',
+                    color: filter === 'tournaments' ? '#ffffff' : 'var(--text-muted)',
+                  }}
                 >
                   {tournamentCount}
-                </span>
-              </button>
-
-              {/* Pill: Squad Updates */}
-              <button
-                type="button"
-                onClick={() => setFilter('squad')}
-                className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold transition-all cursor-pointer ${
-                  filter === 'squad'
-                    ? 'bg-emerald-600 text-white shadow-2xs shadow-emerald-600/20'
-                    : 'text-slate-600 dark:text-slate-400 hover:bg-slate-200/60 dark:hover:bg-slate-800'
-                }`}
-              >
-                <TrendingUp className="h-3 w-3" />
-                <span>Squad Updates</span>
-                <span
-                  className={`text-[10px] font-bold px-1.5 py-0.2 rounded-full ${
-                    filter === 'squad'
-                      ? 'bg-emerald-700 text-emerald-50'
-                      : 'bg-slate-200/70 dark:bg-slate-800 text-slate-500 dark:text-slate-400'
-                  }`}
-                >
-                  {squadUpdateCount}
                 </span>
               </button>
             </div>
 
             <Link
               href="/tournaments"
-              className="text-xs font-semibold text-slate-500 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white transition-colors inline-flex items-center gap-1 shrink-0 self-end sm:self-auto"
+              className="text-xs font-semibold transition-colors inline-flex items-center gap-1 shrink-0 self-end sm:self-auto hover:opacity-80"
+              style={{ color: 'var(--accent-primary)' }}
             >
               <span>View tournaments</span>
               <ArrowRight className="h-3 w-3" />

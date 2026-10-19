@@ -101,28 +101,42 @@ export function DashboardGoalProgress({
     ? Math.min(100, Math.max(0, Math.round((totalPoints / targetPoints) * 100)))
     : 0;
 
-  // Calculate Rank Status
+  // Calculate Rank Status & Progress
   const isRankAchieved = targetRank && globalRank ? globalRank <= targetRank : false;
+  const rankCompletion = isRankAchieved
+    ? 100
+    : targetRank && globalRank
+    ? Math.min(95, Math.max(10, Math.round((targetRank / globalRank) * 100)))
+    : 10;
 
   return (
     <>
       <section
         aria-labelledby="season-goals-title"
-        className="mb-8 rounded-2xl border border-slate-200/90 dark:border-slate-800 bg-white dark:bg-slate-900/90 overflow-hidden shadow-xs dark:shadow-md transition-all"
+        className="rounded-2xl p-5 shadow-sm transition-all"
+        style={{
+          background: 'var(--surface)',
+          border: '1px solid var(--border)',
+        }}
       >
-        <div className="p-5 sm:p-6">
-          <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
-            <div className="flex items-center gap-3">
+        <div>
+          <div className="flex items-center justify-between gap-3 mb-4">
+            <div className="flex items-center gap-2.5">
               <div
-                className="flex h-9 w-9 items-center justify-center rounded-xl bg-amber-500/10 dark:bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/20"
+                className="flex h-8 w-8 items-center justify-center rounded-xl"
+                style={{
+                  background: 'color-mix(in srgb, var(--accent-primary) 12%, transparent)',
+                  border: '1px solid color-mix(in srgb, var(--accent-primary) 25%, transparent)',
+                  color: 'var(--accent-primary)',
+                }}
               >
-                <Target className="h-4.5 w-4.5" />
+                <Target className="h-4 w-4" />
               </div>
               <div>
-                <p className="text-[11px] font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400">
+                <p className="text-[10px] font-bold uppercase tracking-wider" style={{ color: 'var(--accent-primary)' }}>
                   Personal Milestones
                 </p>
-                <h2 id="season-goals-title" className="text-lg font-bold text-slate-900 dark:text-white">
+                <h2 id="season-goals-title" className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>
                   Season Goals
                 </h2>
               </div>
@@ -131,67 +145,81 @@ export function DashboardGoalProgress({
             <button
               type="button"
               onClick={openModal}
-              className="inline-flex items-center gap-1.5 rounded-xl px-3.5 py-1.5 text-xs font-semibold border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-750 transition-all cursor-pointer"
+              className="inline-flex items-center gap-1.5 rounded-xl px-2.5 py-1 text-xs font-semibold transition-all hover:opacity-80 cursor-pointer"
+              style={{
+                background: 'var(--surface-raised)',
+                border: '1px solid var(--border)',
+                color: 'var(--text-secondary)',
+              }}
             >
-              <Edit3 className="h-3.5 w-3.5" />
-              {hasAnyGoal ? 'Edit Goals' : 'Set Goals'}
+              <Edit3 className="h-3 w-3" />
+              {hasAnyGoal ? 'Edit' : 'Set'}
             </button>
           </div>
 
           {!hasAnyGoal ? (
             <div
-              className="flex flex-col sm:flex-row items-center justify-between gap-4 rounded-xl p-4 border border-dashed border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/30"
+              className="flex flex-col items-center justify-center text-center gap-3 rounded-xl p-4 border border-dashed"
+              style={{
+                borderColor: 'var(--border)',
+                background: 'var(--surface-muted)',
+              }}
             >
-              <div className="flex items-center gap-3 text-center sm:text-left">
-                <div
-                  className="hidden sm:flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-slate-200/60 dark:bg-slate-800 text-slate-500 dark:text-slate-400"
-                >
-                  <Trophy className="h-4 w-4" />
-                </div>
-                <div>
-                  <p className="text-sm font-semibold text-slate-900 dark:text-white">
-                    No season goals set yet
-                  </p>
-                  <p className="text-xs text-slate-500 dark:text-slate-400">
-                    Set a target fantasy points or global rank goal to stay motivated and track your progress.
-                  </p>
-                </div>
+              <div
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg"
+                style={{ background: 'var(--surface-raised)', color: 'var(--text-muted)' }}
+              >
+                <Trophy className="h-4 w-4" />
+              </div>
+              <div>
+                <p className="text-xs font-semibold" style={{ color: 'var(--text-primary)' }}>
+                  No season goals set yet
+                </p>
+                <p className="text-[11px] mt-0.5" style={{ color: 'var(--text-muted)' }}>
+                  Set target points or rank to track your season climb.
+                </p>
               </div>
               <button
                 type="button"
                 onClick={openModal}
-                className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 rounded-xl bg-linear-to-r from-amber-500 to-orange-600 px-4 py-2 text-xs font-bold text-white shadow-xs hover:from-amber-400 hover:to-orange-500 transition-all cursor-pointer"
+                className="inline-flex items-center justify-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-bold text-white shadow-xs transition-all hover:opacity-90 cursor-pointer"
+                style={{ background: 'var(--accent-primary)' }}
               >
-                Set Your First Goal &rarr;
+                Set Goals &rarr;
               </button>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* Points Goal Progress Card - Emerald/Amber Theme like Feed Row */}
+            <div className="flex flex-col gap-3">
+              {/* Points Goal Progress Card - 1 card per row */}
               <div
-                className="rounded-xl p-4 border border-slate-200/90 dark:border-slate-800 border-l-4 border-l-emerald-500/90 bg-linear-to-r from-emerald-500/[0.04] to-transparent bg-white dark:bg-slate-900/60 shadow-2xs transition-all"
+                className="rounded-xl p-3.5 shadow-2xs transition-all"
+                style={{
+                  background: 'var(--surface-raised)',
+                  border: '1px solid var(--border)',
+                  borderLeft: '4px solid #10b981',
+                }}
               >
-                <div className="flex items-center justify-between gap-2 mb-3">
-                  <div className="flex items-center gap-2.5">
-                    <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-500/10 dark:bg-emerald-500/15 text-emerald-600 dark:text-emerald-400">
+                <div className="flex items-center justify-between gap-2 mb-2.5">
+                  <div className="flex items-center gap-2">
+                    <div
+                      className="flex h-6 w-6 items-center justify-center rounded-lg text-emerald-500"
+                      style={{ background: 'rgba(16, 185, 129, 0.12)' }}
+                    >
                       <Flame className="h-3.5 w-3.5" />
                     </div>
-                    <span className="text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-300">
+                    <span className="text-[11px] font-bold uppercase tracking-wider" style={{ color: 'var(--text-secondary)' }}>
                       Points Target
                     </span>
                   </div>
                   {targetPoints !== null ? (
                     <span
-                      className={`text-xs font-bold px-2 py-0.5 rounded-full ${
-                        pointsCompletion >= 100
-                          ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400'
-                          : 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
-                      }`}
+                      className="text-[10px] font-bold px-2 py-0.5 rounded-full text-emerald-500"
+                      style={{ background: 'rgba(16, 185, 129, 0.12)' }}
                     >
                       {pointsCompletion}% Complete
                     </span>
                   ) : (
-                    <span className="text-xs text-slate-400 dark:text-slate-500">
+                    <span className="text-[10px]" style={{ color: 'var(--text-muted)' }}>
                       Not set
                     </span>
                   )}
@@ -201,14 +229,14 @@ export function DashboardGoalProgress({
                   <>
                     <div className="flex items-baseline justify-between mb-2">
                       <div className="flex items-baseline gap-1.5">
-                        <span className="text-2xl font-extrabold text-slate-900 dark:text-white">
+                        <span className="text-xl font-black font-mono" style={{ color: 'var(--text-primary)' }}>
                           {totalPoints.toFixed(1)}
                         </span>
-                        <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
+                        <span className="text-xs font-semibold" style={{ color: 'var(--text-muted)' }}>
                           / {targetPoints.toFixed(1)} pts
                         </span>
                       </div>
-                      <span className="text-xs font-medium text-slate-500 dark:text-slate-400">
+                      <span className="text-[11px] font-medium" style={{ color: 'var(--text-muted)' }}>
                         {totalPoints >= targetPoints
                           ? '🎉 Goal Reached!'
                           : `${(targetPoints - totalPoints).toFixed(1)} pts needed`}
@@ -217,7 +245,8 @@ export function DashboardGoalProgress({
 
                     {/* Progress Bar Container */}
                     <div
-                      className="w-full h-2.5 rounded-full overflow-hidden bg-slate-100 dark:bg-slate-800/80"
+                      className="w-full h-2 rounded-full overflow-hidden"
+                      style={{ background: 'var(--surface-muted)' }}
                     >
                       <div
                         className="h-full rounded-full transition-all duration-700 ease-out"
@@ -232,14 +261,14 @@ export function DashboardGoalProgress({
                     </div>
                   </>
                 ) : (
-                  <div className="py-2 flex items-center justify-between">
-                    <span className="text-xs text-slate-400 dark:text-slate-500">
+                  <div className="py-1 flex items-center justify-between">
+                    <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
                       No points goal active
                     </span>
                     <button
                       type="button"
                       onClick={openModal}
-                      className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 hover:underline cursor-pointer"
+                      className="text-xs font-semibold text-emerald-500 hover:underline cursor-pointer"
                     >
                       + Add points goal
                     </button>
@@ -247,31 +276,39 @@ export function DashboardGoalProgress({
                 )}
               </div>
 
-              {/* Rank Goal Progress Card - Cyan/Blue Theme like Feed Row */}
+              {/* Rank Goal Progress Card - 1 card per row */}
               <div
-                className="rounded-xl p-4 border border-slate-200/90 dark:border-slate-800 border-l-4 border-l-cyan-500/90 bg-linear-to-r from-cyan-500/[0.04] to-transparent bg-white dark:bg-slate-900/60 shadow-2xs transition-all"
+                className="rounded-xl p-3.5 shadow-2xs transition-all"
+                style={{
+                  background: 'var(--surface-raised)',
+                  border: '1px solid var(--border)',
+                  borderLeft: '4px solid #06b6d4',
+                }}
               >
-                <div className="flex items-center justify-between gap-2 mb-3">
-                  <div className="flex items-center gap-2.5">
-                    <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-cyan-500/10 dark:bg-cyan-500/15 text-cyan-600 dark:text-cyan-400">
+                <div className="flex items-center justify-between gap-2 mb-2.5">
+                  <div className="flex items-center gap-2">
+                    <div
+                      className="flex h-6 w-6 items-center justify-center rounded-lg text-cyan-500"
+                      style={{ background: 'rgba(6, 182, 212, 0.12)' }}
+                    >
                       <Award className="h-3.5 w-3.5" />
                     </div>
-                    <span className="text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-300">
+                    <span className="text-[11px] font-bold uppercase tracking-wider" style={{ color: 'var(--text-secondary)' }}>
                       Rank Target
                     </span>
                   </div>
                   {targetRank !== null ? (
                     <span
-                      className={`text-xs font-bold px-2 py-0.5 rounded-full ${
-                        isRankAchieved
-                          ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400'
-                          : 'bg-cyan-500/10 text-cyan-700 dark:text-cyan-300'
-                      }`}
+                      className="text-[10px] font-bold px-2 py-0.5 rounded-full"
+                      style={{
+                        background: isRankAchieved ? 'rgba(16, 185, 129, 0.12)' : 'rgba(6, 182, 212, 0.12)',
+                        color: isRankAchieved ? '#10b981' : '#06b6d4',
+                      }}
                     >
                       {isRankAchieved ? 'Target Achieved' : 'In Progress'}
                     </span>
                   ) : (
-                    <span className="text-xs text-slate-400 dark:text-slate-500">
+                    <span className="text-[10px]" style={{ color: 'var(--text-muted)' }}>
                       Not set
                     </span>
                   )}
@@ -281,14 +318,14 @@ export function DashboardGoalProgress({
                   <>
                     <div className="flex items-baseline justify-between mb-2">
                       <div className="flex items-baseline gap-1.5">
-                        <span className="text-2xl font-extrabold text-slate-900 dark:text-white">
+                        <span className="text-xl font-black font-mono" style={{ color: 'var(--text-primary)' }}>
                           {globalRank !== null ? `#${globalRank}` : 'Unranked'}
                         </span>
-                        <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
+                        <span className="text-xs font-semibold" style={{ color: 'var(--text-muted)' }}>
                           / Target: Top {targetRank.toLocaleString()}
                         </span>
                       </div>
-                      <span className="text-xs font-medium text-slate-500 dark:text-slate-400">
+                      <span className="text-[11px] font-medium" style={{ color: 'var(--text-muted)' }}>
                         {globalRank !== null
                           ? globalRank <= targetRank
                             ? '🏆 Inside Target Range!'
@@ -299,34 +336,31 @@ export function DashboardGoalProgress({
 
                     {/* Progress Bar Container for Rank */}
                     <div
-                      className="w-full h-2.5 rounded-full overflow-hidden bg-slate-100 dark:bg-slate-800/80"
+                      className="w-full h-2 rounded-full overflow-hidden"
+                      style={{ background: 'var(--surface-muted)' }}
                     >
                       <div
                         className="h-full rounded-full transition-all duration-700 ease-out"
                         style={{
-                          width: isRankAchieved
-                            ? '100%'
-                            : globalRank
-                            ? `${Math.min(95, Math.max(10, Math.round((targetRank / globalRank) * 100)))}%`
-                            : '5%',
+                          width: `${isRankAchieved ? 100 : rankCompletion}%`,
                           background: isRankAchieved
                             ? 'linear-gradient(90deg, #10b981, #059669)'
-                            : 'linear-gradient(90deg, #06b6d4, #38bdf8)',
+                            : 'linear-gradient(90deg, #06b6d4, #3b82f6)',
                         }}
                       />
                     </div>
                   </>
                 ) : (
-                  <div className="py-2 flex items-center justify-between">
-                    <span className="text-xs text-slate-400 dark:text-slate-500">
-                      No rank target active
+                  <div className="py-1 flex items-center justify-between">
+                    <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                      No rank goal active
                     </span>
                     <button
                       type="button"
                       onClick={openModal}
-                      className="text-xs font-semibold text-cyan-600 dark:text-cyan-400 hover:underline cursor-pointer"
+                      className="text-xs font-semibold text-cyan-500 hover:underline cursor-pointer"
                     >
-                      + Add rank target
+                      + Add rank goal
                     </button>
                   </div>
                 )}

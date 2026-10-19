@@ -58,7 +58,7 @@ export function DashboardQuickActions({
 
   return (
     <section className="mb-8">
-      <h2 className="mb-6 text-2xl font-bold text-white">Your Next Moves</h2>
+      <h2 className="mb-4 text-xl font-bold" style={{ color: 'var(--text-primary)' }}>Your Next Moves</h2>
       <div data-guide="dashboard-actions" data-tour="dashboard-actions" className="grid grid-cols-1 gap-4 md:grid-cols-2">
         {actions.map((action) => {
           const Icon = action.icon;
@@ -66,14 +66,30 @@ export function DashboardQuickActions({
             <Link
               key={action.title}
               href={action.href}
-              className="group rounded-lg border border-slate-700 bg-slate-800/50 p-5 transition-all hover:border-amber-500/50 hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400"
+              className="group rounded-2xl p-5 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
+              style={{
+                background: 'var(--surface-raised)',
+                border: '1px solid var(--border)',
+              }}
             >
               <div className="mb-3 flex items-start justify-between">
-                <Icon aria-hidden="true" className="h-7 w-7 text-amber-400 transition-transform group-hover:scale-110" />
-                <ArrowRight aria-hidden="true" className="h-4 w-4 text-slate-500 transition-all group-hover:translate-x-1 group-hover:text-amber-300" />
+                <div
+                  className="flex items-center justify-center rounded-xl p-2.5 transition-transform group-hover:scale-105"
+                  style={{
+                    background: 'color-mix(in srgb, var(--accent-primary) 12%, transparent)',
+                    border: '1px solid color-mix(in srgb, var(--accent-primary) 25%, transparent)',
+                  }}
+                >
+                  <Icon aria-hidden="true" className="h-5 w-5" style={{ color: 'var(--accent-primary)' }} />
+                </div>
+                <ArrowRight aria-hidden="true" className="h-4 w-4 transition-all group-hover:translate-x-1" style={{ color: 'var(--text-muted)' }} />
               </div>
-              <h3 className="mb-2 text-lg font-semibold text-white group-hover:text-amber-300">{action.title}</h3>
-              <p className="text-sm leading-5 text-slate-400">{action.description}</p>
+              <h3 className="mb-1 text-base font-bold transition-colors" style={{ color: 'var(--text-primary)' }}>
+                {action.title}
+              </h3>
+              <p className="text-xs leading-relaxed" style={{ color: 'var(--text-muted)' }}>
+                {action.description}
+              </p>
             </Link>
           );
         })}

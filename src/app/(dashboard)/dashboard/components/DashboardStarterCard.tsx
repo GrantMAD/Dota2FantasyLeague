@@ -70,21 +70,36 @@ export function DashboardStarterCard({ player, onOpenPlayer }: DashboardStarterC
       <div className="h-1 w-full" style={{ background: `linear-gradient(90deg, ${role.text}, transparent)` }} />
 
       {/* Captain / Vice-Captain badge */}
-      {(player.is_captain || player.is_vice_captain) && (
+      {player.is_captain && (
         <span
-          aria-label={player.is_captain ? 'Captain' : 'Vice-captain'}
-          className="absolute right-2.5 top-3 z-10 flex h-7 w-7 items-center justify-center rounded-full text-[12px] font-black shadow-lg"
+          aria-label="Captain (2x Points)"
+          className="absolute right-2.5 top-2.5 z-10 flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-black uppercase tracking-wider shadow-md"
           style={{
-            background: player.is_captain ? 'var(--accent-primary)' : 'var(--accent-secondary)',
-            color: 'var(--background)',
-            boxShadow: `0 2px 8px ${player.is_captain ? 'rgba(20,184,166,0.5)' : 'rgba(139,92,246,0.5)'}`,
+            background: 'linear-gradient(135deg, #f59e0b, #d97706)',
+            color: '#ffffff',
+            boxShadow: '0 2px 10px rgba(245, 158, 11, 0.45)',
           }}
         >
-          {player.is_captain ? 'C' : 'V'}
+          <span>C</span>
+          <span className="text-[9px] font-bold opacity-90">2×</span>
         </span>
       )}
 
-      {/* Avatar section — large hero image */}
+      {player.is_vice_captain && !player.is_captain && (
+        <span
+          aria-label="Vice-captain"
+          className="absolute right-2.5 top-2.5 z-10 flex h-6 w-6 items-center justify-center rounded-full text-[11px] font-black shadow-md"
+          style={{
+            background: 'linear-gradient(135deg, #06b6d4, #0284c7)',
+            color: '#ffffff',
+            boxShadow: '0 2px 8px rgba(6, 182, 212, 0.35)',
+          }}
+        >
+          V
+        </span>
+      )}
+
+      {/* Avatar section — hero image with vignette overlay */}
       <div
         className="relative mx-3 mt-3 flex h-24 w-[calc(100%-1.5rem)] items-center justify-center overflow-hidden rounded-xl"
         style={{ background: role.gradient + ', ' + role.bg, border: `1px solid ${role.border}` }}
@@ -94,7 +109,7 @@ export function DashboardStarterCard({ player, onOpenPlayer }: DashboardStarterC
           <img
             src={player.profile_image_url}
             alt=""
-            className="h-full w-full object-cover object-top"
+            className="h-full w-full object-cover object-top transition-transform duration-300 group-hover:scale-105"
             onError={(event) => {
               event.currentTarget.style.display = 'none';
               event.currentTarget.nextElementSibling?.removeAttribute('hidden');
@@ -103,7 +118,7 @@ export function DashboardStarterCard({ player, onOpenPlayer }: DashboardStarterC
         ) : null}
         <span
           hidden={!!player.profile_image_url}
-          className="text-3xl font-black"
+          className="text-2xl font-black tracking-tight"
           style={{ color: role.text }}
         >
           {initials}
