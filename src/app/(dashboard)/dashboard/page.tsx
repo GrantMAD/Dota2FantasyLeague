@@ -24,6 +24,7 @@ import { DashboardStarterCard } from './components/DashboardStarterCard';
 import { EmptySquadState } from './components/EmptySquadState';
 import { DashboardLiveMatches } from './components/DashboardLiveMatches';
 import { DashboardWhatsNew, type WhatsNewData } from './components/DashboardWhatsNew';
+import { DashboardGoalProgress } from './components/DashboardGoalProgress';
 import type { MatchData } from '@/app/(dashboard)/matches/components/MatchCard';
 
 export default function DashboardPage() {
@@ -252,6 +253,20 @@ export default function DashboardPage() {
             What&apos;s New could not be loaded: {whatsNewError}
           </div>
         )}
+
+        {!loading && dashboardData?.fantasySeasonId ? (
+          <DashboardGoalProgress
+            initialTargetPoints={dashboardData.targetPoints}
+            initialTargetRank={dashboardData.targetRank}
+            totalPoints={dashboardData.totalPoints}
+            globalRank={dashboardData.globalRank}
+            onGoalsUpdated={({ targetPoints, targetRank }) => {
+              setDashboardData((prev) =>
+                prev ? { ...prev, targetPoints, targetRank } : prev
+              );
+            }}
+          />
+        ) : null}
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Primary Actions */}

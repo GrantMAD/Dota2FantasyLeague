@@ -7,6 +7,8 @@ export interface EnsureFantasySeasonResult {
   free_transfers: number;
   total_points: number;
   global_rank: number | null;
+  target_points?: number | null;
+  target_rank?: number | null;
   created?: boolean;
 }
 
@@ -66,6 +68,8 @@ export async function getOrCreateFantasySeason(
       free_transfers: 2,
       total_points: 0,
       global_rank: null,
+      target_points: null,
+      target_rank: null,
       created: false,
     };
   }
@@ -73,7 +77,7 @@ export async function getOrCreateFantasySeason(
   // Find this user's enrollment in the requested season, not an arbitrary prior season.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: existing, error: existingError } = await (supabase.from('fantasy_seasons') as any)
-    .select('id, season_id, budget, free_transfers, total_points, global_rank')
+    .select('id, season_id, budget, free_transfers, total_points, global_rank, target_points, target_rank')
     .eq('user_id', userId)
     .eq('season_id', seasonId)
     .limit(1)
@@ -88,6 +92,8 @@ export async function getOrCreateFantasySeason(
       free_transfers: Number(existing.free_transfers ?? 2),
       total_points: Number(existing.total_points ?? 0),
       global_rank: existing.global_rank ?? null,
+      target_points: existing.target_points !== null && existing.target_points !== undefined ? Number(existing.target_points) : null,
+      target_rank: existing.target_rank !== null && existing.target_rank !== undefined ? Number(existing.target_rank) : null,
       created: false,
     };
   }
@@ -105,15 +111,17 @@ export async function getOrCreateFantasySeason(
       free_transfers: initialFreeTransfers,
       total_points: 0,
       global_rank: null,
+      target_points: null,
+      target_rank: null,
     })
-    .select('id, season_id, budget, free_transfers, total_points, global_rank')
+    .select('id, season_id, budget, free_transfers, total_points, global_rank, target_points, target_rank')
     .maybeSingle();
 
   if (insertError?.code === '23505') {
     // Another request may have created the unique user/season enrollment concurrently.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: concurrentSeason, error: concurrentSeasonError } = await (supabase.from('fantasy_seasons') as any)
-      .select('id, season_id, budget, free_transfers, total_points, global_rank')
+      .select('id, season_id, budget, free_transfers, total_points, global_rank, target_points, target_rank')
       .eq('user_id', userId)
       .eq('season_id', seasonId)
       .maybeSingle();
@@ -126,6 +134,8 @@ export async function getOrCreateFantasySeason(
         free_transfers: Number(concurrentSeason.free_transfers ?? 2),
         total_points: Number(concurrentSeason.total_points ?? 0),
         global_rank: concurrentSeason.global_rank ?? null,
+        target_points: concurrentSeason.target_points !== null && concurrentSeason.target_points !== undefined ? Number(concurrentSeason.target_points) : null,
+        target_rank: concurrentSeason.target_rank !== null && concurrentSeason.target_rank !== undefined ? Number(concurrentSeason.target_rank) : null,
         created: false,
       };
     }
@@ -140,6 +150,8 @@ export async function getOrCreateFantasySeason(
     free_transfers: Number(newSeason.free_transfers ?? initialFreeTransfers),
     total_points: Number(newSeason.total_points ?? 0),
     global_rank: newSeason.global_rank ?? null,
+    target_points: newSeason.target_points !== null && newSeason.target_points !== undefined ? Number(newSeason.target_points) : null,
+    target_rank: newSeason.target_rank !== null && newSeason.target_rank !== undefined ? Number(newSeason.target_rank) : null,
     created: true,
   };
 }

@@ -158,6 +158,8 @@ export interface DashboardData {
   bankBalance: number;
   totalPoints: number;
   globalRank: number | null;
+  targetPoints?: number | null;
+  targetRank?: number | null;
   freeTransfers: number;
   squadName?: string;
   gameweek?: { gameweek_number: number; deadline: string; status: string } | null;
