@@ -280,7 +280,7 @@ export default function SquadsPage() {
       {/* Header & Quick Actions */}
       <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="mb-2 flex items-center gap-3 text-3xl font-bold text-white">
+          <h1 className="mb-2 flex items-center gap-3 text-3xl font-bold" style={{ color: 'var(--text-primary)' }}>
             <Users className="h-7 w-7 text-cyan-400" aria-hidden="true" />
             My Squad
           </h1>
@@ -289,24 +289,29 @@ export default function SquadsPage() {
               <p className="font-semibold text-amber-500">
                 {gameweek.status === 'closed' ? 'Last available gameweek' : 'Gameweek'} {gameweek.gameweek_number}
               </p>
-              <p className="mt-1 text-sm text-slate-400">
+              <p className="mt-1 text-sm" style={{ color: 'var(--text-muted)' }}>
                 Review your owned players, budget allocation, and gameweek tactical formation.
               </p>
             </div>
           ) : (
-            <p className="mt-1 text-sm text-slate-400">Manage your owned roster and view your transfer history.</p>
+            <p className="mt-1 text-sm" style={{ color: 'var(--text-muted)' }}>Manage your owned roster and view your transfer history.</p>
           )}
         </div>
         <div data-guide="squad-actions" data-tour="squad-actions" className="flex gap-3">
           <Link
             href="/transfers"
-            className="flex items-center gap-2 rounded-xl border border-slate-600 bg-slate-800 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-slate-700"
+            className="flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition-all hover:opacity-90"
+            style={{
+              background: 'var(--surface-raised)',
+              border: '1px solid var(--border)',
+              color: 'var(--text-primary)',
+            }}
           >
             Make Transfers
           </Link>
           <Link
             href="/lineups"
-            className="flex items-center gap-2 rounded-xl bg-linear-to-r from-amber-500 to-orange-600 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-orange-500/20 transition-colors hover:from-amber-400 hover:to-orange-500"
+            className="flex items-center gap-2 rounded-xl bg-linear-to-r from-amber-500 to-orange-600 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-orange-500/20 transition-all hover:from-amber-400 hover:to-orange-500"
           >
             Edit Lineup
           </Link>
@@ -316,39 +321,52 @@ export default function SquadsPage() {
       {/* Budget Visualization Card */}
       <section
         aria-label="Budget Breakdown"
-        className="mb-8 rounded-2xl border border-slate-700 bg-linear-to-b from-slate-900/90 to-slate-900/50 p-5 shadow-xl backdrop-blur-sm sm:p-6"
+        className="relative mb-8 overflow-hidden rounded-2xl p-5 shadow-sm transition-all sm:p-6"
+        style={{
+          background: 'var(--surface)',
+          border: '1px solid var(--border)',
+        }}
       >
+        {/* Top glowing accent bar */}
+        <div
+          className="absolute top-0 left-0 right-0 h-1"
+          style={{ background: 'linear-gradient(90deg, #06b6d4, #10b981)' }}
+        />
+
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-cyan-500/30 bg-cyan-500/10 text-cyan-400">
+            <div
+              className="flex h-11 w-11 items-center justify-center rounded-xl border border-cyan-500/30 text-cyan-400"
+              style={{ background: 'color-mix(in srgb, #06b6d4 12%, transparent)' }}
+            >
               <Wallet className="h-5 w-5" />
             </div>
             <div>
-              <h2 className="text-base font-bold text-white">Squad Budget & Valuation</h2>
-              <p className="text-xs text-slate-400">Total allocation across active squad value and bank liquidity</p>
+              <h2 className="text-base font-bold" style={{ color: 'var(--text-primary)' }}>Squad Budget & Valuation</h2>
+              <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Total allocation across active squad value and bank liquidity</p>
             </div>
           </div>
           <div className="flex items-center gap-4 text-right">
             <div>
-              <span className="block text-xs font-medium uppercase tracking-wider text-slate-400">Squad Value</span>
+              <span className="block text-[11px] font-medium uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Squad Value</span>
               <span className="font-mono text-lg font-bold text-cyan-400">${squadValue.toFixed(1)}M</span>
             </div>
-            <div className="h-8 w-px bg-slate-700" />
+            <div className="h-8 w-px" style={{ background: 'var(--border)' }} />
             <div>
-              <span className="block text-xs font-medium uppercase tracking-wider text-slate-400">In Bank</span>
+              <span className="block text-[11px] font-medium uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>In Bank</span>
               <span className="font-mono text-lg font-bold text-emerald-400">${budget.toFixed(1)}M</span>
             </div>
-            <div className="h-8 w-px bg-slate-700" />
+            <div className="h-8 w-px" style={{ background: 'var(--border)' }} />
             <div>
-              <span className="block text-xs font-medium uppercase tracking-wider text-slate-400">Total Account Value</span>
-              <span className="font-mono text-lg font-bold text-white">${totalAccountValue.toFixed(1)}M</span>
+              <span className="block text-[11px] font-medium uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Total Account Value</span>
+              <span className="font-mono text-lg font-bold" style={{ color: 'var(--text-primary)' }}>${totalAccountValue.toFixed(1)}M</span>
             </div>
           </div>
         </div>
 
         {/* Dual Progress Bar */}
         <div className="mt-4">
-          <div className="relative h-3 w-full overflow-hidden rounded-full bg-slate-800">
+          <div className="relative h-3 w-full overflow-hidden rounded-full" style={{ background: 'var(--surface-muted)' }}>
             <div
               className="absolute left-0 top-0 h-full bg-linear-to-r from-cyan-600 to-cyan-400 transition-all duration-500"
               style={{ width: `${squadValuePercent}%` }}
@@ -360,15 +378,15 @@ export default function SquadsPage() {
               title={`In Bank: $${budget.toFixed(1)}M (${bankPercent.toFixed(1)}%)`}
             />
           </div>
-          <div className="mt-2 flex items-center justify-between text-xs text-slate-400">
+          <div className="mt-2.5 flex items-center justify-between text-xs" style={{ color: 'var(--text-muted)' }}>
             <div className="flex items-center gap-4">
               <span className="flex items-center gap-1.5">
                 <span className="h-2 w-2 rounded-full bg-cyan-400" />
-                <span>Squad: <strong className="text-slate-200">${squadValue.toFixed(1)}M</strong></span>
+                <span>Squad: <strong style={{ color: 'var(--text-primary)' }}>${squadValue.toFixed(1)}M</strong></span>
               </span>
               <span className="flex items-center gap-1.5">
                 <span className="h-2 w-2 rounded-full bg-emerald-400" />
-                <span>Liquid Bank: <strong className="text-slate-200">${budget.toFixed(1)}M</strong></span>
+                <span>Liquid Bank: <strong style={{ color: 'var(--text-primary)' }}>${budget.toFixed(1)}M</strong></span>
               </span>
             </div>
           </div>
@@ -376,18 +394,18 @@ export default function SquadsPage() {
       </section>
 
       {/* Tabs & View Mode Switcher */}
-      <div className="mb-6 flex flex-wrap items-center justify-between gap-4 border-b border-slate-700">
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-4" style={{ borderBottom: '1px solid var(--border)' }}>
         <div className="flex gap-2" role="tablist" aria-label="Squad views">
           <button
             type="button"
             role="tab"
             aria-selected={activeTab === 'squad'}
             onClick={() => setActiveTab('squad')}
-            className={`border-b-2 px-4 py-3 text-sm font-semibold transition-colors ${
-              activeTab === 'squad'
-                ? 'border-cyan-400 text-cyan-300'
-                : 'border-transparent text-slate-400 hover:text-white'
-            }`}
+            className="border-b-2 px-4 py-3 text-sm font-semibold transition-all cursor-pointer"
+            style={{
+              borderColor: activeTab === 'squad' ? 'var(--accent-primary)' : 'transparent',
+              color: activeTab === 'squad' ? 'var(--accent-primary)' : 'var(--text-muted)',
+            }}
           >
             My Squad ({ownedRoster.length}/8)
           </button>
@@ -396,11 +414,11 @@ export default function SquadsPage() {
             role="tab"
             aria-selected={activeTab === 'history'}
             onClick={openTransferHistory}
-            className={`flex items-center gap-2 border-b-2 px-4 py-3 text-sm font-semibold transition-colors ${
-              activeTab === 'history'
-                ? 'border-cyan-400 text-cyan-300'
-                : 'border-transparent text-slate-400 hover:text-white'
-            }`}
+            className="flex items-center gap-2 border-b-2 px-4 py-3 text-sm font-semibold transition-all cursor-pointer"
+            style={{
+              borderColor: activeTab === 'history' ? 'var(--accent-primary)' : 'transparent',
+              color: activeTab === 'history' ? 'var(--accent-primary)' : 'var(--text-muted)',
+            }}
           >
             <History className="h-4 w-4" />
             Transfer History
@@ -409,15 +427,16 @@ export default function SquadsPage() {
 
         {activeTab === 'squad' && (
           <div className="flex items-center gap-1.5 pb-2 sm:pb-0">
-            <span className="text-xs font-semibold uppercase tracking-wider text-slate-400 mr-2">Layout:</span>
+            <span className="text-xs font-semibold uppercase tracking-wider mr-2" style={{ color: 'var(--text-muted)' }}>Layout:</span>
             <button
               type="button"
               onClick={() => setViewMode('pitch')}
-              className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all ${
-                viewMode === 'pitch'
-                  ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40'
-                  : 'bg-slate-800 text-slate-400 hover:text-slate-200 border border-slate-700'
-              }`}
+              className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer"
+              style={{
+                background: viewMode === 'pitch' ? 'color-mix(in srgb, #06b6d4 15%, transparent)' : 'var(--surface-raised)',
+                color: viewMode === 'pitch' ? '#06b6d4' : 'var(--text-muted)',
+                border: `1px solid ${viewMode === 'pitch' ? 'color-mix(in srgb, #06b6d4 40%, transparent)' : 'var(--border)'}`,
+              }}
               title="Dota battlefield lane formation"
             >
               <MapPin className="h-3.5 w-3.5" />
@@ -426,11 +445,12 @@ export default function SquadsPage() {
             <button
               type="button"
               onClick={() => setViewMode('grid')}
-              className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all ${
-                viewMode === 'grid'
-                  ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40'
-                  : 'bg-slate-800 text-slate-400 hover:text-slate-200 border border-slate-700'
-              }`}
+              className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer"
+              style={{
+                background: viewMode === 'grid' ? 'color-mix(in srgb, #06b6d4 15%, transparent)' : 'var(--surface-raised)',
+                color: viewMode === 'grid' ? '#06b6d4' : 'var(--text-muted)',
+                border: `1px solid ${viewMode === 'grid' ? 'color-mix(in srgb, #06b6d4 40%, transparent)' : 'var(--border)'}`,
+              }}
               title="Compact squad roster grid"
             >
               <LayoutGrid className="h-3.5 w-3.5" />
@@ -445,26 +465,26 @@ export default function SquadsPage() {
         <section
           role="tabpanel"
           aria-label="Transfer history"
-          className="rounded-2xl border border-slate-700 bg-slate-900/50 p-4 sm:p-6"
+          className="rounded-2xl border p-4 sm:p-6 shadow-sm" style={{ background: "var(--surface)", borderColor: "var(--border)" }}
         >
           {/* History Summary Tiles */}
           <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
-            <div className="rounded-xl border border-slate-800 bg-slate-950/70 p-3.5">
-              <span className="block text-[11px] font-medium uppercase tracking-wider text-slate-400">Total Transactions</span>
-              <span className="mt-1 font-mono text-xl font-bold text-white">{historySummary.totalTransfers}</span>
+            <div className="rounded-xl border p-3.5" style={{ background: "var(--surface-raised)", borderColor: "var(--border)" }}>
+              <span className="block text-[11px] font-medium uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>Total Transactions</span>
+              <span className="mt-1 font-mono text-xl font-bold" style={{ color: "var(--text-primary)" }}>{historySummary.totalTransfers}</span>
             </div>
-            <div className="rounded-xl border border-slate-800 bg-slate-950/70 p-3.5">
-              <span className="block text-[11px] font-medium uppercase tracking-wider text-slate-400">Total Moves</span>
+            <div className="rounded-xl border p-3.5" style={{ background: "var(--surface-raised)", borderColor: "var(--border)" }}>
+              <span className="block text-[11px] font-medium uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>Total Moves</span>
               <span className="mt-1 font-mono text-xl font-bold text-cyan-400">{historySummary.totalMoves}</span>
             </div>
-            <div className="rounded-xl border border-slate-800 bg-slate-950/70 p-3.5">
-              <span className="block text-[11px] font-medium uppercase tracking-wider text-slate-400">Point Deductions</span>
+            <div className="rounded-xl border p-3.5" style={{ background: "var(--surface-raised)", borderColor: "var(--border)" }}>
+              <span className="block text-[11px] font-medium uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>Point Deductions</span>
               <span className={`mt-1 font-mono text-xl font-bold ${historySummary.totalPenalty > 0 ? 'text-rose-400' : 'text-emerald-400'}`}>
                 {historySummary.totalPenalty > 0 ? `-${historySummary.totalPenalty} pts` : '0 pts'}
               </span>
             </div>
-            <div className="rounded-xl border border-slate-800 bg-slate-950/70 p-3.5">
-              <span className="block text-[11px] font-medium uppercase tracking-wider text-slate-400">Active Gameweeks</span>
+            <div className="rounded-xl border p-3.5" style={{ background: "var(--surface-raised)", borderColor: "var(--border)" }}>
+              <span className="block text-[11px] font-medium uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>Active Gameweeks</span>
               <span className="mt-1 font-mono text-xl font-bold text-amber-400">{historySummary.totalGameweeks}</span>
             </div>
           </div>
@@ -594,7 +614,7 @@ export default function SquadsPage() {
               No transfer history is recorded yet. Completed transfers will appear here along with their points impact.
             </div>
           ) : (
-            <div className="relative pl-6 sm:pl-8 before:absolute before:left-3 sm:before:left-4 before:top-3 before:bottom-3 before:w-0.5 before:bg-slate-700">
+            <div className="relative pl-6 sm:pl-8 before:absolute before:left-3 sm:before:left-4 before:top-3 before:bottom-3 before:w-0.5 before:bg-cyan-500/20">
               <div className="space-y-6">
                 {transferHistory.map((transfer) => {
                   const dateStr = new Date(transfer.createdAt).toLocaleString(undefined, {
@@ -610,8 +630,9 @@ export default function SquadsPage() {
                       {/* Timeline Node Dot */}
                       <div className="absolute -left-6 sm:-left-8 top-3 h-3 w-3 rounded-full border-2 border-cyan-400 bg-slate-900 group-hover:scale-125 transition-transform" />
 
-                      <div className="rounded-xl border border-slate-800 bg-slate-950/70 p-4 transition-colors hover:border-slate-700">
-                        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800/80 pb-3 mb-3">
+                      <div className="rounded-xl border p-4 transition-all hover:shadow-md relative overflow-hidden" style={{ background: "var(--surface-raised)", borderColor: "var(--border)" }}>
+                        <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-cyan-500 to-emerald-500" />
+                        <div className="flex flex-wrap items-center justify-between gap-2 border-b pb-3 mb-3">
                           <div className="flex items-center gap-2">
                             {transfer.gameweekNumber !== null ? (
                               <span className="rounded-md bg-amber-500/15 border border-amber-500/30 px-2 py-0.5 text-xs font-bold text-amber-300">
@@ -695,9 +716,15 @@ export default function SquadsPage() {
               className="space-y-6"
             >
               {/* Tactical Battlefield */}
-              <div className="relative overflow-hidden rounded-3xl border border-cyan-500/30 bg-linear-to-b from-slate-950 via-slate-900 to-slate-950 p-4 shadow-2xl sm:p-8">
+              <div
+                className="relative overflow-hidden rounded-3xl p-4 shadow-xl sm:p-8 transition-all"
+                style={{
+                  background: 'var(--surface)',
+                  border: '1px solid var(--border)',
+                }}
+              >
                 {/* Tactical map background accents */}
-                <div className="pointer-events-none absolute inset-0 opacity-15">
+                <div className="pointer-events-none absolute inset-0 opacity-10">
                   <div className="absolute top-1/2 left-0 right-0 h-px bg-cyan-400/50 -rotate-12 transform origin-center" />
                   <div className="absolute top-0 bottom-0 left-1/2 w-px bg-cyan-400/30" />
                   <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-64 w-64 rounded-full border border-cyan-400/40" />
@@ -710,9 +737,16 @@ export default function SquadsPage() {
                     <span className="text-xs font-bold uppercase tracking-widest text-cyan-400">
                       Tactical Lane Formation
                     </span>
-                    <h2 className="text-xl font-bold text-white">Starting Five</h2>
+                    <h2 className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>Starting Five</h2>
                   </div>
-                  <span className="rounded-full border border-slate-700 bg-slate-800/80 px-3 py-1 text-xs text-slate-300">
+                  <span
+                    className="rounded-full px-3 py-1 text-xs font-semibold"
+                    style={{
+                      background: 'var(--surface-raised)',
+                      border: '1px solid var(--border)',
+                      color: 'var(--text-muted)',
+                    }}
+                  >
                     5 Starters on Pitch
                   </span>
                 </div>
@@ -763,27 +797,43 @@ export default function SquadsPage() {
               </div>
 
               {/* Bench Dugout */}
-              <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 sm:p-6">
+              <div
+                className="rounded-2xl p-5 sm:p-6 transition-all"
+                style={{
+                  background: 'var(--surface)',
+                  border: '1px solid var(--border)',
+                }}
+              >
                 <div className="mb-4 flex items-center justify-between">
                   <div>
-                    <span className="text-xs font-bold uppercase tracking-widest text-slate-400">Substitutes</span>
-                    <h3 className="text-lg font-bold text-white">Bench Dugout</h3>
+                    <span className="text-xs font-bold uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>Substitutes</span>
+                    <h3 className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>Bench Dugout</h3>
                   </div>
-                  <span className="text-xs text-slate-400">{pitchRoster.bench.length} Reserves</span>
+                  <span className="text-xs font-semibold" style={{ color: 'var(--text-muted)' }}>{pitchRoster.bench.length} Reserves</span>
                 </div>
 
                 {pitchRoster.bench.length === 0 ? (
-                  <p className="text-sm text-slate-500 italic">No substitutes on the bench.</p>
+                  <p className="text-sm italic" style={{ color: 'var(--text-muted)' }}>No substitutes on the bench.</p>
                 ) : (
-                  <div className="grid gap-3 sm:grid-cols-3">
+                  <div className="grid gap-3 grid-cols-1 sm:grid-cols-3">
                     {pitchRoster.bench.map(({ player, lineupEntry }) => (
                       <button
                         key={player.id}
                         type="button"
                         onClick={() => openPlayerDetails(player.id)}
-                        className="flex items-center gap-3 rounded-xl border border-slate-700/80 bg-slate-950/80 p-3 text-left transition-colors hover:border-slate-600 hover:bg-slate-900"
+                        className="flex items-center gap-3 rounded-xl p-3 text-left transition-all hover:scale-[1.02] cursor-pointer"
+                        style={{
+                          background: 'var(--surface-raised)',
+                          border: '1px solid var(--border)',
+                        }}
                       >
-                        <span className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full border border-slate-700 bg-slate-800">
+                        <span
+                          className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full border"
+                          style={{
+                            borderColor: 'var(--border)',
+                            background: 'var(--surface-muted)',
+                          }}
+                        >
                           {player.profile_image_url ? (
                             <Image
                               src={player.profile_image_url}
@@ -794,23 +844,23 @@ export default function SquadsPage() {
                               className="h-full w-full object-cover"
                             />
                           ) : (
-                            <span className="text-xs font-bold text-slate-400">
+                            <span className="text-xs font-bold" style={{ color: 'var(--text-muted)' }}>
                               {(player.in_game_name || player.name || 'P').substring(0, 2).toUpperCase()}
                             </span>
                           )}
                         </span>
                         <div className="min-w-0 flex-1">
-                          <span className="block text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                          <span className="block text-[10px] font-bold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>
                             {lineupEntry?.slot ? lineupEntry.slot.replace('_', ' ') : player.primary_role || 'Bench'}
                           </span>
-                          <span className="block truncate text-sm font-bold text-white">
+                          <span className="block truncate text-sm font-bold" style={{ color: 'var(--text-primary)' }}>
                             {player.in_game_name || player.name}
                           </span>
-                          <span className="block text-xs text-slate-400">
-                            {player.professional_teams?.slug?.toUpperCase() || 'Free Agent'}
+                          <span className="block text-xs" style={{ color: 'var(--text-muted)' }}>
+                            {player.professional_teams?.slug?.toUpperCase() || player.professional_teams?.name || 'Free Agent'}
                           </span>
                         </div>
-                        <span className="font-mono text-xs font-semibold text-amber-400">
+                        <span className="font-mono text-xs font-semibold text-amber-500 dark:text-amber-400">
                           ${Number(player.current_price || 0).toFixed(1)}M
                         </span>
                       </button>
@@ -862,58 +912,99 @@ export default function SquadsPage() {
                       data-guide={index === 0 ? 'squad-first-player' : undefined}
                       data-tour={index === 0 ? 'squad-first-player' : undefined}
                       onClick={() => openPlayerDetails(player.id)}
-                      className="relative flex min-h-24 w-full items-center gap-4 rounded-xl border border-cyan-500/30 bg-slate-800/80 px-4 py-3 text-left shadow-lg transition-colors hover:border-cyan-400/70 hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-cyan-400"
+                      className="group relative flex min-h-24 w-full items-center gap-4 rounded-2xl border p-4 text-left shadow-md transition-all duration-200 hover:shadow-lg hover:border-cyan-500/50 cursor-pointer focus:outline-none focus:ring-2 focus:ring-cyan-400"
+                      style={{
+                        background: 'var(--surface-raised)',
+                        borderColor: 'var(--border)',
+                      }}
                     >
-                      <span className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-full border border-slate-600 bg-slate-700">
-                        {player.profile_image_url ? (
-                          <Image
-                            src={player.profile_image_url}
-                            alt=""
-                            width={56}
-                            height={56}
-                            unoptimized
-                            className="h-full w-full object-cover"
-                          />
-                        ) : (
-                          <span className="player-avatar-initials squad-card-muted text-xs">
-                            {(playerName || 'P').substring(0, 2).toUpperCase()}
+                      <div className="relative">
+                        <div
+                          className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-full border-2 shadow-sm"
+                          style={{
+                            borderColor: 'var(--accent-primary)',
+                            background: 'color-mix(in srgb, var(--accent-primary) 15%, transparent)',
+                          }}
+                        >
+                          {player.profile_image_url ? (
+                            <Image
+                              src={player.profile_image_url}
+                              alt=""
+                              width={56}
+                              height={56}
+                              unoptimized
+                              className="h-full w-full object-cover"
+                            />
+                          ) : (
+                            <span className="text-sm font-bold" style={{ color: 'var(--accent-primary)' }}>
+                              {(playerName || 'P').substring(0, 2).toUpperCase()}
+                            </span>
+                          )}
+                        </div>
+
+                        {lineupEntry?.is_captain && (
+                          <span
+                            aria-label="Captain (2x Points)"
+                            className="absolute -top-1.5 -left-1.5 z-10 flex items-center gap-0.5 rounded-full px-1.5 py-0.2 text-[9px] font-black uppercase tracking-wider shadow-md"
+                            style={{
+                              background: 'linear-gradient(135deg, #f59e0b, #d97706)',
+                              color: '#ffffff',
+                              boxShadow: '0 2px 8px rgba(245, 158, 11, 0.45)',
+                            }}
+                          >
+                            <span>C</span>
+                            <span className="text-[8px] font-bold opacity-90">2×</span>
                           </span>
                         )}
-                      </span>
-                      <span className="min-w-0 flex-1">
-                        <span className="block text-xs font-bold uppercase tracking-widest text-cyan-400">
+
+                        {lineupEntry?.is_vice_captain && !lineupEntry?.is_captain && (
+                          <span
+                            aria-label="Vice-captain"
+                            className="absolute -top-1.5 -left-1.5 z-10 flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-black shadow-md"
+                            style={{
+                              background: 'linear-gradient(135deg, #06b6d4, #0284c7)',
+                              color: '#ffffff',
+                              boxShadow: '0 2px 6px rgba(6, 182, 212, 0.35)',
+                            }}
+                          >
+                            V
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="min-w-0 flex-1">
+                        <span className="block text-[11px] font-bold uppercase tracking-widest" style={{ color: 'var(--accent-primary)' }}>
                           {player.primary_role || 'Role unavailable'}
                         </span>
-                        <span className="block truncate text-base font-bold text-white" title={playerName}>
+                        <span
+                          className="block truncate text-base font-bold transition-colors group-hover:text-cyan-500"
+                          style={{ color: 'var(--text-primary)' }}
+                          title={playerName}
+                        >
                           {playerName}
                         </span>
-                        <span className="squad-card-muted block truncate text-sm text-slate-400">
+                        <span className="block truncate text-sm" style={{ color: 'var(--text-muted)' }}>
                           {player.professional_teams?.slug?.toUpperCase() ||
                             player.professional_teams?.name ||
                             'Free Agent'}
                         </span>
-                        <span className="mt-1 block text-xs capitalize text-slate-500">
+                        <span className="mt-1 block text-xs capitalize" style={{ color: 'var(--text-muted)' }}>
                           {gameweek ? `${lineupPeriod} · ${lineupLabel}` : `${lineupPeriod} · squad ownership`}
                         </span>
-                      </span>
-                      <span className="flex shrink-0 flex-col items-end gap-1 text-right">
-                        <span className="font-mono text-sm text-amber-400">
+                      </div>
+
+                      <div className="flex shrink-0 flex-col items-end gap-1 text-right">
+                        <span className="font-mono text-sm font-bold text-amber-500 dark:text-amber-400">
                           ${Number(player.current_price || 0).toFixed(1)}M
                         </span>
-                        <span className="text-xs text-slate-500">
-                          {player.availability_status || 'Availability unknown'}
+                        <span className="rounded-full px-2 py-0.5 text-[10px] font-semibold" style={{
+                          background: 'color-mix(in srgb, var(--surface-muted) 80%, transparent)',
+                          color: 'var(--text-muted)',
+                          border: '1px solid var(--border)'
+                        }}>
+                          {player.availability_status || 'Available'}
                         </span>
-                      </span>
-                      {lineupEntry?.is_captain && (
-                        <span className="absolute -right-2 -top-2 rounded-full bg-amber-500 px-2 py-0.5 text-xs font-bold text-slate-950">
-                          C
-                        </span>
-                      )}
-                      {lineupEntry?.is_vice_captain && (
-                        <span className="absolute -right-2 -top-2 rounded-full bg-slate-200 px-2 py-0.5 text-xs font-bold text-slate-900">
-                          VC
-                        </span>
-                      )}
+                      </div>
                     </button>
                   );
                 })}
@@ -942,13 +1033,14 @@ export default function SquadsPage() {
           onClick={() => setSelectedPlayer(null)}
         >
           <div
-            className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-cyan-500/30 bg-slate-900 p-6 shadow-2xl"
+            className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl border p-6 shadow-2xl"
+            style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}
             onClick={(event) => event.stopPropagation()}
           >
             <div className="mb-6 flex items-start justify-between gap-4">
               <div>
                 <p className="mb-1 text-xs font-semibold uppercase tracking-widest text-cyan-400">Player Details</p>
-                <h2 id="squad-player-title" className="text-2xl font-bold text-white">
+                <h2 id="squad-player-title" className="text-2xl font-bold" style={{ color: "var(--text-primary)" }}>
                   {selectedPlayer.in_game_name || selectedPlayer.name}
                 </h2>
                 <p className="text-sm text-slate-400">
@@ -967,21 +1059,21 @@ export default function SquadsPage() {
             </div>
 
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-              <div className="rounded-lg border border-slate-700 bg-slate-800/60 p-3">
+              <div className="rounded-xl border p-3" style={{ background: "var(--surface-raised)", borderColor: "var(--border)" }}>
                 <p className="text-xs text-slate-500">Price</p>
                 <p className="mt-1 font-mono font-bold text-amber-400">
                   ${Number(selectedPlayer.current_price || 0).toFixed(1)}M
                 </p>
               </div>
-              <div className="rounded-lg border border-slate-700 bg-slate-800/60 p-3">
+              <div className="rounded-xl border p-3" style={{ background: "var(--surface-raised)", borderColor: "var(--border)" }}>
                 <p className="text-xs text-slate-500">Season Points</p>
-                <p className="mt-1 font-bold text-white">{selectedPlayer.total_season_points ?? 0}</p>
+                <p className="mt-1 font-bold" style={{ color: "var(--text-primary)" }}>{selectedPlayer.total_season_points ?? 0}</p>
               </div>
-              <div className="rounded-lg border border-slate-700 bg-slate-800/60 p-3">
+              <div className="rounded-xl border p-3" style={{ background: "var(--surface-raised)", borderColor: "var(--border)" }}>
                 <p className="text-xs text-slate-500">Last GW</p>
-                <p className="mt-1 font-bold text-white">{selectedPlayer.last_gw_points ?? 0}</p>
+                <p className="mt-1 font-bold" style={{ color: "var(--text-primary)" }}>{selectedPlayer.last_gw_points ?? 0}</p>
               </div>
-              <div className="rounded-lg border border-slate-700 bg-slate-800/60 p-3">
+              <div className="rounded-xl border p-3" style={{ background: "var(--surface-raised)", borderColor: "var(--border)" }}>
                 <p className="text-xs text-slate-500">Availability</p>
                 <p className="mt-1 text-sm font-semibold capitalize text-emerald-400">
                   {selectedPlayer.availability_status || 'Unknown'}
@@ -1033,24 +1125,42 @@ function PitchPlayerSlot({
 }) {
   if (!slotItem) {
     return (
-      <div className="w-48 rounded-2xl border-2 border-dashed border-slate-800 bg-slate-950/60 p-3 text-center">
-        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">{roleTitle}</span>
-        <p className="mt-1 text-xs text-slate-600">Vacant Slot</p>
+      <div
+        className="w-48 sm:w-56 rounded-2xl border-2 border-dashed p-3 text-center transition-all"
+        style={{
+          borderColor: 'var(--border)',
+          background: 'color-mix(in srgb, var(--surface) 60%, transparent)',
+        }}
+      >
+        <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>{roleTitle}</span>
+        <p className="mt-1 text-xs" style={{ color: 'var(--text-muted)' }}>Vacant Slot</p>
       </div>
     );
   }
 
   const { player, lineupEntry } = slotItem;
   const playerName = player.in_game_name || player.name;
+  const initials = (playerName || 'P').substring(0, 2).toUpperCase();
 
   return (
     <button
       type="button"
       onClick={() => onSelect(player.id)}
-      className="group relative flex w-48 sm:w-56 items-center gap-3 rounded-2xl border border-cyan-500/40 bg-slate-900/90 p-3 text-left shadow-xl backdrop-blur-md transition-all hover:scale-105 hover:border-cyan-400 hover:bg-slate-850 hover:shadow-cyan-500/10 focus:outline-none focus:ring-2 focus:ring-cyan-400"
+      className="group relative flex w-48 sm:w-56 items-center gap-3 rounded-2xl p-3 text-left shadow-lg backdrop-blur-md transition-all duration-200 hover:scale-105 cursor-pointer focus:outline-none focus:ring-2 focus:ring-cyan-400"
+      style={{
+        background: 'var(--surface-raised)',
+        border: '1px solid var(--border)',
+      }}
     >
+      {/* Avatar + Captain Badge */}
       <div className="relative">
-        <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-full border-2 border-cyan-400/60 bg-slate-800 shadow-md">
+        <div
+          className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-full border-2 shadow-md"
+          style={{
+            borderColor: 'var(--accent-primary)',
+            background: 'color-mix(in srgb, var(--accent-primary) 15%, transparent)',
+          }}
+        >
           {player.profile_image_url ? (
             <Image
               src={player.profile_image_url}
@@ -1061,37 +1171,60 @@ function PitchPlayerSlot({
               className="h-full w-full object-cover"
             />
           ) : (
-            <span className="text-xs font-bold text-cyan-300">
-              {(playerName || 'P').substring(0, 2).toUpperCase()}
+            <span className="text-xs font-bold" style={{ color: 'var(--accent-primary)' }}>
+              {initials}
             </span>
           )}
         </div>
+
         {lineupEntry?.is_captain && (
-          <span className="absolute -top-1 -left-1 flex h-5 w-5 items-center justify-center rounded-full bg-amber-500 text-[10px] font-extrabold text-slate-950 shadow">
-            C
+          <span
+            aria-label="Captain (2x Points)"
+            className="absolute -top-1.5 -left-1.5 z-10 flex items-center gap-0.5 rounded-full px-1.5 py-0.2 text-[9px] font-black uppercase tracking-wider shadow-md"
+            style={{
+              background: 'linear-gradient(135deg, #f59e0b, #d97706)',
+              color: '#ffffff',
+              boxShadow: '0 2px 8px rgba(245, 158, 11, 0.45)',
+            }}
+          >
+            <span>C</span>
+            <span className="text-[8px] font-bold opacity-90">2×</span>
           </span>
         )}
-        {lineupEntry?.is_vice_captain && (
-          <span className="absolute -top-1 -left-1 flex h-5 w-5 items-center justify-center rounded-full bg-slate-200 text-[10px] font-extrabold text-slate-900 shadow">
-            VC
+
+        {lineupEntry?.is_vice_captain && !lineupEntry?.is_captain && (
+          <span
+            aria-label="Vice-captain"
+            className="absolute -top-1.5 -left-1.5 z-10 flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-black shadow-md"
+            style={{
+              background: 'linear-gradient(135deg, #06b6d4, #0284c7)',
+              color: '#ffffff',
+              boxShadow: '0 2px 6px rgba(6, 182, 212, 0.35)',
+            }}
+          >
+            V
           </span>
         )}
       </div>
 
       <div className="min-w-0 flex-1">
-        <span className="block text-[10px] font-bold uppercase tracking-wider text-cyan-400 truncate">
+        <span className="block text-[10px] font-bold uppercase tracking-wider truncate" style={{ color: 'var(--accent-primary)' }}>
           {roleTitle}
         </span>
-        <span className="block truncate text-sm font-bold text-white group-hover:text-cyan-200" title={playerName}>
+        <span
+          className="block truncate text-sm font-bold transition-colors group-hover:text-cyan-500"
+          style={{ color: 'var(--text-primary)' }}
+          title={playerName}
+        >
           {playerName}
         </span>
-        <span className="block truncate text-xs text-slate-400">
-          {player.professional_teams?.slug?.toUpperCase() || 'Free Agent'}
+        <span className="block truncate text-xs" style={{ color: 'var(--text-muted)' }}>
+          {player.professional_teams?.slug?.toUpperCase() || player.professional_teams?.name || 'Free Agent'}
         </span>
       </div>
 
       <div className="text-right">
-        <span className="block font-mono text-xs font-bold text-amber-400">
+        <span className="block font-mono text-xs font-bold text-amber-500 dark:text-amber-400">
           ${Number(player.current_price || 0).toFixed(1)}M
         </span>
       </div>

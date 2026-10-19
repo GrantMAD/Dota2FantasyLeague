@@ -44,8 +44,8 @@ interface PlayerPriceRow {
 
 interface GameweekScoreRow {
   player_id: number;
-  total_points: number | null;
   gameweek_id: number;
+  fantasy_points_breakdown: { total_points: number | null } | { total_points: number | null }[] | null;
 }
 
 interface GameweekRow {
@@ -248,15 +248,17 @@ async function getHandler(request: NextRequest) {
           .eq('season_id', fantasySeason.season_id)
           .in('player_id', allRelevantPlayerIds)
           .order('gameweek_id', { ascending: false }),
-        // The generated local schema does not include this table.
+        // Fetch scores from player_performances -> fantasy_points_breakdown
+        // (the actual scoring source; gameweek_scores is unused/empty)
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (supabase.from('gameweek_scores') as any)
-          .select('player_id, total_points, gameweek_id')
+        (supabase.from('player_performances') as any)
+          .select('player_id, gameweek_id, fantasy_points_breakdown(total_points)')
           .in('player_id', allRelevantPlayerIds)
-          .order('gameweek_id', { ascending: false }),
+          .order('gameweek_id', { ascending: false })
+          .limit(allRelevantPlayerIds.length * 5),
       ]);
           const prices = (priceData ?? []) as PlayerPriceRow[];
-          const scores = (scoreData ?? []) as GameweekScoreRow[];
+          const rawPerformances = (scoreData ?? []) as GameweekScoreRow[];
 
       const latestPrices = new Map<number, number>();
       for (const price of prices) {
@@ -265,11 +267,26 @@ async function getHandler(request: NextRequest) {
         }
       }
 
+      // Aggregate points per player per gameweek (multiple matches in a GW sum together)
+      const playerGwScores = new Map<number, Map<number, number>>();
+      for (const perf of rawPerformances) {
+        const breakdown = perf.fantasy_points_breakdown;
+        const pts = Array.isArray(breakdown)
+          ? breakdown.reduce((sum: number, b: { total_points: number | null }) => sum + Number(b.total_points ?? 0), 0)
+          : Number((breakdown as { total_points: number | null } | null)?.total_points ?? 0);
+        const gwMap = playerGwScores.get(perf.player_id) ?? new Map<number, number>();
+        gwMap.set(perf.gameweek_id, (gwMap.get(perf.gameweek_id) ?? 0) + pts);
+        playerGwScores.set(perf.player_id, gwMap);
+      }
+
+      // Build ordered score arrays per player (most recent GW first, up to 5)
       const playerScoresMap = new Map<number, number[]>();
-      for (const score of scores) {
-        const list = playerScoresMap.get(score.player_id) ?? [];
-        if (list.length < 5) list.push(Number(score.total_points ?? 0));
-        playerScoresMap.set(score.player_id, list);
+      for (const [pid, gwMap] of playerGwScores) {
+        const sorted = Array.from(gwMap.entries())
+          .sort((a, b) => b[0] - a[0])
+          .slice(0, 5)
+          .map(([, pts]) => pts);
+        playerScoresMap.set(pid, sorted);
       }
 
       for (const p of (players ?? []) as FantasyPlayerRow[]) {

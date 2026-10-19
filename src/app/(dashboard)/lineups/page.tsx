@@ -3,7 +3,7 @@
 import { fetchWithAuth } from '@/lib/fetch-with-auth';
 import { useState, useEffect, useCallback } from 'react';
 import Image from 'next/image';
-import { CircleAlert, UserCheck, TrendingUp, TrendingDown, Minus } from 'lucide-react';
+import { CircleAlert, UserCheck, TrendingUp, TrendingDown, Minus, Clock, ShieldCheck, Lock, Sparkles, ChevronDown } from 'lucide-react';
 import { useToast } from '@/components/Toast';
 import type { ChipType, ChipStatus, FantasyPlayer as LineupPlayer, LineupEntry } from '@/types/fantasy';
 
@@ -295,79 +295,220 @@ export default function LineupsPage() {
   };
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-12">
-      <h1 className="mb-2 flex items-center gap-3 text-3xl font-bold text-white">
-        <UserCheck className="h-7 w-7 text-cyan-400" aria-hidden="true" />
-        Lineups
-      </h1>
-      <p className="max-w-3xl text-slate-400 mb-8">Choose one player for each starting role, assign your captain and vice-captain, arrange your bench priority, then save your lineup before the gameweek deadline.</p>
-
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
-        {/* Main content */}
-        <div className="lg:col-span-3">
-          <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-6">
-            <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-              <div>
-                <h2 className="text-xl font-semibold text-white">Gameweek Lineup</h2>
-                <p className="text-sm text-slate-400">
-                  Gameweek {selectedGameweek?.gameweekNumber ?? gameweekId ?? 'not available'} {lineupLocked ? '(Closed)' : ''}
-                </p>
-                {availableGameweeks.length > 1 && (
-                  <div className="mt-3">
-                    <label htmlFor="lineup-gameweek" className="mb-1 block text-xs font-semibold text-slate-300">Choose gameweek</label>
-                    <select
-                      id="lineup-gameweek"
-                      value={gameweekId ?? ''}
-                      onChange={(event) => handleGameweekChange(event.target.value)}
-                      disabled={loading}
-                      className="rounded border border-slate-600 bg-slate-900 px-3 py-2 text-sm text-white focus:border-cyan-500 focus:outline-none disabled:opacity-50"
-                    >
-                      {availableGameweeks.map((gameweek) => (
-                        <option key={gameweek.id} value={gameweek.id}>
-                          Gameweek {gameweek.gameweekNumber} {gameweek.status === 'active'
-                            ? gameweek.isLocked ? '(Active · Locked)' : '(Active)'
-                            : '(Upcoming)'}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                )}
-                {selectedGameweek?.deadline && (
-                  <p className="mt-2 text-xs text-slate-400">
-                    Deadline: {new Date(selectedGameweek.deadline).toLocaleString()}
-                  </p>
-                )}
-                {selectedGameweek?.status === 'upcoming' && !lineupLocked && (
-                  <p className="mt-2 text-xs font-semibold text-cyan-300" role="status">
-                    Planning ahead · this lineup is saved separately for Gameweek {selectedGameweek.gameweekNumber}.
-                  </p>
-                )}
-                {lineupLocked && (
-                  <div
-                    className="mt-4 flex items-start gap-3 rounded-lg border border-red-500/40 bg-red-500/10 p-4 text-sm text-red-100"
-                    role="status"
-                  >
-                    <CircleAlert className="mt-0.5 h-5 w-5 shrink-0 text-red-300" aria-hidden="true" />
-                    <div>
-                      <p className="font-bold">Lineup locked for Gameweek {selectedGameweek?.gameweekNumber ?? gameweekId}</p>
-                      <p className="mt-1 text-xs leading-5 text-red-100/80">
-                        The deadline has passed. Your saved lineup is read-only and can no longer be changed.
-                      </p>
-                    </div>
-                  </div>
-                )}
-              </div>
-              <button
-                type="button"
-                data-guide="lineup-save-btn"
-                data-tour="lineup-save-btn"
-                onClick={() => void saveLineup()}
-                disabled={saving || !isLineupReady || lineupLocked}
-                className="rounded-lg bg-amber-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50 transition-opacity"
-              >
-                {saving ? 'Saving...' : lineupLocked ? 'Lineup Locked' : 'Save Lineup'}
-              </button>
+    <div className="max-w-7xl mx-auto px-4 py-8 space-y-6">
+      {/* Top Page Header */}
+      <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+        <div>
+          <h1 className="flex items-center gap-2.5 text-2xl sm:text-3xl font-extrabold tracking-tight" style={{ color: 'var(--text-primary)' }}>
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl shadow-md" style={{ background: 'color-mix(in srgb, #06b6d4 15%, transparent)', color: '#06b6d4' }}>
+              <UserCheck className="h-6 w-6" aria-hidden="true" />
             </div>
+            Lineups &amp; Tactics
+          </h1>
+          <p className="mt-1 text-xs sm:text-sm" style={{ color: 'var(--text-muted)' }}>
+            Set your 5 core starters, appoint your Captain (2×) &amp; Vice-Captain, and order your bench before the deadline.
+          </p>
+        </div>
+      </div>
+
+      {/* Gameweek Command Header Banner */}
+      <div
+        className="relative overflow-hidden rounded-2xl border p-4 sm:p-5 shadow-sm transition-all"
+        style={{
+          background: 'var(--surface)',
+          borderColor: 'var(--border)',
+        }}
+      >
+        <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-amber-500 via-cyan-500 to-emerald-500" />
+        
+        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <div className="flex flex-wrap items-center gap-3">
+            {/* Gameweek selector dropdown */}
+            <div className="relative inline-flex items-center">
+              <label htmlFor="lineup-gameweek" className="sr-only">Choose gameweek</label>
+              <select
+                id="lineup-gameweek"
+                value={gameweekId ?? ''}
+                onChange={(event) => handleGameweekChange(event.target.value)}
+                disabled={loading}
+                className="appearance-none rounded-xl border py-2 pl-3.5 pr-9 text-sm font-bold shadow-xs transition-colors cursor-pointer disabled:opacity-50"
+                style={{
+                  background: 'var(--surface-raised)',
+                  borderColor: 'var(--border)',
+                  color: 'var(--text-primary)',
+                }}
+              >
+                {availableGameweeks.map((gameweek) => (
+                  <option key={gameweek.id} value={gameweek.id}>
+                    Gameweek {gameweek.gameweekNumber} {gameweek.status === 'active'
+                      ? gameweek.isLocked ? '(Active · Locked)' : '(Active)'
+                      : '(Upcoming)'}
+                  </option>
+                ))}
+              </select>
+              <ChevronDown className="pointer-events-none absolute right-3 h-4 w-4 text-slate-400" />
+            </div>
+
+            {/* Lock / Active Status Badge */}
+            {lineupLocked ? (
+              <span className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold text-rose-400 bg-rose-500/10 border border-rose-500/30">
+                <Lock className="h-3.5 w-3.5" />
+                Lineup Locked
+              </span>
+            ) : selectedGameweek?.status === 'active' ? (
+              <span className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/30">
+                <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
+                Active Gameweek
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold text-cyan-400 bg-cyan-500/10 border border-cyan-500/30">
+                <Clock className="h-3.5 w-3.5" />
+                Planning Ahead
+              </span>
+            )}
+
+            {/* Deadline Countdown */}
+            {selectedGameweek?.deadline && !lineupLocked && (
+              <span className="inline-flex items-center gap-1.5 text-xs font-semibold" style={{ color: 'var(--text-muted)' }}>
+                <Clock className="h-3.5 w-3.5 text-amber-500" />
+                Deadline: <span className="font-mono text-amber-500 dark:text-amber-400 font-bold">{new Date(selectedGameweek.deadline).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</span> ({deadlineCountdown})
+              </span>
+            )}
+          </div>
+
+          {/* Action CTA Button */}
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              data-guide="lineup-save-btn"
+              data-tour="lineup-save-btn"
+              onClick={() => void saveLineup()}
+              disabled={saving || !isLineupReady || lineupLocked}
+              className="inline-flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-amber-500/20 transition-all hover:scale-102 active:scale-98 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+              style={{
+                background: 'linear-gradient(135deg, #f59e0b, #d97706)',
+              }}
+            >
+              {saving ? (
+                <><SpinnerIcon /> Saving...</>
+              ) : lineupLocked ? (
+                <><Lock className="h-4 w-4" /> Locked</>
+              ) : (
+                <><ShieldCheck className="h-4 w-4" /> Save Lineup</>
+              )}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Chip Readiness Horizontal Bar */}
+      <div
+        className="rounded-2xl border p-4 shadow-sm"
+        style={{
+          background: 'var(--surface)',
+          borderColor: 'var(--border)',
+        }}
+      >
+        <div className="mb-3 flex items-center justify-between">
+          <span className="text-[11px] font-bold uppercase tracking-widest text-cyan-500 flex items-center gap-1.5">
+            <Sparkles className="h-3.5 w-3.5" />
+            Special Chips Readiness
+          </span>
+          {defaultGameweekId !== null && !chipActivationAvailable && (
+            <span className="text-[11px] text-amber-500 font-medium">Switch to default GW to activate chips</span>
+          )}
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {/* Triple Captain Chip Card */}
+          <div
+            className="flex items-center justify-between rounded-xl border p-3.5 transition-all"
+            style={{
+              background: 'var(--surface-raised)',
+              borderColor: 'var(--border)',
+            }}
+          >
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-purple-500/15 border border-purple-500/30 text-purple-400 text-lg">
+                🌟
+              </div>
+              <div>
+                <h3 className="text-xs font-bold text-purple-400">Triple Captain</h3>
+                <p className="text-[11px]" style={{ color: 'var(--text-muted)' }}>Captain scores 3× points instead of 2×</p>
+              </div>
+            </div>
+            <div>
+              {tcStatus?.tripleCaptainUsed ? (
+                <span className="rounded-lg bg-purple-500/15 border border-purple-500/30 px-2.5 py-1 text-[11px] font-bold text-purple-300">
+                  Used GW {tcStatus.tripleCaptainGameweekId}
+                </span>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => openModal('triple-captain')}
+                  disabled={!hasUpcomingGw || !chipActivationAvailable}
+                  className="rounded-xl border border-purple-500/40 bg-purple-500/20 px-3.5 py-1.5 text-xs font-bold text-purple-400 transition-colors hover:bg-purple-500/30 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                >
+                  Play Chip
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Bench Boost Chip Card */}
+          <div
+            className="flex items-center justify-between rounded-xl border p-3.5 transition-all"
+            style={{
+              background: 'var(--surface-raised)',
+              borderColor: 'var(--border)',
+            }}
+          >
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-lg">
+                ⚡
+              </div>
+              <div>
+                <h3 className="text-xs font-bold text-emerald-400">Bench Boost</h3>
+                <p className="text-[11px]" style={{ color: 'var(--text-muted)' }}>All 3 bench players score full points</p>
+              </div>
+            </div>
+            <div>
+              {bbStatus?.benchBoostUsed ? (
+                <span className="rounded-lg bg-emerald-500/15 border border-emerald-500/30 px-2.5 py-1 text-[11px] font-bold text-emerald-300">
+                  Used GW {bbStatus.benchBoostGameweekId}
+                </span>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => openModal('bench-boost')}
+                  disabled={!hasUpcomingGw || !chipActivationAvailable}
+                  className="rounded-xl border border-emerald-500/40 bg-emerald-500/20 px-3.5 py-1.5 text-xs font-bold text-emerald-400 transition-colors hover:bg-emerald-500/30 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                >
+                  Play Chip
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Main Roster Lineup Container */}
+      <div className="w-full">
+        <div className="rounded-2xl border p-4 sm:p-6 shadow-sm" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
+            {lineupLocked && (
+              <div
+                className="mb-6 flex items-start gap-3 rounded-xl border border-red-500/40 bg-red-500/10 p-4 text-sm text-red-200"
+                role="status"
+              >
+                <CircleAlert className="mt-0.5 h-5 w-5 shrink-0 text-red-400" aria-hidden="true" />
+                <div>
+                  <p className="font-bold">Lineup locked for Gameweek {selectedGameweek?.gameweekNumber ?? gameweekId}</p>
+                  <p className="mt-0.5 text-xs leading-5 opacity-90">
+                    The deadline has passed. Your saved lineup is read-only and can no longer be changed.
+                  </p>
+                </div>
+              </div>
+            )}
 
             {loading ? (
               <div className="animate-pulse space-y-6">
@@ -377,14 +518,14 @@ export default function LineupsPage() {
                 </div>
                 <div className="space-y-3">
                   {[1, 2, 3, 4, 5].map((slot) => (
-                    <div key={slot} className="rounded-lg border border-slate-700 bg-slate-900/40 p-4">
+                    <div key={slot} className="rounded-xl border p-4 transition-all hover:border-cyan-500/40" style={{ background: "var(--surface-raised)", borderColor: "var(--border)" }}>
                       <div className="mb-3 h-3 w-24 rounded bg-slate-700" />
                       <div className="h-10 rounded bg-slate-800" />
                       <div className="mt-3 h-10 w-40 rounded bg-slate-800" />
                     </div>
                   ))}
                 </div>
-                <div className="border-t border-slate-700/70 pt-6">
+                <div className="border-t pt-6" style={{ borderColor: "var(--border)" }}>
                   <div className="mb-3 h-3 w-36 rounded bg-slate-700" />
                   <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
                     {[1, 2, 3].map((slot) => <div key={slot} className="h-24 rounded-lg border border-slate-700 bg-slate-900/40" />)}
@@ -419,7 +560,7 @@ export default function LineupsPage() {
                   </div>
 
                   {/* Captain & Vice-Captain Controls */}
-                  <div data-guide="lineup-captain-controls" data-tour="lineup-captain-controls" className="mb-4 grid grid-cols-1 gap-3 rounded-lg border border-slate-700 bg-slate-900/60 p-4 md:grid-cols-2">
+                  <div data-guide="lineup-captain-controls" data-tour="lineup-captain-controls" className="mb-4 grid grid-cols-1 gap-4 rounded-xl border p-4 md:grid-cols-2" style={{ background: "var(--surface-raised)", borderColor: "var(--border)" }}>
                     <div>
                       <div className="flex items-center justify-between mb-2">
                         <label htmlFor="lineup-captain" className="block text-xs font-bold uppercase tracking-wider text-amber-400">Captain · 2x points</label>
@@ -432,7 +573,7 @@ export default function LineupsPage() {
                         value={lineup.find((entry) => entry.is_captain)?.player_id ?? ''}
                         onChange={(event) => event.target.value && setCaptain(Number(event.target.value), false)}
                         disabled={lineupLocked || startingPlayerDetails.length === 0}
-                        className="w-full rounded border border-amber-500/40 bg-slate-800 px-3 py-2 text-sm text-white focus:border-amber-500 focus:outline-none disabled:opacity-50"
+                        className="w-full rounded-xl border border-amber-500/40 px-3.5 py-2 text-sm font-medium focus:border-amber-500 focus:outline-none disabled:opacity-50" style={{ background: "var(--surface)", color: "var(--text-primary)" }}
                       >
                         <option value="">{startingPlayerDetails.length === 0 ? 'Assign starting players below first' : 'Select captain'}</option>
                         {startingPlayerDetails.map((player) => {
@@ -459,7 +600,7 @@ export default function LineupsPage() {
                         value={lineup.find((entry) => entry.is_vice_captain)?.player_id ?? ''}
                         onChange={(event) => event.target.value && setCaptain(Number(event.target.value), true)}
                         disabled={lineupLocked || startingPlayerDetails.length === 0}
-                        className="w-full rounded border border-slate-600 bg-slate-800 px-3 py-2 text-sm text-white focus:border-slate-400 focus:outline-none disabled:opacity-50"
+                        className="w-full rounded-xl border px-3.5 py-2 text-sm font-medium focus:border-cyan-500 focus:outline-none disabled:opacity-50" style={{ background: "var(--surface)", borderColor: "var(--border)", color: "var(--text-primary)" }}
                       >
                         <option value="">{startingPlayerDetails.length === 0 ? 'Assign starting players below first' : 'Select vice-captain'}</option>
                         {startingPlayerDetails.map((player) => {
@@ -485,7 +626,7 @@ export default function LineupsPage() {
                         <div
                           key={slot}
                           data-guide={index === 0 ? 'lineup-first-slot' : undefined}
-                          className="rounded-lg border border-slate-700 bg-slate-900/40 p-4 transition-colors"
+                          className="rounded-xl border p-4 transition-all hover:border-cyan-500/40" style={{ background: "var(--surface-raised)", borderColor: "var(--border)" }}
                         >
                           <div className="flex items-center justify-between mb-2">
                             <label htmlFor={`lineup-${slot}`} className="block text-xs font-bold uppercase tracking-wider text-slate-300">
@@ -506,7 +647,7 @@ export default function LineupsPage() {
                                 updateSlot(slot, Number(event.target.value));
                               }
                             }}
-                            className="w-full rounded border border-slate-600 bg-slate-800 px-3 py-2 text-sm text-white focus:border-amber-500 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+                            className="w-full rounded-xl border px-3.5 py-2 text-sm font-medium focus:border-cyan-500 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50" style={{ background: "var(--surface)", borderColor: "var(--border)", color: "var(--text-primary)" }}
                           >
                             <option value="">Select player ({displayRole})</option>
                             {eligiblePlayers.map((player) => {
@@ -522,7 +663,7 @@ export default function LineupsPage() {
                             })}
                           </select>
                           {selected?.professional_players && (
-                            <div className="mt-3 flex items-center justify-between gap-3 rounded-lg border border-slate-700 bg-slate-800/60 p-3">
+                            <div className="mt-3 flex items-center justify-between gap-3 rounded-xl border p-3.5 shadow-sm" style={{ background: "var(--surface)", borderColor: "var(--border)" }}>
                               <div className="flex items-center gap-3 min-w-0">
                                 <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full border border-slate-600 bg-slate-700">
                                   {selected.professional_players.profile_image_url ? (
@@ -533,23 +674,32 @@ export default function LineupsPage() {
                                 </div>
                                 <div className="min-w-0">
                                   <div className="flex min-w-0 items-center gap-2">
-                                    <p className="truncate text-sm font-semibold text-white">{selected.professional_players.in_game_name || selected.professional_players.name}</p>
+                                    <p className="truncate text-sm font-bold" style={{ color: "var(--text-primary)" }}>{selected.professional_players.in_game_name || selected.professional_players.name}</p>
                                     {selected.is_captain && (
                                       <span
-                                        aria-label="Captain"
+                                        aria-label="Captain (2x Points)"
                                         title="Captain · earns 2× points"
-                                        className="inline-flex h-7 min-w-7 shrink-0 items-center justify-center rounded-full border border-amber-300/70 bg-amber-400 px-2 text-sm font-black text-slate-950 shadow-[0_0_12px_rgba(251,191,36,0.3)]"
+                                        className="inline-flex items-center gap-0.5 rounded-full px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-white shadow-md"
+                                        style={{
+                                          background: 'linear-gradient(135deg, #f59e0b, #d97706)',
+                                          boxShadow: '0 2px 8px rgba(245, 158, 11, 0.45)',
+                                        }}
                                       >
-                                        C
+                                        <span>C</span>
+                                        <span className="text-[9px] font-bold opacity-90">2×</span>
                                       </span>
                                     )}
-                                    {selected.is_vice_captain && (
+                                    {selected.is_vice_captain && !selected.is_captain && (
                                       <span
                                         aria-label="Vice-captain"
                                         title="Vice-captain · backup captain"
-                                        className="inline-flex h-7 min-w-7 shrink-0 items-center justify-center rounded-full border border-cyan-300/70 bg-cyan-400 px-2 text-sm font-black text-slate-950 shadow-[0_0_12px_rgba(34,211,238,0.25)]"
+                                        className="inline-flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-black text-white shadow-md"
+                                        style={{
+                                          background: 'linear-gradient(135deg, #06b6d4, #0284c7)',
+                                          boxShadow: '0 2px 6px rgba(6, 182, 212, 0.35)',
+                                        }}
                                       >
-                                        VC
+                                        V
                                       </span>
                                     )}
                                   </div>
@@ -635,7 +785,7 @@ export default function LineupsPage() {
                             })}
                           </select>
                           {selected?.professional_players && (
-                            <div className="mt-3 flex items-center justify-between gap-2 rounded-lg border border-slate-700 bg-slate-800/60 p-2.5">
+                            <div className="mt-3 flex items-center justify-between gap-2 rounded-xl border p-2.5 shadow-sm" style={{ background: "var(--surface)", borderColor: "var(--border)" }}>
                               <div className="flex items-center gap-2.5 min-w-0">
                                 <div className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full border border-slate-600 bg-slate-700">
                                   {selected.professional_players.profile_image_url ? (
@@ -645,7 +795,7 @@ export default function LineupsPage() {
                                   )}
                                 </div>
                                 <div className="min-w-0">
-                                  <p className="truncate text-xs font-semibold text-white">{selected.professional_players.in_game_name || selected.professional_players.name}</p>
+                                  <p className="truncate text-xs font-bold" style={{ color: "var(--text-primary)" }}>{selected.professional_players.in_game_name || selected.professional_players.name}</p>
                                   <p className="truncate text-[11px] text-slate-400">${Number(selected.professional_players.current_price || 0).toFixed(1)}M</p>
                                 </div>
                               </div>
@@ -674,85 +824,6 @@ export default function LineupsPage() {
               </div>
             )}
           </div>
-        </div>
-
-        {/* Chips sidebar */}
-        <div data-guide="lineup-chips" data-tour="lineup-chips" className="lg:col-span-1 space-y-4">
-          {defaultGameweekId !== null && !chipActivationAvailable && (
-            <p className="rounded-lg border border-amber-700/40 bg-amber-900/20 p-3 text-xs text-amber-200" role="status">
-              Chip activation is separate from lineup planning. Switch to the default gameweek to activate a chip for the next eligible gameweek.
-            </p>
-          )}
-          {/* Triple Captain */}
-          <div className="lineup-chip-card lineup-chip-purple bg-purple-900/20 border border-purple-700/50 rounded-xl p-5">
-            <h3 className="font-semibold text-purple-400 mb-2 text-sm flex items-center justify-between">
-              Triple Captain
-              <span className="text-xl">🌟</span>
-            </h3>
-            {loading ? (
-              <div className="animate-pulse space-y-3" role="status" aria-label="Loading Triple Captain status">
-                <div className="h-3 w-40 rounded bg-purple-900/60" />
-                <div className="h-9 w-full rounded border border-purple-700/30 bg-purple-900/40" />
-              </div>
-            ) : tcStatus?.tripleCaptainUsed ? (
-              <div>
-                <p className="text-xs text-slate-400 mb-2">Already played this season.</p>
-                <div className="bg-purple-900/40 text-purple-300 text-xs text-center py-2 rounded border border-purple-700/30">
-                  Used in GW {tcStatus.tripleCaptainGameweekId}
-                </div>
-              </div>
-            ) : (
-              <div>
-                <p className="lineup-chip-description text-xs text-purple-200/70 mb-3">Triple your captain&apos;s points for one gameweek.</p>
-                <button
-                  onClick={() => openModal('triple-captain')}
-                  disabled={!hasUpcomingGw || !chipActivationAvailable}
-                  className="w-full bg-purple-600/20 hover:bg-purple-600/30 border border-purple-600/50 text-purple-400 text-xs font-bold py-2 rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-                >
-                  {!chipActivationAvailable ? 'Select Default Gameweek' : hasUpcomingGw ? 'Play Triple Captain' : 'Chips Locked'}
-                </button>
-                {!hasUpcomingGw && chipActivationAvailable && (
-                  <p className="text-[11px] text-slate-500 text-center mt-1.5">No open upcoming gameweek</p>
-                )}
-              </div>
-            )}
-          </div>
-
-          {/* Bench Boost */}
-          <div className="lineup-chip-card lineup-chip-emerald bg-emerald-900/20 border border-emerald-700/50 rounded-xl p-5">
-            <h3 className="font-semibold text-emerald-400 mb-2 text-sm flex items-center justify-between">
-              Bench Boost
-              <span className="text-xl">⚡</span>
-            </h3>
-            {loading ? (
-              <div className="animate-pulse space-y-3" role="status" aria-label="Loading Bench Boost status">
-                <div className="h-3 w-40 rounded bg-emerald-900/60" />
-                <div className="h-9 w-full rounded border border-emerald-700/30 bg-emerald-900/40" />
-              </div>
-            ) : bbStatus?.benchBoostUsed ? (
-              <div>
-                <p className="text-xs text-slate-400 mb-2">Already played this season.</p>
-                <div className="bg-emerald-900/40 text-emerald-300 text-xs text-center py-2 rounded border border-emerald-700/30">
-                  Used in GW {bbStatus.benchBoostGameweekId}
-                </div>
-              </div>
-            ) : (
-              <div>
-                <p className="lineup-chip-description text-xs text-emerald-200/70 mb-3">Your bench players also score points for one gameweek.</p>
-                <button
-                  onClick={() => openModal('bench-boost')}
-                  disabled={!hasUpcomingGw || !chipActivationAvailable}
-                  className="w-full bg-emerald-600/20 hover:bg-emerald-600/30 border border-emerald-600/50 text-emerald-400 text-xs font-bold py-2 rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-                >
-                  {!chipActivationAvailable ? 'Select Default Gameweek' : hasUpcomingGw ? 'Play Bench Boost' : 'Chips Locked'}
-                </button>
-                {!hasUpcomingGw && chipActivationAvailable && (
-                  <p className="text-[11px] text-slate-500 text-center mt-1.5">No open upcoming gameweek</p>
-                )}
-              </div>
-            )}
-          </div>
-        </div>
       </div>
 
       {confirmDeadlineSave && selectedGameweek && (
@@ -767,7 +838,7 @@ export default function LineupsPage() {
             aria-modal="true"
             aria-labelledby="deadline-save-title"
             aria-describedby="deadline-save-description"
-            className="w-full max-w-md rounded-xl border border-amber-500/40 bg-slate-900 shadow-2xl"
+            className="w-full max-w-md rounded-2xl border shadow-2xl" style={{ background: "var(--surface)", borderColor: "var(--border)" }}
           >
             <div className="flex items-start gap-3 border-b border-slate-700 px-5 py-4">
               <CircleAlert className="mt-0.5 h-5 w-5 shrink-0 text-amber-300" aria-hidden="true" />
@@ -810,7 +881,7 @@ export default function LineupsPage() {
       {/* Chip Activation Modal */}
       {activeModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
-          <div className={`bg-slate-900 border rounded-xl shadow-2xl max-w-md w-full overflow-hidden ${
+          <div style={{ background: "var(--surface)", borderColor: "var(--border)" }} className={`border rounded-2xl shadow-2xl max-w-md w-full overflow-hidden ${
             activeModal === 'triple-captain'
               ? 'border-purple-500/30'
               : 'border-emerald-500/30'
@@ -845,7 +916,7 @@ export default function LineupsPage() {
             </div>
 
             {/* Modal footer */}
-            <div className="px-6 py-4 bg-slate-800 flex justify-end gap-3 border-t border-slate-700">
+            <div className="px-6 py-4 flex justify-end gap-3 border-t" style={{ background: "var(--surface-raised)", borderColor: "var(--border)" }}>
               <button
                 onClick={() => setActiveModal(null)}
                 disabled={activating}
