@@ -24,6 +24,7 @@ type TrendRow = {
   gameweekId: number;
   userScore: number;
   globalAverage: number;
+  rank?: number | null;
 };
 
 type AnalyticsTab = 'my' | 'market' | 'dream';
@@ -93,6 +94,8 @@ export default function AnalyticsDashboard() {
     tooltipItemColor: isLight ? '#334155' : '#e2e8f0',
     globalAvgLine: isLight ? '#64748b' : '#94a3b8',
     globalAvgDot: isLight ? '#475569' : '#64748b',
+    rankLine: isLight ? '#d97706' : '#f59e0b',
+    rankDot: isLight ? '#b45309' : '#fbbf24',
   }), [isLight]);
 
   const toast = useToast();
@@ -315,7 +318,7 @@ export default function AnalyticsDashboard() {
                     <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                       <div>
                         <h3 className="analytics-chart-heading text-lg font-bold text-white">Gameweek Trajectory</h3>
-                        <p className="text-xs text-slate-400">Your gameweek performance compared against the global manager average</p>
+                        <p className="text-xs text-slate-400">Your gameweek performance vs global average (left axis) and global rank trajectory (right axis)</p>
                       </div>
                       <div className="flex flex-wrap items-center gap-4">
                         <div className="flex items-center gap-4 text-xs">
@@ -324,6 +327,9 @@ export default function AnalyticsDashboard() {
                           </span>
                           <span className="inline-flex items-center gap-1.5 font-medium text-slate-400">
                             <span className="h-2.5 w-2.5 rounded-full bg-slate-400" /> Global Avg
+                          </span>
+                          <span className="inline-flex items-center gap-1.5 font-medium text-amber-400">
+                            <span className="h-2.5 w-2.5 rounded-full bg-amber-400" /> Global Rank
                           </span>
                         </div>
                         <div role="group" aria-label="Gameweek trend range" className="inline-flex rounded-lg border border-slate-700 bg-slate-900 p-1">
@@ -356,6 +362,7 @@ export default function AnalyticsDashboard() {
                                 name: `GW${row.gameweekId}`,
                                 userScore: row.userScore,
                                 globalAverage: row.globalAverage,
+                                rank: row.rank ?? undefined,
                               }))}
                               margin={{ top: 12, right: 16, left: -16, bottom: 4 }}
                             >
@@ -367,9 +374,22 @@ export default function AnalyticsDashboard() {
                                 tickLine={{ stroke: chartTheme.axisStroke }}
                               />
                               <YAxis
+                                yAxisId="points"
                                 stroke={chartTheme.axisStroke}
                                 tick={{ fill: chartTheme.tickFill, fontSize: 12 }}
                                 tickLine={{ stroke: chartTheme.axisStroke }}
+                              />
+                              <YAxis
+                                yAxisId="rank"
+                                orientation="right"
+                                reversed
+                                domain={[1, (dataMax: number) => Math.max(dataMax || 1, 5)]}
+                                allowDecimals={false}
+                                stroke={chartTheme.axisStroke}
+                                tick={{ fill: chartTheme.tickFill, fontSize: 11 }}
+                                tickLine={{ stroke: chartTheme.axisStroke }}
+                                tickFormatter={(val: number) => `#${val}`}
+                                width={36}
                               />
                               <Tooltip
                                 contentStyle={{
@@ -382,8 +402,15 @@ export default function AnalyticsDashboard() {
                                 }}
                                 itemStyle={{ color: chartTheme.tooltipItemColor, padding: '2px 0' }}
                                 labelStyle={{ fontWeight: 'bold', color: isLight ? '#0284c7' : '#38bdf8', marginBottom: '4px' }}
+                                formatter={(value: unknown, name: unknown) => {
+                                  if (name === 'Global Rank') {
+                                    return [value != null ? `#${value}` : '—', String(name)];
+                                  }
+                                  return [`${value} pts`, String(name)];
+                                }}
                               />
                               <Line
+                                yAxisId="points"
                                 type="monotone"
                                 dataKey="userScore"
                                 name="Your Score"
@@ -397,6 +424,7 @@ export default function AnalyticsDashboard() {
                                 activeDot={{ r: 6, fill: '#22d3ee', stroke: isLight ? '#0f172a' : '#fff', strokeWidth: 2 }}
                               />
                               <Line
+                                yAxisId="points"
                                 type="monotone"
                                 dataKey="globalAverage"
                                 name="Global Average"
@@ -409,17 +437,33 @@ export default function AnalyticsDashboard() {
                                 strokeDasharray="4 4"
                                 dot={{ r: 3, fill: chartTheme.globalAvgDot }}
                               />
+                              <Line
+                                yAxisId="rank"
+                                type="monotone"
+                                dataKey="rank"
+                                name="Global Rank"
+                                isAnimationActive
+                                animationBegin={240}
+                                animationDuration={900}
+                                animationEasing="ease-out"
+                                stroke={chartTheme.rankLine}
+                                strokeWidth={2}
+                                dot={{ r: 3, fill: chartTheme.rankDot, stroke: isLight ? '#ffffff' : '#1e1b4b', strokeWidth: 1.5 }}
+                                activeDot={{ r: 5, fill: '#f59e0b', stroke: isLight ? '#0f172a' : '#fff', strokeWidth: 2 }}
+                                connectNulls
+                              />
                             </LineChart>
                           </ResponsiveContainer>
                         </div>
                         <div className="mt-5 overflow-x-auto">
                           <table className="w-full min-w-80 text-left text-sm">
-                            <caption className="sr-only">Gameweek scores shown in the trajectory chart</caption>
+                            <caption className="sr-only">Gameweek scores and ranks shown in the trajectory chart</caption>
                             <thead className="border-b border-slate-700 text-xs uppercase tracking-wide text-slate-400">
                               <tr>
                                 <th scope="col" className="px-3 py-2 font-semibold">Gameweek</th>
                                 <th scope="col" className="px-3 py-2 text-right font-semibold">Your score</th>
                                 <th scope="col" className="px-3 py-2 text-right font-semibold">Global average</th>
+                                <th scope="col" className="px-3 py-2 text-right font-semibold">Global rank</th>
                               </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-800 text-slate-200">
@@ -430,6 +474,9 @@ export default function AnalyticsDashboard() {
                                   </th>
                                   <td className="px-3 py-2 text-right tabular-nums">{row.userScore}</td>
                                   <td className="px-3 py-2 text-right tabular-nums">{row.globalAverage}</td>
+                                  <td className="px-3 py-2 text-right tabular-nums text-amber-400 font-medium">
+                                    {row.rank != null ? `#${row.rank}` : '—'}
+                                  </td>
                                 </tr>
                               ))}
                             </tbody>

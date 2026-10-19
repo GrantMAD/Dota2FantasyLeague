@@ -75,6 +75,19 @@ describe('GET /api/analytics - Finding 31: Dynamic gameweek resolution and role-
         };
         return query;
       }
+      if (table === 'season_standings') {
+        return {
+          select: jest.fn().mockReturnThis(),
+          eq: jest.fn().mockReturnThis(),
+          is: jest.fn().mockResolvedValue({
+            data: [
+              { gameweek_id: 6, rank: 142 },
+              { gameweek_id: 7, rank: 98 },
+            ],
+            error: null,
+          }),
+        };
+      }
       if (table === 'fantasy_squads') {
         return {
           select: jest.fn().mockReturnThis(),
@@ -125,8 +138,8 @@ describe('GET /api/analytics - Finding 31: Dynamic gameweek resolution and role-
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toMatchObject({
       trend: [
-        { gameweekId: 6, userScore: 10, globalAverage: 0 },
-        { gameweekId: 7, userScore: 12.5, globalAverage: 18.4 },
+        { gameweekId: 6, userScore: 10, globalAverage: 0, rank: 142 },
+        { gameweekId: 7, userScore: 12.5, globalAverage: 18.4, rank: 98 },
       ],
       roleBreakdown: [
         { role: 'Carry', points: 40 },
@@ -140,6 +153,7 @@ describe('GET /api/analytics - Finding 31: Dynamic gameweek resolution and role-
       p_gameweek_ids: [6, 7],
     });
     expect(mockFrom.mock.calls.filter(([table]) => table === 'fantasy_lineups')).toHaveLength(1);
+    expect(mockFrom.mock.calls.filter(([table]) => table === 'season_standings')).toHaveLength(1);
   });
 
   it('dynamically resolves to latest closed gameweek and selects authentic Dream Team role distribution', async () => {
@@ -197,6 +211,17 @@ describe('GET /api/analytics - Finding 31: Dynamic gameweek resolution and role-
           eq: jest.fn().mockReturnThis(),
           maybeSingle: jest.fn().mockResolvedValue({
             data: { id: 100, fantasy_squad_members: [] },
+            error: null,
+          }),
+        };
+      }
+
+      if (table === 'season_standings') {
+        return {
+          select: jest.fn().mockReturnThis(),
+          eq: jest.fn().mockReturnThis(),
+          is: jest.fn().mockResolvedValue({
+            data: [],
             error: null,
           }),
         };

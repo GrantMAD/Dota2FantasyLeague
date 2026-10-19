@@ -81,11 +81,27 @@ async function getHandler(request: NextRequest) {
       }
     }
 
-    const trend = (lineups ?? []).map((row) => ({
-      gameweekId: Number(row.gameweek_id),
-      userScore: Number(row.total_points ?? 0),
-      globalAverage: globalAverageByGameweek.get(Number(row.gameweek_id)) ?? 0,
-    }));
+    const { data: standings } = await supabase.from('season_standings')
+      .select('gameweek_id, rank')
+      .eq('fantasy_season_id', season.id)
+      .is('league_id', null);
+
+    const rankByGameweek = new Map<number, number>();
+    for (const row of standings ?? []) {
+      if (row.gameweek_id != null && row.rank != null) {
+        rankByGameweek.set(Number(row.gameweek_id), Number(row.rank));
+      }
+    }
+
+    const trend = (lineups ?? []).map((row) => {
+      const gwId = Number(row.gameweek_id);
+      return {
+        gameweekId: gwId,
+        userScore: Number(row.total_points ?? 0),
+        globalAverage: globalAverageByGameweek.get(gwId) ?? 0,
+        rank: rankByGameweek.get(gwId) ?? null,
+      };
+    });
 
     // Role breakdown: use lineup slot as the authoritative role label and aggregate
     // points across ALL gameweeks so the chart is meaningful even early in the season.

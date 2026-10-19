@@ -2,6 +2,7 @@ export type AnalyticsTrendPoint = {
   gameweekId: number;
   userScore: number;
   globalAverage: number;
+  rank?: number | null;
 };
 
 export type TrendRange = '3' | '6' | 'all';
