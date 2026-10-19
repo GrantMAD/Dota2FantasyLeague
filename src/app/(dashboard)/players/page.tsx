@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import { fetchWithAuth } from '@/lib/fetch-with-auth';
 import { useToast } from '@/components/Toast';
+import { DataFreshnessBadge } from '@/components/DataFreshnessBadge';
 
 interface ProfessionalTeam {
   id: number;
@@ -393,10 +394,13 @@ export default function PlayersPage() {
 
   return (
     <div className={`max-w-7xl mx-auto px-4 pt-12 ${comparePlayerIds.length > 0 ? 'pb-36' : 'pb-12'}`}>
-      <h1 className="text-3xl font-bold text-white mb-2 flex items-center gap-3">
-        <Users className="w-8 h-8 text-amber-400 shrink-0" />
-        <span>Professional Players</span>
-      </h1>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-2">
+        <h1 className="text-3xl font-bold text-white flex items-center gap-3">
+          <Users className="w-8 h-8 text-amber-400 shrink-0" />
+          <span>Professional Players</span>
+        </h1>
+        <DataFreshnessBadge page="players" />
+      </div>
       <p className="text-slate-400 mb-8">Browse and scout all professional Dota 2 players to build your squad.</p>
 
       {comparePlayerIds.length > 0 && (

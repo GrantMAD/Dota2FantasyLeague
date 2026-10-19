@@ -7,6 +7,7 @@ import { ActiveGameweekHero } from './components/ActiveGameweekHero';
 import { GameweekCard } from './components/GameweekCard';
 import { GameweekHistoryModal } from './components/GameweekHistoryModal';
 import { GameweekFilters } from './components/GameweekFilters';
+import { DataFreshnessBadge } from '@/components/DataFreshnessBadge';
 
 import type { GameweekRow } from '@/types/fantasy';
 import {
@@ -71,8 +72,11 @@ export default function GameweeksPage() {
     <div className="max-w-7xl mx-auto px-4 py-10">
       <div className="mb-8 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
         <div>
-          <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-amber-500/30 bg-amber-500/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.24em] text-amber-300">
-            Fantasy Schedule
+          <div className="flex flex-wrap items-center gap-3 mb-2">
+            <div className="inline-flex items-center gap-2 rounded-full border border-amber-500/30 bg-amber-500/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.24em] text-amber-300">
+              Fantasy Schedule
+            </div>
+            <DataFreshnessBadge page="gameweeks" />
           </div>
           <h1 className="gameweeks-page-heading text-3xl font-black tracking-tight text-white">Gameweeks</h1>
           <p className="mt-2 max-w-xl text-sm text-slate-400">

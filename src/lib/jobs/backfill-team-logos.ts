@@ -8,6 +8,11 @@
  * bulk /teams response, so they never receive logo_url updates through the
  * normal sync-teams pipeline. This job fills that gap.
  *
+ * If OpenDota has no logo for a team, the job falls back to Stratz's
+ * fetchTeam() before marking the team as skipped. Stratz is instantiated
+ * lazily — only when OpenDota misses at least one team — so runs where
+ * OpenDota covers everything stay zero-cost.
+ *
  * Safe to run repeatedly — only teams that still have null logo_url are touched.
  * Run schedule: Manual only (maintenance job)
  */
@@ -51,6 +56,21 @@ async function fetchLogoFromOpenDota(teamId: string): Promise<string | null> {
   return attempt();
 }
 
+async function fetchLogoFromStratz(teamId: string): Promise<string | null> {
+  const apiKey = process.env.STRATZ_API_KEY;
+  const apiUrl = process.env.STRATZ_API_URL || 'https://api.stratz.com/graphql';
+  if (!apiKey) return null;
+
+  try {
+    const { StratzProvider } = await import('../data-providers/stratz-provider');
+    const stratz = new StratzProvider({ apiKey, apiUrl });
+    const teamData = await stratz.fetchTeam(teamId);
+    return teamData.logoUrl ?? null;
+  } catch {
+    return null;
+  }
+}
+
 export async function backfillTeamLogos(): Promise<{
   success: boolean;
   errors: string[];
@@ -90,7 +110,14 @@ export async function backfillTeamLogos(): Promise<{
     const team = rows[i];
     await sleep(DELAY_MS);
 
-    const logoUrl = await fetchLogoFromOpenDota(team.data_provider_id);
+    // 1. Try OpenDota first (includes its own built-in retry on null)
+    let logoUrl = await fetchLogoFromOpenDota(team.data_provider_id);
+
+    // 2. Fall back to Stratz if OpenDota couldn't find one
+    if (!logoUrl) {
+      console.log(`[backfillTeamLogos] OpenDota returned no logo for ${team.name}, trying Stratz...`);
+      logoUrl = await fetchLogoFromStratz(team.data_provider_id);
+    }
 
     if (logoUrl) {
       const { error: updateErr } = await supabase
@@ -108,11 +135,12 @@ export async function backfillTeamLogos(): Promise<{
       }
     } else {
       skipped++;
+      console.log(`[backfillTeamLogos] — ${team.name}: no logo found on OpenDota or Stratz`);
     }
 
     if ((i + 1) % BATCH_LOG_SIZE === 0) {
       console.log(
-        `[backfillTeamLogos] Progress: ${i + 1}/${rows.length} — ${updated} updated, ${skipped} no logo on OpenDota`
+        `[backfillTeamLogos] Progress: ${i + 1}/${rows.length} — ${updated} updated, ${skipped} no logo on either provider`
       );
     }
   }

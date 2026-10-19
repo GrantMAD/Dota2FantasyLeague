@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { TournamentCard, TournamentData } from './components/TournamentCard';
 import { TournamentFilters } from './components/TournamentFilters';
 import { TournamentHero } from './components/TournamentHero';
+import { DataFreshnessBadge } from '@/components/DataFreshnessBadge';
 
 export default function TournamentsHubPage() {
   const [tournaments, setTournaments] = useState<TournamentData[]>([]);
@@ -194,3 +195,5 @@ export default function TournamentsHubPage() {
     </div>
   );
 }
+
+

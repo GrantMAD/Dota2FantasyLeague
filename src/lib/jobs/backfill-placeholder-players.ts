@@ -1,9 +1,14 @@
 /**
  * Backfill Placeholder Players Job
- * 
+ *
  * Inspects all player records whose names are placeholders (e.g., 'Player (Lone Druid)' or 'Player #12345'),
  * queries the OpenDota API (/players/{account_id}) to fetch real player names and avatars,
  * and updates their roles and profiles in the database.
+ *
+ * If OpenDota has no data for a player, the job falls back to Stratz's fetchPlayer()
+ * before marking the player as skipped. Stratz is instantiated lazily — only when
+ * OpenDota misses at least one player — so runs where OpenDota covers everything
+ * stay zero-cost.
  */
 
 import { getSupabaseServerClient } from '@/lib/db/supabase-server';
@@ -32,6 +37,32 @@ interface OpenDotaPlayerEntry {
 
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
+}
+
+interface StratzPlayerResult {
+  name: string | null;
+  country: string | null;
+  avatarUrl: string | null;
+}
+
+async function fetchPlayerFromStratz(accountId: string): Promise<StratzPlayerResult> {
+  const empty: StratzPlayerResult = { name: null, country: null, avatarUrl: null };
+  const apiKey = process.env.STRATZ_API_KEY;
+  const apiUrl = process.env.STRATZ_API_URL || 'https://api.stratz.com/graphql';
+  if (!apiKey) return empty;
+
+  try {
+    const { StratzProvider } = await import('../data-providers/stratz-provider');
+    const stratz = new StratzProvider({ apiKey, apiUrl });
+    const data = await stratz.fetchPlayer(accountId);
+    return {
+      name: data.name && data.name !== 'Unknown' ? data.name : null,
+      country: data.country ?? null,
+      avatarUrl: data.imageUrl ?? null,
+    };
+  } catch {
+    return empty;
+  }
 }
 
 // Hero display name to likely primary role mapping (used as fallback when OpenDota profile has no fantasy role)
@@ -199,7 +230,8 @@ export async function backfillPlaceholderPlayers(): Promise<BackfillPlayersResul
 
         // If not in pro list, query individual OpenDota /players/{account_id}
         if (!realName) {
-          const resp = await fetch(`https://api.opendota.com/api/players/${accountId}`);
+          const openDotaUrl = process.env.OPENDOTA_API_URL || 'https://api.opendota.com/api';
+          const resp = await fetch(`${openDotaUrl}/players/${accountId}`);
           if (resp.ok) {
             const data = await resp.json();
             const profile = data?.profile;
@@ -211,6 +243,15 @@ export async function backfillPlaceholderPlayers(): Promise<BackfillPlayersResul
           }
           // Modest pause between API calls to stay within rate limit
           await new Promise((res) => setTimeout(res, 250));
+        }
+
+        // If OpenDota had no data, fall back to Stratz
+        if (!realName) {
+          console.log(`[backfillPlaceholderPlayers] OpenDota had no data for ${accountId}, trying Stratz...`);
+          const stratzData = await fetchPlayerFromStratz(accountId);
+          if (stratzData.name) realName = stratzData.name;
+          if (!realCountry && stratzData.country) realCountry = stratzData.country;
+          if (!avatarUrl && stratzData.avatarUrl) avatarUrl = stratzData.avatarUrl;
         }
 
         // Infer role from hero name if still default or unspecified

@@ -25,6 +25,7 @@ import { EmptySquadState } from './components/EmptySquadState';
 import { DashboardLiveMatches } from './components/DashboardLiveMatches';
 import { DashboardWhatsNew, type WhatsNewData } from './components/DashboardWhatsNew';
 import { DashboardGoalProgress } from './components/DashboardGoalProgress';
+import { DataFreshnessBadge } from '@/components/DataFreshnessBadge';
 import type { MatchData } from '@/app/(dashboard)/matches/components/MatchCard';
 
 export default function DashboardPage() {
@@ -195,9 +196,12 @@ export default function DashboardPage() {
         <div className="max-w-7xl mx-auto">
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8">
             <div>
-              <h1 className="dashboard-hero-title text-3xl md:text-4xl font-bold text-white mb-2">
-                Welcome back{dashboardData?.displayName ? `, ${dashboardData.displayName}` : ''}
-              </h1>
+              <div className="flex flex-wrap items-center gap-3 mb-2">
+                <h1 className="dashboard-hero-title text-3xl md:text-4xl font-bold text-white">
+                  Welcome back{dashboardData?.displayName ? `, ${dashboardData.displayName}` : ''}
+                </h1>
+                <DataFreshnessBadge page="dashboard" />
+              </div>
               <p className="text-slate-400 text-lg">
                 Manage your fantasy squads and compete with players worldwide
               </p>

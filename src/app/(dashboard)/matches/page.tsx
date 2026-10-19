@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { MatchCard, MatchData } from './components/MatchCard';
 import { MatchRow } from './components/MatchRow';
 import { MatchFilters } from './components/MatchFilters';
+import { DataFreshnessBadge } from '@/components/DataFreshnessBadge';
 
 interface UserSquadPlayer {
   id: number;
@@ -149,6 +150,7 @@ export default function MatchesPage() {
               </svg>
             </span>
             <h1 className="text-3xl font-black text-white tracking-tight">Match Center</h1>
+            <DataFreshnessBadge page="matches" />
           </div>
           <p className="text-slate-400 text-sm">
             Live pro circuit scores, upcoming series schedule, and your fantasy squad tracking

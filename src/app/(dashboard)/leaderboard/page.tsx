@@ -4,6 +4,7 @@ import { fetchWithAuth } from '@/lib/fetch-with-auth';
 import { useState, useEffect, useCallback } from 'react';
 import Image from 'next/image';
 import { Medal, RefreshCw, Star } from 'lucide-react';
+import { DataFreshnessBadge } from '@/components/DataFreshnessBadge';
 
 type LeaderboardEntry = {
    id: number;
@@ -152,10 +153,13 @@ export default function LeaderboardPage() {
     <div className="max-w-7xl mx-auto px-4 py-12">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-8 gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-white mb-2 flex items-center gap-3">
-            <Medal className="w-8 h-8 text-amber-400 shrink-0" />
-            <span>Global Leaderboard</span>
-          </h1>
+          <div className="flex flex-wrap items-center gap-3 mb-2">
+            <h1 className="text-3xl font-bold text-white flex items-center gap-3">
+              <Medal className="w-8 h-8 text-amber-400 shrink-0" />
+              <span>Global Leaderboard</span>
+            </h1>
+            <DataFreshnessBadge page="leaderboard" />
+          </div>
           <p className="text-slate-400">See how your squad ranks against the world</p>
         </div>
         

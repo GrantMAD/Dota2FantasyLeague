@@ -21,6 +21,7 @@ import {
 import { fetchWithAuth } from '@/lib/fetch-with-auth';
 import { useToast } from '@/components/Toast';
 import { PriceSparkline } from '@/components/PriceSparkline';
+import { DataFreshnessBadge } from '@/components/DataFreshnessBadge';
 import type { FantasyPlayer as TransferPlayer } from '@/types/fantasy';
 
 // 5 starters + 3 bench = 8 player squad
@@ -552,12 +553,15 @@ function TransfersPageContent() {
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-8">
-      <div className="flex justify-between items-end mb-8">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-8 gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-white mb-2 flex items-center gap-3">
-            <ArrowLeftRight className="w-8 h-8 text-amber-400 shrink-0" />
-            <span>Transfer Market</span>
-          </h1>
+          <div className="flex flex-wrap items-center gap-3 mb-2">
+            <h1 className="text-3xl font-bold text-white flex items-center gap-3">
+              <ArrowLeftRight className="w-8 h-8 text-amber-400 shrink-0" />
+              <span>Transfer Market</span>
+            </h1>
+            <DataFreshnessBadge page="transfers" />
+          </div>
           <p className="text-slate-400">Click any player to inspect full stats, form, and match performance history</p>
         </div>
         <div className="bg-slate-800 border border-slate-700 rounded-lg px-4 py-2 flex items-center gap-4 shadow-sm">

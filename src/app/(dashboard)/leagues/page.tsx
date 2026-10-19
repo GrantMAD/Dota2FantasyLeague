@@ -23,6 +23,7 @@ import { LeagueHero } from './components/LeagueHero';
 import { LeagueFilters } from './components/LeagueFilters';
 import { LeagueCard } from './components/LeagueCard';
 import { LeagueActionModal } from './components/LeagueActionModal';
+import { DataFreshnessBadge } from '@/components/DataFreshnessBadge';
 
 type ActionMode = 'create' | 'join' | null;
 
@@ -246,8 +247,11 @@ export default function LeaguesPage() {
       {/* ── Page Header ──────────────────────────────────────────── */}
       <div className="mb-8 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
         <div>
-          <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-amber-500/30 bg-amber-500/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.24em] text-amber-300">
-            Competitive Circuits
+          <div className="flex flex-wrap items-center gap-3 mb-2">
+            <div className="inline-flex items-center gap-2 rounded-full border border-amber-500/30 bg-amber-500/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.24em] text-amber-300">
+              Competitive Circuits
+            </div>
+            <DataFreshnessBadge page="leagues" />
           </div>
           <h1 className="text-3xl font-black tracking-tight text-white flex items-center gap-3">
             <Trophy className="h-8 w-8 text-amber-400 shrink-0" />
