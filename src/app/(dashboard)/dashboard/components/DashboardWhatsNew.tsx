@@ -91,9 +91,9 @@ export function DashboardWhatsNew({ whatsNew }: DashboardWhatsNewProps) {
           id: 991,
           kind: 'price_change',
           title: 'Ame (Xtreme Gaming)',
-          message: 'Price increased +$0.3M (Now $10.5M)',
+          message: 'Price increased +$0.5M (Now $6.0M)',
           createdAt: new Date().toISOString(),
-          href: '/players/1',
+          href: '/players/509',
         },
         {
           id: 992,
@@ -101,7 +101,7 @@ export function DashboardWhatsNew({ whatsNew }: DashboardWhatsNewProps) {
           title: 'Yatoro (Team Spirit)',
           message: 'Swap required: Inactive on starting roster for GW2',
           createdAt: new Date().toISOString(),
-          href: '/players/2',
+          href: '/players/727',
         },
       ];
 
