@@ -4,8 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Bell } from 'lucide-react';
 import { fetchWithAuth } from '@/lib/fetch-with-auth';
-import { supabase } from '@/lib/supabase';
-import { useToast } from '@/components/Toast';
+import { useHeaderData } from '@/context/HeaderDataContext';
 import type { HeaderNotification } from './header-types';
 
 function notificationHref(type: string) {
@@ -40,9 +39,7 @@ export function NotificationDropdown({
   onToggle: () => void;
   onClose: () => void;
 }) {
-  const { info: showNotificationToast } = useToast();
-  const [notifications, setNotifications] = useState<HeaderNotification[]>([]);
-  const [unreadCount, setUnreadCount] = useState(0);
+  const { notifications, unreadCount, markNotificationRead } = useHeaderData();
   const [currentTime, setCurrentTime] = useState(0);
 
   useEffect(() => {
@@ -54,103 +51,10 @@ export function NotificationDropdown({
     };
   }, []);
 
-  useEffect(() => {
-    async function loadNotifications() {
-      try {
-        const response = await fetchWithAuth('/api/notifications?limit=5');
-        if (!response.ok) throw new Error(`Notification load failed (${response.status}).`);
-        const data = (await response.json()) as { notifications: HeaderNotification[]; unreadCount: number };
-        setNotifications(data.notifications ?? []);
-        setUnreadCount(data.unreadCount ?? 0);
-      } catch (error) {
-        console.error('Unable to load Header notifications:', error);
-      }
-    }
-    void loadNotifications();
-  }, []);
-
-  useEffect(() => {
-    let disposed = false;
-    let channel: ReturnType<typeof supabase.channel> | null = null;
-
-    const refreshNotifications = async () => {
-      try {
-        const response = await fetchWithAuth('/api/notifications?limit=5');
-        if (!response.ok) throw new Error(`Notification refresh failed (${response.status}).`);
-        const data = (await response.json()) as { notifications: HeaderNotification[]; unreadCount: number };
-        if (disposed) return;
-        setNotifications(data.notifications ?? []);
-        setUnreadCount(data.unreadCount ?? 0);
-      } catch (error) {
-        console.error('Failed to refresh notifications after a realtime event:', error);
-      }
-    };
-
-    const setupRealtimeNotifications = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (disposed || !session?.user.id) return;
-
-      channel = supabase
-        .channel(`user-notifications:${session.user.id}`)
-        .on(
-          'postgres_changes',
-          {
-            event: 'INSERT',
-            schema: 'public',
-            table: 'user_notifications',
-            filter: `user_id=eq.${session.user.id}`,
-          },
-          (payload) => {
-            const notification = payload.new as HeaderNotification;
-            if (notification.is_read === false) {
-              showNotificationToast(notification.title, notification.message, 7000);
-            }
-            void refreshNotifications();
-          },
-        )
-        .on(
-          'postgres_changes',
-          {
-            event: 'UPDATE',
-            schema: 'public',
-            table: 'user_notifications',
-            filter: `user_id=eq.${session.user.id}`,
-          },
-          () => void refreshNotifications(),
-        )
-        .subscribe((status, error) => {
-          if (disposed) return;
-          if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
-            const msg = error?.message ?? status;
-            // WebSocket 1006 indicates abnormal close (common on page navigations, tab backgrounding, or dev-server HMR reconnects)
-            if (msg.includes('1006') || msg.includes('socket closed')) {
-              console.warn('[Realtime] Notification channel disconnected (reconnecting automatically):', msg);
-            } else {
-              console.error('Realtime notification subscription failed:', msg);
-            }
-          }
-        });
-    };
-
-    void setupRealtimeNotifications().catch((error: unknown) => {
-      if (!disposed) {
-        console.error('Unable to set up realtime notification subscription:', error);
-      }
-    });
-
-    return () => {
-      disposed = true;
-      if (channel) void supabase.removeChannel(channel);
-    };
-  }, [showNotificationToast]);
-
   const handleNotificationClick = async (notification: HeaderNotification) => {
     onClose();
     if (!notification.is_read) {
-      setNotifications((current) =>
-        current.map((item) => (item.id === notification.id ? { ...item, is_read: true } : item))
-      );
-      setUnreadCount((count) => Math.max(0, count - 1));
+      markNotificationRead(notification.id);
       try {
         const response = await fetchWithAuth(`/api/notifications/${notification.id}/read`, { method: 'PUT' });
         if (!response.ok) throw new Error(`Mark notification read failed (${response.status}).`);

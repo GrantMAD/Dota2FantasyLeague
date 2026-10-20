@@ -12,11 +12,10 @@ import {
 import { usePathname, useRouter } from 'next/navigation';
 import { memo, useCallback, useEffect, useRef, useState } from 'react';
 import { ThemeToggle } from './theme/ThemeToggle';
-import { fetchWithAuth } from '@/lib/fetch-with-auth';
 import { NotificationDropdown } from './NotificationDropdown';
 import { QuickStatsBar } from './QuickStatsBar';
 import { DashboardNavigation } from './DashboardNavigation';
-import { PROFILE_UPDATED_EVENT, type HeaderProfile, type QuickStats } from './header-types';
+import { useHeaderData } from '@/context/HeaderDataContext';
 
 const LazyCommandPalette = dynamic(
   () => import('./CommandPalette').then((module) => module.CommandPalette),
@@ -57,74 +56,13 @@ export const Header = memo(function Header() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
-  const [profile, setProfile] = useState<HeaderProfile | null>(null);
   const [notificationMenuOpen, setNotificationMenuOpen] = useState(false);
-  const [quickStats, setQuickStats] = useState<QuickStats | null>(null);
   const [searchOpen, setSearchOpen] = useState(false);
   const userMenuRef = useRef<HTMLDivElement>(null);
   const closeMobileMenu = useCallback(() => setMobileMenuOpen(false), []);
 
-  useEffect(() => {
-    let profileLoaded = false;
-
-    async function loadProfile() {
-      try {
-        const response = await fetchWithAuth('/api/user/profile');
-        if (!response.ok) return;
-        const data = (await response.json()) as { profile: HeaderProfile | null };
-        profileLoaded = true;
-        setProfile(data.profile);
-      } catch {
-        // Keep the initials fallback when the profile is unavailable.
-      }
-    }
-
-    function handleProfileUpdated(event: Event) {
-      const profileUpdate = (event as CustomEvent<Partial<HeaderProfile>>).detail;
-      if (!profileUpdate) {
-        void loadProfile();
-        return;
-      }
-      setProfile((current) => current ? { ...current, ...profileUpdate } : current);
-      if (!profileLoaded) void loadProfile();
-    }
-
-    void loadProfile();
-    window.addEventListener(PROFILE_UPDATED_EVENT, handleProfileUpdated);
-    return () => window.removeEventListener(PROFILE_UPDATED_EVENT, handleProfileUpdated);
-  }, []);
-
-  useEffect(() => {
-    async function loadQuickStats() {
-      try {
-        const response = await fetchWithAuth('/api/user/quick-stats');
-        if (!response.ok) {
-          console.error('Unable to load Header quick stats:', response.status);
-          return;
-        }
-        const data = await response.json();
-        setQuickStats({
-          bankBalance: Number(data.bankBalance || 0),
-          freeTransfers: Number(data.freeTransfers || 0),
-          globalRank: data.globalRank ?? null,
-          totalPoints: Number(data.totalPoints || 0),
-          gameweek: data.gameweek || null,
-        });
-      } catch (error) {
-        console.error('Unable to load Header quick stats:', error);
-      }
-    }
-
-    void loadQuickStats();
-
-    const handleStatsUpdate = () => {
-      void loadQuickStats();
-    };
-    window.addEventListener('fantasy:stats-updated', handleStatsUpdate);
-    return () => {
-      window.removeEventListener('fantasy:stats-updated', handleStatsUpdate);
-    };
-  }, []);
+  // All persistent data comes from context – never re-fetched on navigation
+  const { profile, quickStats } = useHeaderData();
 
   // Global Ctrl+K / Cmd+K handler
   useEffect(() => {
