@@ -69,7 +69,7 @@ export function HeaderDataProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    void loadProfile();
+    const initialLoad = window.setTimeout(() => void loadProfile(), 0);
 
     function handleProfileUpdated(event: Event) {
       const update = (event as CustomEvent<Partial<HeaderProfile>>).detail;
@@ -81,7 +81,10 @@ export function HeaderDataProvider({ children }: { children: ReactNode }) {
     }
 
     window.addEventListener(PROFILE_UPDATED_EVENT, handleProfileUpdated);
-    return () => window.removeEventListener(PROFILE_UPDATED_EVENT, handleProfileUpdated);
+    return () => {
+      window.clearTimeout(initialLoad);
+      window.removeEventListener(PROFILE_UPDATED_EVENT, handleProfileUpdated);
+    };
   }, [loadProfile]);
 
   // ── Quick Stats ───────────────────────────────────────────────────────────
@@ -103,9 +106,12 @@ export function HeaderDataProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    void loadQuickStats();
+    const initialLoad = window.setTimeout(() => void loadQuickStats(), 0);
     window.addEventListener('fantasy:stats-updated', loadQuickStats);
-    return () => window.removeEventListener('fantasy:stats-updated', loadQuickStats);
+    return () => {
+      window.clearTimeout(initialLoad);
+      window.removeEventListener('fantasy:stats-updated', loadQuickStats);
+    };
   }, [loadQuickStats]);
 
   // ── Notifications ─────────────────────────────────────────────────────────
@@ -125,7 +131,7 @@ export function HeaderDataProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    void loadNotifications();
+    const initialLoad = window.setTimeout(() => void loadNotifications(), 0);
 
     let disposed = false;
     let channel: ReturnType<typeof supabase.channel> | null = null;
@@ -199,6 +205,7 @@ export function HeaderDataProvider({ children }: { children: ReactNode }) {
 
     return () => {
       disposed = true;
+      window.clearTimeout(initialLoad);
       if (channel) void supabase.removeChannel(channel);
     };
   }, [loadNotifications, showNotificationToast]);

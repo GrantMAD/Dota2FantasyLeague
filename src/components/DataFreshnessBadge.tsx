@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
+import { useCallback, useEffect, useState, useRef } from 'react';
 import { fetchWithAuth } from '@/lib/fetch-with-auth';
 
 interface JobDetailItem {
@@ -74,7 +74,7 @@ export function DataFreshnessBadge({
   const [, setTick] = useState(0);
   const modalRef = useRef<HTMLDivElement>(null);
 
-  const loadFreshness = async () => {
+  const loadFreshness = useCallback(async () => {
     try {
       const res = await fetchWithAuth(`/api/data/freshness?page=${encodeURIComponent(page)}`);
       if (res.ok) {
@@ -88,16 +88,11 @@ export function DataFreshnessBadge({
     } finally {
       setLoading(false);
     }
-  };
+  }, [page]);
 
   useEffect(() => {
     let cancelled = false;
-
-    async function initialLoad() {
-      await loadFreshness();
-    }
-
-    void initialLoad();
+    const initialLoad = window.setTimeout(() => void loadFreshness(), 0);
 
     // Re-fetch freshness data every 2 minutes
     const interval = setInterval(() => {
@@ -106,9 +101,10 @@ export function DataFreshnessBadge({
 
     return () => {
       cancelled = true;
+      window.clearTimeout(initialLoad);
       clearInterval(interval);
     };
-  }, [page]);
+  }, [loadFreshness]);
 
   // Update relative time strings every 15 seconds
   useEffect(() => {
