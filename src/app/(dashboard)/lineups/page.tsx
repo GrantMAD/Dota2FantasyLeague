@@ -31,6 +31,10 @@ function formatTimeUntilDeadline(value: string): string {
   return hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`;
 }
 
+function formatPoints(value: number): string {
+  return Number(value.toFixed(2)).toString();
+}
+
 export default function LineupsPage() {
   const toast = useToast();
   const toastError = toast.error;
@@ -562,6 +566,9 @@ export default function LineupsPage() {
                       <p className="text-slate-300">
                         Please assign your <span className="text-white font-medium">5 core starting players</span> in the slots below first. Once selected, you can appoint your <span className="text-amber-400 font-semibold">Captain</span> and <span className="text-cyan-400 font-semibold">Vice-Captain</span> from your starting lineup.
                       </p>
+                      <p className="mt-1 text-slate-400">
+                        Player points and form are from the latest gameweek with recorded scores, not necessarily the selected lineup gameweek. Current-gameweek scores appear as matches are processed.
+                      </p>
                     </div>
                   </div>
 
@@ -584,7 +591,7 @@ export default function LineupsPage() {
                         <option value="">{startingPlayerDetails.length === 0 ? 'Assign starting players below first' : 'Select captain'}</option>
                         {startingPlayerDetails.map((player) => {
                           const trendSymbol = player.form_trend === 'up' ? '▲' : player.form_trend === 'down' ? '▼' : '▬';
-                          const gwPtsStr = player.last_gw_points != null ? `${player.last_gw_points} pts ${trendSymbol}` : '';
+                          const gwPtsStr = player.last_gw_points != null ? `${formatPoints(player.last_gw_points)} pts ${trendSymbol}` : '';
                           const details = [player.primary_role, gwPtsStr].filter(Boolean).join(' · ');
                           return (
                             <option key={player.id} value={player.id}>
@@ -611,7 +618,7 @@ export default function LineupsPage() {
                         <option value="">{startingPlayerDetails.length === 0 ? 'Assign starting players below first' : 'Select vice-captain'}</option>
                         {startingPlayerDetails.map((player) => {
                           const trendSymbol = player.form_trend === 'up' ? '▲' : player.form_trend === 'down' ? '▼' : '▬';
-                          const gwPtsStr = player.last_gw_points != null ? `${player.last_gw_points} pts ${trendSymbol}` : '';
+                          const gwPtsStr = player.last_gw_points != null ? `${formatPoints(player.last_gw_points)} pts ${trendSymbol}` : '';
                           const details = [player.primary_role, gwPtsStr].filter(Boolean).join(' · ');
                           return (
                             <option key={player.id} value={player.id}>
@@ -659,8 +666,8 @@ export default function LineupsPage() {
                             {eligiblePlayers.map((player) => {
                               const trendSymbol = player.form_trend === 'up' ? '▲' : player.form_trend === 'down' ? '▼' : '▬';
                               const priceStr = player.current_price != null ? `$${Number(player.current_price).toFixed(1)}M` : '';
-                              const gwPtsStr = player.last_gw_points != null ? `${player.last_gw_points} pts` : '';
-                              const extras = [player.primary_role, priceStr, gwPtsStr ? `GW: ${gwPtsStr} ${trendSymbol}` : ''].filter(Boolean).join(' · ');
+                              const gwPtsStr = player.last_gw_points != null ? `${formatPoints(player.last_gw_points)} pts` : '';
+                              const extras = [player.primary_role, priceStr, gwPtsStr ? `Latest GW: ${gwPtsStr} ${trendSymbol}` : ''].filter(Boolean).join(' · ');
                               return (
                                 <option key={player.id} value={player.id}>
                                   {player.in_game_name || player.name} {extras ? `(${extras})` : ''}
@@ -714,9 +721,9 @@ export default function LineupsPage() {
                               </div>
                               <div className="flex items-center gap-3 shrink-0 text-right">
                                 <div className="text-right">
-                                  <div className="text-[10px] uppercase tracking-wider text-slate-400">Last GW</div>
+                                  <div className="text-[10px] uppercase tracking-wider text-slate-400">Latest GW</div>
                                   <div className="text-xs font-mono font-bold text-white flex items-center justify-end gap-1">
-                                    {selected.professional_players.last_gw_points ?? 0} pts
+                                    {formatPoints(selected.professional_players.last_gw_points ?? 0)} pts
                                     {selected.professional_players.form_trend === 'up' && (
                                       <TrendingUp className="w-3.5 h-3.5 text-emerald-400 inline" />
                                     )}
@@ -731,7 +738,7 @@ export default function LineupsPage() {
                                 <div className="text-right border-l border-slate-700/80 pl-3">
                                   <div className="text-[10px] uppercase tracking-wider text-slate-400">Avg</div>
                                   <div className="text-xs font-mono font-semibold text-slate-300">
-                                    {selected.professional_players.recent_points ?? 0}
+                                    {formatPoints(selected.professional_players.recent_points ?? 0)}
                                   </div>
                                 </div>
                               </div>
@@ -781,7 +788,7 @@ export default function LineupsPage() {
                             {ownedPlayers.map((player) => {
                               const trendSymbol = player.form_trend === 'up' ? '▲' : player.form_trend === 'down' ? '▼' : '▬';
                               const priceStr = player.current_price != null ? `$${Number(player.current_price).toFixed(1)}M` : '';
-                              const gwPtsStr = player.last_gw_points != null ? `${player.last_gw_points} pts` : '';
+                              const gwPtsStr = player.last_gw_points != null ? `${formatPoints(player.last_gw_points)} pts` : '';
                               const extras = [player.primary_role, priceStr, gwPtsStr ? `GW: ${gwPtsStr} ${trendSymbol}` : ''].filter(Boolean).join(' · ');
                               return (
                                 <option key={player.id} value={player.id}>
@@ -806,9 +813,9 @@ export default function LineupsPage() {
                                 </div>
                               </div>
                               <div className="text-right shrink-0">
-                                <div className="text-[9px] uppercase tracking-wider text-slate-400">Last GW</div>
+                                <div className="text-[9px] uppercase tracking-wider text-slate-400">Latest GW</div>
                                 <div className="text-xs font-mono font-bold text-white flex items-center justify-end gap-1">
-                                  {selected.professional_players.last_gw_points ?? 0}
+                                  {formatPoints(selected.professional_players.last_gw_points ?? 0)}
                                   {selected.professional_players.form_trend === 'up' && (
                                     <TrendingUp className="w-3 h-3 text-emerald-400 inline" />
                                   )}
