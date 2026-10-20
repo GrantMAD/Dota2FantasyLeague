@@ -50,23 +50,23 @@ export function LeagueActionModal({
   const canSubmit = mode === 'create' ? form.name.trim().length > 0 : joinCode.trim().length > 0;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm">
-      <div className="relative w-full max-w-md rounded-3xl border border-slate-700 bg-slate-900 shadow-2xl shadow-black/50">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
+      <div className="relative w-full max-w-md rounded-3xl border border-[var(--border)] bg-[var(--surface)] shadow-2xl shadow-black/50">
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-slate-800 p-6">
+        <div className="flex items-center justify-between border-b border-[var(--border)] p-6">
           <div>
             <div className="mb-1 inline-flex items-center gap-2 rounded-full border border-amber-500/40 bg-amber-500/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.22em] text-amber-300">
               {mode === 'create' ? <Plus className="h-3 w-3" /> : <Hash className="h-3 w-3" />}
               {mode === 'create' ? 'New League' : 'Join League'}
             </div>
-            <h2 className="text-xl font-bold text-white">
+            <h2 className="text-xl font-bold text-[var(--text-primary)]">
               {mode === 'create' ? 'Create a League' : 'Join by Invite Code'}
             </h2>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="rounded-xl p-2 text-slate-400 transition hover:bg-slate-800 hover:text-white"
+            className="rounded-xl p-2 text-[var(--text-muted)] transition hover:bg-[var(--surface-raised)] hover:text-[var(--text-primary)]"
           >
             <X className="h-5 w-5" />
           </button>
@@ -77,44 +77,44 @@ export function LeagueActionModal({
           {mode === 'create' ? (
             <>
               <div>
-                <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-slate-400">League Name</label>
+                <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]">League Name</label>
                 <input
                   value={form.name}
                   onChange={(e) => setForm({ ...form, name: e.target.value })}
                   placeholder="e.g. The Premier Fantasy Circuit"
-                  className="w-full rounded-xl border border-slate-700 bg-slate-950/80 px-4 py-3 text-sm text-white placeholder-slate-500 focus:border-amber-500/60 focus:outline-none focus:ring-1 focus:ring-amber-500/30 transition"
+                  className="w-full rounded-xl border border-[var(--border)] bg-[var(--surface-raised)] px-4 py-3 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] transition focus:border-amber-500/60 focus:outline-none focus:ring-1 focus:ring-amber-500/30"
                 />
               </div>
 
               <div>
-                <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-slate-400">Description</label>
+                <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]">Description</label>
                 <textarea
                   value={form.description}
                   onChange={(e) => setForm({ ...form, description: e.target.value })}
                   placeholder="What is this league about?"
                   rows={2}
-                  className="w-full resize-none rounded-xl border border-slate-700 bg-slate-950/80 px-4 py-3 text-sm text-white placeholder-slate-500 focus:border-amber-500/60 focus:outline-none focus:ring-1 focus:ring-amber-500/30 transition"
+                  className="w-full resize-none rounded-xl border border-[var(--border)] bg-[var(--surface-raised)] px-4 py-3 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] transition focus:border-amber-500/60 focus:outline-none focus:ring-1 focus:ring-amber-500/30"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-slate-400">Format</label>
+                  <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]">Format</label>
                   <select
                     value={form.type}
                     onChange={(e) => setForm({ ...form, type: e.target.value as 'classic' | 'h2h' })}
-                    className="w-full rounded-xl border border-slate-700 bg-slate-950/80 px-3 py-2.5 text-sm text-white focus:border-amber-500/60 focus:outline-none transition"
+                    className="w-full rounded-xl border border-[var(--border)] bg-[var(--surface-raised)] px-3 py-2.5 text-sm text-[var(--text-primary)] focus:border-amber-500/60 focus:outline-none"
                   >
                     <option value="classic">Classic</option>
                     <option value="h2h">Head-to-Head</option>
                   </select>
                 </div>
                 <div>
-                  <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-slate-400">Privacy</label>
+                  <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]">Privacy</label>
                   <select
                     value={form.privacyLevel}
                     onChange={(e) => setForm({ ...form, privacyLevel: e.target.value as 'public' | 'private' })}
-                    className="w-full rounded-xl border border-slate-700 bg-slate-950/80 px-3 py-2.5 text-sm text-white focus:border-amber-500/60 focus:outline-none transition"
+                    className="w-full rounded-xl border border-[var(--border)] bg-[var(--surface-raised)] px-3 py-2.5 text-sm text-[var(--text-primary)] focus:border-amber-500/60 focus:outline-none"
                   >
                     <option value="private">Private</option>
                     <option value="public">Public</option>
@@ -123,7 +123,7 @@ export function LeagueActionModal({
               </div>
 
               <div>
-                <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-slate-400">
+                <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]">
                   Max Participants (4-32)
                 </label>
                 <input
@@ -132,20 +132,20 @@ export function LeagueActionModal({
                   max={32}
                   value={form.maxParticipants}
                   onChange={(e) => setForm({ ...form, maxParticipants: Number(e.target.value) || 10 })}
-                  className="w-full rounded-xl border border-slate-700 bg-slate-950/80 px-4 py-3 text-sm text-white focus:border-amber-500/60 focus:outline-none focus:ring-1 focus:ring-amber-500/30 transition"
+                  className="w-full rounded-xl border border-[var(--border)] bg-[var(--surface-raised)] px-4 py-3 text-sm text-[var(--text-primary)] focus:border-amber-500/60 focus:outline-none focus:ring-1 focus:ring-amber-500/30"
                 />
               </div>
             </>
           ) : (
             <div>
-              <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-slate-400">Invite Code</label>
+              <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]">Invite Code</label>
               <input
                 value={joinCode}
                 onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
                 placeholder="Enter your invite code"
-                className="w-full rounded-xl border border-slate-700 bg-slate-950/80 px-4 py-3 font-mono text-sm uppercase text-white placeholder-slate-500 focus:border-amber-500/60 focus:outline-none focus:ring-1 focus:ring-amber-500/30 transition"
+                className="w-full rounded-xl border border-[var(--border)] bg-[var(--surface-raised)] px-4 py-3 font-mono text-sm uppercase text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-amber-500/60 focus:outline-none focus:ring-1 focus:ring-amber-500/30"
               />
-              <p className="mt-2 text-xs text-slate-500">Invite codes are case-insensitive. Ask the league creator for their code.</p>
+              <p className="mt-2 text-xs text-[var(--text-muted)]">Invite codes are case-insensitive. Ask the league creator for their code.</p>
             </div>
           )}
 
@@ -162,11 +162,11 @@ export function LeagueActionModal({
         </div>
 
         {/* Footer */}
-        <div className="flex gap-3 border-t border-slate-800 p-6 pt-4">
+        <div className="flex gap-3 border-t border-[var(--border)] p-6 pt-4">
           <button
             type="button"
             onClick={onClose}
-            className="flex-1 rounded-xl border border-slate-700 bg-slate-800 py-2.5 text-sm font-semibold text-slate-200 transition hover:bg-slate-700"
+            className="flex-1 rounded-xl border border-[var(--border)] bg-[var(--surface-raised)] py-2.5 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--surface-muted)]"
           >
             Cancel
           </button>

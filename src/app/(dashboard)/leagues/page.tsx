@@ -10,11 +10,14 @@ import {
   X,
   Copy,
   Check,
+  ArrowLeftRight,
   BarChart3,
+  Crown,
   Swords,
   Users,
   RefreshCw,
   Activity,
+  TrendingUp,
 } from 'lucide-react';
 import { fetchWithAuth } from '@/lib/fetch-with-auth';
 import { useToast } from '@/components/Toast';
@@ -58,6 +61,25 @@ function isLeagueActivityEntry(value: unknown): value is LeagueActivityEntry {
     && activity.playersOut.every((player) => typeof player === 'string')
     && (activity.captain === null || typeof activity.captain === 'string')
     && (activity.viceCaptain === null || typeof activity.viceCaptain === 'string');
+}
+
+function formatRelativeTime(value: string): string {
+  const elapsedSeconds = Math.round((Date.now() - Date.parse(value)) / 1000);
+  const units: [Intl.RelativeTimeFormatUnit, number][] = [
+    ['year', 31_536_000],
+    ['month', 2_592_000],
+    ['week', 604_800],
+    ['day', 86_400],
+    ['hour', 3_600],
+    ['minute', 60],
+  ];
+  const relativeTime = new Intl.RelativeTimeFormat(undefined, { numeric: 'auto' });
+  for (const [unit, seconds] of units) {
+    if (Math.abs(elapsedSeconds) >= seconds) {
+      return relativeTime.format(-Math.round(elapsedSeconds / seconds), unit);
+    }
+  }
+  return relativeTime.format(-elapsedSeconds, 'second');
 }
 
 export default function LeaguesPage() {
@@ -453,30 +475,57 @@ export default function LeaguesPage() {
                   <div className="mb-4 flex items-center justify-between">
                     <h2 className="flex items-center gap-2 text-xl font-bold text-white">
                       <Swords className="h-5 w-5 text-sky-400" />
-                      H2H Fixtures
+                      Matchup Arena
                     </h2>
-                    <span className="text-xs text-amber-400">Click a matchup to view details</span>
+                    <span className="text-xs text-slate-400">Gameweek points · click a matchup for details</span>
                   </div>
                   <div className="grid gap-3 md:grid-cols-2">
                     {fixtures.map((fixture) => (
                       <div
                         key={fixture.id}
                         onClick={() => setSelectedFixture(fixture)}
-                        className="cursor-pointer rounded-2xl border border-slate-800 bg-slate-950/60 p-4 transition-all hover:border-sky-500/40 hover:shadow-lg hover:shadow-sky-500/5 group"
+                        className="group cursor-pointer overflow-hidden rounded-2xl border border-violet-500/25 bg-[var(--surface)] shadow-lg transition-all hover:border-violet-400/60 hover:shadow-violet-500/10"
                       >
-                        <div className="flex items-center justify-between text-sm">
-                          <span className="font-semibold text-white group-hover:text-amber-400 transition-colors">{fixture.home}</span>
-                          <span className="rounded-lg bg-amber-500/20 px-2.5 py-1 text-xs font-black text-amber-400 font-mono">
-                            {fixture.homePoints} — {fixture.awayPoints}
+                        <div className="flex items-center justify-between border-b border-[var(--border)] bg-violet-500/5 px-4 py-2">
+                          <span className="text-xs font-bold uppercase tracking-wider text-violet-800 dark:text-violet-300">Gameweek {fixture.gameweekId}</span>
+                          <span className={`rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${
+                            fixture.isBye
+                              ? 'border-slate-500/30 bg-slate-500/10 text-[var(--text-muted)]'
+                              : fixture.winnerId
+                                ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-800 dark:text-emerald-300'
+                                : 'border-amber-500/30 bg-amber-500/10 text-amber-800 dark:text-amber-300'
+                          }`}>
+                            {fixture.isBye ? 'Bye' : fixture.winnerId ? 'Final' : 'In progress / pending'}
                           </span>
-                          <span className="font-semibold text-white group-hover:text-amber-400 transition-colors">{fixture.away}</span>
                         </div>
-                        <div className="mt-3 flex items-center justify-between text-xs text-slate-400 border-t border-slate-800/80 pt-2.5">
-                          <span>GW {fixture.gameweekId}</span>
-                          <span className={`font-semibold ${fixture.isBye ? 'text-slate-400' : fixture.winnerId ? 'text-emerald-400' : 'text-amber-400'}`}>
-                            {fixture.isBye ? 'Bye' : fixture.winnerId ? 'Final' : 'Live / Scheduled'} →
+                        <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 px-4 py-4">
+                          <div className="flex min-w-0 flex-col items-center gap-2 text-center">
+                            <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-full border border-[var(--border)] bg-[var(--surface-raised)]">
+                              {fixture.homeAvatarUrl ? (
+                                <Image src={fixture.homeAvatarUrl} alt="" width={48} height={48} unoptimized className="h-full w-full object-cover" />
+                              ) : (
+                                <span className="font-bold text-[var(--text-secondary)]">{fixture.home.substring(0, 2).toUpperCase()}</span>
+                              )}
+                            </div>
+                            <span className="w-full truncate text-sm font-semibold text-[var(--text-primary)]">{fixture.home}</span>
+                            <span className="font-mono text-2xl font-black text-[var(--text-primary)]">{fixture.homePoints}</span>
+                          </div>
+                          <span className="rounded-full border border-violet-500/30 bg-violet-500/10 px-2.5 py-1 text-[10px] font-black uppercase tracking-widest text-violet-800 dark:text-violet-300">
+                            {fixture.isBye ? 'Bye' : 'VS'}
                           </span>
+                          <div className="flex min-w-0 flex-col items-center gap-2 text-center">
+                            <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-full border border-[var(--border)] bg-[var(--surface-raised)]">
+                              {fixture.awayAvatarUrl ? (
+                                <Image src={fixture.awayAvatarUrl} alt="" width={48} height={48} unoptimized className="h-full w-full object-cover" />
+                              ) : (
+                                <span className="font-bold text-[var(--text-secondary)]">{fixture.away.substring(0, 2).toUpperCase()}</span>
+                              )}
+                            </div>
+                            <span className="w-full truncate text-sm font-semibold text-[var(--text-primary)]">{fixture.away}</span>
+                            <span className="font-mono text-2xl font-black text-[var(--text-primary)]">{fixture.awayPoints}</span>
+                          </div>
                         </div>
+                        <p className="px-4 pb-3 text-center text-[10px] text-[var(--text-muted)]">Fantasy points recorded for this matchup</p>
                       </div>
                     ))}
                   </div>
@@ -652,9 +701,15 @@ export default function LeaguesPage() {
                       No league activity yet.
                     </p>
                   ) : (
-                    <div className="max-h-72 space-y-2 overflow-y-auto pr-1">
+                    <ol className="relative max-h-80 space-y-1 overflow-y-auto pr-1">
+                      <span aria-hidden="true" className="absolute bottom-5 left-[15px] top-5 w-px bg-slate-700" />
                       {leagueActivity.map((activity) => {
                         let description: string;
+                        const Icon = activity.type === 'transfer'
+                          ? ArrowLeftRight
+                          : activity.type === 'captain_pick'
+                            ? Crown
+                            : TrendingUp;
                         if (activity.type === 'transfer') {
                           const incoming = activity.playersIn.join(', ');
                           const outgoing = activity.playersOut.join(', ');
@@ -667,19 +722,32 @@ export default function LeaguesPage() {
                             : `Moved from #${activity.fromRank} to #${activity.toRank ?? '?'}`;
                         }
                         return (
-                          <div key={activity.id} className="rounded-xl border border-slate-800 bg-slate-950/50 p-3">
-                            <p className="text-sm font-medium text-slate-200">
-                              <span className="font-semibold text-white">{activity.manager}</span> {description}
-                            </p>
-                            <p className="mt-1 text-xs text-slate-500">
-                              {activity.gameweekNumber === null ? 'League update' : `Gameweek ${activity.gameweekNumber}`}
-                              {' · '}
-                              {new Date(activity.createdAt).toLocaleString()}
-                            </p>
-                          </div>
+                          <li key={activity.id} className="relative flex gap-3 py-2">
+                            <span className={`relative z-10 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border ${
+                              activity.type === 'transfer'
+                                ? 'border-sky-500/30 bg-sky-500/10 text-sky-700 dark:text-sky-300'
+                                : activity.type === 'captain_pick'
+                                  ? 'border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300'
+                                  : 'border-violet-500/30 bg-violet-500/10 text-violet-700 dark:text-violet-300'
+                            }`}>
+                              <Icon className="h-4 w-4" aria-hidden="true" />
+                            </span>
+                            <div className="min-w-0 flex-1 rounded-xl border border-[var(--border)] bg-[var(--surface-raised)] px-3 py-2.5">
+                              <p className="text-sm leading-5 text-[var(--text-secondary)]">
+                                <span className="font-semibold text-[var(--text-primary)]">{activity.manager}</span> {description}
+                              </p>
+                              <p className="mt-1 flex flex-wrap items-center gap-x-2 text-xs text-[var(--text-muted)]">
+                                <span>{activity.gameweekNumber === null ? 'League update' : `Gameweek ${activity.gameweekNumber}`}</span>
+                                <span aria-hidden="true">·</span>
+                                <time dateTime={activity.createdAt} title={new Date(activity.createdAt).toLocaleString()}>
+                                  {formatRelativeTime(activity.createdAt)}
+                                </time>
+                              </p>
+                            </div>
+                          </li>
                         );
                       })}
-                    </div>
+                    </ol>
                   )}
                 </div>
               </div>

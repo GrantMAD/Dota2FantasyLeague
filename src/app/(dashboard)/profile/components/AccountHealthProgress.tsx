@@ -10,8 +10,8 @@ interface AccountHealthProgressProps {
 export function AccountHealthProgress({
   completed,
   total,
-  size = 72,
-  strokeWidth = 7,
+  size = 88,
+  strokeWidth = 8,
 }: AccountHealthProgressProps) {
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
@@ -39,7 +39,7 @@ export function AccountHealthProgress({
           cx={size / 2}
           cy={size / 2}
           r={radius}
-          className="stroke-slate-800"
+          className="stroke-[var(--border)]"
           strokeWidth={strokeWidth}
           fill="none"
         />
@@ -64,8 +64,8 @@ export function AccountHealthProgress({
       </svg>
       {/* Centered label */}
       <div className="absolute inset-0 flex flex-col items-center justify-center text-center leading-none">
-        <span className="text-xs font-black text-white">{completed}/{total}</span>
-        <span className="mt-0.5 text-[9px] font-semibold text-slate-400">{percent}%</span>
+        <span className="text-sm font-black text-[var(--text-primary)]">{completed}/{total}</span>
+        <span className="mt-0.5 text-[10px] font-semibold text-[var(--text-muted)]">{percent}%</span>
       </div>
     </div>
   );

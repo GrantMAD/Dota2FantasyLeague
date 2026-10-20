@@ -95,6 +95,17 @@ describe('GET /api/notifications filtering and pagination', () => {
     });
   });
 
+  it.each([
+    ['market', ['price_change', 'transfer_market', 'wildcard_used', 'player_removed']],
+    ['scoring', ['score_posted', 'gameweek_result', 'rank_movement', 'rank_update']],
+  ])('includes supported %s notification types in its category filter', async (category, expectedTypes) => {
+    const response = await GET(makeRequest(`?category=${category}`));
+    const notificationQuery = mockBuilders.find((builder) => !builder.countQuery);
+
+    expect(response.status).toBe(200);
+    expect(notificationQuery?.in).toHaveBeenCalledWith('type', expectedTypes);
+  });
+
   it('returns a cursor based on the last returned row and applies a stable tie-breaker on the next page', async () => {
     notificationRows = [
       { id: 15, type: 'deadline_reminder', created_at: '2026-10-13T12:00:00.000Z' },

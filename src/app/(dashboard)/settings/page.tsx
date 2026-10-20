@@ -3,9 +3,11 @@
 import { fetchWithAuth } from '@/lib/fetch-with-auth';
 import { Suspense, useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { useSearchParams } from 'next/navigation';
 import { useTheme, type Theme } from '@/components/theme/ThemeProvider';
 import { useToast } from '@/components/Toast';
+import { PROFILE_UPDATED_EVENT } from '@/components/header-types';
 
 type SettingsTab = 'overview' | 'account' | 'profile' | 'notifications' | 'security';
 
@@ -33,6 +35,7 @@ function SettingsContent() {
     username: '',
     email: '',
     displayName: '',
+    avatarUrl: null as string | null,
     countryCode: '',
     timezone: 'UTC',
     emailNotifications: true,
@@ -58,6 +61,7 @@ function SettingsContent() {
       const data = (await res.json()) as {
         profile?: {
           display_name?: string | null;
+          avatar_url?: string | null;
           username?: string;
           email?: string;
           country_code?: string | null;
@@ -73,6 +77,7 @@ function SettingsContent() {
         username: profile.username || '',
         email: profile.email || '',
         displayName: profile.display_name || profile.username || '',
+        avatarUrl: profile.avatar_url || null,
         countryCode: profile.country_code || 'US',
         timezone: profile.timezone || 'UTC',
         emailNotifications: profile.email_notifications ?? true,
@@ -99,6 +104,7 @@ function SettingsContent() {
         const data = (await res.json()) as {
           profile?: {
             display_name?: string | null;
+            avatar_url?: string | null;
             username?: string;
             email?: string;
             country_code?: string | null;
@@ -115,6 +121,7 @@ function SettingsContent() {
             username: profile.username || '',
             email: profile.email || '',
             displayName: profile.display_name || profile.username || '',
+            avatarUrl: profile.avatar_url || null,
             countryCode: profile.country_code || 'US',
             timezone: profile.timezone || 'UTC',
             emailNotifications: profile.email_notifications ?? true,
@@ -171,7 +178,12 @@ function SettingsContent() {
       });
 
       const data = (await res.json()) as {
-        profile?: { username?: string; email?: string };
+        profile?: {
+          username?: string;
+          email?: string;
+          display_name?: string | null;
+          avatar_url?: string | null;
+        };
         error?: string;
       };
       if (!res.ok || !data.profile) throw new Error(data.error || 'Unable to save settings');
@@ -180,6 +192,13 @@ function SettingsContent() {
         username: data.profile?.username || current.username,
         email: data.profile?.email || current.email,
       }));
+      window.dispatchEvent(new CustomEvent(PROFILE_UPDATED_EVENT, {
+        detail: {
+          username: data.profile.username,
+          display_name: data.profile.display_name,
+          avatar_url: data.profile.avatar_url,
+        },
+      }));
       setMessage('Settings saved successfully');
       toast.success('Settings Saved', 'Your changes have been applied.');
     } catch (error: unknown) {
@@ -187,6 +206,38 @@ function SettingsContent() {
       setMessage(errMsg);
       setMessageIsError(true);
       toast.error('Save Failed', errMsg);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleAvatarUpload = async (file?: File) => {
+    if (!file) return;
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
+      toast.error('Unsupported Image', 'Choose a JPEG, PNG, or WebP image.');
+      return;
+    }
+    if (file.size === 0 || file.size > 5 * 1024 * 1024) {
+      toast.error('Image Too Large', 'Choose an image that is 5 MB or smaller.');
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const body = new FormData();
+      body.append('avatar', file);
+      const response = await fetchWithAuth('/api/user/avatar', { method: 'POST', body });
+      const data = (await response.json()) as { avatar_url?: string; error?: string };
+      if (!response.ok || !data.avatar_url) throw new Error(data.error || 'Unable to upload profile image');
+
+      setFormData((current) => ({ ...current, avatarUrl: data.avatar_url ?? null }));
+      window.dispatchEvent(new CustomEvent(PROFILE_UPDATED_EVENT, {
+        detail: { avatar_url: data.avatar_url },
+      }));
+      toast.success('Profile Image Updated', 'Your new profile image is now in use.');
+    } catch (error: unknown) {
+      const errMsg = error instanceof Error ? error.message : 'Unable to upload profile image';
+      toast.error('Upload Failed', errMsg);
     } finally {
       setSaving(false);
     }
@@ -381,6 +432,30 @@ function SettingsContent() {
               <h2 className="text-xl font-bold text-white">Profile and appearance</h2>
               <p className="mt-2 text-sm leading-6 text-slate-400">Update the identity and regional details shown across your fantasy experience.</p>
               <div className="mt-6 space-y-5">
+                <div className="flex flex-col gap-4 rounded-xl border border-slate-800 bg-slate-950/40 p-4 sm:flex-row sm:items-center">
+                  <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-full border-2 border-slate-700 bg-slate-800 text-2xl font-bold text-cyan-300">
+                    {formData.avatarUrl ? (
+                      <Image src={formData.avatarUrl} alt="Current profile image" width={80} height={80} unoptimized className="h-full w-full object-cover" />
+                    ) : (
+                      (formData.displayName || formData.username || 'U').slice(0, 1).toUpperCase()
+                    )}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <label htmlFor="settings-avatar" className="mb-2 block text-sm font-medium text-slate-300">Profile image</label>
+                    <input
+                      id="settings-avatar"
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp"
+                      disabled={saving}
+                      onChange={(event) => {
+                        void handleAvatarUpload(event.currentTarget.files?.[0]);
+                        event.currentTarget.value = '';
+                      }}
+                      className="block w-full cursor-pointer rounded-lg border border-slate-700 bg-slate-950/70 text-sm text-slate-300 file:mr-3 file:border-0 file:bg-cyan-500 file:px-3 file:py-2.5 file:font-semibold file:text-slate-950 hover:file:bg-cyan-400 disabled:cursor-wait disabled:opacity-60"
+                    />
+                    <p className="mt-2 text-xs text-slate-500">JPEG, PNG, or WebP · 5 MB maximum. Uploading a new image replaces your current one.</p>
+                  </div>
+                </div>
                 <div>
                   <label htmlFor="settings-display-name" className="mb-2 block text-sm font-medium text-slate-300">Display name</label>
                   <input id="settings-display-name" type="text" value={formData.displayName} onChange={(event) => setFormData({ ...formData, displayName: event.target.value })} className={inputClass} />

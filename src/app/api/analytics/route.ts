@@ -252,7 +252,7 @@ async function getHandler(request: NextRequest) {
     }
 
     const market = [] as Array<{ playerName: string; team: string; role: string; ownership: number; price: number; roi: number; }>; 
-    let dreamTeam: Array<{ playerName: string; team: string; role: string; points: number }> = [];
+    let dreamTeam: Array<{ playerName: string; team: string; role: string; points: number; price: number; roi: number }> = [];
 
     if (targetGameweekId) {
       // Consolidate market ROI and Dream Team into a single performance query
@@ -358,16 +358,19 @@ async function getHandler(request: NextRequest) {
         }
       }
 
-      dreamTeam = [...starters, ...bench].map(({ player: p, points, role }) => {
+      dreamTeam = [...starters, ...bench].map(({ id, player: p, points, role }) => {
         const team = firstRelation(p.professional_teams);
         const displayName = (p.in_game_name && p.in_game_name !== 'Player (Unknown)')
           ? p.in_game_name
           : (p.name && p.name !== 'Player (Unknown)' ? p.name : `Player #${p.id || '?'}`);
+        const price = priceMap.get(id)?.price || 5.0;
         return {
           playerName: displayName,
           team: team?.name || 'Unknown',
           role: role || p.primary_role || 'Support',
           points: Number(points.toFixed(1)),
+          price,
+          roi: Number(((points / price) * 10).toFixed(2)),
         };
       });
     }

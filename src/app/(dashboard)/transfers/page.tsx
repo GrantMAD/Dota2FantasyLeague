@@ -28,6 +28,13 @@ import type { FantasyPlayer as TransferPlayer } from '@/types/fantasy';
 const SQUAD_MAX_SIZE = 8;
 const STARTER_ROLES = ['Carry', 'Mid', 'Offlane', 'Support', 'Hard Support'] as const;
 type StarterRole = typeof STARTER_ROLES[number];
+const ROLE_ACCENTS: Record<string, string> = {
+  Carry: 'var(--danger)',
+  Mid: 'var(--accent-secondary)',
+  Offlane: 'var(--accent-primary)',
+  Support: 'var(--success)',
+  'Hard Support': '#a78bfa',
+};
 
 interface TransferSuggestion {
   player_out_id: number;
@@ -75,11 +82,13 @@ function TransfersPageContent() {
   const [wildcardUsed, setWildcardUsed] = useState(false);
   const [wildcardUsedGameweekNumber, setWildcardUsedGameweekNumber] = useState<number | null>(null);
   const [ownedPlayerIds, setOwnedPlayerIds] = useState<number[]>([]);
+  const [ownedPlayerCosts, setOwnedPlayerCosts] = useState<Map<number, number>>(new Map());
   const [transferContextReady, setTransferContextReady] = useState(false);
   const [transferSuggestions, setTransferSuggestions] = useState<TransferSuggestion[]>([]);
   const [transferSuggestionsSummary, setTransferSuggestionsSummary] = useState<TransferSuggestionSummary | null>(null);
   const [transferSuggestionsLoading, setTransferSuggestionsLoading] = useState(false);
   const [transferSuggestionsError, setTransferSuggestionsError] = useState<string | null>(null);
+  const [suggestionsOpen, setSuggestionsOpen] = useState(false);
   const [quickAddPlayer, setQuickAddPlayer] = useState<TransferPlayer | null>(null);
   // Building mode: multi-select keyed by player ID so details survive filter/page changes
   const [buildingSelections, setBuildingSelections] = useState<Map<number, TransferPlayer>>(new Map());
@@ -115,6 +124,11 @@ function TransfersPageContent() {
         setWildcardUsed(context.wildcardUsed || false);
         setWildcardUsedGameweekNumber(context.wildcardUsedGameweekNumber ?? null);
         setOwnedPlayerIds(ownedIds);
+        setOwnedPlayerCosts(new Map<number, number>(
+          (context.ownedPlayerCosts || [])
+            .filter((entry: { playerId: number; cost: number | null }) => Number.isFinite(entry.cost))
+            .map((entry: { playerId: number; cost: number }) => [entry.playerId, entry.cost])
+        ));
 
         if (ownedIds.length > 0) {
           const ownedRes = await fetchWithAuth(`/api/players?ids=${ownedIds.join(',')}&show_all=true`);
@@ -176,6 +190,7 @@ function TransfersPageContent() {
       } catch (err: unknown) {
         if (!cancelled) {
           setTransferSuggestionsError(err instanceof Error ? err.message : 'Failed to load transfer suggestions.');
+          setSuggestionsOpen(true);
         }
       } finally {
         if (!cancelled) setTransferSuggestionsLoading(false);
@@ -355,6 +370,24 @@ function TransfersPageContent() {
     selectedPlayerOutDetails &&
     normaliseSlotRole(selectedPlayerInDetails.primary_role) === normaliseSlotRole(selectedPlayerOutDetails.primary_role)
   );
+  const outgoingPlayerCost = selectedPlayerOut !== null ? ownedPlayerCosts.get(selectedPlayerOut) : undefined;
+  const incomingPlayerPrice = selectedPlayerInDetails?.current_price;
+  const selectedTransferBudgetAfter =
+    outgoingPlayerCost !== undefined &&
+    incomingPlayerPrice !== null &&
+    incomingPlayerPrice !== undefined &&
+    Number.isFinite(incomingPlayerPrice)
+      ? budget + outgoingPlayerCost - incomingPlayerPrice
+      : null;
+  const outgoingRecentForm = selectedPlayerOutDetails?.recent_points;
+  const incomingRecentForm = selectedPlayerInDetails?.recent_points;
+  const selectedRecentFormDelta =
+    typeof outgoingRecentForm === 'number' &&
+    Number.isFinite(outgoingRecentForm) &&
+    typeof incomingRecentForm === 'number' &&
+    Number.isFinite(incomingRecentForm)
+      ? incomingRecentForm - outgoingRecentForm
+      : null;
 
   const handlePlayerAction = (playerId: number, player?: TransferPlayer, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
@@ -626,13 +659,176 @@ function TransfersPageContent() {
         </div>
       )}
 
+      <section className="mb-5 rounded-2xl border border-[var(--border)] bg-[var(--surface)]/95 p-4 shadow-lg backdrop-blur">
+        <div className="grid gap-4 xl:grid-cols-[minmax(220px,1.2fr)_minmax(0,2fr)]">
+          <div>
+            <label htmlFor="transfer-market-search" className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)]">
+              Scout players
+            </label>
+            <input
+              id="transfer-market-search"
+              data-tour="transfers-search"
+              type="search"
+              placeholder="Search player or team..."
+              value={search}
+              onChange={(e) => {
+                setSearch(e.target.value);
+                setPage(1);
+              }}
+              className="w-full rounded-xl border border-[var(--border)] bg-[var(--surface-raised)] px-3 py-2.5 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-[var(--accent-primary)] focus:outline-none"
+            />
+          </div>
+          <div>
+            <div className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)]">Role</div>
+            <div className="flex flex-wrap gap-1.5">
+              {['', ...STARTER_ROLES].map((role) => (
+                <button
+                  key={role || 'all'}
+                  type="button"
+                  aria-pressed={roleFilter === role}
+                  onClick={() => {
+                    setRoleFilter(role);
+                    setPage(1);
+                  }}
+                  className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors ${
+                    roleFilter === role
+                      ? 'border-[var(--accent-primary)] bg-[var(--accent-primary)]/15 text-[var(--text-primary)]'
+                      : 'border-[var(--border)] bg-[var(--surface-raised)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+                  }`}
+                  style={role && roleFilter === role ? { boxShadow: `inset 0 0 0 1px ${ROLE_ACCENTS[role]}` } : undefined}
+                >
+                  {role || 'All roles'}
+                </button>
+              ))}
+            </div>
+            {(roleFilter === 'Support' || roleFilter === 'Hard Support') && (
+              <p className="mt-1.5 text-xs text-[var(--text-muted)]">
+                Support and Hard Support players may share fantasy eligibility.
+              </p>
+            )}
+          </div>
+          <div className="flex flex-wrap items-center gap-2 xl:col-span-2">
+            <span className="mr-1 text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)]">Squad</span>
+            {([
+              { value: 'all', label: 'All players' },
+              { value: 'owned', label: 'My squad' },
+              { value: 'available', label: 'Available' },
+            ] as const).map((option) => (
+              <button
+                key={option.value}
+                type="button"
+                aria-pressed={ownershipFilter === option.value}
+                onClick={() => {
+                  setOwnershipFilter(option.value);
+                  setPage(1);
+                }}
+                className={`rounded-full border px-3 py-1.5 text-xs font-semibold ${
+                  ownershipFilter === option.value
+                    ? 'border-emerald-500/50 bg-emerald-500/15 text-emerald-700 dark:text-emerald-300'
+                    : 'border-[var(--border)] bg-[var(--surface-raised)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+                }`}
+              >
+                {option.label}
+              </button>
+            ))}
+            <span className="mx-1 hidden h-6 w-px bg-[var(--border)] sm:block" />
+            <span className="mr-1 text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)]">Sort</span>
+            {(
+              [
+                { id: 'price', label: 'Price' },
+                { id: 'points', label: 'Points / Form' },
+                { id: 'ownership', label: 'Ownership' },
+                { id: 'name', label: 'Name' },
+              ] as const
+            ).map((option) => {
+              const isActive = sortBy === option.id;
+              return (
+                <button
+                  key={option.id}
+                  type="button"
+                  onClick={() => {
+                    if (isActive) setSortDesc((prev) => !prev);
+                    else {
+                      setSortBy(option.id);
+                      setSortDesc(option.id !== 'name');
+                    }
+                    setPage(1);
+                  }}
+                  className={`inline-flex items-center gap-1 rounded-full border px-3 py-1.5 text-xs font-semibold ${
+                    isActive
+                      ? 'border-amber-500/50 bg-amber-500/15 text-amber-700 dark:text-amber-300'
+                      : 'border-[var(--border)] bg-[var(--surface-raised)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+                  }`}
+                  aria-pressed={isActive}
+                >
+                  {option.label}
+                  {isActive && (sortDesc ? <ArrowDown className="h-3 w-3" /> : <ArrowUp className="h-3 w-3" />)}
+                </button>
+              );
+            })}
+            <button
+              type="button"
+              onClick={() => setPinOwnedFirst((prev) => !prev)}
+              aria-pressed={pinOwnedFirst}
+              className={`ml-auto rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors ${
+                pinOwnedFirst
+                  ? 'border-amber-500/50 bg-amber-500/15 text-amber-700 dark:text-amber-300'
+                  : 'border-[var(--border)] bg-[var(--surface-raised)] text-[var(--text-secondary)]'
+              }`}
+            >
+              <span className="inline-flex items-center gap-1.5">
+                <Pin className="h-3.5 w-3.5" />
+                Pin squad {pinOwnedFirst ? 'on' : 'off'}
+              </span>
+            </button>
+            {(search || roleFilter || ownershipFilter !== 'all') && (
+              <button
+                type="button"
+                onClick={() => {
+                  setSearch('');
+                  setRoleFilter('');
+                  setOwnershipFilter('all');
+                  setPage(1);
+                }}
+                className="rounded-full px-2 py-1.5 text-xs font-semibold text-[var(--text-muted)] hover:text-[var(--text-primary)]"
+              >
+                Clear filters
+              </button>
+            )}
+          </div>
+        </div>
+      </section>
+
       {ownedPlayerIds.length >= SQUAD_MAX_SIZE && fantasySeasonId ? (
-        <section className="mb-6 rounded-xl border border-indigo-500/30 bg-indigo-950/30 p-5">
-          <div className="flex items-start gap-3">
-            <Sparkles className="mt-0.5 h-5 w-5 shrink-0 text-indigo-300" />
-            <div className="min-w-0 flex-1">
-              <h2 className="text-base font-bold text-white">Smart Transfer Suggestions</h2>
-              <p className="mt-1 text-xs leading-5 text-slate-300">
+        <section className="mb-6 rounded-xl border border-indigo-500/30 bg-indigo-950/30 p-4 shadow-sm">
+          <button
+            type="button"
+            onClick={() => setSuggestionsOpen((open) => !open)}
+            aria-expanded={suggestionsOpen}
+            className="flex w-full items-center justify-between gap-3 text-left"
+          >
+            <span className="flex min-w-0 items-center gap-3">
+              <Sparkles className="h-5 w-5 shrink-0 text-indigo-300" />
+              <span className="min-w-0">
+                <span className="block text-sm font-bold text-white">Smart Transfer Suggestions</span>
+                <span className="mt-0.5 block text-xs text-indigo-100/70">
+                  {transferSuggestionsLoading
+                    ? 'Finding suitable swaps…'
+                    : transferSuggestionsError
+                      ? 'Suggestions need attention'
+                      : transferSuggestions.length > 0
+                        ? `${transferSuggestions.length} role-matched swap${transferSuggestions.length === 1 ? '' : 's'} available`
+                        : 'Review transfer recommendations'}
+                </span>
+              </span>
+            </span>
+            <span className="shrink-0 rounded-lg border border-indigo-300/25 bg-indigo-300/10 px-3 py-1.5 text-xs font-semibold text-indigo-100">
+              {suggestionsOpen ? 'Hide' : 'Show'}
+            </span>
+          </button>
+          {suggestionsOpen && (
+            <div className="mt-4 border-t border-indigo-300/15 pt-4">
+              <p className="mb-3 text-xs leading-5 text-slate-300">
                 Role-matched swaps based on the last three completed gameweeks, price movement, your budget, and squad limits.
                 Suggestions are advisory; the transfer server rechecks eligibility and budget.
               </p>
@@ -704,94 +900,13 @@ function TransfersPageContent() {
                 </div>
               )}
             </div>
-          </div>
+          )}
         </section>
       ) : null}
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
-        {/* Sidebar Filters */}
+        {/* Squad actions */}
         <div className="lg:col-span-1 space-y-6">
-          <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-5 shadow-sm">
-            <h3 className="font-semibold text-white mb-4">Search & Filters</h3>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-xs font-medium text-slate-400 mb-1">Search Player</label>
-                <input
-                  data-tour="transfers-search"
-                  type="text"
-                  placeholder="e.g. Yatoro, Nisha..."
-                  value={search}
-                  onChange={(e) => {
-                    setSearch(e.target.value);
-                    setPage(1);
-                  }}
-                  className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-amber-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-medium text-slate-400 mb-1">Role</label>
-                <select
-                  value={roleFilter}
-                  onChange={(e) => {
-                    setRoleFilter(e.target.value);
-                    setPage(1);
-                  }}
-                  className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-amber-500"
-                >
-                  <option value="">All Roles</option>
-                  <option value="Carry">Carry</option>
-                  <option value="Mid">Mid</option>
-                  <option value="Offlane">Offlane</option>
-                  <option value="Support">Support</option>
-                  <option value="Hard Support">Hard Support</option>
-                </select>
-                {(roleFilter === 'Support' || roleFilter === 'Hard Support') && (
-                  <p className="mt-1.5 text-xs text-amber-400/80 flex items-start gap-1">
-                    <span className="mt-0.5 shrink-0">ℹ️</span>
-                    <span>Support & Hard Support players are shown together — pro data doesn&apos;t always distinguish Pos 4 from Pos 5.</span>
-                  </p>
-                )}
-              </div>
-
-              <div>
-                <label className="block text-xs font-medium text-slate-400 mb-1">Squad Status</label>
-                <select
-                  value={ownershipFilter}
-                  onChange={(e) => setOwnershipFilter(e.target.value as 'all' | 'owned' | 'available')}
-                  className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-amber-500"
-                >
-                  <option value="all">All Players</option>
-                  <option value="owned">My Squad (Owned)</option>
-                  <option value="available">Available to Buy</option>
-                </select>
-              </div>
-
-              <div className="pt-2">
-                <button
-                  type="button"
-                  onClick={() => setPinOwnedFirst((prev) => !prev)}
-                  className={`w-full flex items-center justify-between gap-2 px-3 py-2 rounded-lg border text-xs font-semibold transition-all ${
-                    pinOwnedFirst
-                      ? 'border-amber-500/50 bg-amber-500/15 text-amber-300 shadow-sm'
-                      : 'border-slate-700 bg-slate-900/60 text-slate-400 hover:text-slate-200 hover:bg-slate-800'
-                  }`}
-                  aria-pressed={pinOwnedFirst}
-                >
-                  <span className="flex items-center gap-2">
-                    <Pin className={`h-3.5 w-3.5 ${pinOwnedFirst ? 'text-amber-400 fill-amber-400/30' : 'text-slate-400'}`} />
-                    <span>Pin Owned Squad at Top</span>
-                  </span>
-                  <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
-                    pinOwnedFirst ? 'bg-amber-500/30 text-amber-300' : 'bg-slate-800 text-slate-500'
-                  }`}>
-                    {pinOwnedFirst ? 'ON' : 'OFF'}
-                  </span>
-                </button>
-              </div>
-            </div>
-          </div>
-
           <div className="wildcard-card bg-amber-900/20 border border-amber-700/50 rounded-xl p-5">
             <h3 className="wildcard-card-title font-semibold text-amber-500 mb-2 text-sm">Wildcard Available</h3>
             <p className="wildcard-card-description text-xs text-amber-200/70 mb-3">{wildcardUsed ? 'Wildcard already used this season.' : 'Play it to make unlimited transfers this week with no point deductions.'}</p>
@@ -799,6 +914,53 @@ function TransfersPageContent() {
               {wildcardUsed ? 'Wildcard Used' : 'Play Wildcard'}
             </button>
           </div>
+
+          {!isBuilding && ownedPlayerIds.length > 0 && (
+            <section className="rounded-xl border border-emerald-500/35 bg-[var(--surface)] p-4 shadow-sm">
+              <div className="mb-3 flex items-center justify-between gap-2">
+                <div>
+                  <h3 className="text-sm font-bold text-[var(--text-primary)]">Your Squad</h3>
+                  <p className="mt-0.5 text-xs text-[var(--text-muted)]">Select a player to choose them for a transfer out.</p>
+                </div>
+                <span className="shrink-0 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-1 text-xs font-bold text-emerald-700 dark:text-emerald-300">
+                  {ownedPlayerIds.length}/{SQUAD_MAX_SIZE}
+                </span>
+              </div>
+              <ul className="space-y-1.5">
+                {ownedPlayerIds.map((playerId) => {
+                  const player = ownedPlayersMap.get(playerId) || players.find((entry) => entry.id === playerId);
+                  const selected = selectedPlayerOut === playerId;
+                  return (
+                    <li key={playerId}>
+                      <button
+                        type="button"
+                        disabled={!player || actionLoading}
+                        onClick={() => setSelectedPlayerOut(selected ? null : playerId)}
+                        aria-pressed={selected}
+                        className={`flex w-full items-center justify-between gap-2 rounded-lg border px-3 py-2 text-left transition-colors disabled:cursor-wait disabled:opacity-60 ${
+                          selected
+                            ? 'border-rose-500/50 bg-rose-500/10'
+                            : 'border-[var(--border)] bg-[var(--surface-raised)] hover:border-emerald-500/40'
+                        }`}
+                      >
+                        <span className="min-w-0">
+                          <span className="block truncate text-xs font-semibold text-[var(--text-primary)]">
+                            {player ? player.in_game_name || player.name : 'Loading player…'}
+                          </span>
+                          <span className="block truncate text-[10px] text-[var(--text-muted)]">
+                            {player?.primary_role || 'Role unavailable'}
+                          </span>
+                        </span>
+                        <span className={`shrink-0 text-[10px] font-bold ${selected ? 'text-rose-700 dark:text-rose-300' : 'text-emerald-700 dark:text-emerald-300'}`}>
+                          {selected ? 'Selected out' : 'Owned'}
+                        </span>
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            </section>
+          )}
 
           {isBuilding ? (
             // ── BUILDING MODE PANEL ────────────────────────────────────────────
@@ -910,19 +1072,105 @@ function TransfersPageContent() {
             </div>
           ) : (selectedPlayerIn !== null || selectedPlayerOut !== null) && (
             // ── TRANSFER MODE PANEL ────────────────────────────────────────────
-            <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-5 shadow-sm">
-              <h4 className="text-sm font-semibold text-white mb-2">Pending Transfer</h4>
-              <p className="text-xs text-slate-300 mb-3 leading-relaxed">
-                {selectedPlayerIn
-                  ? `Buying: ${selectedPlayerInDetails?.in_game_name || 'Player'} (${selectedPlayerInDetails?.primary_role || 'Role unknown'})`
-                  : 'Select a player to buy.'}
-                <br />
-                {selectedPlayerOut
-                  ? `Selling: ${selectedPlayerOutDetails?.in_game_name || 'Player'} (${selectedPlayerOutDetails?.primary_role || 'Role unknown'})`
-                  : 'Select an owned player to sell.'}
-              </p>
+            <div className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-5 shadow-lg lg:sticky lg:top-24">
+              <div className="mb-4 flex items-center justify-between gap-3">
+                <h4 className="text-sm font-bold text-[var(--text-primary)]">Trade review</h4>
+                {selectedPlayerInDetails && selectedPlayerOutDetails && (
+                  <span className={`rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide ${
+                    rolesMatch
+                      ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
+                      : 'border-rose-500/40 bg-rose-500/10 text-rose-700 dark:text-rose-300'
+                  }`}>
+                    {rolesMatch ? 'Role match' : 'Role mismatch'}
+                  </span>
+                )}
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="rounded-xl border border-rose-500/35 bg-rose-500/5 p-3 shadow-[inset_0_1px_0_rgba(244,63,94,0.12)]">
+                  <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-rose-700 dark:text-rose-300">Player out</p>
+                  {selectedPlayerOutDetails ? (
+                    <>
+                      <p className="truncate text-sm font-bold text-[var(--text-primary)]">
+                        {selectedPlayerOutDetails.in_game_name || selectedPlayerOutDetails.name}
+                      </p>
+                      <p className="mt-1 text-xs text-[var(--text-secondary)]">
+                        {selectedPlayerOutDetails.primary_role || 'Role unknown'}
+                      </p>
+                      <div className="mt-3 flex justify-between gap-2 text-xs">
+                        <span className="text-[var(--text-muted)]">Acquisition cost</span>
+                        <span className="font-mono font-semibold text-[var(--text-primary)]">
+                          {outgoingPlayerCost !== undefined ? `$${outgoingPlayerCost.toFixed(1)}M` : 'Unavailable'}
+                        </span>
+                      </div>
+                      <div className="mt-1 flex justify-between gap-2 text-xs">
+                        <span className="text-[var(--text-muted)]">Recent form avg.</span>
+                        <span className="font-mono text-[var(--text-primary)]">
+                          {typeof outgoingRecentForm === 'number' ? `${outgoingRecentForm.toFixed(2)} pts` : '—'}
+                        </span>
+                      </div>
+                    </>
+                  ) : (
+                    <p className="py-3 text-xs text-[var(--text-muted)]">Choose a squad player to sell.</p>
+                  )}
+                </div>
+                <div className="rounded-xl border border-emerald-500/35 bg-emerald-500/5 p-3 shadow-[inset_0_1px_0_rgba(16,185,129,0.12)]">
+                  <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-emerald-700 dark:text-emerald-300">Player in</p>
+                  {selectedPlayerInDetails ? (
+                    <>
+                      <p className="truncate text-sm font-bold text-[var(--text-primary)]">
+                        {selectedPlayerInDetails.in_game_name || selectedPlayerInDetails.name}
+                      </p>
+                      <p className="mt-1 text-xs text-[var(--text-secondary)]">
+                        {selectedPlayerInDetails.primary_role || 'Role unknown'}
+                      </p>
+                      <div className="mt-3 flex justify-between gap-2 text-xs">
+                        <span className="text-[var(--text-muted)]">Market price</span>
+                        <span className="font-mono font-semibold text-[var(--text-primary)]">
+                          {typeof incomingPlayerPrice === 'number' ? `$${incomingPlayerPrice.toFixed(1)}M` : 'Unavailable'}
+                        </span>
+                      </div>
+                      <div className="mt-1 flex justify-between gap-2 text-xs">
+                        <span className="text-[var(--text-muted)]">Recent form avg.</span>
+                        <span className="font-mono text-[var(--text-primary)]">
+                          {typeof incomingRecentForm === 'number' ? `${incomingRecentForm.toFixed(2)} pts` : '—'}
+                        </span>
+                      </div>
+                    </>
+                  ) : (
+                    <p className="py-3 text-xs text-[var(--text-muted)]">Choose a player to buy.</p>
+                  )}
+                </div>
+              </div>
+              <div className="mt-3 grid gap-2 rounded-xl border border-[var(--border)] bg-[var(--surface-raised)] p-3 sm:grid-cols-2">
+                <div>
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-[var(--text-muted)]">Estimated bank after</p>
+                  <p className="mt-1 font-mono text-lg font-bold text-[var(--text-primary)]">
+                    {selectedTransferBudgetAfter !== null ? `$${selectedTransferBudgetAfter.toFixed(1)}M` : '—'}
+                  </p>
+                  <p className="text-[10px] leading-4 text-[var(--text-muted)]">
+                    Uses the recorded outgoing cost and incoming market price; the server confirms the final balance.
+                  </p>
+                </div>
+                <div className="sm:border-l sm:border-[var(--border)] sm:pl-3">
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-[var(--text-muted)]">Recent-form difference</p>
+                  <p className={`mt-1 font-mono text-lg font-bold ${
+                    selectedRecentFormDelta === null
+                      ? 'text-[var(--text-primary)]'
+                      : selectedRecentFormDelta >= 0
+                        ? 'text-emerald-700 dark:text-emerald-300'
+                        : 'text-rose-700 dark:text-rose-300'
+                  }`}>
+                    {selectedRecentFormDelta === null
+                      ? '—'
+                      : `${selectedRecentFormDelta > 0 ? '+' : ''}${selectedRecentFormDelta.toFixed(2)} pts`}
+                  </p>
+                  <p className="text-[10px] leading-4 text-[var(--text-muted)]">
+                    Difference between recent scoring averages, not a projected gameweek score.
+                  </p>
+                </div>
+              </div>
               {selectedPlayerIn !== null && selectedPlayerOut !== null && !rolesMatch && (
-                <p className="mb-3 rounded border border-red-500/30 bg-red-500/10 p-2 text-xs text-red-300">
+                <p className="mt-3 rounded border border-red-500/30 bg-red-500/10 p-2 text-xs text-red-300">
                   Transfers must be role-for-role. Select a {selectedPlayerOutDetails?.primary_role || 'matching'} to buy.
                 </p>
               )}
@@ -930,7 +1178,7 @@ function TransfersPageContent() {
                 data-tour="transfers-action"
                 disabled={actionLoading || selectedPlayerIn === null || selectedPlayerOut === null || !rolesMatch}
                 onClick={submitTransfer}
-                className="w-full bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold py-2.5 rounded-lg transition-colors disabled:opacity-50 shadow-md"
+                className="mt-4 w-full rounded-lg bg-emerald-600 py-2.5 text-xs font-bold text-white shadow-md transition-colors hover:bg-emerald-500 disabled:opacity-50"
               >
                 {actionLoading ? 'Processing...' : 'Confirm Transfer'}
               </button>
@@ -946,61 +1194,8 @@ function TransfersPageContent() {
             </div>
           )}
 
-          {/* Sort Controls Bar & Table Header */}
+          {/* Market table */}
           <div ref={tableContainerRef} data-tour="transfers-table" className="bg-slate-800/40 border border-slate-700 rounded-xl overflow-hidden shadow-sm">
-            {/* Top Toolbar with Sort & View Controls */}
-            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-700 bg-slate-800/80 px-4 py-3">
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">Sort by:</span>
-                <div className="flex flex-wrap items-center gap-1.5">
-                  {(
-                    [
-                      { id: 'price', label: 'Price' },
-                      { id: 'points', label: 'Points / Form' },
-                      { id: 'ownership', label: 'Ownership' },
-                      { id: 'name', label: 'Name' },
-                    ] as const
-                  ).map((option) => {
-                    const isActive = sortBy === option.id;
-                    return (
-                      <button
-                        key={option.id}
-                        type="button"
-                        onClick={() => {
-                          if (isActive) {
-                            setSortDesc((prev) => !prev);
-                          } else {
-                            setSortBy(option.id);
-                            setSortDesc(true);
-                          }
-                          setPage(1);
-                        }}
-                        className={`flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-semibold transition-all ${
-                          isActive
-                            ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40 shadow-xs'
-                            : 'bg-slate-900/60 text-slate-400 hover:text-slate-200 hover:bg-slate-700/60 border border-slate-700/60'
-                        }`}
-                        aria-pressed={isActive}
-                      >
-                        <span>{option.label}</span>
-                        {isActive && (
-                          sortDesc ? (
-                            <ArrowDown className="h-3 w-3 text-amber-400" />
-                          ) : (
-                            <ArrowUp className="h-3 w-3 text-amber-400" />
-                          )
-                        )}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              <div className="text-xs text-slate-400">
-                Sorted by <strong className="text-white capitalize">{sortBy}</strong> ({sortDesc ? 'Descending' : 'Ascending'})
-              </div>
-            </div>
-
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse">
                 <thead>
@@ -1104,15 +1299,20 @@ function TransfersPageContent() {
                       const isOwned = ownedPlayerIds.includes(player.id);
                       const isSelected = buildingSelections.has(player.id) || selectedPlayerIn === player.id;
                       const priceChange = typeof player.price_change === 'number' ? player.price_change : null;
+                      const roleAccent = ROLE_ACCENTS[player.primary_role || ''] || 'var(--border)';
                       return (
                         <tr
                           key={player.id}
                           onClick={() => openPlayerModal(player)}
-                          className={`transition-colors group cursor-pointer ${
+                          style={{
+                            borderLeftColor: roleAccent,
+                            boxShadow: `inset 3px 0 8px -4px color-mix(in srgb, ${roleAccent} 75%, transparent)`,
+                          }}
+                          className={`group cursor-pointer border-l-[3px] transition-colors ${
                             isSelected
                               ? 'bg-amber-500/10 ring-1 ring-inset ring-amber-400/60'
                               : isOwned
-                                ? 'bg-emerald-950/20 hover:bg-emerald-950/35 border-l-2 border-l-emerald-500'
+                                ? 'bg-emerald-950/20 hover:bg-emerald-950/35'
                                 : 'hover:bg-slate-700/40'
                           }`}
                         >
@@ -1150,7 +1350,14 @@ function TransfersPageContent() {
                             </div>
                           </td>
                           <td className="px-4 py-3 text-center">
-                            <span className="transfer-role-badge inline-block bg-slate-700/80 text-slate-300 text-[10px] uppercase font-bold px-2 py-1 rounded">
+                            <span
+                              className="transfer-role-badge inline-block rounded border px-2 py-1 text-[10px] font-bold uppercase"
+                              style={{
+                                color: roleAccent,
+                                borderColor: roleAccent,
+                                backgroundColor: `color-mix(in srgb, ${roleAccent} 12%, transparent)`,
+                              }}
+                            >
                               {player.primary_role || 'Flexible'}
                             </span>
                           </td>
@@ -1158,15 +1365,19 @@ function TransfersPageContent() {
                             <div className="flex flex-col items-end gap-1">
                               <span className="font-mono font-bold text-amber-400">${player.current_price}M</span>
                               <div className="flex items-center gap-1.5">
-                                <PriceSparkline data={player.price_history} width={48} height={14} />
+                                <PriceSparkline data={player.price_history} width={48} height={14} themeAware />
                                 {priceChange !== null && priceChange !== 0 ? (
-                                  <span className={`inline-flex items-center gap-0.5 text-[10px] font-mono font-semibold ${
-                                    priceChange > 0 ? 'text-emerald-400' : 'text-rose-400'
+                                  <span
+                                    title={`Price ${priceChange > 0 ? 'increased' : 'decreased'} by $${Math.abs(priceChange).toFixed(1)}M`}
+                                    className={`inline-flex items-center gap-0.5 rounded-full border px-1.5 py-0.5 text-[10px] font-mono font-bold ${
+                                    priceChange > 0
+                                      ? 'border-emerald-500/40 bg-emerald-500/15 text-emerald-700 dark:text-emerald-300'
+                                      : 'border-rose-500/40 bg-rose-500/15 text-rose-700 dark:text-rose-300'
                                   }`}>
                                     {priceChange > 0 ? (
                                       <>
                                         <TrendingUp className="h-2.5 w-2.5 shrink-0" />
-                                        +${priceChange.toFixed(1)}M
+                                        +${Math.abs(priceChange).toFixed(1)}M
                                       </>
                                     ) : (
                                       <>
@@ -1374,7 +1585,7 @@ function TransfersPageContent() {
                     <div className="text-xl font-mono font-bold text-amber-400">${modalPlayer.current_price}M</div>
                   </div>
                   <div className="mt-2 flex flex-col items-center">
-                    <PriceSparkline data={modalPlayer.price_history} width={72} height={20} strokeWidth={2} />
+                    <PriceSparkline data={modalPlayer.price_history} width={72} height={20} strokeWidth={2} themeAware />
                     <span className="text-[9px] text-slate-400 mt-0.5">Trend</span>
                   </div>
                 </div>

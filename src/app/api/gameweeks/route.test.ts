@@ -11,6 +11,8 @@ const publicGameweeks = {
     season_id: 4,
     gameweek_number: 3,
     match_count: 2,
+    live_match_count: 1,
+    global_average: 14.5,
     tournaments: [],
     flags: [],
     top_scorer: null,
@@ -55,10 +57,16 @@ function createSupabaseClient(userId: string) {
 
 function createPublicSupabaseClient() {
   return {
+    rpc: jest.fn().mockResolvedValue({
+      data: [{ gameweek_id: 71, global_average: 14.5 }],
+      error: null,
+    }),
     from: (table: string) => {
       const result = table === 'gameweeks'
         ? { data: [{ id: 71, season_id: 4, gameweek_number: 3 }], error: null }
-        : { data: [], error: null };
+        : table === 'matches'
+          ? { data: [{ gameweek_id: 71, series_id: null, status: 'in_progress' }], error: null }
+          : { data: [], error: null };
       const query = {
         select: () => query,
         eq: () => query,
@@ -127,6 +135,13 @@ describe('GET /api/gameweeks cached user scores', () => {
 
     expect(response.status).toBe(200);
     expect(body.gameweeks[0].user_score).toBeNull();
+    expect(body.gameweeks[0].global_average).toBe(14.5);
+    expect(body.gameweeks[0].match_count).toBe(1);
+    expect(body.gameweeks[0].live_match_count).toBe(1);
+    expect(mockSupabaseServer.mock.results[0].value.rpc).toHaveBeenCalledWith(
+      'get_global_gameweek_averages',
+      { p_gameweek_ids: [71] },
+    );
     expect(cachedValue.gameweeks[0]).not.toHaveProperty('user_score');
   });
 });

@@ -3,7 +3,7 @@
 import { fetchWithAuth } from '@/lib/fetch-with-auth';
 import { useState, useEffect, useCallback } from 'react';
 import Image from 'next/image';
-import { Medal, RefreshCw, Star } from 'lucide-react';
+import { Crown, Medal, RefreshCw, Star } from 'lucide-react';
 import { DataFreshnessBadge } from '@/components/DataFreshnessBadge';
 
 type LeaderboardEntry = {
@@ -22,6 +22,7 @@ type LeaderboardEntry = {
          display_name?: string | null;
          avatar_url?: string | null;
          country?: string | null;
+         country_code?: string | null;
          bio?: string | null;
       } | null;
    } | null;
@@ -39,6 +40,13 @@ type SelectedManager = {
    teamName?: string;
    country?: string | null;
 };
+
+function getCountryFlag(countryCode?: string | null) {
+   if (!countryCode || !/^[a-z]{2}$/i.test(countryCode)) return null;
+   return String.fromCodePoint(
+      ...countryCode.toUpperCase().split('').map((character) => 127397 + character.charCodeAt(0))
+   );
+}
 
 export default function LeaderboardPage() {
    const [entries, setEntries] = useState<LeaderboardEntry[]>([]);
@@ -149,35 +157,52 @@ export default function LeaderboardPage() {
     );
   };
 
+  const currentUserEntry = entries.find((entry) => entry.fantasy_teams?.user_id === currentUserId);
+  const previousRank = currentUserEntry?.previous_rank;
+  const rankChange = currentUserEntry && previousRank ? previousRank - currentUserEntry.rank : null;
+  const nextRankEntry = currentUserEntry
+    ? entries
+        .filter((entry) => !entry.is_pinned && entry.rank < currentUserEntry.rank)
+        .sort((left, right) => right.rank - left.rank)[0]
+    : null;
+  const pointsToNextRank = currentUserEntry && nextRankEntry
+    ? Math.max(0, nextRankEntry.total_points - currentUserEntry.total_points)
+    : null;
+  const podiumEntries = page === 1
+    ? entries.filter((entry) => !entry.is_pinned).slice(0, 3)
+    : [];
+  const podiumOrder = [podiumEntries[1], podiumEntries[0], podiumEntries[2]]
+    .filter((entry): entry is LeaderboardEntry => entry !== undefined);
+
   return (
     <div className="max-w-7xl mx-auto px-4 py-12">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-8 gap-4">
         <div>
           <div className="flex flex-wrap items-center gap-3 mb-2">
-            <h1 className="text-3xl font-bold text-white flex items-center gap-3">
+            <h1 className="text-3xl font-bold text-[var(--text-primary)] flex items-center gap-3">
               <Medal className="w-8 h-8 text-amber-400 shrink-0" />
               <span>Global Leaderboard</span>
             </h1>
             <DataFreshnessBadge page="leaderboard" />
           </div>
-          <p className="text-slate-400">See how your squad ranks against the world</p>
+          <p className="text-[var(--text-secondary)]">See how your squad ranks against the world</p>
         </div>
         
         <div className="flex flex-col items-start gap-2 sm:items-end">
-          <div className="relative rounded-lg border border-slate-700 bg-slate-800">
+          <div className="relative rounded-lg border border-[var(--border)] bg-[var(--surface)]">
            <select 
               data-tour="leaderboard-filter"
               value={countryFilter}
               onChange={(e) => { setCountryFilter(e.target.value); setPage(1); }}
-              className="w-full bg-transparent text-slate-300 text-sm pl-4 pr-10 py-3 focus:outline-none appearance-none cursor-pointer"
+              className="w-full cursor-pointer appearance-none bg-transparent py-3 pl-4 pr-10 text-sm text-[var(--text-primary)] focus:outline-none"
            >
               {countries.map(c => (
-                 <option key={c.code} value={c.code} className="bg-slate-800 text-slate-300">
+                 <option key={c.code} value={c.code} className="bg-[var(--surface)] text-[var(--text-primary)]">
                     {c.name}
                  </option>
               ))}
            </select>
-           <div className="absolute inset-y-0 right-0 flex items-center px-3 pointer-events-none text-slate-400">
+           <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-[var(--text-muted)]">
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path>
               </svg>
@@ -187,14 +212,14 @@ export default function LeaderboardPage() {
              type="button"
              onClick={() => void fetchLeaderboard(true)}
              disabled={refreshing}
-             className="inline-flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-xs font-medium text-slate-300 transition hover:border-slate-500 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+             className="inline-flex items-center gap-2 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-xs font-medium text-[var(--text-primary)] transition hover:bg-[var(--surface-raised)] disabled:cursor-not-allowed disabled:opacity-50"
            >
              <RefreshCw className={`h-3.5 w-3.5 ${refreshing ? 'animate-spin' : ''}`} />
              Refresh
            </button>
         </div>
       </div>
-      <p className="-mt-5 mb-6 text-xs text-slate-500" aria-live="polite">
+      <p className="-mt-5 mb-6 text-xs text-[var(--text-muted)]" aria-live="polite">
         Rankings last recalculated:{' '}
         {lastRecalculatedAt
           ? new Date(lastRecalculatedAt).toLocaleString()
@@ -203,10 +228,10 @@ export default function LeaderboardPage() {
       </p>
 
       {topGameweekScorer && (
-        <div className="mb-6 flex items-center gap-3 rounded-xl border border-amber-400/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
+        <div className="mb-6 flex items-center gap-3 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-[var(--text-primary)]">
           <Star className="h-5 w-5 shrink-0 fill-amber-400 text-amber-400" aria-hidden="true" />
           <p>
-            <span className="font-semibold text-amber-300">Top gameweek scorer:</span>{' '}
+            <span className="font-semibold text-amber-700 dark:text-amber-300">Top gameweek scorer:</span>{' '}
             {topGameweekScorer.manager} with {topGameweekScorer.points} points
           </p>
         </div>
@@ -218,11 +243,113 @@ export default function LeaderboardPage() {
         </div>
       )}
 
-      <div data-tour="leaderboard-table" className="bg-slate-800/40 border border-slate-700 rounded-xl overflow-hidden shadow-xl">
+      {!loading && podiumOrder.length > 0 && (
+        <section aria-labelledby="leaderboard-podium-title" className="mb-8 overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 shadow-xl sm:p-7">
+          <div className="mb-5 flex items-center justify-between gap-3">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-[0.2em] text-[var(--accent-primary)]">Season standings</p>
+              <h2 id="leaderboard-podium-title" className="mt-1 text-xl font-bold text-[var(--text-primary)]">Top Managers</h2>
+            </div>
+            <Medal className="h-6 w-6 text-amber-500" aria-hidden="true" />
+          </div>
+          <div className="grid items-end gap-3 md:grid-cols-3">
+            {podiumOrder.map((entry) => {
+              const profile = entry.fantasy_teams?.profiles;
+              const managerName = profile?.display_name || profile?.username || 'Anonymous Manager';
+              const teamName = entry.fantasy_teams?.name || 'Unknown Team';
+              const podiumPlace = podiumEntries.indexOf(entry) + 1;
+              const isFirst = podiumPlace === 1;
+              const accent = isFirst ? '#f59e0b' : podiumPlace === 2 ? '#94a3b8' : '#b45309';
+              const flag = getCountryFlag(profile?.country_code);
+              return (
+                <article
+                  key={`podium-${entry.id}`}
+                  className={`relative flex min-h-48 flex-col items-center justify-center rounded-2xl border p-5 text-center ${
+                    isFirst ? 'md:min-h-56 md:-translate-y-2' : ''
+                  }`}
+                  style={{
+                    borderColor: `color-mix(in srgb, ${accent} 45%, var(--border))`,
+                    background: `linear-gradient(160deg, color-mix(in srgb, ${accent} 15%, var(--surface-raised)), var(--surface))`,
+                    boxShadow: isFirst ? `0 12px 36px color-mix(in srgb, ${accent} 15%, transparent)` : undefined,
+                  }}
+                >
+                  <div
+                    className="mb-3 flex h-9 w-9 items-center justify-center rounded-full text-sm font-black"
+                    style={{ color: isFirst ? '#451a03' : 'var(--text-primary)', backgroundColor: accent }}
+                    aria-label={`Leaderboard podium place ${podiumPlace}; global rank ${entry.rank}`}
+                  >
+                    {isFirst ? <Crown className="h-4 w-4" aria-hidden="true" /> : podiumPlace}
+                  </div>
+                  <div className="mb-3 h-14 w-14 overflow-hidden rounded-full border-2 bg-[var(--surface-raised)]"
+                    style={{ borderColor: accent }}>
+                    {profile?.avatar_url ? (
+                      <Image src={profile.avatar_url} alt={`${managerName} avatar`} width={56} height={56} unoptimized className="h-full w-full object-cover" />
+                    ) : (
+                      <span className="flex h-full items-center justify-center text-lg font-bold text-[var(--text-secondary)]">
+                        {teamName.substring(0, 1).toUpperCase()}
+                      </span>
+                    )}
+                  </div>
+                  <p className="max-w-full truncate text-sm font-bold text-[var(--text-primary)]">{teamName}</p>
+                  <p className="mt-1 max-w-full truncate text-xs text-[var(--text-secondary)]">
+                    {flag && <span className="mr-1.5" role="img" aria-label={profile?.country || 'Country'}>{flag}</span>}
+                    {managerName}
+                  </p>
+                  <p className="mt-3 font-mono text-xl font-black" style={{ color: accent }}>
+                    {entry.total_points.toLocaleString()} <span className="text-xs font-semibold">pts</span>
+                  </p>
+                </article>
+              );
+            })}
+          </div>
+        </section>
+      )}
+
+      {!loading && currentUserEntry && (
+        <section aria-label="Your leaderboard position" className="mb-6 rounded-2xl border border-teal-500/40 bg-[var(--surface)] p-4 shadow-lg sm:p-5">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-teal-500/15 text-sm font-black text-teal-700 ring-1 ring-teal-500/30 dark:text-teal-300">
+                #{currentUserEntry.rank}
+              </div>
+              <div>
+                <p className="text-xs font-bold uppercase tracking-wider text-teal-700 dark:text-teal-300">Your global position</p>
+                <p className="mt-0.5 text-sm font-semibold text-[var(--text-primary)]">
+                  {currentUserEntry.fantasy_teams?.name || 'Your squad'}
+                  {currentUserEntry.is_pinned && <span className="ml-2 text-xs font-normal text-[var(--text-muted)]">Pinned from another page</span>}
+                </p>
+              </div>
+            </div>
+            <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
+              <div>
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-[var(--text-muted)]">Rank change</p>
+                <div className="mt-1 flex items-center gap-1.5">
+                  {renderRankChange(currentUserEntry.rank, previousRank ?? null)}
+                  <span className="text-xs font-semibold text-[var(--text-secondary)]">
+                    {rankChange === null ? 'No previous rank' : rankChange > 0 ? `Up ${rankChange}` : rankChange < 0 ? `Down ${Math.abs(rankChange)}` : 'No change'}
+                  </span>
+                </div>
+              </div>
+              <div>
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-[var(--text-muted)]">Total points</p>
+                <p className="mt-1 font-mono text-lg font-bold text-amber-600 dark:text-amber-400">{currentUserEntry.total_points.toLocaleString()}</p>
+              </div>
+              <div>
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-[var(--text-muted)]">Gap to next rank</p>
+                <p className="mt-1 font-mono text-lg font-bold text-[var(--text-primary)]">
+                  {pointsToNextRank === null ? currentUserEntry.rank === 1 ? 'Top rank' : '—' : `${pointsToNextRank.toLocaleString()} pts`}
+                </p>
+              </div>
+            </div>
+          </div>
+        </section>
+      )}
+
+      <div data-tour="leaderboard-table" className="overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--surface)] shadow-xl">
          <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse min-w-150">
                <thead>
-                  <tr className="bg-slate-800/80 border-b border-slate-700 text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                  <tr className="border-b border-[var(--border)] bg-[var(--surface-raised)] text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]">
                      <th className="px-6 py-4 w-20 text-center">Rank</th>
                      <th className="px-2 py-4 w-16 text-center">Change</th>
                      <th className="px-6 py-4">Manager & Team</th>
@@ -230,7 +357,7 @@ export default function LeaderboardPage() {
                      <th className="px-6 py-4 text-right text-amber-500">Total Pts</th>
                   </tr>
                </thead>
-               <tbody className="divide-y divide-slate-700/50">
+               <tbody className="divide-y divide-[var(--border)]">
                   {loading ? (
                      [1, 2, 3, 4, 5, 6].map((row) => (
                         <tr key={`ranking-skeleton-${row}`} className="animate-pulse">
@@ -263,6 +390,7 @@ export default function LeaderboardPage() {
                         const isTopGameweekScorer = entry.id === topGameweekScorer?.id;
                         const managerName = profile?.display_name || profile?.username || 'Anonymous Manager';
                         const isCurrentUser = Boolean(currentUserId && team?.user_id === currentUserId);
+                        const countryFlag = getCountryFlag(profile?.country_code);
                         
                         return (
                            <tr
@@ -280,12 +408,19 @@ export default function LeaderboardPage() {
                                  teamName: team?.name || 'Unknown Team',
                                  country: profile?.country || null,
                               })}
+                              style={isCurrentUser ? {
+                                 backgroundColor: 'color-mix(in srgb, var(--accent-primary) 12%, var(--surface))',
+                                 borderLeftColor: 'var(--accent-primary)',
+                              } : isTopGameweekScorer ? {
+                                 backgroundColor: 'color-mix(in srgb, #f59e0b 10%, var(--surface))',
+                                 borderLeftColor: '#f59e0b',
+                              } : undefined}
                               className={`transition-colors group cursor-pointer ${
                                  isTopGameweekScorer
-                                    ? 'bg-amber-950/30 border-l-4 border-l-amber-400 hover:bg-amber-900/30'
+                                    ? 'border-l-4 hover:bg-[var(--surface-raised)]'
                                     : isCurrentUser
-                                    ? 'bg-teal-950/40 border-l-4 border-l-teal-400 hover:bg-teal-900/40'
-                                    : 'border-l-4 border-l-transparent hover:bg-slate-700/50'
+                                    ? 'border-l-4 hover:bg-[var(--surface-raised)]'
+                                    : 'border-l-4 border-l-transparent odd:bg-[var(--surface)] even:bg-[var(--surface-raised)] hover:bg-[var(--surface-muted)]'
                               }`}
                               title="Click to view manager profile"
                            >
@@ -307,41 +442,44 @@ export default function LeaderboardPage() {
                               </td>
                               <td className="px-6 py-4">
                                  <div className="flex items-center gap-3">
-                                    <div className={`w-10 h-10 rounded-full bg-slate-700 overflow-hidden shrink-0 border ${isCurrentUser ? 'border-teal-400/70 ring-2 ring-teal-400/20' : isTop3 ? 'border-amber-500/50' : 'border-slate-600'}`}>
+                                    <div className={`w-10 h-10 rounded-full bg-[var(--surface-raised)] overflow-hidden shrink-0 border ${isCurrentUser ? 'border-teal-500/70 ring-2 ring-teal-500/20' : isTop3 ? 'border-amber-500/50' : 'border-[var(--border)]'}`}>
                                        {profile?.avatar_url ? (
                                           <Image src={profile.avatar_url} alt={`${managerName} avatar`} width={40} height={40} unoptimized className="w-full h-full object-cover" />
                                        ) : (
-                                          <div className={`w-full h-full flex items-center justify-center font-bold ${isCurrentUser ? 'text-teal-300' : 'text-slate-400'}`}>
+                                          <div className={`w-full h-full flex items-center justify-center font-bold ${isCurrentUser ? 'text-teal-700 dark:text-teal-300' : 'text-[var(--text-secondary)]'}`}>
                                              {team?.name?.substring(0, 1).toUpperCase() || '?'}
                                           </div>
                                        )}
                                     </div>
                                     <div>
                                        <div className="flex items-center gap-2">
-                                          <span className={`font-bold transition-colors ${isCurrentUser ? 'text-teal-300 group-hover:text-teal-200' : 'text-white group-hover:text-amber-400'}`}>{team?.name || 'Unknown Team'}</span>
+                                          <span className={`font-bold transition-colors ${isCurrentUser ? 'text-teal-700 group-hover:text-teal-600 dark:text-teal-300 dark:group-hover:text-teal-200' : 'text-[var(--text-primary)] group-hover:text-amber-600 dark:group-hover:text-amber-400'}`}>{team?.name || 'Unknown Team'}</span>
                                           {isCurrentUser && (
-                                             <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-teal-500/20 text-teal-300 border border-teal-500/30">
+                                             <span className="inline-flex items-center rounded-full border border-teal-500/30 bg-teal-500/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-teal-700 dark:text-teal-300">
                                                 You
                                              </span>
                                           )}
                                        </div>
                                        <div className="text-xs text-slate-400 flex items-center gap-1.5 mt-0.5">
                                           {profile?.country && (
-                                             <span className="text-[10px] bg-slate-700 px-1.5 rounded">{profile.country}</span>
-                                          )}
-                                          <span>{managerName}</span>
+                                             <span className="inline-flex items-center gap-1 rounded-full border border-[var(--border)] bg-[var(--surface-raised)] px-1.5 py-0.5 text-[10px] text-[var(--text-secondary)]">
+                                                {countryFlag && <span role="img" aria-label={profile.country}>{countryFlag}</span>}
+                                                {profile.country}
+                                             </span>
+                                             )}
+                                             <span className="text-[var(--text-secondary)]">{managerName}</span>
                                        </div>
                                     </div>
                                  </div>
                               </td>
                               <td className="px-6 py-4 text-right font-mono">
-                                 <span className={`inline-flex items-center justify-end gap-1.5 font-medium ${isTopGameweekScorer ? 'text-amber-300' : isCurrentUser ? 'text-teal-200' : 'text-slate-300'}`}>
+                                 <span className={`inline-flex items-center justify-end gap-1.5 font-medium ${isTopGameweekScorer ? 'text-amber-700 dark:text-amber-300' : isCurrentUser ? 'text-teal-700 dark:text-teal-200' : 'text-[var(--text-secondary)]'}`}>
                                     {isTopGameweekScorer && <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" aria-label="Top gameweek scorer" />}
                                     {entry.gameweek_points || 0}
                                  </span>
                               </td>
                               <td className="px-6 py-4 text-right font-mono">
-                                 <span className={`text-lg font-bold ${isCurrentUser ? 'text-teal-400' : 'text-amber-400'}`}>{entry.total_points || 0}</span>
+                                 <span className={`text-lg font-bold ${isCurrentUser ? 'text-teal-700 dark:text-teal-300' : 'text-amber-700 dark:text-amber-400'}`}>{entry.total_points || 0}</span>
                               </td>
                            </tr>
                         );
@@ -353,25 +491,25 @@ export default function LeaderboardPage() {
          
          {/* Pagination */}
          {!loading && entries.length > 0 && (
-            <div className="px-6 py-4 border-t border-slate-700 bg-slate-800/80 flex items-center justify-between">
-               <div className="text-sm text-slate-400">
+            <div className="flex items-center justify-between border-t border-[var(--border)] bg-[var(--surface-raised)] px-6 py-4">
+               <div className="text-sm text-[var(--text-secondary)]">
                   {entries.some((entry) => !entry.is_pinned)
                     ? `Showing top ${(page - 1) * 50 + 1} to ${(page - 1) * 50 + entries.filter((entry) => !entry.is_pinned).length}`
                     : 'No leaderboard entries on this page.'}
-                  {entries.some((entry) => entry.is_pinned) && <span className="ml-2 text-teal-300">Your rank is pinned below.</span>}
+                  {entries.some((entry) => entry.is_pinned) && <span className="ml-2 text-teal-700 dark:text-teal-300">Your rank is pinned below.</span>}
                </div>
                <div className="flex gap-2">
                   <button 
                      onClick={() => setPage(p => Math.max(1, p - 1))}
                      disabled={page === 1}
-                     className="leaderboard-pagination-button px-4 py-2 bg-slate-700 hover:bg-slate-600 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-medium rounded-lg transition-colors"
+                     className="leaderboard-pagination-button rounded-lg border border-[var(--border)] bg-[var(--surface)] px-4 py-2 text-sm font-medium text-[var(--text-primary)] transition-colors hover:bg-[var(--surface-muted)] disabled:cursor-not-allowed disabled:opacity-50"
                   >
                      Previous
                   </button>
                   <button 
                      onClick={() => setPage(p => p + 1)}
                      disabled={entries.length < 50}
-                     className="leaderboard-pagination-button px-4 py-2 bg-slate-700 hover:bg-slate-600 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-medium rounded-lg transition-colors"
+                     className="leaderboard-pagination-button rounded-lg border border-[var(--border)] bg-[var(--surface)] px-4 py-2 text-sm font-medium text-[var(--text-primary)] transition-colors hover:bg-[var(--surface-muted)] disabled:cursor-not-allowed disabled:opacity-50"
                   >
                      Next
                   </button>

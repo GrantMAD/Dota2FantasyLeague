@@ -181,6 +181,8 @@ export interface GameweekRow {
   deadline: string;
   status: 'upcoming' | 'active' | 'closed' | 'locked';
   match_count: number;
+  live_match_count?: number;
+  global_average?: number | null;
   tournaments: Array<{ id: number; name: string; slug?: string | null }>;
   flags: Array<{
     flag: string;

@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { Star } from 'lucide-react';
 import { TeamLogo } from './TeamLogo';
 
 export interface MatchData {
@@ -92,8 +93,8 @@ export function MatchCard({ match, userSquadPlayerNames = [] }: MatchCardProps) 
             {match.tournaments?.name || 'Tournament'}
           </span>
           {match.best_of && (
-            <span className="bg-slate-800 border border-slate-700/60 text-slate-400 text-[10px] px-1.5 py-0.5 rounded font-mono">
-              Bo{match.best_of} · G{match.match_number || 1}
+            <span className="rounded border border-slate-700/60 bg-slate-800 px-1.5 py-0.5 text-[10px] font-mono text-slate-300">
+          Bo{match.best_of} · Game {match.match_number || 1} of {match.best_of}
             </span>
           )}
         </div>
@@ -117,9 +118,9 @@ export function MatchCard({ match, userSquadPlayerNames = [] }: MatchCardProps) 
       </div>
 
       {/* Main Matchup Arena */}
-      <div className="px-5 py-6 flex items-center justify-between gap-3">
+      <div className="px-4 py-5 flex items-stretch justify-between gap-2 sm:px-5 sm:py-6 sm:gap-3">
         {/* Radiant Side */}
-        <div className="flex-1 flex flex-col items-center text-center group/rad">
+        <div className="flex-1 flex flex-col items-center justify-center rounded-xl border border-emerald-500/25 bg-emerald-500/5 py-3 text-center group/rad">
           <TeamLogo
             name={match.radiant_team?.name || 'Radiant'}
             logoUrl={match.radiant_team?.logo_url}
@@ -148,7 +149,7 @@ export function MatchCard({ match, userSquadPlayerNames = [] }: MatchCardProps) 
         </div>
 
         {/* Center Scoreboard / VS Pill */}
-        <div className="shrink-0 flex flex-col items-center justify-center px-2">
+        <div className="shrink-0 flex flex-col items-center justify-center px-1 sm:px-2">
           {isCompleted ? (
             <div className="flex items-center gap-1.5 bg-slate-950/80 border border-slate-700/80 rounded-xl px-3.5 py-1.5 shadow-inner">
               <span
@@ -187,7 +188,7 @@ export function MatchCard({ match, userSquadPlayerNames = [] }: MatchCardProps) 
         </div>
 
         {/* Dire Side */}
-        <div className="flex-1 flex flex-col items-center text-center group/dire">
+        <div className="flex-1 flex flex-col items-center justify-center rounded-xl border border-rose-500/25 bg-rose-500/5 py-3 text-center group/dire">
           <TeamLogo
             name={match.dire_team?.name || 'Dire'}
             logoUrl={match.dire_team?.logo_url}
@@ -218,14 +219,21 @@ export function MatchCard({ match, userSquadPlayerNames = [] }: MatchCardProps) 
 
       {/* Fantasy League Impact Footer */}
       {userSquadPlayerNames.length > 0 && (
-        <div className="mx-4 mb-3 px-3 py-1.5 rounded-lg bg-amber-500/10 border border-amber-500/20 flex items-center justify-between text-xs">
-          <span className="text-amber-400 font-medium flex items-center gap-1.5 truncate">
-            <span>⭐</span>
-            <span className="truncate">
-              {userSquadPlayerNames.length} squad {userSquadPlayerNames.length === 1 ? 'player' : 'players'}: {userSquadPlayerNames.join(', ')}
-            </span>
+        <div className="mx-4 mb-3 rounded-xl border border-amber-500/35 bg-amber-500/10 px-3 py-2.5">
+          <div className="flex items-center gap-2 text-xs font-bold text-amber-800 dark:text-amber-300">
+            <Star className="h-4 w-4 shrink-0 fill-current" aria-hidden="true" />
+            <span>{isLive ? 'Fantasy starters in action' : 'Your fantasy starters in this match'}</span>
+          </div>
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {userSquadPlayerNames.map((playerName) => (
+              <span key={playerName} className="rounded-full border border-amber-500/30 bg-[var(--surface)] px-2 py-1 text-[10px] font-semibold text-[var(--text-primary)]">
+                {playerName}
+              </span>
+            ))}
+          </div>
+          <span className="sr-only">
+            {userSquadPlayerNames.length} of your fantasy lineup players are competing.
           </span>
-          <span className="text-[10px] text-amber-300/80 font-semibold uppercase shrink-0">Fantasy</span>
         </div>
       )}
 

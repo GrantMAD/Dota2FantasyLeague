@@ -123,6 +123,7 @@ async function getHandler(request: NextRequest) {
 
     // Build matchCountMap and tournamentMap purely in memory — no more per-row DB calls
     const matchCountMap = new Map<number, number>();
+    const liveMatchCountMap = new Map<number, number>();
     const tournamentMap = new Map<number, Array<{ id: number; name: string; slug: string | null }>>();
     const flagMap = new Map<number, Array<{ flag: string; team_id: number; professional_teams?: { id: number; name: string; slug: string | null; logo_url?: string | null } | null }>>();
     const topScorerMap = new Map<number, { player_id: number; total_points: number; name: string; in_game_name?: string | null; primary_role?: string | null } | null>();
@@ -130,6 +131,9 @@ async function getHandler(request: NextRequest) {
     for (const match of matchRows ?? []) {
       const gwId = Number(match.gameweek_id);
       matchCountMap.set(gwId, (matchCountMap.get(gwId) ?? 0) + 1);
+      if (match.status === 'in_progress') {
+        liveMatchCountMap.set(gwId, (liveMatchCountMap.get(gwId) ?? 0) + 1);
+      }
 
       if (match.series_id) {
         const tournament = seriesTournamentMap.get(Number(match.series_id));
@@ -185,6 +189,24 @@ async function getHandler(request: NextRequest) {
       }
     }
 
+    const { data: globalAverages, error: globalAveragesError } = await supabase.rpc(
+      'get_global_gameweek_averages',
+      { p_gameweek_ids: gameweekIds },
+    );
+    if (globalAveragesError) {
+      console.error('[Gameweeks API] Failed to load global gameweek averages:', globalAveragesError.message);
+      return NextResponse.json(
+        { error: 'Failed to load global gameweek averages.', details: globalAveragesError.message },
+        { status: 500 },
+      );
+    }
+    const globalAverageMap = new Map<number, number | null>(
+      (globalAverages ?? []).map((row: { gameweek_id: number; global_average: number | string | null }) => [
+        Number(row.gameweek_id),
+        row.global_average === null ? null : Number(row.global_average),
+      ]),
+    );
+
     for (const flag of flagRows ?? []) {
       const gwId = Number(flag.gameweek_id);
       const current = flagMap.get(gwId) ?? [];
@@ -201,6 +223,8 @@ async function getHandler(request: NextRequest) {
       gameweeks: gameweeks.map((gw: any) => ({
         ...gw,
         match_count: matchCountMap.get(Number(gw.id)) ?? 0,
+        live_match_count: liveMatchCountMap.get(Number(gw.id)) ?? 0,
+        global_average: globalAverageMap.get(Number(gw.id)) ?? null,
         tournaments: tournamentMap.get(Number(gw.id)) ?? [],
         flags: flagMap.get(Number(gw.id)) ?? [],
         top_scorer: topScorerMap.get(Number(gw.id)) ?? null,

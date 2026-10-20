@@ -3,7 +3,18 @@
 import { fetchWithAuth } from '@/lib/fetch-with-auth';
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { Bell, CheckCircle2, Clock, Sparkles, TrendingUp, Trophy } from 'lucide-react';
+import {
+  AlertTriangle,
+  Bell,
+  CalendarDays,
+  CheckCircle2,
+  Clock,
+  Info,
+  Sparkles,
+  TrendingDown,
+  TrendingUp,
+  Trophy,
+} from 'lucide-react';
 import { useToast } from '@/components/Toast';
 import type { NotificationRecord as Notification } from '@/types/fantasy';
 import {
@@ -199,31 +210,6 @@ export default function NotificationsPage() {
     }
   };
 
-  const getCategoryFromType = (type: string): NotificationCategory => {
-    switch (type) {
-      case 'gameweek_deadline':
-      case 'lineup_deadline':
-      case 'deadline_reminder':
-      case 'deadline':
-        return 'deadline';
-      case 'price_change':
-      case 'transfer_market':
-      case 'wildcard_used':
-        return 'market';
-      case 'score_posted':
-      case 'gameweek_result':
-      case 'rank_movement':
-        return 'scoring';
-      case 'league_activity':
-      case 'league_result':
-      case 'league_invite':
-      case 'h2h_result':
-        return 'league';
-      default:
-        return 'all';
-    }
-  };
-
   const getIconForType = (type: string) => {
     switch (type) {
       case 'gameweek_deadline':
@@ -298,6 +284,12 @@ export default function NotificationsPage() {
       case 'gameweek_result':
       case 'rank_movement':
         return '/gameweeks';
+      case 'rank_update':
+        return '/leaderboard';
+      case 'player_removed':
+      case 'system':
+      case 'player_unavailable':
+        return '/transfers';
       case 'league_activity':
       case 'league_result':
       case 'h2h_result':
@@ -322,6 +314,13 @@ export default function NotificationsPage() {
       case 'gameweek_result':
       case 'rank_movement':
         return 'View Gameweek';
+      case 'rank_update':
+        return 'View Leaderboard';
+      case 'player_removed':
+        return 'Replace Player';
+      case 'system':
+      case 'player_unavailable':
+        return 'Review Squad';
       case 'league_activity':
       case 'league_result':
       case 'h2h_result':
@@ -331,6 +330,87 @@ export default function NotificationsPage() {
     }
   };
 
+  const getNotificationPresentation = (notification: Notification) => {
+    const type = notification.type;
+    const priceChange = Number(notification.metadata?.price_change ?? 0);
+    if (type === 'player_removed' || type === 'player_unavailable' || (type === 'system' && notification.metadata?.player_id)) {
+      return {
+        Icon: AlertTriangle,
+        label: 'Squad alert',
+        iconTone: 'text-rose-700 dark:text-rose-300',
+        iconSurface: 'border-rose-500/30 bg-rose-500/10',
+        rowTone: 'border-l-rose-500',
+      };
+    }
+    if (['gameweek_deadline', 'lineup_deadline', 'deadline_reminder', 'deadline'].includes(type)) {
+      return {
+        Icon: Clock,
+        label: 'Deadline',
+        iconTone: 'text-amber-700 dark:text-amber-300',
+        iconSurface: 'border-amber-500/30 bg-amber-500/10',
+        rowTone: 'border-l-amber-500',
+      };
+    }
+    if (type === 'price_change' && priceChange < 0) {
+      return {
+        Icon: TrendingDown,
+        label: 'Market',
+        iconTone: 'text-rose-700 dark:text-rose-300',
+        iconSurface: 'border-rose-500/30 bg-rose-500/10',
+        rowTone: 'border-l-rose-500',
+      };
+    }
+    if (['price_change', 'transfer_market', 'wildcard_used'].includes(type)) {
+      return {
+        Icon: TrendingUp,
+        label: 'Market',
+        iconTone: 'text-emerald-700 dark:text-emerald-300',
+        iconSurface: 'border-emerald-500/30 bg-emerald-500/10',
+        rowTone: 'border-l-emerald-500',
+      };
+    }
+    if (['league_activity', 'league_result', 'league_invite', 'h2h_result'].includes(type)) {
+      return {
+        Icon: Trophy,
+        label: 'League',
+        iconTone: 'text-violet-700 dark:text-violet-300',
+        iconSurface: 'border-violet-500/30 bg-violet-500/10',
+        rowTone: 'border-l-violet-500',
+      };
+    }
+    if (['score_posted', 'gameweek_result', 'rank_movement', 'rank_update'].includes(type)) {
+      return {
+        Icon: TrendingUp,
+        label: 'Scoring',
+        iconTone: 'text-emerald-700 dark:text-emerald-300',
+        iconSurface: 'border-emerald-500/30 bg-emerald-500/10',
+        rowTone: 'border-l-emerald-500',
+      };
+    }
+    return {
+      Icon: Info,
+      label: 'Update',
+      iconTone: 'text-[var(--text-secondary)]',
+      iconSurface: 'border-[var(--border)] bg-[var(--surface-raised)]',
+      rowTone: 'border-l-[var(--border)]',
+    };
+  };
+
+  const getActionForNotification = (notification: Notification) => {
+    const { type, metadata } = notification;
+    const playerId = Number(metadata?.player_id);
+    const gameweekId = Number(metadata?.gameweek_id);
+    if (['player_unavailable', 'system'].includes(type) && Number.isInteger(playerId) && playerId > 0) {
+      return { href: `/players/${playerId}`, label: 'View Player' };
+    }
+    if (type === 'player_removed') return { href: '/transfers', label: 'Replace Player' };
+    if (['gameweek_result', 'score_posted'].includes(type) && Number.isInteger(gameweekId) && gameweekId > 0) {
+      return { href: `/gameweeks/${gameweekId}`, label: 'View Gameweek' };
+    }
+    if (type === 'rank_update') return { href: '/leaderboard', label: 'View Leaderboard' };
+    return { href: getActionHref(type), label: getActionLabel(type) };
+  };
+
   const visibleNotifications = notifications;
 
   const getEmptyStateConfig = (category: NotificationCategory) => {
@@ -338,7 +418,7 @@ export default function NotificationsPage() {
       case 'deadline':
         return {
           icon: Clock,
-          color: 'text-red-400 border-red-500/30 bg-red-500/10',
+          color: 'text-amber-700 border-amber-500/30 bg-amber-500/10 dark:text-amber-300',
           title: 'No deadline alerts',
           description: 'You have no pending lineup locks, transfer cutoffs, or upcoming gameweek deadlines.',
           actionHref: '/lineups',
@@ -347,7 +427,7 @@ export default function NotificationsPage() {
       case 'market':
         return {
           icon: TrendingUp,
-          color: 'text-amber-400 border-amber-500/30 bg-amber-500/10',
+          color: 'text-emerald-700 border-emerald-500/30 bg-emerald-500/10 dark:text-emerald-300',
           title: 'No market updates',
           description: 'No player price changes, transfer market trends, or chip alerts to report right now.',
           actionHref: '/transfers',
@@ -356,7 +436,7 @@ export default function NotificationsPage() {
       case 'scoring':
         return {
           icon: Sparkles,
-          color: 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10',
+          color: 'text-emerald-700 border-emerald-500/30 bg-emerald-500/10 dark:text-emerald-300',
           title: 'No scoring updates',
           description: 'Scores, match completions, and fantasy point adjustments will appear here when games conclude.',
           actionHref: '/gameweeks',
@@ -365,7 +445,7 @@ export default function NotificationsPage() {
       case 'league':
         return {
           icon: Trophy,
-          color: 'text-cyan-400 border-cyan-500/30 bg-cyan-500/10',
+          color: 'text-violet-700 border-violet-500/30 bg-violet-500/10 dark:text-violet-300',
           title: 'No league activity',
           description: 'No head-to-head match results, rank movements, or commissioner messages yet.',
           actionHref: '/leagues',
@@ -384,7 +464,7 @@ export default function NotificationsPage() {
       default:
         return {
           icon: Bell,
-          color: 'text-slate-400 border-slate-700 bg-slate-800',
+          color: 'text-[var(--text-secondary)] border-[var(--border)] bg-[var(--surface-raised)]',
           title: 'You are all caught up',
           description: 'No fantasy alerts or notifications right now. Check back during upcoming match days!',
           actionHref: '/dashboard',
@@ -398,39 +478,40 @@ export default function NotificationsPage() {
   const notificationGroups = groupNotificationsByDay(visibleNotifications);
 
   return (
-    <div className="mx-auto max-w-5xl px-4 py-12">
-      <div className="mb-8 flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
+    <div className="mx-auto max-w-5xl px-4 py-8 sm:py-10">
+      <div className="mb-7 flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
         <div>
-          <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-cyan-500/30 bg-cyan-500/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.28em] text-cyan-300">
+          <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-cyan-500/30 bg-cyan-500/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-cyan-800 dark:text-cyan-300">
             Fantasy Alert Center
           </div>
-          <h1 className="text-3xl font-black text-white">Notifications</h1>
-          <p className="mt-2 text-sm text-slate-400">Deadline alerts, market moves, league updates, and gameweek score changes.</p>
+          <h1 className="text-3xl font-black text-[var(--text-primary)]">Notifications</h1>
+          <p className="mt-2 text-sm text-[var(--text-secondary)]">Deadline alerts, market moves, league updates, and gameweek score changes.</p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-2">
           {unreadCount > 0 && (
             <button
               type="button"
               onClick={handleMarkAllAsRead}
               disabled={markingAllRead}
-              className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm font-medium text-amber-300 transition hover:bg-amber-500/20 disabled:cursor-wait disabled:opacity-60"
+              className="inline-flex items-center gap-2 rounded-xl bg-amber-500 px-3 py-2 text-sm font-semibold text-slate-950 shadow-sm transition hover:bg-amber-400 disabled:cursor-wait disabled:opacity-60"
             >
-              {markingAllRead ? 'Marking as read...' : 'Mark all as read'}
+              <CheckCircle2 className="h-4 w-4" />
+              {markingAllRead ? 'Marking as read...' : `Mark all read · ${unreadCount}`}
             </button>
           )}
           {notifications.some((notification) => notification.is_read) && (
-            <button onClick={handleClearRead} className="rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm font-medium text-slate-300 transition hover:border-slate-600 hover:text-white">
+            <button type="button" onClick={handleClearRead} className="rounded-xl border border-[var(--border)] bg-[var(--surface-raised)] px-3 py-2 text-sm font-medium text-[var(--text-secondary)] transition hover:text-[var(--text-primary)]">
               Clear read
             </button>
           )}
-          <Link href="/settings?section=notifications" className="rounded-lg border border-cyan-500/30 bg-cyan-500/10 px-3 py-2 text-sm font-medium text-cyan-300 transition hover:bg-cyan-500/20">
+          <Link href="/settings?section=notifications" className="rounded-xl border border-[var(--border)] bg-[var(--surface-raised)] px-3 py-2 text-sm font-medium text-[var(--text-secondary)] transition hover:text-[var(--text-primary)]">
             Notification preferences
           </Link>
         </div>
       </div>
 
-      <div className="mb-6 flex flex-wrap gap-2 rounded-2xl border border-slate-800 bg-slate-900/80 p-2">
+      <div className="mb-6 flex flex-wrap gap-2 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-2">
         {categories.map((category) => {
           const count = category.key === 'unread' ? unreadCount : null;
           const isActive = activeCategory === category.key;
@@ -448,11 +529,11 @@ export default function NotificationsPage() {
                 setLoadingMore(false);
                 setActiveCategory(category.key);
               }}
-              className={`inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium transition ${isActive ? 'bg-cyan-500 text-slate-950' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'}`}
+              className={`inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-sm font-medium transition ${isActive ? 'border-cyan-500/40 bg-cyan-500/15 text-cyan-900 dark:text-cyan-200' : 'border-transparent text-[var(--text-secondary)] hover:bg-[var(--surface-raised)] hover:text-[var(--text-primary)]'}`}
             >
               <span>{category.label}</span>
               {count !== null && (
-                <span className={`rounded-full px-1.5 py-0.5 text-[10px] ${isActive ? 'bg-slate-950/20 text-slate-900' : 'bg-slate-700 text-slate-200'}`}>{count}</span>
+                <span className={`rounded-full px-1.5 py-0.5 text-[10px] ${isActive ? 'bg-cyan-500/20 text-current' : 'bg-[var(--surface-raised)] text-[var(--text-muted)]'}`}>{count}</span>
               )}
             </button>
           );
@@ -460,7 +541,7 @@ export default function NotificationsPage() {
       </div>
 
       {error && (
-        <div className="mb-6 rounded-xl border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+        <div role="alert" className="mb-6 rounded-xl border border-rose-500/40 bg-rose-500/10 px-4 py-3 text-sm text-rose-800 dark:text-rose-200">
           {error}
         </div>
       )}
@@ -468,10 +549,10 @@ export default function NotificationsPage() {
       <div className="space-y-4">
         {loading ? (
           [1, 2, 3, 4].map((item) => (
-            <div key={item} className="h-28 animate-pulse rounded-2xl border border-slate-800 bg-slate-900/80" />
+            <div key={item} className="h-28 animate-pulse rounded-2xl border border-[var(--border)] bg-[var(--surface)]" />
           ))
         ) : visibleNotifications.length === 0 ? (
-          <div className="rounded-2xl border border-slate-800 bg-slate-900/80 p-12 text-center">
+          <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-12 text-center">
             <div className={`mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl border ${emptyConfig.color}`}>
               <EmptyIcon className="h-8 w-8" />
             </div>
@@ -494,53 +575,64 @@ export default function NotificationsPage() {
             <section key={group.label} aria-labelledby={`notification-group-${group.label.toLowerCase().replaceAll(' ', '-')}`}>
               <h2
                 id={`notification-group-${group.label.toLowerCase().replaceAll(' ', '-')}`}
-                className="mb-3 text-sm font-semibold uppercase tracking-[0.18em] text-slate-400"
+                className="mb-3 flex items-center gap-2 text-xs font-bold uppercase tracking-[0.16em] text-[var(--text-secondary)]"
               >
-                {group.label}
+                <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-[var(--border)] bg-[var(--surface)] text-cyan-700 dark:text-cyan-300">
+                  <CalendarDays className="h-4 w-4" />
+                </span>
+                <span>{group.label === 'Earlier' ? 'Earlier This Season' : group.label}</span>
+                <span className="h-px flex-1 bg-[var(--border)]" aria-hidden="true" />
+                <span className="rounded-full bg-[var(--surface-raised)] px-2 py-1 text-[10px] font-medium text-[var(--text-muted)]">
+                  {group.notifications.length}
+                </span>
               </h2>
               <div className="space-y-4">
                 {group.notifications.map((notification) => {
-                  const accentClass = notification.is_read
-                    ? 'border-slate-800 bg-slate-900/60 opacity-80'
-                    : getCategoryFromType(notification.type) === 'deadline'
-                      ? 'border-red-500/35 bg-red-500/5'
-                      : getCategoryFromType(notification.type) === 'market'
-                        ? 'border-amber-500/30 bg-amber-500/5'
-                        : getCategoryFromType(notification.type) === 'league'
-                          ? 'border-cyan-500/35 bg-cyan-500/5'
-                          : 'border-emerald-500/35 bg-emerald-500/5';
+                  const presentation = getNotificationPresentation(notification);
+                  const NotificationIcon = presentation.Icon;
+                  const action = getActionForNotification(notification);
+                  const dateTitle = new Date(notification.created_at).toLocaleString();
+                  const gameweekNumber = Number(notification.metadata?.gameweek_number);
 
                   return (
-                    <div key={notification.id} className={`flex flex-col gap-4 rounded-2xl border p-4 md:flex-row md:items-start ${accentClass}`}>
-                      <div className="flex shrink-0 items-start gap-3">
-                        {getIconForType(notification.type)}
-                        <div className="mt-1 hidden h-2 w-2 rounded-full bg-emerald-400 md:block" />
+                    <div key={notification.id} className={`flex flex-col gap-3 rounded-xl border border-l-4 bg-[var(--surface)] p-4 transition-colors md:flex-row md:items-start ${
+                      notification.is_read
+                        ? 'border-[var(--border)] border-l-[var(--border)] opacity-75'
+                        : `${presentation.rowTone} hover:bg-[var(--surface-raised)]`
+                    }`}>
+                      <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border ${presentation.iconSurface} ${presentation.iconTone}`}>
+                        {presentation.label === 'Update'
+                          ? getIconForType(notification.type)
+                          : <NotificationIcon className="h-5 w-5" aria-hidden="true" />}
                       </div>
 
-                      <div className="flex-1">
-                        <div className="mb-2 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-                          <div className="flex items-center gap-2">
-                            <span className="rounded-full border border-slate-700 bg-slate-800 px-2 py-1 text-[10px] uppercase tracking-[0.2em] text-slate-300">
-                              {getCategoryFromType(notification.type)}
+                      <div className="min-w-0 flex-1">
+                        <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className={`rounded-full border px-2 py-1 text-[10px] font-bold uppercase tracking-[0.12em] ${presentation.iconSurface} ${presentation.iconTone}`}>
+                              {presentation.label}
                             </span>
                             {!notification.is_read && (
-                              <span className="rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-1 text-[10px] uppercase tracking-[0.2em] text-amber-300">
+                              <span className="rounded-full border border-cyan-500/30 bg-cyan-500/10 px-2 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-cyan-800 dark:text-cyan-300">
                                 Unread
                               </span>
                             )}
                           </div>
-                          <span className="text-xs text-slate-400">{timeAgo(notification.created_at)}</span>
+                          <time title={dateTitle} dateTime={notification.created_at} className="text-xs text-[var(--text-muted)]">{timeAgo(notification.created_at)}</time>
                         </div>
 
-                        <h3 className="text-lg font-semibold text-white">{notification.title}</h3>
-                        <p className="mt-2 text-sm leading-6 text-slate-300">{notification.message}</p>
+                        <h3 className="text-base font-semibold text-[var(--text-primary)]">{notification.title}</h3>
+                        <p className="mt-1.5 text-sm leading-6 text-[var(--text-secondary)]">{notification.message}</p>
+                        {Number.isInteger(gameweekNumber) && gameweekNumber > 0 && (
+                          <p className="mt-2 text-xs font-medium text-[var(--text-muted)]">Gameweek {gameweekNumber}</p>
+                        )}
 
                         <div className="mt-4 flex flex-wrap items-center gap-3">
-                          <Link href={getActionHref(notification.type)} className="rounded-lg bg-cyan-500 px-3 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-slate-950 transition hover:bg-cyan-400">
-                            {getActionLabel(notification.type)}
+                          <Link href={action.href} className="rounded-lg bg-cyan-500 px-3 py-2 text-xs font-semibold uppercase tracking-[0.12em] text-slate-950 transition hover:bg-cyan-400">
+                            {action.label} →
                           </Link>
                           {!notification.is_read && (
-                            <button onClick={() => handleMarkAsRead(notification.id)} className="rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-slate-300 transition hover:border-slate-500 hover:text-white">
+                            <button type="button" onClick={() => handleMarkAsRead(notification.id)} className="rounded-lg border border-[var(--border)] bg-[var(--surface-raised)] px-3 py-2 text-xs font-semibold uppercase tracking-[0.12em] text-[var(--text-secondary)] transition hover:text-[var(--text-primary)]">
                               Mark read
                             </button>
                           )}
@@ -558,7 +650,7 @@ export default function NotificationsPage() {
                 type="button"
                 onClick={() => void loadMoreNotifications()}
                 disabled={loadingMore}
-                className="rounded-xl border border-cyan-500/40 bg-cyan-500/10 px-5 py-3 text-sm font-semibold text-cyan-300 transition hover:bg-cyan-500/20 disabled:cursor-wait disabled:opacity-60"
+                className="rounded-xl border border-cyan-500/40 bg-cyan-500/10 px-5 py-3 text-sm font-semibold text-cyan-800 transition hover:bg-cyan-500/20 disabled:cursor-wait disabled:opacity-60 dark:text-cyan-300"
               >
                 {loadingMore ? 'Loading...' : 'Load more notifications'}
               </button>

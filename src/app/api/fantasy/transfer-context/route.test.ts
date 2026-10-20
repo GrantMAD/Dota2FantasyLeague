@@ -62,7 +62,7 @@ describe('GET /api/fantasy/transfer-context', () => {
         eq: jest.fn().mockReturnThis(),
         limit: jest.fn().mockReturnThis(),
         maybeSingle: jest.fn().mockResolvedValue({
-          data: { fantasy_squad_members: [{ player_id: 22, removed_date: null }] },
+          data: { fantasy_squad_members: [{ player_id: 22, cost: '8.50', removed_date: null }] },
           error: null,
         }),
       },
@@ -84,6 +84,7 @@ describe('GET /api/fantasy/transfer-context', () => {
       wildcardUsedGameweekId: 91,
       wildcardUsedGameweekNumber: 6,
       ownedPlayerIds: [22],
+      ownedPlayerCosts: [{ playerId: 22, cost: 8.5 }],
     });
     expect(queries.gameweeks.eq).toHaveBeenCalledWith('id', 91);
     expect(mockGetOrCreateFantasySeason).toHaveBeenCalledWith(expect.anything(), 'manager-1');

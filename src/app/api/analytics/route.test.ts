@@ -288,6 +288,11 @@ describe('GET /api/analytics - Finding 31: Dynamic gameweek resolution and role-
 
     // 2. Verify Dream Team composition: 8 players total
     expect(json.dreamTeam).toHaveLength(8);
+    expect(json.dreamTeam[0]).toMatchObject({
+      playerName: 'Carry 1',
+      price: 5,
+      roi: 100,
+    });
 
     // Verify all 5 starter roles are represented
     const roles = json.dreamTeam.map((p: { role: string }) => p.role);

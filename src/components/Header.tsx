@@ -10,21 +10,49 @@ import {
   Shield,
 } from 'lucide-react';
 import { usePathname, useRouter } from 'next/navigation';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useRef, useState } from 'react';
 import { ThemeToggle } from './theme/ThemeToggle';
 import { fetchWithAuth } from '@/lib/fetch-with-auth';
 import { NotificationDropdown } from './NotificationDropdown';
 import { QuickStatsBar } from './QuickStatsBar';
 import { DashboardNavigation } from './DashboardNavigation';
-import type { HeaderProfile, QuickStats } from './header-types';
+import { PROFILE_UPDATED_EVENT, type HeaderProfile, type QuickStats } from './header-types';
 
 const LazyCommandPalette = dynamic(
   () => import('./CommandPalette').then((module) => module.CommandPalette),
   { ssr: false },
 );
 
-export function Header() {
+const pageTitles: Record<string, string> = {
+  '/dashboard': 'Dashboard',
+  '/squads': 'Squad Management',
+  '/lineups': 'Active Lineup',
+  '/transfers': 'Transfers & Market',
+  '/players': 'Players Directory',
+  '/leagues': 'Leagues & Cups',
+  '/leaderboard': 'Global Leaderboard',
+  '/gameweeks': 'Gameweek Schedule',
+  '/gameweeks/planner': 'My Gameweek Planner',
+  '/season-recap': 'Season Recap',
+  '/tournaments': 'Tournaments',
+  '/matches': 'Matches & Results',
+  '/analytics': 'Performance Analytics',
+  '/learn': 'Learn Hub',
+  '/guide': 'Manager Guide',
+  '/rules': 'League Rules',
+  '/profile': 'Manager Profile',
+  '/account': 'Account Settings',
+  '/notifications': 'Notification Center',
+};
+
+function CurrentPageTitle() {
   const pathname = usePathname();
+  const title = pageTitles[pathname] || (pathname.startsWith('/players/') ? 'Player Inspection' : 'Dota 2 Fantasy');
+
+  return <h1 className="text-sm font-bold tracking-wide text-white">{title}</h1>;
+}
+
+export const Header = memo(function Header() {
   const router = useRouter();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
@@ -37,18 +65,33 @@ export function Header() {
   const closeMobileMenu = useCallback(() => setMobileMenuOpen(false), []);
 
   useEffect(() => {
+    let profileLoaded = false;
+
     async function loadProfile() {
       try {
         const response = await fetchWithAuth('/api/user/profile');
         if (!response.ok) return;
         const data = (await response.json()) as { profile: HeaderProfile | null };
+        profileLoaded = true;
         setProfile(data.profile);
       } catch {
         // Keep the initials fallback when the profile is unavailable.
       }
     }
 
+    function handleProfileUpdated(event: Event) {
+      const profileUpdate = (event as CustomEvent<Partial<HeaderProfile>>).detail;
+      if (!profileUpdate) {
+        void loadProfile();
+        return;
+      }
+      setProfile((current) => current ? { ...current, ...profileUpdate } : current);
+      if (!profileLoaded) void loadProfile();
+    }
+
     void loadProfile();
+    window.addEventListener(PROFILE_UPDATED_EVENT, handleProfileUpdated);
+    return () => window.removeEventListener(PROFILE_UPDATED_EVENT, handleProfileUpdated);
   }, []);
 
   useEffect(() => {
@@ -81,7 +124,7 @@ export function Header() {
     return () => {
       window.removeEventListener('fantasy:stats-updated', handleStatsUpdate);
     };
-  }, [pathname]);
+  }, []);
 
   // Global Ctrl+K / Cmd+K handler
   useEffect(() => {
@@ -159,35 +202,9 @@ export function Header() {
       </button>
     </div>
   );
-  // Breadcrumb label map
-  const pageTitles: Record<string, string> = {
-    '/dashboard': 'Dashboard',
-    '/squads': 'Squad Management',
-    '/lineups': 'Active Lineup',
-    '/transfers': 'Transfers & Market',
-    '/players': 'Players Directory',
-    '/leagues': 'Leagues & Cups',
-    '/leaderboard': 'Global Leaderboard',
-    '/gameweeks': 'Gameweek Schedule',
-    '/gameweeks/planner': 'My Gameweek Planner',
-    '/season-recap': 'Season Recap',
-    '/tournaments': 'Tournaments',
-    '/matches': 'Matches & Results',
-    '/analytics': 'Performance Analytics',
-    '/learn': 'Learn Hub',
-    '/guide': 'Manager Guide',
-    '/rules': 'League Rules',
-    '/profile': 'Manager Profile',
-    '/account': 'Account Settings',
-    '/notifications': 'Notification Center',
-  };
-
-  const currentPageTitle = pageTitles[pathname] || (pathname.startsWith('/players/') ? 'Player Inspection' : 'Dota 2 Fantasy');
-
   return (
     <>
       <DashboardNavigation
-        pathname={pathname}
         isAdmin={profile?.role === 'admin'}
         mobileMenuOpen={mobileMenuOpen}
         onMobileMenuClose={closeMobileMenu}
@@ -212,9 +229,7 @@ export function Header() {
                 Fantasy
               </span>
               <span className="text-slate-600 font-medium">/</span>
-              <h1 className="text-sm font-bold text-white tracking-wide">
-                {currentPageTitle}
-              </h1>
+              <CurrentPageTitle />
             </div>
 
             {/* Center: Command Palette / Quick Search Trigger */}
@@ -310,4 +325,4 @@ export function Header() {
 
     </>
   );
-}
+});

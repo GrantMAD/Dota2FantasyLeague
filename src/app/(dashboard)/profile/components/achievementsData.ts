@@ -3,7 +3,7 @@ export interface Achievement {
   title: string;
   description: string;
   category: 'squad' | 'performance' | 'activity' | 'career';
-  tier: 'bronze' | 'silver' | 'gold' | 'mythic';
+  tier: 'bronze' | 'silver' | 'gold' | 'platinum';
   icon: string;
   unlocked: boolean;
   progressText: string;
@@ -20,6 +20,14 @@ export interface UserStatsForAchievements {
   memberSince?: string | null;
   timezone?: string | null;
   countryCode?: string | null;
+}
+
+export function getSeasonRankTier(globalRank: number | null): string {
+  if (!globalRank || !Number.isFinite(globalRank) || globalRank < 1) return 'Unranked';
+  if (globalRank <= 10) return 'Top 10';
+  if (globalRank <= 100) return 'Top 100';
+  if (globalRank <= 1000) return 'Top 1,000';
+  return 'Ranked Manager';
 }
 
 export function computeAchievements(stats: UserStatsForAchievements): Achievement[] {
@@ -106,7 +114,7 @@ export function computeAchievements(stats: UserStatsForAchievements): Achievemen
       title: 'Perfect Gameweek',
       description: 'All 5 starting players deliver positive scores without penalty.',
       category: 'performance',
-      tier: 'mythic',
+      tier: 'platinum',
       icon: '✨',
       unlocked: hasSquad && totalPoints >= 250,
       progressText: hasSquad && totalPoints >= 250 ? 'Flawless execution' : 'Target: 250+ cumulative pts',

@@ -4,7 +4,6 @@ import { fetchWithAuth } from '@/lib/fetch-with-auth';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { KeyboardEvent } from 'react';
 import Link from 'next/link';
-import { useTheme } from '@/components/theme/ThemeProvider';
 import { useToast } from '@/components/Toast';
 import { getCaptainEfficiencyAssessment, getTrendRowsForRange, type TrendRange } from '@/lib/analytics-presentation';
 import {
@@ -47,6 +46,8 @@ type DreamTeamRow = {
   team: string;
   role: string;
   points: number;
+  price: number;
+  roi: number;
 };
 
 type AnalyticsData = {
@@ -80,23 +81,20 @@ const initialData: AnalyticsData = {
 };
 
 export default function AnalyticsDashboard() {
-  const { theme } = useTheme();
-  const isLight = theme === 'light';
-
-  const chartTheme = useMemo(() => ({
-    gridStroke: isLight ? '#cbd5e1' : '#334155',
-    axisStroke: isLight ? '#94a3b8' : '#64748b',
-    tickFill: isLight ? '#475569' : '#94a3b8',
-    yTickFill: isLight ? '#334155' : '#e2e8f0',
-    tooltipBg: isLight ? '#ffffff' : '#0f172a',
-    tooltipBorder: isLight ? '#cbd5e1' : '#334155',
-    tooltipText: isLight ? '#0f172a' : '#f8fafc',
-    tooltipItemColor: isLight ? '#334155' : '#e2e8f0',
-    globalAvgLine: isLight ? '#64748b' : '#94a3b8',
-    globalAvgDot: isLight ? '#475569' : '#64748b',
-    rankLine: isLight ? '#d97706' : '#f59e0b',
-    rankDot: isLight ? '#b45309' : '#fbbf24',
-  }), [isLight]);
+  const chartTheme = {
+    gridStroke: 'var(--border)',
+    axisStroke: 'var(--text-muted)',
+    tickFill: 'var(--text-secondary)',
+    yTickFill: 'var(--text-primary)',
+    tooltipBg: 'var(--surface-raised)',
+    tooltipBorder: 'var(--border)',
+    tooltipText: 'var(--text-primary)',
+    tooltipItemColor: 'var(--text-secondary)',
+    globalAvgLine: 'var(--text-muted)',
+    globalAvgDot: 'var(--text-secondary)',
+    rankLine: 'var(--danger)',
+    rankDot: 'var(--danger)',
+  };
 
   const toast = useToast();
   const [data, setData] = useState(initialData);
@@ -188,6 +186,11 @@ export default function AnalyticsDashboard() {
   const captainEfficiencyAssessment = useMemo(() => {
     return getCaptainEfficiencyAssessment(data.captainEfficiency.efficiency);
   }, [data.captainEfficiency.efficiency]);
+  const analyticsTabCounts: Record<AnalyticsTab, number> = {
+    my: data.trend.length,
+    market: data.market.length,
+    dream: data.dreamTeam.length,
+  };
 
   function handleTabKeyDown(event: KeyboardEvent<HTMLButtonElement>, currentTab: AnalyticsTab) {
     const tabs: AnalyticsTab[] = ['my', 'market', 'dream'];
@@ -208,15 +211,15 @@ export default function AnalyticsDashboard() {
   }
 
   return (
-    <div className="analytics-page min-h-screen bg-slate-950 text-slate-100">
+    <div className="analytics-page min-h-screen bg-[var(--background)] text-[var(--text-primary)]">
       <div className="mx-auto max-w-7xl px-4 py-8">
         <div className="mb-8 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
           <div>
             <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-cyan-500/30 bg-cyan-500/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.28em] text-cyan-300">
               Fantasy Intelligence
             </div>
-            <h1 className="text-3xl font-black tracking-tight text-white">Analytics Hub</h1>
-            <p className="mt-2 text-sm text-slate-400">Track your team form, market value, and the top scoring opportunities in the current meta.</p>
+            <h1 className="text-3xl font-black tracking-tight text-[var(--text-primary)]">Analytics Hub</h1>
+            <p className="mt-2 text-sm text-[var(--text-secondary)]">Track your team form, market value, and the top scoring opportunities in the current meta.</p>
           </div>
           <Link href="/premium" className="inline-flex items-center rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-2.5 text-sm font-semibold text-amber-300 transition hover:bg-amber-500/20">Explore Premium Tools →</Link>
         </div>
@@ -242,11 +245,16 @@ export default function AnalyticsDashboard() {
               tabIndex={tab === key ? 0 : -1}
               onClick={() => setTab(key as AnalyticsTab)}
               onKeyDown={(event) => handleTabKeyDown(event, key as AnalyticsTab)}
-              className={`rounded-xl px-4 py-2 text-sm font-medium transition ${
-                tab === key ? 'bg-cyan-500 text-slate-950 shadow-lg shadow-cyan-500/20' : 'text-slate-300 hover:bg-slate-800'
+              className={`inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-medium transition ${
+                tab === key ? 'bg-cyan-500 text-slate-950 shadow-lg shadow-cyan-500/20' : 'text-[var(--text-secondary)] hover:bg-[var(--surface-raised)]'
               }`}
             >
               {label}
+              <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold tabular-nums ${
+                tab === key ? 'bg-slate-950/15 text-slate-950' : 'bg-[var(--surface-muted)] text-[var(--text-muted)]'
+              }`}>
+                {analyticsTabCounts[key as AnalyticsTab]}
+              </span>
             </button>
           ))}
         </div>
@@ -282,25 +290,47 @@ export default function AnalyticsDashboard() {
           ) : (
             <>
             <div className="mb-8 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-              <div className="rounded-2xl border border-slate-800 bg-slate-900/80 p-5">
-                <p className="text-xs uppercase tracking-[0.22em] text-slate-400">Total Points</p>
-                <p className="mt-3 text-3xl font-black text-white">{data.user.totalPoints}</p>
-                <p className="mt-2 text-xs text-slate-500">Season total</p>
-              </div>
-              <div className="rounded-2xl border border-slate-800 bg-slate-900/80 p-5">
-                <p className="text-xs uppercase tracking-[0.22em] text-slate-400">Global Rank</p>
-                <p className="mt-3 text-3xl font-black text-white">{data.user.globalRank ?? '—'}</p>
-                <p className="mt-2 text-xs text-slate-500">Current overall position</p>
-              </div>
-              <div className="rounded-2xl border border-slate-800 bg-slate-900/80 p-5">
-                <p className="text-xs uppercase tracking-[0.22em] text-slate-400">Squad Value</p>
-                <p className="mt-3 text-3xl font-black text-white">${(data.user.squadValue / 10).toFixed(1)}M</p>
-                <p className="mt-2 text-xs text-slate-500">Current roster value</p>
-              </div>
-              <div className="rounded-2xl border border-slate-800 bg-slate-900/80 p-5">
-                <p className="text-xs uppercase tracking-[0.22em] text-slate-400">Free Transfers</p>
-                <p className="mt-3 text-3xl font-black text-white">{data.user.freeTransfers}</p>
-                <p className="mt-2 text-xs text-slate-500">Remaining this week</p>
+              {([
+                {
+                  title: 'Total Points',
+                  value: data.user.totalPoints.toLocaleString(),
+                  detail: 'Season total',
+                  href: '/leaderboard',
+                  color: 'var(--accent-primary)',
+                },
+                {
+                  title: 'Global Rank',
+                  value: data.user.globalRank == null ? '—' : `#${data.user.globalRank}`,
+                  detail: 'Current overall position',
+                  href: '/leaderboard',
+                  color: 'var(--accent-secondary)',
+                },
+                {
+                  title: 'Squad Value',
+                  value: `$${(data.user.squadValue / 10).toFixed(1)}M`,
+                  detail: 'Current roster value',
+                  href: '/squads',
+                  color: 'var(--success)',
+                },
+              ]).map((stat) => (
+                <Link
+                  key={stat.title}
+                  href={stat.href}
+                  className="group relative overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 shadow-md transition hover:-translate-y-0.5 hover:shadow-xl"
+                  style={{ boxShadow: `0 10px 28px color-mix(in srgb, ${stat.color} 9%, transparent)` }}
+                >
+                  <span className="absolute inset-x-0 top-0 h-1" style={{ backgroundColor: stat.color }} />
+                  <p className="text-xs uppercase tracking-[0.22em] text-[var(--text-muted)]">{stat.title}</p>
+                  <p className="mt-3 text-3xl font-black text-[var(--text-primary)]">{stat.value}</p>
+                  <p className="mt-2 text-xs text-[var(--text-secondary)]">{stat.detail}</p>
+                  <span className="mt-3 inline-block text-xs font-semibold text-[var(--text-muted)] transition group-hover:text-[var(--text-primary)]">View details →</span>
+                </Link>
+              ))}
+              <div className="relative overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 shadow-md">
+                <span className="absolute inset-x-0 top-0 h-1 bg-amber-500" />
+                <p className="text-xs uppercase tracking-[0.22em] text-[var(--text-muted)]">Free Transfers</p>
+                <p className="mt-3 text-3xl font-black text-[var(--text-primary)]">{data.user.freeTransfers}</p>
+                <p className="mt-2 text-xs text-[var(--text-secondary)]">Remaining this week</p>
               </div>
             </div>
 
@@ -401,7 +431,7 @@ export default function AnalyticsDashboard() {
                                   fontSize: '12px',
                                 }}
                                 itemStyle={{ color: chartTheme.tooltipItemColor, padding: '2px 0' }}
-                                labelStyle={{ fontWeight: 'bold', color: isLight ? '#0284c7' : '#38bdf8', marginBottom: '4px' }}
+                                labelStyle={{ fontWeight: 'bold', color: 'var(--accent-secondary)', marginBottom: '4px' }}
                                 formatter={(value: unknown, name: unknown) => {
                                   if (name === 'Global Rank') {
                                     return [value != null ? `#${value}` : '—', String(name)];
@@ -418,10 +448,10 @@ export default function AnalyticsDashboard() {
                                 animationBegin={0}
                                 animationDuration={900}
                                 animationEasing="ease-out"
-                                stroke="#06b6d4"
+                                stroke="var(--accent-secondary)"
                                 strokeWidth={3}
-                                dot={{ r: 4, fill: '#06b6d4', stroke: isLight ? '#ffffff' : '#083344', strokeWidth: 2 }}
-                                activeDot={{ r: 6, fill: '#22d3ee', stroke: isLight ? '#0f172a' : '#fff', strokeWidth: 2 }}
+                                dot={{ r: 4, fill: 'var(--accent-secondary)', stroke: 'var(--surface)', strokeWidth: 2 }}
+                                activeDot={{ r: 6, fill: 'var(--accent-secondary)', stroke: 'var(--text-primary)', strokeWidth: 2 }}
                               />
                               <Line
                                 yAxisId="points"
@@ -448,8 +478,8 @@ export default function AnalyticsDashboard() {
                                 animationEasing="ease-out"
                                 stroke={chartTheme.rankLine}
                                 strokeWidth={2}
-                                dot={{ r: 3, fill: chartTheme.rankDot, stroke: isLight ? '#ffffff' : '#1e1b4b', strokeWidth: 1.5 }}
-                                activeDot={{ r: 5, fill: '#f59e0b', stroke: isLight ? '#0f172a' : '#fff', strokeWidth: 2 }}
+                                dot={{ r: 3, fill: chartTheme.rankDot, stroke: 'var(--surface)', strokeWidth: 1.5 }}
+                                activeDot={{ r: 5, fill: chartTheme.rankDot, stroke: 'var(--text-primary)', strokeWidth: 2 }}
                                 connectNulls
                               />
                             </LineChart>
@@ -531,7 +561,7 @@ export default function AnalyticsDashboard() {
                                   fontSize: '12px',
                                 }}
                                 itemStyle={{ color: chartTheme.tooltipItemColor, padding: '2px 0' }}
-                                labelStyle={{ fontWeight: 'bold', color: isLight ? '#0f766e' : '#2dd4bf', marginBottom: '4px' }}
+                                labelStyle={{ fontWeight: 'bold', color: 'var(--accent-primary)', marginBottom: '4px' }}
                                 formatter={(value) => [`${value ?? 0} pts`, 'Points']}
                               />
                               <Bar dataKey="points" radius={[0, 8, 8, 0]} isAnimationActive animationBegin={0} animationDuration={900} animationEasing="ease-out">
@@ -638,42 +668,77 @@ export default function AnalyticsDashboard() {
 
               {tab === 'dream' && (
                 <div className="grid gap-6 lg:grid-cols-2">
-                  <div className="rounded-2xl border border-slate-800 bg-slate-950/70 p-4">
+                  <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4 sm:p-5">
                     <div className="mb-4">
-                      <h3 className="analytics-dream-heading text-lg font-semibold text-white">Gameweek Dream Team</h3>
-                      <p className="mt-1 text-xs text-slate-400">Top role-balanced performers from the latest scoring window</p>
+                      <h3 className="analytics-dream-heading text-lg font-semibold text-[var(--text-primary)]">Gameweek Dream Team</h3>
+                      <p className="mt-1 text-xs text-[var(--text-secondary)]">Best role-balanced scorers from the latest available gameweek</p>
                     </div>
-                    <div className="grid gap-3 sm:grid-cols-2">
-                      {data.dreamTeam.length ? data.dreamTeam.map((player: DreamTeamRow, index: number) => (
-                        <article key={`${player.playerName}-${index}`} className={`analytics-dream-card rounded-xl border p-4 transition hover:border-cyan-500/40 ${
-                          index < 5 ? 'border-cyan-500/25 bg-cyan-500/5' : 'border-slate-800 bg-slate-900/60'
-                        }`}>
-                          <div className="flex items-start justify-between gap-3">
-                            <div className="min-w-0">
-                              <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">{index < 5 ? `Starter ${index + 1}` : `Bench ${index - 4}`}</p>
-                              <h4 className="mt-1 truncate font-bold text-white">{player.playerName}</h4>
-                              <p className="mt-1 truncate text-xs text-slate-400">{player.team}</p>
-                            </div>
-                            <span className="shrink-0 text-lg font-black tabular-nums text-cyan-300">{player.points}<span className="ml-1 text-[10px] font-semibold text-cyan-400">PTS</span></span>
+                    {data.dreamTeam.length ? (
+                      <>
+                        <div className="relative overflow-hidden rounded-2xl border border-emerald-700/40 bg-[linear-gradient(160deg,#14532d_0%,#064e3b_50%,#052e2b_100%)] p-3 sm:p-5">
+                          <div aria-hidden="true" className="pointer-events-none absolute inset-3 rounded-xl border border-white/15" />
+                          <div aria-hidden="true" className="pointer-events-none absolute left-1/2 top-3 bottom-3 w-px bg-white/10" />
+                          <div aria-hidden="true" className="pointer-events-none absolute left-1/2 top-1/2 h-20 w-20 -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/15" />
+                          <div className="relative grid min-h-64 grid-cols-3 grid-rows-2 items-center gap-2 sm:min-h-72 sm:gap-4">
+                            {data.dreamTeam.slice(0, 5).map((player, index) => {
+                              const fallbackPositions = [
+                                'col-start-1 row-start-1',
+                                'col-start-2 row-start-1',
+                                'col-start-3 row-start-1',
+                                'col-start-1 row-start-2',
+                                'col-start-3 row-start-2',
+                              ];
+                              const position = fallbackPositions[index];
+                              return (
+                                <article
+                                  key={`${player.playerName}-${index}`}
+                                  className={`min-w-0 rounded-xl border border-white/20 bg-slate-950/70 p-2 text-center shadow-lg backdrop-blur-sm transition hover:-translate-y-0.5 hover:border-amber-300/60 sm:p-3 ${position}`}
+                                >
+                                  <p className="truncate text-[9px] font-bold uppercase tracking-wide text-emerald-200 sm:text-[10px]">{player.role}</p>
+                                  <h4 className="mt-1 truncate text-[11px] font-bold text-white sm:text-sm">{player.playerName}</h4>
+                                  <p className="truncate text-[9px] text-slate-300 sm:text-[10px]">{player.team}</p>
+                                  <p className="mt-1 font-mono text-base font-black text-amber-300 sm:text-lg">
+                                    {player.points}<span className="ml-1 text-[9px] font-semibold text-amber-200">PTS</span>
+                                  </p>
+                                  <p className="mt-1 truncate text-[9px] text-slate-300 sm:text-[10px]">
+                                    ${player.price.toFixed(1)}M · {player.roi.toFixed(1)} pts / $10M
+                                  </p>
+                                </article>
+                              );
+                            })}
                           </div>
-                          <span className="mt-3 inline-flex rounded-full border border-slate-700 bg-slate-950/60 px-2.5 py-1 text-xs font-medium text-slate-300">{player.role}</span>
-                        </article>
-                      )) : (
-                        <div className="rounded-xl border border-dashed border-slate-700 bg-slate-900/40 p-6 text-sm text-slate-400 sm:col-span-2">
-                          Dream Team results will appear after gameweek scoring is available.
                         </div>
-                      )}
-                    </div>
+                        {data.dreamTeam.length > 5 && (
+                          <div className="mt-4">
+                            <h4 className="mb-2 text-xs font-bold uppercase tracking-wider text-[var(--text-muted)]">Bench</h4>
+                            <div className="grid gap-2 sm:grid-cols-3">
+                              {data.dreamTeam.slice(5).map((player, index) => (
+                                <article key={`${player.playerName}-bench-${index}`} className="rounded-xl border border-[var(--border)] bg-[var(--surface-raised)] p-3">
+                                  <p className="text-[9px] font-bold uppercase tracking-wide text-[var(--text-muted)]">Bench {index + 1} · {player.role}</p>
+                                  <h4 className="mt-1 truncate text-xs font-bold text-[var(--text-primary)]">{player.playerName}</h4>
+                                  <p className="mt-1 font-mono text-sm font-bold text-[var(--accent-secondary)]">{player.points} pts</p>
+                                  <p className="mt-1 text-[10px] text-[var(--text-secondary)]">${player.price.toFixed(1)}M · {player.roi.toFixed(1)} pts / $10M</p>
+                                </article>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </>
+                    ) : (
+                      <div className="rounded-xl border border-dashed border-[var(--border)] bg-[var(--surface-raised)] p-6 text-sm text-[var(--text-secondary)]">
+                        Dream Team results will appear after gameweek scoring is available.
+                      </div>
+                    )}
                   </div>
 
-                  <div className="rounded-2xl border border-slate-800 bg-slate-950/70 p-4">
+                  <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4">
                     <div className="mb-4">
                       <h3 className="analytics-dream-heading text-lg font-semibold text-white">Top Individual Performances</h3>
                       <p className="mt-1 text-xs text-slate-400">Standout scoring and value signals</p>
                     </div>
                     <div className="grid gap-3 sm:grid-cols-2">
                       {data.valueForMoney.length ? data.valueForMoney.map((row: MarketRow, index: number) => (
-                        <article key={`${row.playerName}-${index}`} className="analytics-performance-card rounded-xl border border-slate-800 bg-slate-900/60 p-4 transition hover:border-amber-500/40">
+                        <article key={`${row.playerName}-${index}`} className="analytics-performance-card rounded-xl border border-[var(--border)] bg-[var(--surface-raised)] p-4 transition hover:border-amber-500/40">
                           <div className="flex items-start justify-between gap-3">
                             <div className="min-w-0">
                               <h4 className="truncate font-bold text-white">{row.playerName}</h4>
@@ -688,7 +753,7 @@ export default function AnalyticsDashboard() {
                           </div>
                         </article>
                       )) : (
-                        <div className="rounded-xl border border-dashed border-slate-700 bg-slate-900/40 p-6 text-sm text-slate-400 sm:col-span-2">
+                        <div className="rounded-xl border border-dashed border-[var(--border)] bg-[var(--surface-raised)] p-6 text-sm text-[var(--text-secondary)] sm:col-span-2">
                           No standout performances are available yet.
                         </div>
                       )}

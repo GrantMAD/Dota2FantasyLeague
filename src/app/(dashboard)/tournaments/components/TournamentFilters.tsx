@@ -36,10 +36,9 @@ export function TournamentFilters({
   ];
 
   return (
-    <div className="space-y-4 mb-8">
-      {/* Status Segmented Buttons */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div role="group" aria-label="Filter tournaments by status" className="flex items-center gap-1.5 p-1 bg-slate-900/90 border border-slate-800 rounded-xl overflow-x-auto w-full sm:w-auto">
+    <div className="mb-6 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-3 sm:p-4">
+      <div className="flex flex-col items-start justify-between gap-4 xl:flex-row xl:items-center">
+        <div role="group" aria-label="Filter tournaments by status" className="flex w-full items-center gap-1.5 overflow-x-auto rounded-xl border border-[var(--border)] bg-[var(--surface-raised)] p-1 xl:w-auto">
           {statusTabs.map((tab) => {
             const isActive = activeStatus === tab.id;
             return (
@@ -48,10 +47,10 @@ export function TournamentFilters({
                 type="button"
                 aria-pressed={isActive}
                 onClick={() => onStatusChange(tab.id)}
-                className={`tournament-status-tab flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all ${
+                className={`tournament-status-tab flex items-center gap-2 whitespace-nowrap rounded-lg px-3.5 py-2 text-xs font-semibold transition-all ${
                   isActive
                     ? 'bg-amber-500 text-slate-950 shadow-md shadow-amber-500/20'
-                    : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+                    : 'text-[var(--text-secondary)] hover:bg-[var(--surface)] hover:text-[var(--text-primary)]'
                 }`}
               >
                 <span>{tab.label}</span>
@@ -59,7 +58,7 @@ export function TournamentFilters({
                   className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono font-bold ${
                     isActive
                       ? 'bg-slate-950/20 text-slate-950'
-                      : 'bg-slate-800 text-slate-400'
+                        : 'bg-[var(--surface)] text-[var(--text-muted)]'
                   }`}
                 >
                   {tab.count}
@@ -69,8 +68,7 @@ export function TournamentFilters({
           })}
         </div>
 
-        {/* Tier filter chips */}
-        <div role="group" aria-label="Filter tournaments by tier" className="flex items-center gap-1.5 overflow-x-auto">
+        <div role="group" aria-label="Filter tournaments by tier" className="flex w-full flex-wrap items-center gap-2 xl:w-auto">
           {tiers.map((t) => {
             const isSelected = selectedTier === t.id;
             return (
@@ -79,10 +77,10 @@ export function TournamentFilters({
                 type="button"
                 aria-pressed={isSelected}
                 onClick={() => onTierChange(t.id)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-colors border ${
+                className={`whitespace-nowrap rounded-xl border px-3 py-2 text-xs font-medium transition-colors ${
                   isSelected
-                    ? 'bg-slate-800 text-amber-400 border-amber-500/50'
-                    : 'bg-slate-900/80 text-slate-400 border-slate-800 hover:text-white hover:border-slate-700'
+                    ? 'border-amber-500/50 bg-amber-500/10 text-amber-800 dark:text-amber-200'
+                    : 'border-[var(--border)] bg-[var(--surface-raised)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
                 }`}
               >
                 {t.label}
@@ -92,10 +90,9 @@ export function TournamentFilters({
         </div>
       </div>
 
-      {/* Search Input */}
-      <div className="relative">
+      <div className="relative mt-3">
         <svg
-          className="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2"
+          className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--text-muted)]"
           fill="none"
           stroke="currentColor"
           viewBox="0 0 24 24"
@@ -108,14 +105,14 @@ export function TournamentFilters({
           placeholder="Search tournaments (e.g. Riyadh Masters, The International, ESL)..."
           value={searchQuery}
           onChange={(e) => onSearchChange(e.target.value)}
-          className="w-full bg-slate-900/90 border border-slate-800 rounded-xl pl-10 pr-4 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-500 transition-colors"
+          className="w-full rounded-xl border border-[var(--border)] bg-[var(--surface-raised)] py-2.5 pl-10 pr-10 text-xs text-[var(--text-primary)] placeholder:text-[var(--text-muted)] transition-colors focus:border-amber-500 focus:outline-none"
         />
         {searchQuery && (
           <button
             type="button"
             aria-label="Clear tournament search"
             onClick={() => onSearchChange('')}
-            className="absolute right-3.5 top-1/2 -translate-y-1/2 text-xs text-slate-500 hover:text-white"
+            className="absolute right-3.5 top-1/2 -translate-y-1/2 text-xs text-[var(--text-muted)] hover:text-[var(--text-primary)]"
           >
             ✕
           </button>

@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import {
   ArrowLeftRight,
   BarChart3,
@@ -86,17 +87,16 @@ function isActive(pathname: string, path: string) {
 }
 
 export function DashboardNavigation({
-  pathname,
   isAdmin,
   mobileMenuOpen,
   onMobileMenuClose,
 }: {
-  pathname: string;
   isAdmin: boolean;
   mobileMenuOpen: boolean;
   onMobileMenuClose: () => void;
   quickStats?: unknown;
 }) {
+  const pathname = usePathname();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const mobileDrawerRef = useRef<HTMLDivElement>(null);
   const touchStartXRef = useRef(0);
@@ -391,4 +391,3 @@ export function DashboardNavigation({
     </>
   );
 }
-

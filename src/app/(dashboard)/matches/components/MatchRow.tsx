@@ -55,15 +55,15 @@ export function MatchRow({ match, userSquadPlayerNames = [] }: MatchRowProps) {
             ) : (
               <span>{formattedDate} {formattedTime}</span>
             )}
-            {match.best_of && ` · Bo${match.best_of}`}
+            {match.best_of && ` · Bo${match.best_of} · Game ${match.match_number || 1} of ${match.best_of}`}
           </div>
         </div>
       </div>
 
       {/* Middle: Teams and Score */}
-      <div className="flex-1 flex items-center justify-center gap-4">
+      <div className="flex-1 flex items-center justify-center gap-2 sm:gap-4">
         {/* Radiant */}
-        <div className="flex-1 flex items-center justify-end gap-2.5">
+      <div className="flex-1 rounded-xl border border-emerald-500/25 bg-emerald-500/5 py-2 flex items-center justify-end gap-2.5">
           <span
             className={`text-sm font-bold truncate text-right ${
               isRadiantWinner ? 'text-white' : isCompleted ? 'text-slate-400' : 'text-slate-200'
@@ -101,7 +101,7 @@ export function MatchRow({ match, userSquadPlayerNames = [] }: MatchRowProps) {
         </div>
 
         {/* Dire */}
-        <div className="flex-1 flex items-center justify-start gap-2.5">
+        <div className="flex-1 rounded-xl border border-rose-500/25 bg-rose-500/5 py-2 flex items-center justify-start gap-2.5">
           <TeamLogo
             name={match.dire_team?.name || 'Dire'}
             logoUrl={match.dire_team?.logo_url}
@@ -123,8 +123,11 @@ export function MatchRow({ match, userSquadPlayerNames = [] }: MatchRowProps) {
       {/* Right: Fantasy squad badge & Action */}
       <div className="flex items-center justify-between md:justify-end gap-3 min-w-[160px]">
         {userSquadPlayerNames.length > 0 && (
-          <span className="text-[11px] font-medium bg-amber-500/10 text-amber-400 border border-amber-500/20 px-2 py-0.5 rounded">
-            ⭐ {userSquadPlayerNames.length} squad
+          <span
+            className="max-w-52 truncate rounded-lg border border-amber-500/35 bg-amber-500/10 px-2 py-1 text-[11px] font-semibold text-amber-800 dark:text-amber-300"
+            title={`Your fantasy starters in this match: ${userSquadPlayerNames.join(', ')}`}
+          >
+            ⭐ {isLive ? 'Starters in action: ' : 'Fantasy: '}{userSquadPlayerNames.join(', ')}
           </span>
         )}
         {isCompleted && match.duration_seconds && (

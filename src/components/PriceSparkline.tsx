@@ -16,6 +16,8 @@ interface PriceSparklineProps {
   className?: string;
   /** Whether to show a dot on the latest price point (default true) */
   showEndpoint?: boolean;
+  /** Use theme tokens for trend colors instead of fixed dark-theme colors. */
+  themeAware?: boolean;
 }
 
 export interface PriceSparklineModel {
@@ -119,11 +121,22 @@ export function PriceSparkline({
   strokeWidth = 1.75,
   className = '',
   showEndpoint = true,
+  themeAware = false,
 }: PriceSparklineProps) {
   const paddingX = 3;
   const paddingY = 3;
   const model = getPriceSparklineData(data, width, height, paddingX, paddingY);
   const { points, strokeColor, fillColor, coords, pathData, areaPathData, ariaLabel } = model;
+  const themedStroke = themeAware
+    ? model.trend === 'up'
+      ? 'var(--success)'
+      : model.trend === 'down'
+        ? 'var(--danger)'
+        : 'var(--text-muted)'
+    : strokeColor;
+  const themedFill = themeAware
+    ? `color-mix(in srgb, ${themedStroke} 15%, transparent)`
+    : fillColor;
 
   if (points.length <= 1) {
     const y = height / 2;
@@ -144,7 +157,7 @@ export function PriceSparkline({
             y1={y}
             x2={width - paddingX}
             y2={y}
-            stroke="#475569"
+            stroke={themeAware ? 'var(--border)' : '#475569'}
             strokeWidth={1.5}
             strokeDasharray="2 2"
           />
@@ -153,7 +166,7 @@ export function PriceSparkline({
               cx={width - paddingX}
               cy={y}
               r={2}
-              fill="#94a3b8"
+              fill={themeAware ? 'var(--text-secondary)' : '#94a3b8'}
             />
           )}
         </svg>
@@ -176,12 +189,12 @@ export function PriceSparkline({
         className="overflow-visible"
       >
         {/* Subtle area fill */}
-        <path d={areaPathData} fill={fillColor} />
+        <path d={areaPathData} fill={themedFill} />
         {/* Trend line */}
         <path
           d={pathData}
           fill="none"
-          stroke={strokeColor}
+          stroke={themedStroke}
           strokeWidth={strokeWidth}
           strokeLinecap="round"
           strokeLinejoin="round"
@@ -192,7 +205,7 @@ export function PriceSparkline({
             cx={lastCoord.x}
             cy={lastCoord.y}
             r={strokeWidth + 0.5}
-            fill={strokeColor}
+            fill={themedStroke}
           />
         )}
       </svg>

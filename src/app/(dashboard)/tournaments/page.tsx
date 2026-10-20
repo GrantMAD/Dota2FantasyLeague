@@ -3,6 +3,7 @@
 import { fetchWithAuth } from '@/lib/fetch-with-auth';
 import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
+import { Trophy } from 'lucide-react';
 import { TournamentCard, TournamentData } from './components/TournamentCard';
 import { TournamentFilters } from './components/TournamentFilters';
 import { TournamentHero } from './components/TournamentHero';
@@ -24,7 +25,9 @@ export default function TournamentsHubPage() {
         setLoading(true);
         const res = await fetchWithAuth('/api/tournaments');
         const data = await res.json();
-        setTournaments(data.tournaments || []);
+        if (!res.ok) throw new Error(data.error || 'Failed to load tournaments');
+        setTournaments(Array.isArray(data.tournaments) ? data.tournaments : []);
+        setError(null);
       } catch (error: unknown) {
         setError(error instanceof Error ? error.message : 'Failed to load tournaments');
       } finally {
@@ -43,14 +46,14 @@ export default function TournamentsHubPage() {
     };
   }, [tournaments]);
 
-  // Featured tournament (e.g. first Tier 1 or eligible event)
+  // Feature the most relevant non-archived event first.
   const featuredTournament = useMemo(() => {
     return (
       tournaments.find(
         (t) =>
-          (t.tier?.toLowerCase().includes('tier 1') || t.status === 'eligible') &&
+          (t.status === 'active' || t.tier?.toLowerCase().includes('tier 1') || t.status === 'eligible') &&
           t.status !== 'archived'
-      ) || tournaments[0]
+      ) || tournaments.find((t) => t.status !== 'archived') || tournaments[0]
     );
   }, [tournaments]);
 
@@ -89,38 +92,34 @@ export default function TournamentsHubPage() {
   }, [tournaments, activeStatus, selectedTier, searchQuery]);
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-10">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-8 gap-4">
+    <div className="mx-auto max-w-7xl px-4 py-8 sm:py-10">
+      <div className="mb-6 flex flex-col items-start justify-between gap-4 md:mb-7 md:flex-row md:items-end">
         <div>
-          <div className="flex items-center gap-2.5 mb-2">
-            <span className="inline-flex items-center justify-center p-2 rounded-xl bg-amber-500/10 text-amber-400 border border-amber-500/20">
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-              </svg>
+          <div className="mb-2 flex flex-wrap items-center gap-3">
+            <span className="inline-flex items-center justify-center rounded-xl border border-amber-500/30 bg-amber-500/10 p-2 text-amber-700 dark:text-amber-300">
+              <Trophy className="h-5 w-5" />
             </span>
-            <h1 className="text-3xl font-black text-white tracking-tight">Tournaments Circuit</h1>
+            <h1 className="text-3xl font-black tracking-tight text-[var(--text-primary)]">Tournaments Circuit</h1>
+            <DataFreshnessBadge page="tournaments" />
           </div>
-          <p className="text-slate-400 text-sm">
+          <p className="text-sm text-[var(--text-secondary)]">
             Official Dota 2 pro circuits, Majors, and eligible fantasy esports championships
           </p>
         </div>
 
         <Link
           href="/matches"
-          className="tournaments-match-center-link inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold bg-slate-900 border border-slate-700/80 text-slate-200 hover:text-white hover:border-amber-500/50 transition-all shadow-sm group"
+          className="tournaments-match-center-link group inline-flex items-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--surface)] px-4 py-2.5 text-xs font-semibold text-[var(--text-secondary)] shadow-sm transition-all hover:border-amber-500/50 hover:text-[var(--text-primary)]"
         >
-          <span>⚔️ Live Pro Match Center</span>
-          <span className="text-amber-400 group-hover:translate-x-0.5 transition-transform">→</span>
+          <span>Live Pro Match Center</span>
+          <span className="text-amber-600 transition-transform group-hover:translate-x-0.5 dark:text-amber-300">→</span>
         </Link>
       </div>
 
-      {/* Featured Tournament Spotlight Banner */}
       {!loading && featuredTournament && (
         <TournamentHero tournament={featuredTournament} />
       )}
 
-      {/* Filter Bar */}
       <TournamentFilters
         activeStatus={activeStatus}
         onStatusChange={setActiveStatus}
@@ -131,42 +130,39 @@ export default function TournamentsHubPage() {
         counts={counts}
       />
 
-      {/* Error state */}
       {error && (
-        <div className="bg-rose-950/40 border border-rose-600/50 text-rose-300 px-4 py-3 rounded-xl mb-8 text-sm flex items-center gap-2">
+        <div role="alert" className="mb-6 flex items-center gap-2 rounded-xl border border-rose-600/50 bg-rose-500/10 px-4 py-3 text-sm text-rose-700 dark:text-rose-300">
           <span>⚠️</span>
           <span>{error}</span>
         </div>
       )}
 
-      {/* Loading Skeletons */}
       {loading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
           {[1, 2, 3, 4, 5, 6].map((i) => (
             <div
               key={i}
-              className="animate-pulse bg-slate-900/60 rounded-2xl h-64 border border-slate-800 p-6 flex flex-col justify-between"
+              className="animate-pulse rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5"
             >
               <div className="flex justify-between items-center">
-                <div className="h-5 bg-slate-800 rounded-full w-20" />
-                <div className="h-4 bg-slate-800 rounded w-16" />
+                <div className="h-5 bg-[var(--surface-raised)] rounded-full w-20" />
+                <div className="h-4 bg-[var(--surface-raised)] rounded w-16" />
               </div>
               <div>
-                <div className="h-6 bg-slate-800 rounded w-3/4 mb-3" />
-                <div className="h-4 bg-slate-800 rounded w-1/2" />
+                <div className="h-6 bg-[var(--surface-raised)] rounded w-3/4 mb-3 mt-6" />
+                <div className="h-4 bg-[var(--surface-raised)] rounded w-1/2" />
               </div>
-              <div className="h-4 bg-slate-800 rounded w-full pt-4 border-t border-slate-800" />
+              <div className="h-4 bg-[var(--surface-raised)] rounded w-full mt-8" />
             </div>
           ))}
         </div>
       ) : filteredTournaments.length === 0 ? (
-        /* Empty State */
-        <div className="flex flex-col items-center justify-center py-20 px-4 text-center rounded-2xl border border-slate-800 bg-slate-900/40">
-          <div className="w-16 h-16 rounded-2xl bg-slate-800/80 border border-slate-700 flex items-center justify-center text-2xl mb-4 text-slate-500">
-            🏆
+        <div className="flex flex-col items-center justify-center rounded-2xl border border-[var(--border)] bg-[var(--surface)] px-4 py-20 text-center">
+          <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl border border-amber-500/20 bg-amber-500/10 text-amber-600 dark:text-amber-300">
+            <Trophy className="h-7 w-7" />
           </div>
-          <h3 className="text-lg font-bold text-white mb-1">No tournaments found</h3>
-          <p className="text-sm text-slate-400 max-w-sm mb-6">
+          <h3 className="mb-1 text-lg font-bold text-[var(--text-primary)]">No tournaments found</h3>
+          <p className="mb-6 max-w-sm text-sm text-[var(--text-secondary)]">
             {searchQuery || selectedTier || activeStatus !== 'all'
               ? 'Try adjusting your search criteria or filters.'
               : 'There are currently no tournaments on the schedule.'}
@@ -178,15 +174,14 @@ export default function TournamentsHubPage() {
                 setSelectedTier('');
                 setSearchQuery('');
               }}
-              className="px-4 py-2 rounded-xl text-xs font-semibold bg-amber-500 text-slate-950 hover:bg-amber-400 transition-colors shadow-md shadow-amber-500/20"
+              className="rounded-xl bg-amber-500 px-4 py-2 text-xs font-semibold text-slate-950 shadow-md shadow-amber-500/20 transition-colors hover:bg-amber-400"
             >
               Reset All Filters
             </button>
           )}
         </div>
       ) : (
-        /* Tournament Grid */
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
           {filteredTournaments.map((tournament) => (
             <TournamentCard key={tournament.id} tournament={tournament} />
           ))}
@@ -195,5 +190,4 @@ export default function TournamentsHubPage() {
     </div>
   );
 }
-
 

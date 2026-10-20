@@ -21,8 +21,16 @@ interface TournamentRecord {
 interface SeriesTeamRecord {
   id: number;
   tournament_id: number;
+  series_number: number;
+  best_of: number | null;
   team_a_id: number | null;
   team_b_id: number | null;
+}
+
+interface MatchSummaryRecord {
+  series_id: number;
+  status: string;
+  scheduled_time: string;
 }
 
 interface TeamSummary {
@@ -77,11 +85,18 @@ async function getHandler(request: NextRequest) {
     const tournamentIds = tournaments.map((tournament) => tournament.id);
     const seriesByTournament = new Map<number, SeriesTeamRecord[]>();
     const teamsMap = new Map<number, TeamSummary>();
+    const matchesBySeries = new Map<number, MatchSummaryRecord[]>();
 
     if (tournamentIds.length > 0) {
-      const { data: allSeriesData } = await supabase.from('tournament_series')
-        .select('id, tournament_id, team_a_id, team_b_id')
+      const { data: allSeriesData, error: seriesError } = await supabase.from('tournament_series')
+        .select('id, tournament_id, series_number, best_of, team_a_id, team_b_id')
         .in('tournament_id', tournamentIds);
+      if (seriesError) {
+        return NextResponse.json(
+          { error: 'Failed to fetch tournament series.', details: seriesError.message },
+          { status: 500 },
+        );
+      }
 
       const seriesList = (allSeriesData ?? []) as SeriesTeamRecord[];
       seriesList.forEach((series) => {
@@ -90,11 +105,35 @@ async function getHandler(request: NextRequest) {
         seriesByTournament.set(series.tournament_id, list);
       });
 
+      const seriesIds = seriesList.map((series) => series.id);
+      if (seriesIds.length > 0) {
+        const { data: matchData, error: matchesError } = await supabase.from('matches')
+          .select('series_id, status, scheduled_time')
+          .in('series_id', seriesIds);
+        if (matchesError) {
+          return NextResponse.json(
+            { error: 'Failed to fetch tournament match progress.', details: matchesError.message },
+            { status: 500 },
+          );
+        }
+        for (const match of (matchData ?? []) as MatchSummaryRecord[]) {
+          const matches = matchesBySeries.get(match.series_id) ?? [];
+          matches.push(match);
+          matchesBySeries.set(match.series_id, matches);
+        }
+      }
+
       const allTeamIds = [...new Set(seriesList.flatMap((series) => [series.team_a_id, series.team_b_id]).filter((id): id is number => id !== null))];
       if (allTeamIds.length > 0) {
-        const { data: teamsData } = await supabase.from('professional_teams')
+        const { data: teamsData, error: teamsError } = await supabase.from('professional_teams')
           .select('id, name, logo_url')
           .in('id', allTeamIds);
+        if (teamsError) {
+          return NextResponse.json(
+            { error: 'Failed to fetch tournament teams.', details: teamsError.message },
+            { status: 500 },
+          );
+        }
         ((teamsData ?? []) as TeamSummary[]).forEach((team) => teamsMap.set(team.id, team));
       }
     }
@@ -103,10 +142,30 @@ async function getHandler(request: NextRequest) {
       const seriesList = seriesByTournament.get(tournament.id) || [];
       const teamIds = [...new Set(seriesList.flatMap((series) => [series.team_a_id, series.team_b_id]).filter((id): id is number => id !== null))];
       const participatingTeams = teamIds.map((id) => teamsMap.get(id)).filter((team): team is TeamSummary => team !== undefined);
+      const tournamentMatches = seriesList.flatMap((series) => matchesBySeries.get(series.id) ?? []);
+      const completedMatches = tournamentMatches.filter((match) => match.status === 'completed').length;
+      const liveMatches = tournamentMatches.filter((match) => match.status === 'in_progress').length;
+      const upcomingMatches = tournamentMatches
+        .filter((match) => match.status === 'scheduled' && new Date(match.scheduled_time).getTime() >= Date.now())
+        .sort((a, b) => new Date(a.scheduled_time).getTime() - new Date(b.scheduled_time).getTime());
+      const upcomingMatch = upcomingMatches[0];
+      const upcomingSeries = upcomingMatch
+        ? seriesList.find((series) => series.id === upcomingMatch.series_id)
+        : undefined;
 
       return {
         ...tournament,
         series_count: seriesList.length,
+        match_count: tournamentMatches.length,
+        completed_match_count: completedMatches,
+        live_match_count: liveMatches,
+        best_of_formats: [...new Set(seriesList.map((series) => series.best_of).filter((bestOf): bestOf is number => bestOf !== null))].sort(),
+        upcoming_series: upcomingSeries && upcomingMatch ? {
+          series_number: upcomingSeries.series_number,
+          scheduled_time: upcomingMatch.scheduled_time,
+          team_a: upcomingSeries.team_a_id === null ? null : teamsMap.get(upcomingSeries.team_a_id)?.name ?? null,
+          team_b: upcomingSeries.team_b_id === null ? null : teamsMap.get(upcomingSeries.team_b_id)?.name ?? null,
+        } : null,
         participating_teams: participatingTeams,
       };
     });

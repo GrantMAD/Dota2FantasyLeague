@@ -16,6 +16,7 @@ interface UserSquadPlayer {
 }
 
 interface LineupEntry {
+  is_starter?: boolean;
   professional_players?: UserSquadPlayer | null;
 }
 
@@ -113,6 +114,7 @@ export default function MatchesPage() {
         const lineupData = await lineupRes.json();
         const lineup: LineupEntry[] = Array.isArray(lineupData.lineup) ? lineupData.lineup : [];
         const players: UserSquadPlayer[] = lineup
+          .filter((slot) => slot.is_starter === true)
           .map((slot) => slot.professional_players)
           .filter((player): player is UserSquadPlayer => Boolean(player))
           .map((player) => ({
@@ -137,6 +139,8 @@ export default function MatchesPage() {
       .filter((p) => p.team_id === radId || p.team_id === direId)
       .map((p) => p.name);
   };
+  const liveMatches = matches.filter((match) => match.status === 'live');
+  const nonLiveMatches = matches.filter((match) => match.status !== 'live');
 
   return (
     <div className="matches-page max-w-7xl mx-auto px-4 py-10">
@@ -186,6 +190,37 @@ export default function MatchesPage() {
         viewMode={viewMode}
         onViewModeChange={setViewMode}
       />
+
+      {!loading && liveMatches.length > 0 && (
+        <section aria-labelledby="live-matches-heading" className="mb-8 overflow-hidden rounded-2xl border border-rose-500/35 bg-[var(--surface)] shadow-[0_12px_36px_rgba(244,63,94,0.12)]">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-rose-500/20 bg-rose-500/5 px-5 py-4">
+            <div className="flex items-center gap-3">
+              <span className="relative flex h-3 w-3">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-rose-500 opacity-70" />
+                <span className="relative inline-flex h-3 w-3 rounded-full bg-rose-500" />
+              </span>
+              <div>
+                <h2 id="live-matches-heading" className="text-lg font-black text-[var(--text-primary)]">Live Now</h2>
+                <p className="text-xs text-[var(--text-secondary)]">{counts.live} match{counts.live === 1 ? '' : 'es'} currently in progress</p>
+              </div>
+            </div>
+            {userSquadPlayers.length > 0 && liveMatches.some((match) => getSquadPlayerNamesForMatch(match).length > 0) && (
+              <span className="rounded-full border border-amber-500/40 bg-amber-500/10 px-3 py-1.5 text-xs font-bold text-amber-800 dark:text-amber-300">
+                Fantasy starters competing
+              </span>
+            )}
+          </div>
+          <div className="grid gap-4 p-4 md:grid-cols-2 xl:grid-cols-3">
+            {liveMatches.map((match) => (
+              <MatchCard
+                key={`live-${match.id}`}
+                match={match}
+                userSquadPlayerNames={getSquadPlayerNamesForMatch(match)}
+              />
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* Error state */}
       {error && (
@@ -242,8 +277,8 @@ export default function MatchesPage() {
         </div>
       ) : viewMode === 'grid' ? (
         /* Grid Mode */
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {matches.map((match) => (
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
+          {nonLiveMatches.map((match) => (
             <MatchCard
               key={match.id}
               match={match}
@@ -254,7 +289,7 @@ export default function MatchesPage() {
       ) : (
         /* List Mode */
         <div className="flex flex-col gap-3">
-          {matches.map((match) => (
+          {nonLiveMatches.map((match) => (
             <MatchRow
               key={match.id}
               match={match}

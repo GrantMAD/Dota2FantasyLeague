@@ -3,6 +3,7 @@
 import { fetchWithAuth } from '@/lib/fetch-with-auth';
 import { useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 import Link from 'next/link';
+import { ChevronDown } from 'lucide-react';
 import { ActiveGameweekHero } from './components/ActiveGameweekHero';
 import { GameweekCard } from './components/GameweekCard';
 import { GameweekHistoryModal } from './components/GameweekHistoryModal';
@@ -33,22 +34,37 @@ export default function GameweeksPage() {
     getServerGameweekViewMode,
   );
   const [historyGameweek, setHistoryGameweek] = useState<GameweekRow | null>(null);
+  const [expandedGameweekIds, setExpandedGameweekIds] = useState<Set<number> | null>(null);
 
   useEffect(() => {
+    let cancelled = false;
     async function fetchGameweeks() {
       try {
-        setLoading(true);
         const res = await fetchWithAuth('/api/gameweeks');
         const data = await res.json();
-        setGameweeks(Array.isArray(data.gameweeks) ? data.gameweeks : []);
+        if (!res.ok) {
+          throw new Error(typeof data.error === 'string' ? data.error : 'Failed to load gameweeks');
+        }
+        if (cancelled) return;
+        const loadedGameweeks: GameweekRow[] = Array.isArray(data.gameweeks) ? data.gameweeks : [];
+        setGameweeks(loadedGameweeks);
+        setExpandedGameweekIds((current) => current === null
+          ? new Set(loadedGameweeks.filter((gameweek) => gameweek.status === 'active').map((gameweek) => gameweek.id))
+          : current);
+        setError(null);
       } catch (err: unknown) {
-        setError(err instanceof Error ? err.message : 'Failed to load gameweeks');
+        if (!cancelled) setError(err instanceof Error ? err.message : 'Failed to load gameweeks');
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     }
 
-    fetchGameweeks();
+    void fetchGameweeks();
+    const refreshInterval = window.setInterval(() => void fetchGameweeks(), 65_000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(refreshInterval);
+    };
   }, []);
 
   const activeGameweek = useMemo(
@@ -78,8 +94,8 @@ export default function GameweeksPage() {
             </div>
             <DataFreshnessBadge page="gameweeks" />
           </div>
-          <h1 className="gameweeks-page-heading text-3xl font-black tracking-tight text-white">Gameweeks</h1>
-          <p className="mt-2 max-w-xl text-sm text-slate-400">
+          <h1 className="gameweeks-page-heading text-3xl font-black tracking-tight text-[var(--text-primary)]">Gameweeks</h1>
+          <p className="mt-2 max-w-xl text-sm text-[var(--text-secondary)]">
             Track deadlines, fixtures, DGW/BGW windows, and your recent results in one place.
           </p>
         </div>
@@ -92,26 +108,26 @@ export default function GameweeksPage() {
             My Squad Planner
           </Link>
           <details className="relative hidden md:block xl:hidden">
-            <summary className="flex cursor-pointer list-none items-center gap-2 rounded-xl border border-slate-700 bg-slate-900/80 px-3 py-2 text-sm font-medium text-slate-200 transition hover:border-slate-500 hover:text-white">
+            <summary className="flex min-h-10 cursor-pointer list-none items-center gap-2 rounded-xl border border-amber-500/50 bg-amber-500/10 px-3 py-2 text-sm font-semibold text-amber-800 shadow-sm transition hover:border-amber-400 hover:bg-amber-500/15 dark:text-amber-200">
               More actions
-              <span aria-hidden="true">⌄</span>
+              <ChevronDown aria-hidden="true" className="h-4 w-4" />
             </summary>
-            <div className="absolute right-0 z-20 mt-2 grid min-w-48 gap-1 rounded-xl border border-slate-700 bg-slate-900 p-2 shadow-xl shadow-slate-950/50">
-              <Link href="/season-recap" className="rounded-lg px-3 py-2 text-sm text-slate-200 hover:bg-slate-800">
+            <div className="absolute right-0 z-20 mt-2 grid min-w-48 gap-1 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-2 shadow-xl">
+              <Link href="/season-recap" className="rounded-lg px-3 py-2 text-sm text-[var(--text-secondary)] hover:bg-[var(--surface-raised)] hover:text-[var(--text-primary)]">
                 Season Recap
               </Link>
-              <Link href="/lineups" className="rounded-lg px-3 py-2 text-sm text-amber-300 hover:bg-slate-800">
+              <Link href="/lineups" className="rounded-lg px-3 py-2 text-sm text-amber-700 hover:bg-[var(--surface-raised)] dark:text-amber-300">
                 Edit Lineup
               </Link>
-              <Link href="/transfers" className="gameweeks-transfer-link rounded-lg px-3 py-2 text-sm text-slate-200 hover:bg-slate-800">
+              <Link href="/transfers" className="gameweeks-transfer-link rounded-lg px-3 py-2 text-sm text-[var(--text-secondary)] hover:bg-[var(--surface-raised)] hover:text-[var(--text-primary)]">
                 Transfer Market
               </Link>
               {activeGameweek && (
                 <Link
-                  href={`/matches?gameweekId=${activeGameweek.id}`}
-                  className="rounded-lg px-3 py-2 text-sm text-slate-200 hover:bg-slate-800"
+                  href={`/gameweeks/${activeGameweek.id}`}
+                  className="rounded-lg px-3 py-2 text-sm text-[var(--text-secondary)] hover:bg-[var(--surface-raised)] hover:text-[var(--text-primary)]"
                 >
-                  Gameweek Matches
+                  Gameweek Results
                 </Link>
               )}
             </div>
@@ -136,10 +152,10 @@ export default function GameweeksPage() {
           </Link>
           {activeGameweek && (
             <Link
-              href={`/matches?gameweekId=${activeGameweek.id}`}
+              href={`/gameweeks/${activeGameweek.id}`}
               className="gameweeks-matches-link inline-flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-900/80 px-3 py-2 text-sm font-medium text-slate-200 transition hover:border-slate-500 hover:text-white md:hidden xl:inline-flex"
             >
-              Gameweek Matches
+              Gameweek Results
             </Link>
           )}
         </div>
@@ -189,6 +205,13 @@ export default function GameweeksPage() {
                 key={gw.id}
                 gameweek={gw}
                 compact={viewMode === 'compact'}
+                expanded={expandedGameweekIds?.has(gw.id) ?? false}
+                onExpandedChange={(expanded) => setExpandedGameweekIds((current) => {
+                  const updated = new Set(current ?? []);
+                  if (expanded) updated.add(gw.id);
+                  else updated.delete(gw.id);
+                  return updated;
+                })}
                 onHistoryClick={setHistoryGameweek}
               />
               ))

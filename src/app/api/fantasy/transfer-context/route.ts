@@ -48,18 +48,24 @@ async function getHandler(request: NextRequest) {
     }
 
     const { data: squadData, error: squadError } = await supabase.from('fantasy_squads')
-      .select('id, fantasy_squad_members(player_id, removed_date)')
+      .select('id, fantasy_squad_members(player_id, cost, removed_date)')
       .eq('fantasy_season_id', fantasySeason.id)
       .limit(1)
       .maybeSingle();
     const squad = squadData as {
-      fantasy_squad_members: { player_id: number; removed_date: string | null }[];
+      fantasy_squad_members: { player_id: number; cost: number | string | null; removed_date: string | null }[];
     } | null;
     if (squadError) return NextResponse.json({ error: 'Failed to load squad transfer context.' }, { status: 500 });
 
     const ownedPlayerIds = (squad?.fantasy_squad_members ?? [])
       .filter((member: { removed_date: string | null }) => !member.removed_date)
       .map((member: { player_id: number }) => member.player_id);
+    const ownedPlayerCosts = (squad?.fantasy_squad_members ?? [])
+      .filter((member: { removed_date: string | null }) => !member.removed_date)
+      .map((member: { player_id: number; cost: number | string | null }) => ({
+        playerId: member.player_id,
+        cost: member.cost === null ? null : Number(member.cost),
+      }));
 
     return NextResponse.json({
       fantasySeasonId: fantasySeason.id,
@@ -69,6 +75,7 @@ async function getHandler(request: NextRequest) {
       wildcardUsedGameweekId,
       wildcardUsedGameweekNumber,
       ownedPlayerIds,
+      ownedPlayerCosts,
     });
   } catch (error: unknown) {
     const status = typeof error === 'object' && error !== null && 'status' in error ? Number((error as { status: number }).status) : 500;

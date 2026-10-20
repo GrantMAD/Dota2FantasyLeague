@@ -5,6 +5,8 @@ export type HeaderProfile = {
   role?: string | null;
 };
 
+export const PROFILE_UPDATED_EVENT = 'fantasy:profile-updated';
+
 export type HeaderNotification = {
   id: number;
   type: string;

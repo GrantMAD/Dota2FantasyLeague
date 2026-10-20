@@ -18,8 +18,8 @@ type NotificationCategory = 'all' | 'unread' | 'deadline' | 'market' | 'scoring'
 
 const notificationTypesByCategory: Partial<Record<NotificationCategory, string[]>> = {
   deadline: ['gameweek_deadline', 'lineup_deadline', 'deadline_reminder', 'deadline'],
-  market: ['price_change', 'transfer_market', 'wildcard_used'],
-  scoring: ['score_posted', 'gameweek_result', 'rank_movement'],
+  market: ['price_change', 'transfer_market', 'wildcard_used', 'player_removed'],
+  scoring: ['score_posted', 'gameweek_result', 'rank_movement', 'rank_update'],
   league: ['league_invite', 'league_activity', 'league_result', 'h2h_result'],
 };
 

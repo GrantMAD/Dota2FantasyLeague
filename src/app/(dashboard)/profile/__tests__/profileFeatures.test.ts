@@ -1,4 +1,4 @@
-import { computeAchievements } from '../components/achievementsData';
+import { computeAchievements, getSeasonRankTier } from '../components/achievementsData';
 import { BANNER_THEMES, getBannerTheme } from '../components/bannerThemes';
 
 describe('Profile Page Features (Section 1.10)', () => {
@@ -46,6 +46,7 @@ describe('Profile Page Features (Section 1.10)', () => {
 
       const profileMaster = achievements.find((a) => a.id === 'profile-master');
       expect(profileMaster?.unlocked).toBe(true);
+      expect(achievements.find((a) => a.id === 'perfect-gw')?.tier).toBe('platinum');
     });
 
     it('handles new managers with no squad or points', () => {
@@ -62,6 +63,19 @@ describe('Profile Page Features (Section 1.10)', () => {
 
       const top1000 = achievements.find((a) => a.id === 'top-1000');
       expect(top1000?.unlocked).toBe(false);
+    });
+  });
+
+  describe('Season rank badge', () => {
+    it.each([
+      [null, 'Unranked'],
+      [0, 'Unranked'],
+      [10, 'Top 10'],
+      [100, 'Top 100'],
+      [1000, 'Top 1,000'],
+      [1001, 'Ranked Manager'],
+    ])('labels rank %s as %s', (rank, expectedTier) => {
+      expect(getSeasonRankTier(rank)).toBe(expectedTier);
     });
   });
 });
