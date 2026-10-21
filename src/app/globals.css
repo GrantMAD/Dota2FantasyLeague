@@ -20,19 +20,21 @@
 }
 
 :root[data-theme='light'] {
-  --background: #e5ebf2;
-  --foreground: #132238;
-  --surface: #f1f5f9;
-  --surface-raised: #e9eff6;
-  --surface-muted: #dce5ee;
-  --border: #c1cedb;
-  --text-primary: #132238;
-  --text-secondary: #456078;
-  --text-muted: #6f8497;
-  --accent-primary: #0f766e;
+  /* Option A: deeper surface palette for real layer hierarchy */
+  --background:     #d6dfe9;
+  --foreground:     #132238;
+  --surface:        #e8eef5;
+  --surface-raised: #f0f4f9;
+  --surface-muted:  #cdd7e2;
+  /* Option D: stronger borders & punchier text */
+  --border:         #9fb4c9;
+  --text-primary:   #132238;
+  --text-secondary: #334d64;
+  --text-muted:     #506070;
+  --accent-primary:   #0f766e;
   --accent-secondary: #0e7490;
   --success: #087f5b;
-  --danger: #c2415b;
+  --danger:  #c2415b;
 }
 
 @theme inline {
