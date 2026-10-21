@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server';
 import { GET } from './route';
+import { verifyAuth } from '@/lib/auth-utils';
 
 const mockSupabaseServer = jest.fn();
 
@@ -9,6 +10,10 @@ jest.mock('@/lib/supabase', () => ({
 
 jest.mock('@/lib/api-telemetry', () => ({
   withApiTelemetry: (_method: string, _route: string, handler: unknown) => handler,
+}));
+
+jest.mock('@/lib/auth-utils', () => ({
+  verifyAuth: jest.fn(),
 }));
 
 describe('GET /api/matches/[id]', () => {
@@ -53,6 +58,7 @@ describe('GET /api/matches/[id]', () => {
       winner_team_id: 1,
     };
 
+    let matchesLookupCount = 0;
     mockSupabaseServer.mockReturnValue({
       from: jest.fn((table: string) => {
         const query: Record<string, unknown> = {};
@@ -64,7 +70,18 @@ describe('GET /api/matches/[id]', () => {
         query.limit = jest.fn(returnThis);
 
         if (table === 'matches') {
-          query.maybeSingle = jest.fn().mockResolvedValue({ data: matchRecord, error: null });
+          if (matchesLookupCount++ === 0) {
+            query.maybeSingle = jest.fn().mockResolvedValue({ data: matchRecord, error: null });
+          } else {
+            query.then = (resolve: (val: unknown) => unknown) => resolve({
+              data: [
+                { id: 99, status: 'completed', scheduled_time: '2026-10-15T08:00:00Z', winner_team_id: 1 },
+                { id: 100, status: 'completed', scheduled_time: '2026-10-15T09:00:00Z', winner_team_id: 2 },
+                { id: 101, status: 'completed', scheduled_time: '2026-10-15T10:00:00Z', winner_team_id: 1 },
+              ],
+              error: null,
+            });
+          }
         } else if (table === 'professional_teams') {
           query.then = (resolve: (val: unknown) => unknown) =>
             resolve({
@@ -86,7 +103,7 @@ describe('GET /api/matches/[id]', () => {
           });
         } else if (table === 'gameweeks') {
           query.maybeSingle = jest.fn().mockResolvedValue({
-            data: { id: 2, gameweek_number: 2, status: 'completed' },
+            data: { id: 2, gameweek_number: 2, status: 'completed', season_id: 3 },
             error: null,
           });
         } else if (table === 'match_player_stats') {
@@ -153,5 +170,99 @@ describe('GET /api/matches/[id]', () => {
     expect(body.fantasyBreakdown).toHaveLength(1);
     expect(body.fantasyBreakdown[0].total_points).toBe(38.5);
     expect(body.fantasyBreakdown[0].combat_points).toBe(15.0);
+    expect(body.seriesScore).toEqual({
+      radiantWins: 2,
+      direWins: 1,
+      clinchedTeamId: 1,
+    });
+    expect(body.match.match_number).toBe(3);
+  });
+
+  it('returns triple-captain state for the authenticated match gameweek', async () => {
+    const matchRecord = {
+      id: 101,
+      status: 'completed',
+      scheduled_time: '2026-10-15T10:00:00Z',
+      duration_minutes: 42,
+      gameweek_id: 2,
+      series_id: 10,
+      team_a_id: 1,
+      team_b_id: 2,
+      winner_team_id: 1,
+    };
+    let matchesLookupCount = 0;
+    jest.mocked(verifyAuth).mockResolvedValue({ userId: 'manager-1' } as Awaited<ReturnType<typeof verifyAuth>>);
+    mockSupabaseServer.mockReturnValue({
+      from: jest.fn((table: string) => {
+        const query: Record<string, unknown> = {};
+        const returnThis = () => query;
+        query.select = jest.fn(returnThis);
+        query.eq = jest.fn(returnThis);
+        query.in = jest.fn(returnThis);
+        query.order = jest.fn(returnThis);
+        query.limit = jest.fn(returnThis);
+
+        if (table === 'matches') {
+          if (matchesLookupCount++ === 0) {
+            query.maybeSingle = jest.fn().mockResolvedValue({ data: matchRecord, error: null });
+          } else {
+            query.then = (resolve: (val: unknown) => unknown) =>
+              resolve({ data: [{ id: 101, status: 'completed', scheduled_time: '2026-10-15T10:00:00Z', winner_team_id: 1 }], error: null });
+          }
+        } else if (table === 'professional_teams') {
+          query.then = (resolve: (val: unknown) => unknown) =>
+            resolve({ data: [{ id: 1, name: 'Radiant Team' }, { id: 2, name: 'Dire Team' }], error: null });
+        } else if (table === 'tournament_series') {
+          query.maybeSingle = jest.fn().mockResolvedValue({
+            data: { id: 10, tournament_id: null, best_of: 3, series_number: 1 },
+            error: null,
+          });
+        } else if (table === 'gameweeks') {
+          query.maybeSingle = jest.fn().mockResolvedValue({
+            data: { id: 2, gameweek_number: 2, status: 'completed', season_id: 3 },
+            error: null,
+          });
+        } else if (table === 'fantasy_seasons') {
+          query.then = (resolve: (val: unknown) => unknown) =>
+            resolve({ data: [{ id: 15, triple_captain_gameweek_id: 2 }], error: null });
+        } else if (table === 'fantasy_lineups') {
+          query.maybeSingle = jest.fn().mockResolvedValue({
+            data: {
+              carry_id: 10,
+              mid_id: null,
+              offlane_id: null,
+              support_id: null,
+              hard_support_id: null,
+              bench_1_id: null,
+              bench_2_id: null,
+              bench_3_id: null,
+              captain_player_id: 10,
+              vice_captain_player_id: null,
+            },
+            error: null,
+          });
+        } else if (table === 'fantasy_squad_members') {
+          query.then = (resolve: (val: unknown) => unknown) =>
+            resolve({ data: [{ player_id: 10 }], error: null });
+        } else {
+          query.then = (resolve: (val: unknown) => unknown) => resolve({ data: [], error: null });
+          query.maybeSingle = jest.fn().mockResolvedValue({ data: null, error: null });
+        }
+        return query;
+      }),
+    });
+
+    const request = new NextRequest('http://localhost:3000/api/matches/101', {
+      headers: { authorization: 'Bearer test-token' },
+    });
+    const response = await GET(request, { params: Promise.resolve({ id: '101' }) });
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.userFantasyImpact.tripleCaptainActive).toBe(true);
+    expect(body.userFantasyImpact.lineupDetails[0]).toMatchObject({
+      playerId: 10,
+      isCaptain: true,
+    });
   });
 });

@@ -36,13 +36,13 @@ export function TeamLogo({
     ? isWinner
       ? 'border-rose-500/80 shadow-[0_0_15px_rgba(244,63,94,0.35)]'
       : 'border-rose-500/30'
-    : 'border-slate-700';
+    : 'border-[var(--border)]';
 
   const initials = tag || name?.slice(0, 3).toUpperCase() || '???';
 
   return (
     <div
-      className={`relative ${sizeClasses[size]} rounded-xl shrink-0 flex items-center justify-center font-bold tracking-wider overflow-hidden bg-slate-900/90 border ${factionBorder} transition-all duration-300 group-hover:scale-105`}
+      className={`relative ${sizeClasses[size]} shrink-0 flex items-center justify-center overflow-hidden rounded-xl border bg-[var(--surface-raised)] font-bold tracking-wider transition-all duration-300 group-hover:scale-105 ${factionBorder}`}
       title={name}
     >
       {logoUrl && !imageError ? (
@@ -62,7 +62,7 @@ export function TeamLogo({
               ? 'text-emerald-400'
               : faction === 'dire'
               ? 'text-rose-400'
-              : 'text-slate-300'
+              : 'text-[var(--text-primary)]'
           }`}
         >
           {initials}

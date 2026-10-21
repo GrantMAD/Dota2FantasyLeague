@@ -14,6 +14,7 @@ export interface UserLineupDetail {
 export interface UserFantasyImpact {
   userOwnedPlayerIds: number[];
   lineupDetails: UserLineupDetail[];
+  tripleCaptainActive?: boolean;
 }
 
 interface PlayerImpactSummary {
@@ -70,7 +71,7 @@ export function MatchFantasyImpactBanner({
       const basePoints = fantasyPointsByPlayer.get(stat.player_id) ?? 0;
       let multiplier = 1;
       if (lineup?.isCaptain) {
-        multiplier = 2;
+        multiplier = impact.tripleCaptainActive ? 3 : 2;
       } else if (!lineup?.isStarter) {
         multiplier = 0; // Bench players don't count towards active lineup total unless subbed
       }
@@ -100,14 +101,14 @@ export function MatchFantasyImpactBanner({
 
   if (matchedPlayers.length === 0) {
     return (
-      <div className="rounded-2xl border border-slate-800 bg-slate-900/40 p-4 sm:p-5 flex items-center justify-between gap-4">
+      <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4 sm:p-5 flex items-center justify-between gap-4 shadow-sm">
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-slate-800 flex items-center justify-center text-slate-400">
+          <div className="w-9 h-9 rounded-xl bg-[var(--surface-raised)] flex items-center justify-center text-[var(--text-muted)]">
             <Users className="w-5 h-5" />
           </div>
           <div>
-            <h4 className="text-sm font-semibold text-slate-200">Fantasy Squad Status</h4>
-            <p className="text-xs text-slate-400">
+            <h4 className="text-sm font-semibold text-[var(--text-primary)]">Fantasy Squad Status</h4>
+            <p className="text-xs text-[var(--text-muted)]">
               None of your active roster players featured in this match {gameweekNumber ? `(Gameweek ${gameweekNumber})` : ''}.
             </p>
           </div>
@@ -125,75 +126,79 @@ export function MatchFantasyImpactBanner({
   const totalEffectivePoints = matchedPlayers.reduce((acc, p) => acc + p.effectivePoints, 0);
 
   return (
-    <div className="relative overflow-hidden rounded-2xl border border-amber-500/30 bg-gradient-to-br from-amber-500/10 via-slate-900/90 to-slate-950 p-5 sm:p-6 shadow-xl">
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-amber-500/20 pb-4 mb-4">
+    <div className="relative isolate overflow-hidden rounded-2xl border border-amber-500/30 bg-[var(--surface)] p-5 sm:p-6 shadow-xl">
+      <div className="pointer-events-none absolute -right-12 -top-20 h-48 w-48 rounded-full bg-amber-500/10 blur-3xl" />
+      <div className="relative mb-4 flex flex-col items-start justify-between gap-4 border-b border-[var(--border)] pb-4 sm:flex-row sm:items-center">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-400 shadow-inner">
             <Award className="w-5 h-5" />
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h3 className="text-base font-bold text-white">Your Fantasy Match Impact</h3>
+              <h3 className="text-base font-bold text-[var(--text-primary)]">Your Fantasy Match Impact</h3>
               <span className="text-[10px] font-bold uppercase tracking-wider bg-amber-500/20 text-amber-300 border border-amber-500/30 px-2 py-0.5 rounded-full">
                 {matchedPlayers.length} {matchedPlayers.length === 1 ? 'Player' : 'Players'} In Match
               </span>
             </div>
-            <p className="text-xs text-slate-300">
+            <p className="text-xs text-[var(--text-secondary)]">
               Fantasy points contributed to your Gameweek {gameweekNumber ?? ''} squad score.
             </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-3 bg-slate-950/80 border border-amber-500/30 rounded-xl px-4 py-2">
-          <span className="text-xs text-slate-400 font-medium">Contributed Points:</span>
+        <div className="flex items-center gap-3 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-2">
+          <span className="text-xs font-medium text-[var(--text-muted)]">Net Match Impact:</span>
           <span className="font-mono text-xl font-black text-amber-400">
             +{totalEffectivePoints.toFixed(1)}
           </span>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+      <div className="relative grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {matchedPlayers.map((player) => (
           <div
             key={player.playerId}
-            className="flex items-center justify-between gap-3 p-3 rounded-xl border border-slate-800 bg-slate-900/80 hover:border-amber-500/40 transition"
+            className="flex items-center justify-between gap-3 rounded-xl border border-[var(--border)] bg-[var(--surface-raised)] p-3 transition hover:border-amber-500/40 hover:shadow-lg hover:shadow-amber-500/5"
           >
             <div className="min-w-0">
               <div className="flex items-center gap-1.5 flex-wrap">
                 <Link
                   href={`/players/${player.playerId}`}
-                  className="font-bold text-sm text-white hover:text-amber-400 transition-colors truncate"
+                  className="truncate text-sm font-bold text-[var(--text-primary)] transition-colors hover:text-amber-500"
                 >
                   {player.playerName}
                 </Link>
+                <span className="rounded-full border border-cyan-500/25 bg-cyan-500/10 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-cyan-600 dark:text-cyan-300">
+                  {player.role}
+                </span>
                 {player.isCaptain && (
                   <span className="inline-flex items-center gap-0.5 text-[10px] font-bold bg-amber-500 text-slate-950 px-1.5 py-0.5 rounded">
-                    <Star className="w-2.5 h-2.5 fill-current" /> C (2x)
+                    <Star className="h-2.5 w-2.5 fill-current" /> C {player.multiplier}×
                   </span>
                 )}
                 {player.isViceCaptain && (
                   <span className="inline-flex items-center gap-0.5 text-[10px] font-bold bg-slate-700 text-slate-200 px-1.5 py-0.5 rounded">
-                    <Shield className="w-2.5 h-2.5" /> VC
+                    <Shield className="h-2.5 w-2.5" /> VC
                   </span>
                 )}
                 {!player.isStarter && (
-                  <span className="text-[10px] text-slate-400 bg-slate-800 px-1.5 py-0.5 rounded">
+                  <span className="rounded bg-[var(--surface)] px-1.5 py-0.5 text-[10px] text-[var(--text-muted)]">
                     Bench
                   </span>
                 )}
               </div>
-              <p className="text-xs text-slate-400 truncate">
-                {player.slot} · {player.heroName || player.role}
+              <p className="truncate text-xs text-[var(--text-muted)]">
+                {player.slot}{player.heroName ? ` · ${player.heroName}` : ''}
               </p>
             </div>
 
             <div className="text-right shrink-0">
-              <div className="font-mono font-bold text-sm text-amber-400">
-                {player.effectivePoints.toFixed(1)} pts
+              <div className="inline-flex rounded-lg border border-amber-500/25 bg-amber-500/10 px-2 py-1 font-mono text-sm font-bold text-amber-600 dark:text-amber-300">
+                {player.effectivePoints > 0 ? '+' : ''}{player.effectivePoints.toFixed(1)} pts
               </div>
-              {player.multiplier === 2 && (
-                <div className="text-[10px] text-slate-500 line-through">
-                  {player.fantasyPoints.toFixed(1)} base
+              {player.multiplier > 1 && (
+                <div className="mt-1 text-[10px] text-[var(--text-muted)]">
+                  Base {player.fantasyPoints.toFixed(1)}
                 </div>
               )}
             </div>

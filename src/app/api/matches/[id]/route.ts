@@ -36,6 +36,13 @@ interface SeriesRecord {
   series_number: number | null;
 }
 
+interface SeriesMatchRecord {
+  id: number;
+  status: string;
+  scheduled_time: string;
+  winner_team_id: number | null;
+}
+
 interface TournamentRecord {
   id: number;
   name: string;
@@ -47,6 +54,7 @@ interface GameweekRecord {
   id: number;
   gameweek_number: number;
   status: string;
+  season_id: number;
 }
 
 interface FantasyPointsRecord {
@@ -111,13 +119,52 @@ async function getHandler(request: NextRequest, context: RouteContext) {
     ]);
       const teamRows = (teams ?? []) as TeamRecord[];
       const seriesRecord = series as SeriesRecord | null;
+      let seriesScore: {
+        radiantWins: number;
+        direWins: number;
+        clinchedTeamId: number | null;
+      } | null = null;
 
-      const { data: tournamentData } = seriesRecord?.tournament_id
+      if (seriesRecord) {
+        const { data: seriesMatchesData, error: seriesMatchesError } = await supabase
+          .from('matches')
+          .select('id, status, scheduled_time, winner_team_id')
+          .eq('series_id', seriesRecord.id)
+          .order('scheduled_time', { ascending: true });
+
+        if (seriesMatchesError) {
+          console.error('Failed to fetch match series results:', seriesMatchesError);
+          return NextResponse.json({ error: 'Failed to fetch match series results.' }, { status: 500 });
+        }
+
+        const seriesMatches = (seriesMatchesData ?? []) as SeriesMatchRecord[];
+        const completedMatches = seriesMatches.filter((seriesMatch) => seriesMatch.status === 'completed');
+        const radiantWins = matchRecord.team_a_id === null
+          ? 0
+          : completedMatches.filter((seriesMatch) => seriesMatch.winner_team_id === matchRecord.team_a_id).length;
+        const direWins = matchRecord.team_b_id === null
+          ? 0
+          : completedMatches.filter((seriesMatch) => seriesMatch.winner_team_id === matchRecord.team_b_id).length;
+        const clinchThreshold = Math.floor((seriesRecord.best_of || 3) / 2) + 1;
+
+        seriesScore = {
+          radiantWins,
+          direWins,
+          clinchedTeamId: radiantWins >= clinchThreshold
+            ? matchRecord.team_a_id
+            : direWins >= clinchThreshold
+              ? matchRecord.team_b_id
+              : null,
+        };
+        matchRecord.match_number = Math.max(1, seriesMatches.findIndex((seriesMatch) => seriesMatch.id === matchRecord.id) + 1);
+      }
+
+        const { data: tournamentData } = seriesRecord?.tournament_id
         ? await supabase.from('tournaments').select('id, name, slug, tier').eq('id', seriesRecord.tournament_id).maybeSingle()
       : { data: null };
       const tournament = tournamentData as TournamentRecord | null;
       const { data: gameweekData } = await supabase.from('gameweeks')
-      .select('id, gameweek_number, status')
+      .select('id, gameweek_number, status, season_id')
       .eq('id', matchRecord.gameweek_id)
       .maybeSingle();
       const gameweek = gameweekData as GameweekRecord | null;
@@ -186,6 +233,7 @@ async function getHandler(request: NextRequest, context: RouteContext) {
     // Optional user fantasy context enrichment if user is authenticated
     let userFantasyImpact: {
       userOwnedPlayerIds: number[];
+      tripleCaptainActive: boolean;
       lineupDetails: Array<{
         playerId: number;
         slot: string;
@@ -205,8 +253,9 @@ async function getHandler(request: NextRequest, context: RouteContext) {
           // Find the user's fantasy season for this gameweek's tournament season
           const { data: fantasySeasonData } = await supabase
             .from('fantasy_seasons')
-            .select('id')
+            .select('id, triple_captain_gameweek_id')
             .eq('user_id', user.userId)
+            .eq('season_id', gameweek?.season_id)
             .limit(1);
 
           const fantasySeason = fantasySeasonData?.[0];
@@ -275,6 +324,7 @@ async function getHandler(request: NextRequest, context: RouteContext) {
 
             userFantasyImpact = {
               userOwnedPlayerIds: ownedIds,
+              tripleCaptainActive: fantasySeason.triple_captain_gameweek_id === matchRecord.gameweek_id,
               lineupDetails,
             };
           }
@@ -289,6 +339,7 @@ async function getHandler(request: NextRequest, context: RouteContext) {
       playerStats: playerStats ?? [],
       fantasyBreakdown: fantasyBreakdown ?? [],
       substitutions: substitutions ?? [],
+      seriesScore,
       userFantasyImpact,
     });
   } catch {

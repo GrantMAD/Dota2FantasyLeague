@@ -74,10 +74,11 @@ export function MatchLeadersStrip({
         return (
           <div
             key={c.title}
-            className={`rounded-2xl border ${c.borderColor} ${c.bgColor} p-4 flex flex-col justify-between`}
+            className={`relative isolate overflow-hidden rounded-2xl border ${c.borderColor} bg-[var(--surface)] p-4 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg`}
           >
-            <div className="flex items-center justify-between gap-2 mb-2">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+            <div className={`pointer-events-none absolute -right-8 -top-10 h-28 w-28 rounded-full ${c.bgColor} blur-2xl`} />
+            <div className="relative mb-3 flex items-center justify-between gap-2">
+              <span className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)]">
                 <IconComponent className={`w-3.5 h-3.5 ${c.textColor}`} />
                 {c.title}
               </span>
@@ -86,20 +87,20 @@ export function MatchLeadersStrip({
               </span>
             </div>
 
-            <div>
+            <div className="relative">
               <Link
                 href={`/players/${c.data.playerId}`}
-                className="font-bold text-sm text-white hover:text-amber-400 transition-colors line-clamp-1"
+                className="line-clamp-1 text-sm font-bold text-[var(--text-primary)] transition-colors hover:text-amber-500"
               >
                 {c.data.playerName}
               </Link>
-              <p className="text-xs text-slate-400 line-clamp-1">
+              <p className="line-clamp-1 text-xs text-[var(--text-muted)]">
                 {c.data.heroName || c.data.role}
               </p>
             </div>
 
-            <div className="mt-3 pt-2 border-t border-slate-800/80 flex items-baseline justify-between">
-              <span className="text-[11px] text-slate-500">Record</span>
+            <div className="relative mt-3 flex items-baseline justify-between border-t border-[var(--border)] pt-2">
+              <span className="text-[11px] text-[var(--text-muted)]">{c.title === 'Fantasy MVP' ? 'Fantasy score' : 'Match record'}</span>
               <span className={`font-mono text-base font-extrabold ${c.textColor}`}>
                 {c.data.formattedValue}
               </span>

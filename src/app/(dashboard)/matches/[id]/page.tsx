@@ -4,7 +4,7 @@ import { fetchWithAuth } from '@/lib/fetch-with-auth';
 import { use, useEffect, useState, Suspense } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { Share2, Check, ArrowLeft } from 'lucide-react';
+import { Share2, Check, ArrowLeft, Trophy } from 'lucide-react';
 import { useToast } from '@/components/Toast';
 import { TeamLogo } from '../components/TeamLogo';
 
@@ -71,6 +71,11 @@ type MatchApiResponse = {
   match?: MatchDetail;
   playerStats?: PlayerStat[];
   fantasyBreakdown?: FantasyBreakdown[];
+  seriesScore?: {
+    radiantWins: number;
+    direWins: number;
+    clinchedTeamId: number | null;
+  } | null;
   userFantasyImpact?: UserFantasyImpact | null;
 };
 
@@ -78,33 +83,33 @@ function MatchDetailSkeleton() {
   return (
     <div className="mx-auto max-w-6xl px-4 py-10 space-y-8 animate-pulse" role="status" aria-label="Loading match center">
       <div className="flex items-center justify-between">
-        <div className="h-4 w-36 rounded bg-slate-800" />
-        <div className="h-7 w-28 rounded-lg bg-slate-800" />
+        <div className="h-4 w-36 rounded bg-[var(--surface-raised)]" />
+        <div className="h-7 w-28 rounded-lg bg-[var(--surface-raised)]" />
       </div>
-      <section className="overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/80 p-6 sm:p-8">
-        <div className="mb-6 flex flex-wrap items-center justify-between gap-4 border-b border-slate-800/80 pb-6">
+      <section className="overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-6 sm:p-8">
+        <div className="mb-6 flex flex-wrap items-center justify-between gap-4 border-b border-[var(--border)] pb-6">
           <div className="space-y-3">
-            <div className="h-4 w-40 rounded bg-slate-800" />
-            <div className="h-3 w-52 rounded bg-slate-800" />
+            <div className="h-4 w-40 rounded bg-[var(--surface-raised)]" />
+            <div className="h-3 w-52 rounded bg-[var(--surface-raised)]" />
           </div>
-          <div className="h-8 w-24 rounded-full bg-slate-800" />
+          <div className="h-8 w-24 rounded-full bg-[var(--surface-raised)]" />
         </div>
         <div className="grid grid-cols-1 items-center gap-6 py-6 md:grid-cols-[1fr_auto_1fr]">
           {[1, 2].map((team) => (
             <div key={team} className={`flex flex-col items-center gap-4 ${team === 1 ? 'md:items-end' : 'md:items-start'}`}>
-              <div className="h-20 w-20 rounded-2xl bg-slate-800" />
-              <div className="h-6 w-40 max-w-[50vw] rounded bg-slate-800" />
-              <div className="h-3 w-20 rounded bg-slate-800" />
+              <div className="h-20 w-20 rounded-2xl bg-[var(--surface-raised)]" />
+              <div className="h-6 w-40 max-w-[50vw] rounded bg-[var(--surface-raised)]" />
+              <div className="h-3 w-20 rounded bg-[var(--surface-raised)]" />
             </div>
           ))}
-          <div className="mx-auto h-16 w-28 rounded-2xl border border-slate-800 bg-slate-950" />
+          <div className="mx-auto h-16 w-28 rounded-2xl border border-[var(--border)] bg-[var(--surface-raised)]" />
         </div>
       </section>
-      <section className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 sm:p-6">
-        <div className="mb-5 h-6 w-48 rounded bg-slate-800" />
+      <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 sm:p-6">
+        <div className="mb-5 h-6 w-48 rounded bg-[var(--surface-raised)]" />
         {[1, 2, 3, 4].map((row) => (
-          <div key={row} className="grid grid-cols-2 gap-4 border-t border-slate-800 py-4 sm:grid-cols-4">
-            {[1, 2, 3, 4].map((cell) => <div key={cell} className="h-4 rounded bg-slate-800" />)}
+          <div key={row} className="grid grid-cols-2 gap-4 border-t border-[var(--border)] py-4 sm:grid-cols-4">
+            {[1, 2, 3, 4].map((cell) => <div key={cell} className="h-4 rounded bg-[var(--surface-raised)]" />)}
           </div>
         ))}
       </section>
@@ -121,6 +126,7 @@ function MatchDetailInner({ params }: { params: Promise<{ id: string }> }) {
   const [match, setMatch] = useState<MatchDetail | null>(null);
   const [playerStats, setPlayerStats] = useState<PlayerStat[]>([]);
   const [fantasyBreakdown, setFantasyBreakdown] = useState<FantasyBreakdown[]>([]);
+  const [seriesScore, setSeriesScore] = useState<MatchApiResponse['seriesScore']>(null);
   const [userFantasyImpact, setUserFantasyImpact] = useState<UserFantasyImpact | null>(null);
   const [viewMode, setViewMode] = useState<'fantasy' | 'traditional'>('fantasy');
   const [copied, setCopied] = useState(false);
@@ -136,6 +142,7 @@ function MatchDetailInner({ params }: { params: Promise<{ id: string }> }) {
         setMatch(data.match ?? null);
         setPlayerStats(data.playerStats ?? []);
         setFantasyBreakdown(data.fantasyBreakdown ?? []);
+        setSeriesScore(data.seriesScore ?? null);
         setUserFantasyImpact(data.userFantasyImpact ?? null);
       } catch (requestError: unknown) {
         setError(requestError instanceof Error ? requestError.message : 'Failed to load match');
@@ -154,11 +161,11 @@ function MatchDetailInner({ params }: { params: Promise<{ id: string }> }) {
   if (error || !match) {
     return (
       <div className="mx-auto max-w-5xl px-4 py-16 text-center">
-        <div className="w-16 h-16 rounded-2xl bg-rose-950/40 border border-rose-800 flex items-center justify-center text-2xl mx-auto mb-4 text-rose-400">
+        <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl border border-rose-500/30 bg-rose-500/10 text-2xl text-rose-500">
           ⚠️
         </div>
-        <h1 className="mb-2 text-2xl font-bold text-white">Match Not Found</h1>
-        <p className="mb-6 text-slate-400 text-sm">{error || 'This match could not be found.'}</p>
+        <h1 className="mb-2 text-2xl font-bold text-[var(--text-primary)]">Match Not Found</h1>
+        <p className="mb-6 text-sm text-[var(--text-muted)]">{error || 'This match could not be found.'}</p>
         <Link
           href="/matches"
           className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold bg-amber-500 text-slate-950 hover:bg-amber-400 transition-colors"
@@ -244,19 +251,19 @@ function MatchDetailInner({ params }: { params: Promise<{ id: string }> }) {
 
   const renderRosterTable = (stats: PlayerStat[], teamFaction: 'radiant' | 'dire', teamName: string, isWinner: boolean) => {
     const isRadiant = teamFaction === 'radiant';
-    const borderTheme = isRadiant ? 'border-emerald-900/40' : 'border-rose-900/40';
-    const headerBg = isRadiant ? 'bg-emerald-950/30' : 'bg-rose-950/30';
-    const textTheme = isRadiant ? 'text-emerald-400' : 'text-rose-400';
+    const borderTheme = isRadiant ? 'border-emerald-500/25' : 'border-rose-500/25';
+    const headerBg = isRadiant ? 'bg-emerald-500/5' : 'bg-rose-500/5';
+    const textTheme = isRadiant ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400';
 
     return (
-      <div className={`rounded-2xl border ${borderTheme} bg-slate-900/60 overflow-hidden shadow-lg`}>
+      <div className={`overflow-hidden rounded-2xl border ${borderTheme} bg-[var(--surface)] shadow-lg`}>
         <div className={`px-5 py-3 ${headerBg} border-b ${borderTheme} flex items-center justify-between`}>
-          <span className={`text-xs font-bold ${textTheme} tracking-wider uppercase flex items-center gap-2`}>
+          <span className={`flex items-center gap-2 text-xs font-bold uppercase tracking-wider ${textTheme}`}>
             <span>{isRadiant ? '🟢' : '🔴'}</span>
             <span>{teamName} Performances</span>
           </span>
           {isWinner && (
-            <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${isRadiant ? 'bg-emerald-500/20 text-emerald-300' : 'bg-rose-500/20 text-rose-300'}`}>
+            <span className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${isRadiant ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300' : 'bg-rose-500/10 text-rose-700 dark:text-rose-300'}`}>
               Winner
             </span>
           )}
@@ -265,7 +272,7 @@ function MatchDetailInner({ params }: { params: Promise<{ id: string }> }) {
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs">
             <thead>
-              <tr className="border-b border-slate-800 text-slate-400 font-semibold bg-slate-950/40">
+              <tr className="border-b border-[var(--border)] bg-[var(--surface-raised)] text-[var(--text-muted)] font-semibold">
                 <th className="py-3 px-4">Player</th>
                 <th className="py-3 px-3">Role</th>
                 {viewMode === 'fantasy' ? (
@@ -289,7 +296,7 @@ function MatchDetailInner({ params }: { params: Promise<{ id: string }> }) {
                 )}
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-800/60">
+            <tbody className="divide-y divide-[var(--border)]">
               {stats.map((stat) => {
                 const playerName = cleanPlayerName(stat);
                 const role = stat.professional_players?.primary_role || 'Core';
@@ -299,51 +306,51 @@ function MatchDetailInner({ params }: { params: Promise<{ id: string }> }) {
                 const isOwned = userOwnedSet.has(stat.player_id);
 
                 return (
-                  <tr key={stat.id} className="hover:bg-slate-800/40 transition-colors">
-                    <td className="py-3 px-4 font-bold text-white">
+                  <tr key={stat.id} className="transition-colors hover:bg-[var(--surface-raised)]/60">
+                    <td className="py-3 px-4 font-bold text-[var(--text-primary)]">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <Link href={`/players/${stat.player_id}`} className="hover:text-amber-400 transition-colors">
+                        <Link href={`/players/${stat.player_id}`} className="transition-colors hover:text-amber-500">
                           {playerName}
                         </Link>
                         {stat.hero_name && (
-                          <span className="text-[10px] font-normal text-slate-400 bg-slate-800 px-1.5 py-0.5 rounded border border-slate-700">
+                          <span className="rounded border border-[var(--border)] bg-[var(--surface-raised)] px-1.5 py-0.5 text-[10px] font-normal text-[var(--text-muted)]">
                             {stat.hero_name}
                           </span>
                         )}
                         {lineupDetail?.isCaptain && (
-                          <span className="text-[9px] font-extrabold bg-amber-500 text-slate-950 px-1 py-0.5 rounded">
-                            CAPTAIN
+                          <span className="rounded bg-gradient-to-r from-amber-400 to-amber-500 px-1.5 py-0.5 text-[9px] font-extrabold text-slate-950">
+                            C {userFantasyImpact?.tripleCaptainActive ? '3×' : '2×'}
                           </span>
                         )}
                         {lineupDetail?.isViceCaptain && (
-                          <span className="text-[9px] font-extrabold bg-slate-700 text-slate-200 px-1 py-0.5 rounded">
+                          <span className="rounded border border-cyan-500/20 bg-cyan-500/10 px-1.5 py-0.5 text-[9px] font-extrabold text-cyan-700 dark:text-cyan-300">
                             VC
                           </span>
                         )}
                         {isOwned && !lineupDetail && (
-                          <span className="text-[9px] font-medium text-emerald-400 bg-emerald-950/60 border border-emerald-500/30 px-1 py-0.5 rounded">
+                          <span className="rounded border border-emerald-500/25 bg-emerald-500/10 px-1.5 py-0.5 text-[9px] font-medium text-emerald-700 dark:text-emerald-300">
                             OWNED
                           </span>
                         )}
                       </div>
                     </td>
-                    <td className="py-3 px-3 text-slate-400">{role}</td>
+                    <td className="py-3 px-3 text-[var(--text-muted)]">{role}</td>
 
                     {viewMode === 'fantasy' ? (
                       <>
-                        <td className="py-3 px-3 font-mono text-slate-300">
+                        <td className="py-3 px-3 font-mono text-[var(--text-secondary)]">
                           {fBreakdown?.combat_points !== undefined ? fBreakdown.combat_points.toFixed(1) : '-'}
                         </td>
-                        <td className="py-3 px-3 font-mono text-slate-300">
+                        <td className="py-3 px-3 font-mono text-[var(--text-secondary)]">
                           {fBreakdown?.economy_points !== undefined ? fBreakdown.economy_points.toFixed(1) : '-'}
                         </td>
-                        <td className="py-3 px-3 font-mono text-slate-300">
+                        <td className="py-3 px-3 font-mono text-[var(--text-secondary)]">
                           {fBreakdown?.objective_points !== undefined ? fBreakdown.objective_points.toFixed(1) : '-'}
                         </td>
-                        <td className="py-3 px-3 font-mono text-slate-300">
+                        <td className="py-3 px-3 font-mono text-[var(--text-secondary)]">
                           {fBreakdown?.teamfight_points !== undefined ? fBreakdown.teamfight_points.toFixed(1) : '-'}
                         </td>
-                        <td className="py-3 px-3 font-mono text-slate-300">
+                        <td className="py-3 px-3 font-mono text-[var(--text-secondary)]">
                           {fBreakdown?.win_points !== undefined ? `+${fBreakdown.win_points.toFixed(1)}` : '-'}
                         </td>
                         <td className="py-3 px-4 text-right">
@@ -354,19 +361,19 @@ function MatchDetailInner({ params }: { params: Promise<{ id: string }> }) {
                       </>
                     ) : (
                       <>
-                        <td className="py-3 px-3 font-mono text-slate-300">
+                        <td className="py-3 px-3 font-mono text-[var(--text-secondary)]">
                           {stat.kills} / <span className="text-rose-400">{stat.deaths}</span> / {stat.assists}
                         </td>
-                        <td className="py-3 px-3 font-mono text-slate-400">
+                        <td className="py-3 px-3 font-mono text-[var(--text-muted)]">
                           {stat.gold_per_minute || '-'} / {stat.experience_per_minute || '-'}
                         </td>
-                        <td className="py-3 px-3 font-mono text-slate-400">
+                        <td className="py-3 px-3 font-mono text-[var(--text-muted)]">
                           {stat.hero_damage ? Number(stat.hero_damage).toLocaleString() : '-'}
                         </td>
-                        <td className="py-3 px-3 font-mono text-slate-400">
+                        <td className="py-3 px-3 font-mono text-[var(--text-muted)]">
                           {stat.wards_placed ?? '-'}
                         </td>
-                        <td className="py-3 px-3 font-mono text-slate-400">
+                        <td className="py-3 px-3 font-mono text-[var(--text-muted)]">
                           {stat.healing ? Number(stat.healing).toLocaleString() : '-'}
                         </td>
                         <td className="py-3 px-4 text-right">
@@ -387,49 +394,50 @@ function MatchDetailInner({ params }: { params: Promise<{ id: string }> }) {
   };
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-10 space-y-8">
+    <div className="mx-auto max-w-6xl space-y-8 px-4 py-10">
       {/* Navigation Breadcrumb */}
       <div className="flex items-center justify-between">
         <Link
           href={fromGameweek && gwId ? `/gameweeks/${gwId}` : '/matches'}
-          className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-400 hover:text-amber-400 transition-colors group"
+          className="group inline-flex items-center gap-1.5 text-xs font-semibold text-[var(--text-muted)] transition-colors hover:text-amber-500"
         >
           <ArrowLeft className="w-3.5 h-3.5 transition-transform group-hover:-translate-x-0.5" />
           <span>{fromGameweek && gwId ? `Back to Gameweek ${match?.gameweeks?.gameweek_number ?? gwId}` : 'Back to Matches'}</span>
         </Link>
 
         {match.gameweeks && (
-          <span className="text-xs font-medium text-slate-400 bg-slate-900 border border-slate-800 px-3 py-1 rounded-lg">
+          <span className="rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-1 text-xs font-medium text-[var(--text-muted)]">
             Gameweek {match.gameweeks.gameweek_number} · <span className="capitalize">{match.gameweeks.status}</span>
           </span>
         )}
       </div>
 
       {/* Hero Match Arena Card */}
-      <div className="relative rounded-2xl border border-slate-800 bg-slate-900/80 p-8 shadow-2xl overflow-hidden">
+      <div className="relative isolate overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-6 shadow-2xl sm:p-8">
         {/* Glow ambient background effects */}
-        <div className="absolute -top-10 -left-10 w-60 h-60 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
-        <div className="absolute -top-10 -right-10 w-60 h-60 bg-rose-500/10 rounded-full blur-3xl pointer-events-none" />
+        <div className="pointer-events-none absolute -left-12 -top-16 h-64 w-64 rounded-full bg-emerald-500/15 blur-3xl" />
+        <div className="pointer-events-none absolute -right-12 -top-16 h-64 w-64 rounded-full bg-rose-500/15 blur-3xl" />
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-emerald-500 via-cyan-400 to-rose-500" />
 
         {/* Top bar: Tournament & Schedule */}
-        <div className="relative flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-6 mb-6 border-b border-slate-800/80">
+        <div className="relative mb-6 flex flex-col items-start justify-between gap-3 border-b border-[var(--border)] pb-6 sm:flex-row sm:items-center">
           <div>
-            <div className="flex items-center gap-2 mb-1">
+            <div className="mb-1 flex flex-wrap items-center gap-2">
               <span className="text-amber-400 text-xs font-semibold tracking-wide uppercase">
                 {match.tournaments?.name || 'Professional Match'}
               </span>
               {match.tournaments?.tier && (
-                <span className="bg-slate-800 text-slate-400 text-[10px] px-2 py-0.5 rounded font-medium border border-slate-700">
+                <span className="rounded border border-[var(--border)] bg-[var(--surface-raised)] px-2 py-0.5 text-[10px] font-medium text-[var(--text-secondary)]">
                   {match.tournaments.tier}
                 </span>
               )}
               {match.best_of && (
-                <span className="bg-slate-800 text-slate-400 text-[10px] px-2 py-0.5 rounded font-mono border border-slate-700">
+                <span className="rounded border border-[var(--border)] bg-[var(--surface-raised)] px-2 py-0.5 font-mono text-[10px] text-[var(--text-secondary)]">
                   Best of {match.best_of} · Game {match.match_number || 1}
                 </span>
               )}
             </div>
-            <p className="text-xs text-slate-400 font-mono">
+            <p className="font-mono text-xs text-[var(--text-muted)]">
               {new Date(match.scheduled_at).toLocaleString([], {
                 weekday: 'short',
                 month: 'short',
@@ -441,7 +449,7 @@ function MatchDetailInner({ params }: { params: Promise<{ id: string }> }) {
             </p>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
             <button
               type="button"
               onClick={() => {
@@ -452,7 +460,7 @@ function MatchDetailInner({ params }: { params: Promise<{ id: string }> }) {
                   setTimeout(() => setCopied(false), 2000);
                 }
               }}
-              className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-medium border border-slate-700 bg-slate-800/80 text-slate-300 hover:border-amber-500/50 hover:text-amber-400 transition"
+              className="inline-flex items-center gap-1.5 rounded-xl border border-[var(--border)] bg-[var(--surface-raised)] px-3 py-1 text-xs font-medium text-[var(--text-secondary)] transition hover:border-amber-500/50 hover:text-amber-500"
               title="Share Match"
             >
               {copied ? <Check className="h-3.5 w-3.5 text-emerald-400" /> : <Share2 className="h-3.5 w-3.5" />}
@@ -465,11 +473,11 @@ function MatchDetailInner({ params }: { params: Promise<{ id: string }> }) {
                 Live Now
               </span>
             ) : isCompleted ? (
-              <span className="px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+              <span className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1 text-xs font-semibold text-emerald-700 dark:text-emerald-300">
                 Completed Match
               </span>
             ) : (
-              <span className="px-3 py-1 rounded-full text-xs font-semibold bg-slate-800 text-slate-300 border border-slate-700 capitalize">
+              <span className="rounded-full border border-[var(--border)] bg-[var(--surface-raised)] px-3 py-1 text-xs font-semibold capitalize text-[var(--text-secondary)]">
                 {match.status.replace('_', ' ')}
               </span>
             )}
@@ -484,22 +492,26 @@ function MatchDetailInner({ params }: { params: Promise<{ id: string }> }) {
               <div>
                 <h2
                   className={`text-2xl font-black tracking-tight ${
-                    isRadiantWinner ? 'text-white drop-shadow-[0_0_12px_rgba(16,185,129,0.3)]' : 'text-slate-300'
+                    isRadiantWinner ? 'text-[var(--text-primary)] drop-shadow-[0_0_12px_rgba(16,185,129,0.3)]' : 'text-[var(--text-secondary)]'
                   }`}
                 >
                   {formatTeamName(match.radiant_team?.name, match.radiant_team_id, 'Radiant')}
                 </h2>
-                <div className="flex items-center justify-center md:justify-end gap-2 mt-1">
-                  <span className="text-xs font-bold text-emerald-400 uppercase tracking-widest">Radiant</span>
+                <div className="mt-1 flex items-center justify-center gap-2 md:justify-end">
+                  <span className="text-xs font-bold uppercase tracking-widest text-emerald-600 dark:text-emerald-400">Radiant</span>
                   {match.radiant_team?.region && (
-                    <span className="text-[11px] text-slate-500">({match.radiant_team.region})</span>
+                    <span className="text-[11px] text-[var(--text-muted)]">({match.radiant_team.region})</span>
                   )}
                 </div>
-                {isRadiantWinner && (
-                  <span className="inline-block mt-2 text-xs font-bold text-emerald-400 bg-emerald-950/60 border border-emerald-500/40 px-2.5 py-0.5 rounded-full">
-                    🏆 Victory
+                {isRadiantWinner && (seriesScore?.clinchedTeamId === match.radiant_team_id ? (
+                  <span className="mt-2 inline-flex items-center gap-1.5 rounded-full border border-amber-400/50 bg-gradient-to-r from-amber-400/20 to-yellow-500/10 px-2.5 py-1 text-xs font-extrabold text-amber-700 shadow-sm dark:text-amber-300">
+                    <Trophy className="h-3.5 w-3.5" /> Series Clinched
                   </span>
-                )}
+                ) : (
+                  <span className="mt-2 inline-flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-1 text-xs font-bold text-emerald-700 dark:text-emerald-300">
+                    <Trophy className="h-3.5 w-3.5" /> Match Win
+                  </span>
+                ))}
               </div>
               <TeamLogo
                 name={match.radiant_team?.name || 'Radiant'}
@@ -514,46 +526,59 @@ function MatchDetailInner({ params }: { params: Promise<{ id: string }> }) {
 
           {/* Scoreboard / Timer */}
           <div className="flex flex-col items-center justify-center px-6">
-            {isCompleted ? (
+            {seriesScore && (isCompleted || isLive) ? (
+              <div className="flex flex-col items-center gap-1.5">
+                <span className="text-[9px] font-bold uppercase tracking-[0.2em] text-[var(--text-muted)]">Series Score</span>
+                <div className="flex items-center gap-3 rounded-2xl border border-[var(--border)] bg-[var(--surface-raised)] px-6 py-2.5 shadow-xl shadow-cyan-950/10">
+                  <span className={`font-mono text-3xl font-black ${seriesScore.radiantWins > seriesScore.direWins ? 'text-emerald-600 dark:text-emerald-400' : 'text-[var(--text-muted)]'}`}>
+                    {seriesScore.radiantWins}
+                  </span>
+                  <span className="text-xl font-black text-[var(--text-muted)]">:</span>
+                  <span className={`font-mono text-3xl font-black ${seriesScore.direWins > seriesScore.radiantWins ? 'text-rose-600 dark:text-rose-400' : 'text-[var(--text-muted)]'}`}>
+                    {seriesScore.direWins}
+                  </span>
+                </div>
+              </div>
+            ) : isCompleted ? (
               isRadiantWinner || isDireWinner ? (
-                <div className="flex items-center gap-3 bg-slate-950 border border-slate-700/80 rounded-2xl px-6 py-2.5 shadow-2xl">
+                <div className="flex items-center gap-3 rounded-2xl border border-[var(--border)] bg-[var(--surface-raised)] px-6 py-2.5 shadow-2xl">
                   <span
                     className={`font-mono text-3xl font-black ${
-                      isRadiantWinner ? 'text-emerald-400' : 'text-slate-400'
+                      isRadiantWinner ? 'text-emerald-600 dark:text-emerald-400' : 'text-[var(--text-muted)]'
                     }`}
                   >
                     {isRadiantWinner ? '1' : '0'}
                   </span>
-                  <span className="text-slate-600 font-black text-xl">:</span>
+                  <span className="text-xl font-black text-[var(--text-muted)]">:</span>
                   <span
                     className={`font-mono text-3xl font-black ${
-                      isDireWinner ? 'text-rose-400' : 'text-slate-400'
+                      isDireWinner ? 'text-rose-600 dark:text-rose-400' : 'text-[var(--text-muted)]'
                     }`}
                   >
                     {isDireWinner ? '1' : '0'}
                   </span>
                 </div>
               ) : (
-                <div className="flex items-center gap-2 bg-slate-950 border border-slate-700/80 rounded-2xl px-5 py-2 shadow-2xl">
-                  <span className="font-mono text-xl font-black text-slate-300 tracking-wider">FT</span>
+                <div className="flex items-center gap-2 rounded-2xl border border-[var(--border)] bg-[var(--surface-raised)] px-5 py-2 shadow-2xl">
+                  <span className="font-mono text-xl font-black tracking-wider text-[var(--text-secondary)]">FT</span>
                 </div>
               )
             ) : isLive ? (
               <div className="flex flex-col items-center">
-                <span className="font-mono text-lg font-black text-red-400 bg-red-950 border border-red-700 px-4 py-1.5 rounded-xl animate-pulse">
+                <span className="animate-pulse rounded-xl border border-red-500/40 bg-red-500/10 px-4 py-1.5 font-mono text-lg font-black text-red-600 dark:text-red-400">
                   IN PROGRESS
                 </span>
               </div>
             ) : (
-              <div className="w-14 h-14 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center text-base font-black text-slate-400">
+              <div className="flex h-14 w-14 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--surface-raised)] text-base font-black text-[var(--text-muted)]">
                 VS
               </div>
             )}
 
             {isCompleted && match.duration_seconds && (
-              <div className="mt-3 flex items-center gap-1.5 text-xs text-slate-400 font-mono bg-slate-950/60 px-3 py-1 rounded-full border border-slate-800">
+              <div className="mt-3 flex items-center gap-1.5 rounded-full border border-[var(--border)] bg-[var(--surface-raised)] px-3 py-1 font-mono text-xs text-[var(--text-muted)]">
                 <span>⏱ Duration:</span>
-                <span className="font-bold text-white">{formatDuration(match.duration_seconds)}</span>
+                <span className="font-bold text-[var(--text-primary)]">{formatDuration(match.duration_seconds)}</span>
               </div>
             )}
           </div>
@@ -572,22 +597,26 @@ function MatchDetailInner({ params }: { params: Promise<{ id: string }> }) {
               <div>
                 <h2
                   className={`text-2xl font-black tracking-tight ${
-                    isDireWinner ? 'text-white drop-shadow-[0_0_12px_rgba(244,63,94,0.3)]' : 'text-slate-300'
+                    isDireWinner ? 'text-[var(--text-primary)] drop-shadow-[0_0_12px_rgba(244,63,94,0.3)]' : 'text-[var(--text-secondary)]'
                   }`}
                 >
                   {formatTeamName(match.dire_team?.name, match.dire_team_id, 'Dire')}
                 </h2>
-                <div className="flex items-center justify-center md:justify-start gap-2 mt-1">
-                  <span className="text-xs font-bold text-rose-400 uppercase tracking-widest">Dire</span>
+                <div className="mt-1 flex items-center justify-center gap-2 md:justify-start">
+                  <span className="text-xs font-bold uppercase tracking-widest text-rose-600 dark:text-rose-400">Dire</span>
                   {match.dire_team?.region && (
-                    <span className="text-[11px] text-slate-500">({match.dire_team.region})</span>
+                    <span className="text-[11px] text-[var(--text-muted)]">({match.dire_team.region})</span>
                   )}
                 </div>
-                {isDireWinner && (
-                  <span className="inline-block mt-2 text-xs font-bold text-rose-400 bg-rose-950/60 border border-rose-500/40 px-2.5 py-0.5 rounded-full">
-                    🏆 Victory
+                {isDireWinner && (seriesScore?.clinchedTeamId === match.dire_team_id ? (
+                  <span className="mt-2 inline-flex items-center gap-1.5 rounded-full border border-amber-400/50 bg-gradient-to-r from-amber-400/20 to-yellow-500/10 px-2.5 py-1 text-xs font-extrabold text-amber-700 shadow-sm dark:text-amber-300">
+                    <Trophy className="h-3.5 w-3.5" /> Series Clinched
                   </span>
-                )}
+                ) : (
+                  <span className="mt-2 inline-flex items-center gap-1.5 rounded-full border border-rose-500/30 bg-rose-500/10 px-2.5 py-1 text-xs font-bold text-rose-700 dark:text-rose-300">
+                    <Trophy className="h-3.5 w-3.5" /> Match Win
+                  </span>
+                ))}
               </div>
             </div>
           </div>
@@ -615,24 +644,25 @@ function MatchDetailInner({ params }: { params: Promise<{ id: string }> }) {
         <div className="space-y-6">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
             <div>
-              <h3 className="text-lg font-bold text-white flex items-center gap-2">
-                <span>📊</span>
-                <span>Player Performance & Box Score</span>
+              <h3 className="flex items-center gap-2 text-lg font-bold text-[var(--text-primary)]">
+                <span className="text-cyan-600 dark:text-cyan-400">▦</span>
+                <span>Player Performance &amp; Box Score</span>
               </h3>
-              <p className="text-xs text-slate-400">
+              <p className="text-xs text-[var(--text-muted)]">
                 Official in-game statistics and calculated fantasy point impacts
               </p>
             </div>
 
             {/* View Mode Toggle */}
-            <div className="inline-flex rounded-xl bg-slate-900 border border-slate-800 p-1">
+            <div className="inline-flex rounded-xl border border-[var(--border)] bg-[var(--surface)] p-1" role="group" aria-label="Match stats view">
               <button
                 type="button"
                 onClick={() => setViewMode('fantasy')}
+                aria-pressed={viewMode === 'fantasy'}
                 className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition ${
                   viewMode === 'fantasy'
-                    ? 'bg-amber-500 text-slate-950 shadow'
-                    : 'text-slate-400 hover:text-slate-200'
+                    ? 'bg-gradient-to-r from-amber-400 to-amber-500 text-slate-950 shadow-md shadow-amber-500/20'
+                    : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'
                 }`}
               >
                 Fantasy Breakdown
@@ -640,10 +670,11 @@ function MatchDetailInner({ params }: { params: Promise<{ id: string }> }) {
               <button
                 type="button"
                 onClick={() => setViewMode('traditional')}
+                aria-pressed={viewMode === 'traditional'}
                 className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition ${
                   viewMode === 'traditional'
-                    ? 'bg-amber-500 text-slate-950 shadow'
-                    : 'text-slate-400 hover:text-slate-200'
+                    ? 'bg-gradient-to-r from-amber-400 to-amber-500 text-slate-950 shadow-md shadow-amber-500/20'
+                    : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'
                 }`}
               >
                 Traditional Box Score
@@ -658,8 +689,8 @@ function MatchDetailInner({ params }: { params: Promise<{ id: string }> }) {
           {renderRosterTable(direStats, 'dire', formatTeamName(match.dire_team?.name, match.dire_team_id, 'Dire'), isDireWinner)}
         </div>
       ) : (
-        <div className="p-8 rounded-2xl border border-slate-800 bg-slate-900/40 text-center">
-          <p className="text-sm text-slate-400">
+        <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-8 text-center shadow-sm">
+          <p className="text-sm text-[var(--text-muted)]">
             Detailed player stats and fantasy point breakdowns will populate here once match data is processed.
           </p>
         </div>
