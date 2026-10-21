@@ -180,8 +180,8 @@ export default function PlayerDetailPage() {
   if (loading) {
     return (
       <div className="max-w-5xl mx-auto px-4 py-12 text-center">
-        <div className="animate-pulse bg-slate-800/50 rounded-2xl h-64 border border-slate-700 mb-8"></div>
-        <div className="animate-pulse bg-slate-800/50 rounded-xl h-96 border border-slate-700"></div>
+        <div className="animate-pulse bg-[var(--surface-raised)] rounded-2xl h-64 border border-[var(--border)] mb-8"></div>
+        <div className="animate-pulse bg-[var(--surface-raised)] rounded-xl h-96 border border-[var(--border)]"></div>
       </div>
     );
   }
@@ -189,10 +189,10 @@ export default function PlayerDetailPage() {
   if (error || !player) {
     return (
       <div className="max-w-5xl mx-auto px-4 py-12">
-         <div className="bg-red-900/50 border border-red-500/50 text-red-200 p-6 rounded-lg text-center">
-            <h2 className="text-xl font-bold mb-2">Error</h2>
-            <p>{error || 'Player not found'}</p>
-            <Link href="/transfers" className="inline-block mt-4 text-amber-500 hover:underline">
+         <div className="bg-red-500/10 border border-red-500/30 text-red-300 p-6 rounded-2xl text-center shadow-lg">
+            <h2 className="text-xl font-bold mb-2 text-red-200">Error</h2>
+            <p className="text-sm text-[var(--text-secondary)]">{error || 'Player not found'}</p>
+            <Link href="/transfers" className="inline-block mt-4 text-amber-400 hover:text-amber-300 font-medium hover:underline">
                Return to Transfer Market
             </Link>
          </div>
@@ -331,52 +331,52 @@ export default function PlayerDetailPage() {
           Back to Fantasy Teams
         </Link>
       ) : (
-        <Link href="/players" className="inline-flex items-center text-sm text-slate-400 hover:text-white mb-6 transition-colors">
-          <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
+        <Link href="/players" className="inline-flex items-center text-sm font-medium text-[var(--text-secondary)] hover:text-[var(--text-primary)] mb-6 transition-colors group">
+          <svg className="w-4 h-4 mr-1.5 transition-transform group-hover:-translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
           Back to Players
         </Link>
       )}
 
       {/* Hero Banner */}
-      <div className="bg-linear-to-r from-slate-900 to-slate-800 border border-slate-700 rounded-2xl overflow-hidden mb-8 shadow-xl">
-         <div className="h-32 bg-linear-to-r from-amber-600/20 to-orange-900/20 border-b border-slate-700/50 relative">
-            <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'radial-gradient(circle at 2px 2px, white 1px, transparent 0)', backgroundSize: '24px 24px' }}></div>
+      <div className="bg-[var(--surface)] border border-[var(--border)] rounded-2xl overflow-hidden mb-8 shadow-xl relative">
+         <div className="h-32 bg-linear-to-r from-cyan-600/20 via-amber-600/10 to-orange-900/20 border-b border-[var(--border)] relative">
+            <div className="absolute inset-0 opacity-15" style={{ backgroundImage: 'radial-gradient(circle at 2px 2px, var(--border) 1px, transparent 0)', backgroundSize: '24px 24px' }}></div>
          </div>
          
          <div className="px-8 pb-8 relative">
             <div className="flex flex-col md:flex-row md:items-end gap-6 -mt-16">
-               <div className="relative w-32 h-32 rounded-xl bg-slate-800 border-4 border-slate-900 shadow-lg overflow-hidden flex items-center justify-center shrink-0 z-10">
+               <div className="relative w-32 h-32 rounded-2xl bg-[var(--surface-raised)] border-4 border-[var(--surface)] shadow-2xl overflow-hidden flex items-center justify-center shrink-0 z-10">
                   {player.profile_image_url ? (
                      <Image src={player.profile_image_url} alt={player.in_game_name || player.name} fill sizes="128px" unoptimized loading="eager" className="object-cover" />
                   ) : (
-                     <span className="player-avatar-initials text-4xl font-bold">{player.in_game_name?.substring(0, 2).toUpperCase()}</span>
+                     <span className="text-4xl font-black text-cyan-400 font-mono tracking-wider">{player.in_game_name?.substring(0, 2).toUpperCase()}</span>
                   )}
                </div>
                
                <div className="flex-1 pb-2">
-                  <div className="flex flex-wrap items-center gap-2.5 mb-1">
-                     <h1 className="text-4xl font-bold text-white">{player.in_game_name}</h1>
+                  <div className="flex flex-wrap items-center gap-2.5 mb-2">
+                     <h1 className="text-3xl md:text-4xl font-extrabold text-[var(--text-primary)] tracking-tight">{player.in_game_name}</h1>
                      {ownedPlayerIds.includes(player.id) && (
-                        <span className="inline-flex items-center gap-1.5 bg-emerald-500/15 text-emerald-400 text-xs px-3 py-1 rounded-full border border-emerald-500/40 font-semibold">
+                        <span className="inline-flex items-center gap-1.5 bg-emerald-500/15 text-emerald-400 text-xs px-3 py-1 rounded-full border border-emerald-500/40 font-semibold shadow-xs">
                            <ShieldCheck className="w-3.5 h-3.5" />
                            In Your Squad
                         </span>
                      )}
                      {player.availability_status === 'available' || player.availability_status === 'active' ? (
-                        <span className="bg-emerald-500/20 text-emerald-400 text-xs px-2.5 py-0.5 rounded-full border border-emerald-500/30 font-semibold">Available</span>
+                        <span className="bg-emerald-500/15 text-emerald-400 text-xs px-2.5 py-0.5 rounded-full border border-emerald-500/30 font-semibold">Available</span>
                      ) : (
-                        <span className="bg-red-500/20 text-red-400 text-xs px-2.5 py-0.5 rounded-full border border-red-500/30 capitalize">{player.availability_status || 'Unavailable'}</span>
+                        <span className="bg-red-500/15 text-red-400 text-xs px-2.5 py-0.5 rounded-full border border-red-500/30 font-semibold capitalize">{player.availability_status || 'Unavailable'}</span>
                      )}
                   </div>
-                  <div className="flex items-center gap-4 text-sm text-slate-400">
+                  <div className="flex flex-wrap items-center gap-4 text-sm text-[var(--text-secondary)]">
                      <span className="flex items-center gap-1.5">
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg>
+                        <svg className="w-4 h-4 text-[var(--text-muted)]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg>
                         {player.real_name || player.name || 'Name Unknown'}
                      </span>
-                     <span className="flex items-center gap-1.5 text-amber-500 font-medium">
+                     <span className="flex items-center gap-1.5 text-cyan-400 font-medium">
                         {player.professional_teams?.name || 'Free Agent'}
                      </span>
-                     <span className="player-detail-role-badge bg-slate-700 px-2 py-0.5 rounded text-xs uppercase font-bold text-slate-300">
+                     <span className="bg-[var(--surface-raised)] border border-[var(--border)] px-2.5 py-0.5 rounded-md text-xs uppercase font-bold text-[var(--text-primary)] tracking-wide">
                         {player.primary_role || 'Unassigned'}
                      </span>
                   </div>
@@ -384,13 +384,13 @@ export default function PlayerDetailPage() {
                
                <div className="flex flex-col gap-3 pb-2 md:text-right">
                   <div>
-                     <div className="text-sm text-slate-400 uppercase tracking-wider mb-1">Current Price</div>
-                     <div className="text-3xl font-mono font-bold text-amber-400">${player.current_price || '0.0'}M</div>
+                     <div className="text-xs text-[var(--text-muted)] uppercase tracking-wider mb-1 font-semibold">Current Price</div>
+                     <div className="text-3xl font-mono font-black text-amber-400">${player.current_price || '0.0'}M</div>
                   </div>
                   {ownedPlayerIds.includes(player.id) ? (
                      <Link
                         href="/squads"
-                        className="player-detail-transfer-link bg-emerald-600/20 hover:bg-emerald-600/30 border border-emerald-500/40 text-emerald-300 hover:text-emerald-200 px-5 py-2 rounded-lg font-medium transition-all shadow-md flex items-center justify-center gap-2 text-sm"
+                        className="bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/40 text-emerald-300 hover:text-emerald-200 px-5 py-2.5 rounded-xl font-semibold transition-all shadow-md flex items-center justify-center gap-2 text-sm"
                      >
                         <ShieldCheck className="w-4 h-4" />
                         View In Squad
@@ -398,7 +398,7 @@ export default function PlayerDetailPage() {
                   ) : (
                      <Link
                         href={`/transfers?search=${encodeURIComponent(player.in_game_name || player.name)}`}
-                        className="player-detail-transfer-link bg-amber-500 hover:bg-amber-400 text-slate-950 font-semibold px-5 py-2 rounded-lg transition-all shadow-lg flex items-center justify-center gap-2 text-sm"
+                        className="bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-bold px-5 py-2.5 rounded-xl transition-all shadow-lg shadow-amber-500/20 hover:shadow-amber-500/30 hover:-translate-y-0.5 flex items-center justify-center gap-2 text-sm"
                      >
                         <ArrowRightLeft className="w-4 h-4" />
                         Transfer In
@@ -411,23 +411,23 @@ export default function PlayerDetailPage() {
 
       {/* Stats Grid */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-         <div className="bg-slate-800/40 border border-slate-700 rounded-xl p-5 text-center shadow-sm">
-            <div className="text-xs text-slate-400 uppercase mb-1">Season Pts</div>
-            <div className="text-2xl font-bold text-white font-mono">{player.total_season_points != null ? Number(player.total_season_points).toFixed(1) : '184.5'}</div>
+         <div className="bg-[var(--surface)] border border-[var(--border)] rounded-2xl p-5 text-center shadow-sm">
+            <div className="text-xs text-[var(--text-muted)] uppercase font-semibold tracking-wider mb-1">Season Pts</div>
+            <div className="text-2xl font-bold text-[var(--text-primary)] font-mono">{player.total_season_points != null ? Number(player.total_season_points).toFixed(1) : '184.5'}</div>
          </div>
-         <div className="bg-slate-800/40 border border-slate-700 rounded-xl p-5 text-center shadow-sm">
-            <div className="text-xs text-slate-400 uppercase mb-1">Last GW Pts</div>
+         <div className="bg-[var(--surface)] border border-[var(--border)] rounded-2xl p-5 text-center shadow-sm">
+            <div className="text-xs text-[var(--text-muted)] uppercase font-semibold tracking-wider mb-1">Last GW Pts</div>
             <div className="text-2xl font-bold text-emerald-400 font-mono">+{player.last_gw_points != null ? Number(player.last_gw_points).toFixed(2) : '24.50'}</div>
          </div>
-         <div className="bg-slate-800/40 border border-slate-700 rounded-xl p-5 text-center shadow-sm flex flex-col justify-between">
+         <div className="bg-[var(--surface)] border border-[var(--border)] rounded-2xl p-5 text-center shadow-sm flex flex-col justify-between">
             <div>
-              <div className="text-xs text-slate-400 uppercase mb-1">Selected By</div>
-              <div className="text-2xl font-bold text-white font-mono">
+              <div className="text-xs text-[var(--text-muted)] uppercase font-semibold tracking-wider mb-1">Selected By</div>
+              <div className="text-2xl font-bold text-[var(--text-primary)] font-mono">
                 {player.ownership_percentage != null ? `${Number(player.ownership_percentage).toFixed(1)}%` : '0.0%'}
               </div>
             </div>
             <div className="mt-2.5 flex flex-col items-center gap-1.5">
-              <div className="h-1.5 w-full max-w-28 overflow-hidden rounded-full bg-slate-700/80">
+              <div className="h-1.5 w-full max-w-28 overflow-hidden rounded-full bg-[var(--surface-raised)] border border-[var(--border)]">
                 <div
                   className={`h-full rounded-full transition-all duration-300 ${
                     Number(player.ownership_percentage ?? 0) >= 35
@@ -439,7 +439,7 @@ export default function PlayerDetailPage() {
                   style={{ width: `${Math.min(100, Math.max(4, Number(player.ownership_percentage ?? 0)))}%` }}
                 />
               </div>
-              <span className={`inline-flex rounded px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider border ${
+              <span className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider border ${
                 Number(player.ownership_percentage ?? 0) >= 35
                   ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/30'
                   : Number(player.ownership_percentage ?? 0) >= 15
@@ -454,50 +454,52 @@ export default function PlayerDetailPage() {
               </span>
             </div>
          </div>
-         <div className="bg-slate-800/40 border border-slate-700 rounded-xl p-5 text-center shadow-sm">
-            <div className="text-xs text-slate-400 uppercase mb-1">Form Rating</div>
+         <div className="bg-[var(--surface)] border border-[var(--border)] rounded-2xl p-5 text-center shadow-sm">
+            <div className="text-xs text-[var(--text-muted)] uppercase font-semibold tracking-wider mb-1">Form Rating</div>
             <div className="text-2xl font-bold font-mono">
                {analyticsLoading ? (
-                  <div className="animate-pulse h-8 w-14 bg-slate-700 rounded mx-auto" />
+                  <div className="animate-pulse h-8 w-14 bg-[var(--surface-raised)] rounded mx-auto" />
                ) : analytics ? (
                   <span className="text-amber-400">{analytics.projectedPoints.toFixed(1)}</span>
                ) : isPremium === false ? (
-                  <span className="text-slate-500 text-xl" title="Upgrade to Premium">🔒</span>
+                  <span className="text-[var(--text-muted)] text-xl" title="Upgrade to Premium">🔒</span>
                ) : (
-                  <span className="text-slate-500">—</span>
+                  <span className="text-[var(--text-muted)]">—</span>
                )}
             </div>
-            {analytics && <div className="text-[10px] text-teal-500 mt-1">proj. next GW</div>}
+            {analytics && <div className="text-[10px] text-cyan-400 font-medium mt-1">proj. next GW</div>}
          </div>
       </div>
 
       {/* Premium Analytics Panel */}
       {(analyticsLoading || analytics !== null || isPremium === false) && (
-        <div className="mb-8 rounded-xl border border-teal-500/20 bg-gradient-to-br from-slate-900 to-slate-800/60 overflow-hidden shadow-lg">
-          <div className="flex items-center gap-2.5 px-6 py-4 border-b border-slate-700/50 bg-slate-800/30">
-            <svg className="w-4 h-4 text-teal-400 shrink-0" fill="currentColor" viewBox="0 0 20 20">
-              <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-            </svg>
-            <span className="text-sm font-semibold text-white">Premium Analytics</span>
+        <div className="mb-8 rounded-2xl border border-cyan-500/30 bg-[var(--surface)] overflow-hidden shadow-xl">
+          <div className="flex items-center gap-2.5 px-6 py-4 border-b border-[var(--border)] bg-[var(--surface-raised)]/60">
+            <div className="w-6 h-6 rounded-lg bg-cyan-500/15 flex items-center justify-center text-cyan-400">
+              <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
+                <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+              </svg>
+            </div>
+            <span className="text-sm font-bold text-[var(--text-primary)]">Premium Analytics</span>
             {isPremium && !analyticsLoading && (
-              <span className="ml-auto text-xs text-teal-400 bg-teal-400/10 px-2 py-0.5 rounded-full border border-teal-400/20 font-medium">Active</span>
+              <span className="ml-auto text-xs text-cyan-400 bg-cyan-500/10 px-2.5 py-0.5 rounded-full border border-cyan-500/30 font-semibold">Active</span>
             )}
           </div>
 
           {analyticsLoading ? (
             <div className="p-6 grid grid-cols-2 md:grid-cols-4 gap-4 animate-pulse">
-              {[1,2,3,4].map((i) => <div key={i} className="h-20 rounded-lg bg-slate-700/50" />)}
+              {[1,2,3,4].map((i) => <div key={i} className="h-20 rounded-xl bg-[var(--surface-raised)]" />)}
             </div>
           ) : isPremium === false ? (
             <div className="p-8 text-center">
               <div className="text-4xl mb-3">🔒</div>
-              <h3 className="text-white font-semibold mb-1">Unlock Premium Analytics</h3>
-              <p className="text-sm text-slate-400 mb-5 max-w-sm mx-auto">
+              <h3 className="text-[var(--text-primary)] font-bold text-lg mb-1">Unlock Premium Analytics</h3>
+              <p className="text-sm text-[var(--text-secondary)] mb-5 max-w-sm mx-auto">
                 Get projected points, form trends, season averages, and price delta for every player — powered by your real match data.
               </p>
               <Link
                 href="/premium"
-                className="inline-flex items-center gap-2 bg-gradient-to-r from-teal-500 to-cyan-500 hover:from-teal-400 hover:to-cyan-400 text-slate-950 font-semibold px-5 py-2.5 rounded-lg text-sm transition-all shadow-lg shadow-teal-500/20"
+                className="inline-flex items-center gap-2 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white font-bold px-6 py-2.5 rounded-xl text-sm transition-all shadow-lg shadow-cyan-500/20"
               >
                 Upgrade to Premium
               </Link>
@@ -507,17 +509,17 @@ export default function PlayerDetailPage() {
               {analytics.form.length > 0 && (
                 <div className="mb-6">
                   <div className="flex items-center justify-between mb-2">
-                    <span className="text-xs text-slate-400 uppercase tracking-wider">Last {analytics.form.length} Gameweeks — Form</span>
-                    <span className="text-xs text-slate-500">{analytics.matches} match{analytics.matches !== 1 ? 'es' : ''} tracked</span>
+                    <span className="text-xs text-[var(--text-muted)] font-semibold uppercase tracking-wider">Last {analytics.form.length} Gameweeks — Form</span>
+                    <span className="text-xs text-[var(--text-secondary)] font-mono">{analytics.matches} match{analytics.matches !== 1 ? 'es' : ''} tracked</span>
                   </div>
-                  <div className="flex items-end gap-1.5 h-16 bg-slate-900/40 rounded-lg px-3 py-2">
+                  <div className="flex items-end gap-1.5 h-16 bg-[var(--surface-raised)] border border-[var(--border)] rounded-xl px-3 py-2">
                     {analytics.form.map((pts, i) => {
                       const max = Math.max(...analytics.form, 1);
                       const pct = Math.max(8, (pts / max) * 100);
                       return (
                         <div key={i} className="flex-1 flex flex-col items-center justify-end h-full" title={`${pts.toFixed(1)} pts`}>
                           <div
-                            className="w-full rounded-sm bg-gradient-to-t from-teal-600 to-cyan-400 transition-all"
+                            className="w-full rounded-sm bg-gradient-to-t from-cyan-600 to-cyan-400 transition-all"
                             style={{ height: `${pct}%` }}
                           />
                         </div>
@@ -527,23 +529,23 @@ export default function PlayerDetailPage() {
                 </div>
               )}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                <div className="rounded-lg bg-slate-900/40 border border-slate-700/50 p-4 text-center">
-                  <div className="text-xs text-slate-400 uppercase mb-1.5">Avg / Match</div>
-                  <div className="text-xl font-bold text-white font-mono">{analytics.averagePoints.toFixed(1)}</div>
+                <div className="rounded-xl bg-[var(--surface-raised)] border border-[var(--border)] p-4 text-center">
+                  <div className="text-xs text-[var(--text-muted)] font-semibold uppercase mb-1.5">Avg / Match</div>
+                  <div className="text-xl font-bold text-[var(--text-primary)] font-mono">{analytics.averagePoints.toFixed(1)}</div>
                 </div>
-                <div className="rounded-lg bg-slate-900/40 border border-slate-700/50 p-4 text-center">
-                  <div className="text-xs text-slate-400 uppercase mb-1.5">Season Best</div>
+                <div className="rounded-xl bg-[var(--surface-raised)] border border-[var(--border)] p-4 text-center">
+                  <div className="text-xs text-[var(--text-muted)] font-semibold uppercase mb-1.5">Season Best</div>
                   <div className="text-xl font-bold text-amber-400 font-mono">{analytics.bestPoints.toFixed(1)}</div>
                 </div>
-                <div className="rounded-lg bg-teal-500/5 border border-teal-500/25 p-4 text-center">
-                  <div className="text-xs text-teal-400 uppercase mb-1.5">Projected</div>
-                  <div className="text-xl font-bold text-teal-300 font-mono">{analytics.projectedPoints.toFixed(1)}</div>
+                <div className="rounded-xl bg-cyan-500/5 border border-cyan-500/25 p-4 text-center">
+                  <div className="text-xs text-cyan-400 font-semibold uppercase mb-1.5">Projected</div>
+                  <div className="text-xl font-bold text-cyan-300 font-mono">{analytics.projectedPoints.toFixed(1)}</div>
                 </div>
-                <div className="rounded-lg bg-slate-900/40 border border-slate-700/50 p-4 text-center">
-                  <div className="text-xs text-slate-400 uppercase mb-1.5">Price Δ</div>
+                <div className="rounded-xl bg-[var(--surface-raised)] border border-[var(--border)] p-4 text-center">
+                  <div className="text-xs text-[var(--text-muted)] font-semibold uppercase mb-1.5">Price Δ</div>
                   <div className={`text-xl font-bold font-mono ${
                     analytics.priceChange > 0 ? 'text-emerald-400' :
-                    analytics.priceChange < 0 ? 'text-rose-400' : 'text-slate-400'
+                    analytics.priceChange < 0 ? 'text-rose-400' : 'text-[var(--text-secondary)]'
                   }`}>
                     {analytics.priceChange > 0 ? '+' : ''}{analytics.priceChange.toFixed(2)}M
                   </div>
@@ -555,40 +557,40 @@ export default function PlayerDetailPage() {
       )}
 
       {/* Match History */}
-      <div className="bg-slate-800/40 border border-slate-700 rounded-xl overflow-hidden shadow-sm">
-         <div className="px-6 py-4 border-b border-slate-700 bg-slate-800/80 flex items-center justify-between">
+      <div className="bg-[var(--surface)] border border-[var(--border)] rounded-2xl overflow-hidden shadow-sm">
+         <div className="px-6 py-4 border-b border-[var(--border)] bg-[var(--surface-raised)]/60 flex items-center justify-between">
             <div>
-              <h3 className="font-semibold text-white">Recent Match History</h3>
-              <p className="text-xs text-slate-400 mt-0.5">Click any match to view the complete fantasy scoring breakdown & performance metrics</p>
+              <h3 className="font-bold text-[var(--text-primary)]">Recent Match History</h3>
+              <p className="text-xs text-[var(--text-muted)] mt-0.5">Click any match to view the complete fantasy scoring breakdown & performance metrics</p>
             </div>
-            <span className="text-xs text-amber-400 font-medium">Interactive</span>
+            <span className="text-xs text-cyan-400 font-semibold bg-cyan-500/10 px-2.5 py-0.5 rounded-full border border-cyan-500/30">Interactive</span>
          </div>
          <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
                <thead>
-                  <tr className="bg-slate-800/40 border-b border-slate-700">
-                     <th className="px-6 py-3 text-xs font-semibold text-slate-400 uppercase">GW</th>
-                     <th className="px-6 py-3 text-xs font-semibold text-slate-400 uppercase">Opponent</th>
-                     <th className="px-6 py-3 text-xs font-semibold text-slate-400 uppercase text-center">Result</th>
-                     <th className="px-6 py-3 text-xs font-semibold text-slate-400 uppercase text-right">Mins</th>
-                     <th className="px-6 py-3 text-xs font-semibold text-slate-400 uppercase text-right">K/D/A</th>
-                     <th className="px-6 py-3 text-xs font-semibold text-slate-400 uppercase text-right">Pts</th>
-                     <th className="px-6 py-3 text-xs font-semibold text-slate-400 uppercase text-center">Details</th>
+                  <tr className="bg-[var(--surface-raised)]/30 border-b border-[var(--border)]">
+                     <th className="px-6 py-3.5 text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wider">GW</th>
+                     <th className="px-6 py-3.5 text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wider">Opponent</th>
+                     <th className="px-6 py-3.5 text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wider text-center">Result</th>
+                     <th className="px-6 py-3.5 text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wider text-right">Mins</th>
+                     <th className="px-6 py-3.5 text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wider text-right">K/D/A</th>
+                     <th className="px-6 py-3.5 text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wider text-right">Pts</th>
+                     <th className="px-6 py-3.5 text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wider text-center">Details</th>
                   </tr>
                </thead>
-               <tbody className="divide-y divide-slate-700/50">
+               <tbody className="divide-y divide-[var(--border)]">
                   {matchHistory.map((m: MatchHistoryItem) => (
                     <tr
                       key={m.id}
                       onClick={() => setSelectedMatch(m)}
-                      className="hover:bg-slate-700/40 transition-colors cursor-pointer group"
+                      className="hover:bg-[var(--surface-raised)]/50 transition-colors cursor-pointer group"
                     >
-                       <td className="px-6 py-4 text-sm text-white font-medium">{m.gameweek}</td>
-                       <td className="px-6 py-4 text-sm text-slate-300 group-hover:text-amber-400 transition-colors font-semibold">
+                       <td className="px-6 py-4 text-sm text-[var(--text-primary)] font-medium font-mono">{m.gameweek}</td>
+                       <td className="px-6 py-4 text-sm text-[var(--text-secondary)] group-hover:text-cyan-400 transition-colors font-semibold">
                           {m.opponent}
                        </td>
                        <td className="px-6 py-4 text-center">
-                          <span className={`inline-block w-6 h-6 rounded text-xs font-bold leading-6 border ${
+                          <span className={`inline-block w-6 h-6 rounded-md text-xs font-bold leading-6 border ${
                             m.result === 'W'
                               ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30'
                               : 'bg-red-500/20 text-red-400 border-red-500/30'
@@ -596,11 +598,11 @@ export default function PlayerDetailPage() {
                             {m.result}
                           </span>
                        </td>
-                       <td className="px-6 py-4 text-sm text-slate-400 text-right font-mono">{m.duration}</td>
-                       <td className="px-6 py-4 text-sm text-slate-300 text-right font-mono font-medium">{m.kda}</td>
+                       <td className="px-6 py-4 text-sm text-[var(--text-muted)] text-right font-mono">{m.duration}</td>
+                       <td className="px-6 py-4 text-sm text-[var(--text-secondary)] text-right font-mono font-medium">{m.kda}</td>
                        <td className="px-6 py-4 text-sm font-bold text-amber-400 text-right font-mono">{m.pts}</td>
                        <td className="px-6 py-4 text-center">
-                          <span className="text-xs text-amber-400 group-hover:underline">View →</span>
+                          <span className="text-xs text-cyan-400 group-hover:underline font-semibold">View →</span>
                        </td>
                     </tr>
                   ))}
@@ -612,15 +614,15 @@ export default function PlayerDetailPage() {
       {/* Match Details Modal */}
       {selectedMatch && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="player-match-modal relative max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-slate-700 bg-slate-900 shadow-2xl p-6">
+          <div className="player-match-modal relative max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-3xl border border-[var(--border)] bg-[var(--surface)] shadow-2xl p-6">
             {/* Header */}
-            <div className="border-b border-slate-800 pb-4">
+            <div className="border-b border-[var(--border)] pb-4">
               <div>
-                <div className="flex items-center gap-2 mb-1">
-                  <span className="rounded bg-amber-500/20 px-2 py-0.5 text-xs font-bold uppercase text-amber-400 border border-amber-500/30">
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="rounded-full bg-amber-500/15 px-2.5 py-0.5 text-xs font-bold uppercase text-amber-400 border border-amber-500/30">
                     {selectedMatch.gameweek}
                   </span>
-                  <span className={`rounded px-2 py-0.5 text-xs font-bold uppercase border ${
+                  <span className={`rounded-full px-2.5 py-0.5 text-xs font-bold uppercase border ${
                     selectedMatch.result === 'W'
                       ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30'
                       : 'bg-red-500/20 text-red-400 border-red-500/30'
@@ -628,57 +630,57 @@ export default function PlayerDetailPage() {
                     {selectedMatch.result === 'W' ? 'Victory' : 'Defeat'}
                   </span>
                 </div>
-                <h2 className="text-2xl font-bold text-white">{player.in_game_name} {selectedMatch.opponent}</h2>
-                <p className="text-xs text-slate-400 mt-0.5">Match Duration: {selectedMatch.duration} mins</p>
+                <h2 className="text-2xl font-bold text-[var(--text-primary)]">{player.in_game_name} {selectedMatch.opponent}</h2>
+                <p className="text-xs text-[var(--text-muted)] mt-1 font-mono">Match Duration: {selectedMatch.duration} mins</p>
               </div>
             </div>
 
             {/* Total Points Highlight */}
-            <div className="my-6 rounded-xl border border-slate-800 bg-linear-to-r from-amber-500/10 via-slate-800/50 to-slate-800/50 p-4 flex items-center justify-between">
+            <div className="my-6 rounded-2xl border border-[var(--border)] bg-gradient-to-r from-amber-500/10 via-[var(--surface-raised)] to-[var(--surface-raised)] p-5 flex items-center justify-between">
               <div>
-                <div className="player-match-label text-xs text-slate-400 uppercase tracking-wider">Fantasy Points Earned</div>
-                <div className="player-match-points text-3xl font-mono font-bold text-amber-400 mt-1">{selectedMatch.pts} <span className="text-base text-amber-300 font-sans">pts</span></div>
+                <div className="text-xs text-[var(--text-muted)] uppercase tracking-wider font-semibold">Fantasy Points Earned</div>
+                <div className="text-3xl font-mono font-black text-amber-400 mt-1">{selectedMatch.pts} <span className="text-base text-amber-300 font-sans font-semibold">pts</span></div>
               </div>
               <div className="text-right">
-                <div className="player-match-kda-label text-xs text-slate-400 uppercase tracking-wider">Combat K / D / A</div>
-                <div className="player-match-kda text-xl font-mono font-bold text-white mt-1">{selectedMatch.kda}</div>
+                <div className="text-xs text-[var(--text-muted)] uppercase tracking-wider font-semibold">Combat K / D / A</div>
+                <div className="text-xl font-mono font-bold text-[var(--text-primary)] mt-1">{selectedMatch.kda}</div>
               </div>
             </div>
 
             {/* In-Game Combat & Economy Stats Grid */}
             <div className="mb-6">
-              <h3 className="player-match-section-heading text-sm font-semibold text-white uppercase tracking-wider mb-3">In-Game Performance Stats</h3>
+              <h3 className="text-xs font-bold text-[var(--text-secondary)] uppercase tracking-wider mb-3">In-Game Performance Stats</h3>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                <div className="rounded-lg border border-slate-800 bg-slate-950/60 p-3 text-center">
-                  <div className="player-match-stat-label text-[11px] text-slate-400 uppercase">GPM / XPM</div>
-                  <div className="player-match-stat-value text-base font-bold text-white font-mono mt-1">{selectedMatch.gpm} / {selectedMatch.xpm}</div>
+                <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-raised)] p-3 text-center">
+                  <div className="text-[11px] text-[var(--text-muted)] uppercase font-semibold">GPM / XPM</div>
+                  <div className="text-base font-bold text-[var(--text-primary)] font-mono mt-1">{selectedMatch.gpm} / {selectedMatch.xpm}</div>
                 </div>
-                <div className="rounded-lg border border-slate-800 bg-slate-950/60 p-3 text-center">
-                  <div className="player-match-stat-label text-[11px] text-slate-400 uppercase">Last Hits / Denies</div>
-                  <div className="player-match-stat-value text-base font-bold text-white font-mono mt-1">{selectedMatch.last_hits} / {selectedMatch.denies}</div>
+                <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-raised)] p-3 text-center">
+                  <div className="text-[11px] text-[var(--text-muted)] uppercase font-semibold">Last Hits / Denies</div>
+                  <div className="text-base font-bold text-[var(--text-primary)] font-mono mt-1">{selectedMatch.last_hits} / {selectedMatch.denies}</div>
                 </div>
-                <div className="rounded-lg border border-slate-800 bg-slate-950/60 p-3 text-center">
-                  <div className="player-match-stat-label text-[11px] text-slate-400 uppercase">Hero Damage</div>
-                  <div className="player-match-stat-value text-base font-bold text-amber-400 font-mono mt-1">{Number(selectedMatch.hero_damage).toLocaleString()}</div>
+                <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-raised)] p-3 text-center">
+                  <div className="text-[11px] text-[var(--text-muted)] uppercase font-semibold">Hero Damage</div>
+                  <div className="text-base font-bold text-amber-400 font-mono mt-1">{Number(selectedMatch.hero_damage).toLocaleString()}</div>
                 </div>
-                <div className="rounded-lg border border-slate-800 bg-slate-950/60 p-3 text-center">
-                  <div className="player-match-stat-label text-[11px] text-slate-400 uppercase">Tower / Roshan</div>
-                  <div className="player-match-stat-value text-base font-bold text-white font-mono mt-1">{selectedMatch.tower_participation} / {selectedMatch.roshan_participation}</div>
+                <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-raised)] p-3 text-center">
+                  <div className="text-[11px] text-[var(--text-muted)] uppercase font-semibold">Tower / Roshan</div>
+                  <div className="text-base font-bold text-[var(--text-primary)] font-mono mt-1">{selectedMatch.tower_participation} / {selectedMatch.roshan_participation}</div>
                 </div>
               </div>
 
               <div className="mt-3 grid grid-cols-2 sm:grid-cols-3 gap-3">
-                <div className="rounded-lg border border-slate-800 bg-slate-950/60 p-3 text-center">
-                  <div className="player-match-stat-label text-[11px] text-slate-400 uppercase">Building Damage</div>
-                  <div className="player-match-stat-value text-sm font-bold text-white font-mono mt-1">{Number(selectedMatch.building_damage).toLocaleString()}</div>
+                <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-raised)] p-3 text-center">
+                  <div className="text-[11px] text-[var(--text-muted)] uppercase font-semibold">Building Damage</div>
+                  <div className="text-sm font-bold text-[var(--text-primary)] font-mono mt-1">{Number(selectedMatch.building_damage).toLocaleString()}</div>
                 </div>
-                <div className="rounded-lg border border-slate-800 bg-slate-950/60 p-3 text-center">
-                  <div className="player-match-stat-label text-[11px] text-slate-400 uppercase">Healing Provided</div>
-                  <div className="player-match-stat-value text-sm font-bold text-emerald-400 font-mono mt-1">{Number(selectedMatch.healing).toLocaleString()}</div>
+                <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-raised)] p-3 text-center">
+                  <div className="text-[11px] text-[var(--text-muted)] uppercase font-semibold">Healing Provided</div>
+                  <div className="text-sm font-bold text-emerald-400 font-mono mt-1">{Number(selectedMatch.healing).toLocaleString()}</div>
                 </div>
-                <div className="rounded-lg border border-slate-800 bg-slate-950/60 p-3 text-center col-span-2 sm:col-span-1">
-                  <div className="player-match-stat-label text-[11px] text-slate-400 uppercase">Wards (Placed / Cut)</div>
-                  <div className="player-match-stat-value text-sm font-bold text-white font-mono mt-1">{selectedMatch.wards_placed} / {selectedMatch.wards_destroyed}</div>
+                <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-raised)] p-3 text-center col-span-2 sm:col-span-1">
+                  <div className="text-[11px] text-[var(--text-muted)] uppercase font-semibold">Wards (Placed / Cut)</div>
+                  <div className="text-sm font-bold text-[var(--text-primary)] font-mono mt-1">{selectedMatch.wards_placed} / {selectedMatch.wards_destroyed}</div>
                 </div>
               </div>
             </div>
@@ -686,30 +688,30 @@ export default function PlayerDetailPage() {
             {/* Fantasy Point Breakdown */}
             {selectedMatch.breakdown && (
               <div className="mb-6">
-                <h3 className="player-match-section-heading text-sm font-semibold text-white uppercase tracking-wider mb-3">Fantasy Scoring Breakdown</h3>
-                <div className="divide-y divide-slate-800 rounded-lg border border-slate-800 bg-slate-950/40 text-xs">
-                  <div className="flex items-center justify-between p-3">
-                    <span className="player-match-breakdown-label text-slate-300">Combat Points (Kills, Deaths, Assists)</span>
-                    <span className="player-match-breakdown-value font-mono font-bold text-white">+{selectedMatch.breakdown.combat_points ?? 0}</span>
+                <h3 className="text-xs font-bold text-[var(--text-secondary)] uppercase tracking-wider mb-3">Fantasy Scoring Breakdown</h3>
+                <div className="divide-y divide-[var(--border)] rounded-2xl border border-[var(--border)] bg-[var(--surface-raised)]/40 text-xs overflow-hidden">
+                  <div className="flex items-center justify-between p-3.5">
+                    <span className="text-[var(--text-secondary)]">Combat Points (Kills, Deaths, Assists)</span>
+                    <span className="font-mono font-bold text-[var(--text-primary)]">+{selectedMatch.breakdown.combat_points ?? 0}</span>
                   </div>
-                  <div className="flex items-center justify-between p-3">
-                    <span className="player-match-breakdown-label text-slate-300">Economy Points (Normalized GPM/XPM vs Duration)</span>
-                    <span className="player-match-breakdown-value font-mono font-bold text-white">+{selectedMatch.breakdown.economy_points ?? 0}</span>
+                  <div className="flex items-center justify-between p-3.5">
+                    <span className="text-[var(--text-secondary)]">Economy Points (Normalized GPM/XPM vs Duration)</span>
+                    <span className="font-mono font-bold text-[var(--text-primary)]">+{selectedMatch.breakdown.economy_points ?? 0}</span>
                   </div>
-                  <div className="flex items-center justify-between p-3">
-                    <span className="player-match-breakdown-label text-slate-300">Objective Points (Towers, Roshan & Building Damage)</span>
-                    <span className="player-match-breakdown-value font-mono font-bold text-white">+{selectedMatch.breakdown.objective_points ?? 0}</span>
+                  <div className="flex items-center justify-between p-3.5">
+                    <span className="text-[var(--text-secondary)]">Objective Points (Towers, Roshan & Building Damage)</span>
+                    <span className="font-mono font-bold text-[var(--text-primary)]">+{selectedMatch.breakdown.objective_points ?? 0}</span>
                   </div>
-                  <div className="flex items-center justify-between p-3">
-                    <span className="player-match-breakdown-label text-slate-300">Teamfight & Support Points (Healing, Warding, Fight %)</span>
-                    <span className="player-match-breakdown-value font-mono font-bold text-white">+{selectedMatch.breakdown.teamfight_points ?? 0}</span>
+                  <div className="flex items-center justify-between p-3.5">
+                    <span className="text-[var(--text-secondary)]">Teamfight & Support Points (Healing, Warding, Fight %)</span>
+                    <span className="font-mono font-bold text-[var(--text-primary)]">+{selectedMatch.breakdown.teamfight_points ?? 0}</span>
                   </div>
-                  <div className="flex items-center justify-between p-3">
-                    <span className="player-match-breakdown-label text-slate-300">Match Victory Bonus</span>
-                    <span className="player-match-breakdown-value font-mono font-bold text-emerald-400">+{selectedMatch.breakdown.win_points ?? 0}</span>
+                  <div className="flex items-center justify-between p-3.5">
+                    <span className="text-[var(--text-secondary)]">Match Victory Bonus</span>
+                    <span className="font-mono font-bold text-emerald-400">+{selectedMatch.breakdown.win_points ?? 0}</span>
                   </div>
-                  <div className="flex items-center justify-between p-3 bg-slate-900/80 font-bold text-sm">
-                    <span className="text-white">Total Calculated Points</span>
+                  <div className="flex items-center justify-between p-3.5 bg-[var(--surface-raised)] font-bold text-sm">
+                    <span className="text-[var(--text-primary)]">Total Calculated Points</span>
                     <span className="font-mono text-amber-400">={selectedMatch.pts} pts</span>
                   </div>
                 </div>
@@ -717,11 +719,11 @@ export default function PlayerDetailPage() {
             )}
 
             {/* Modal Footer */}
-            <div className="flex justify-end border-t border-slate-800 pt-4">
+            <div className="flex justify-end border-t border-[var(--border)] pt-4">
               <button
                 type="button"
                 onClick={() => setSelectedMatch(null)}
-                className="rounded-lg bg-slate-800 px-5 py-2 text-sm font-semibold text-white hover:bg-slate-700 transition-colors"
+                className="rounded-xl bg-[var(--surface-raised)] hover:bg-[var(--surface-raised)]/80 border border-[var(--border)] px-6 py-2.5 text-sm font-semibold text-[var(--text-primary)] transition-colors shadow-xs"
               >
                 Close
               </button>

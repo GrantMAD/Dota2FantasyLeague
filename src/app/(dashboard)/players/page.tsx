@@ -117,10 +117,10 @@ function TeamDropdown({ teams, selectedId, onChange, brokenTeamLogos, onTeamLogo
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
-        className={`flex items-center gap-2.5 w-full px-3.5 py-2.5 rounded-lg border text-sm font-medium transition-all focus:outline-none focus:ring-1 focus:ring-amber-500/50 ${
+        className={`flex items-center gap-2.5 w-full px-3.5 py-2.5 rounded-xl border text-sm font-semibold transition-all focus:outline-hidden focus:ring-1 focus:ring-amber-500/50 ${
           selectedId
-            ? 'border-amber-500/50 bg-amber-500/10 text-amber-300'
-            : 'border-slate-600 bg-slate-900 text-slate-300 hover:border-slate-500 hover:text-white'
+            ? 'border-amber-500/50 bg-amber-500/10 text-amber-600 dark:text-amber-300'
+            : 'border-[var(--border)] bg-[var(--surface-raised)] text-[var(--text-secondary)] hover:border-amber-500/40 hover:text-[var(--text-primary)]'
         }`}
       >
         {selected ? (
@@ -136,7 +136,7 @@ function TeamDropdown({ teams, selectedId, onChange, brokenTeamLogos, onTeamLogo
                 onError={() => onTeamLogoError(selected.id)}
               />
             ) : (
-              <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-sm bg-slate-700 text-[7px] font-bold text-slate-300">
+              <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-sm bg-[var(--surface-muted)] text-[7px] font-bold text-[var(--text-secondary)]">
                 {selected.name.slice(0, 2).toUpperCase()}
               </span>
             )}
@@ -144,7 +144,7 @@ function TeamDropdown({ teams, selectedId, onChange, brokenTeamLogos, onTeamLogo
           </>
         ) : (
           <>
-            <Shield className="w-4 h-4 shrink-0 text-slate-400" />
+            <Shield className="w-4 h-4 shrink-0 text-[var(--text-muted)]" />
             <span>All Teams</span>
           </>
         )}
@@ -152,26 +152,26 @@ function TeamDropdown({ teams, selectedId, onChange, brokenTeamLogos, onTeamLogo
       </button>
 
       {open && (
-        <div className="absolute left-0 top-full mt-1.5 z-50 w-64 max-h-72 overflow-y-auto rounded-xl border border-slate-700 bg-slate-900 shadow-2xl shadow-black/50">
+        <div className="absolute left-0 top-full mt-1.5 z-50 w-64 max-h-72 overflow-y-auto rounded-xl border border-[var(--border)] bg-[var(--surface)] shadow-2xl backdrop-blur-md">
           {/* All option */}
           <button
             type="button"
             onClick={() => { onChange(null); setOpen(false); }}
-            className={`flex items-center gap-2.5 w-full px-3.5 py-2.5 text-sm transition-colors hover:bg-slate-800 ${
-              !selectedId ? 'text-amber-400 font-semibold' : 'text-slate-300'
+            className={`flex items-center gap-2.5 w-full px-3.5 py-2.5 text-sm transition-colors hover:bg-[var(--surface-raised)] ${
+              !selectedId ? 'text-amber-600 dark:text-amber-400 font-bold' : 'text-[var(--text-secondary)]'
             }`}
           >
-            <Shield className="w-4 h-4 text-slate-500" />
+            <Shield className="w-4 h-4 text-[var(--text-muted)]" />
             All Teams
           </button>
-          <div className="border-t border-slate-800 my-0.5" />
+          <div className="border-t border-[var(--border)] my-0.5" />
           {teams.map((team) => (
             <button
               key={team.id}
               type="button"
               onClick={() => { onChange(team.id); setOpen(false); }}
-              className={`flex items-center gap-2.5 w-full px-3.5 py-2.5 text-sm transition-colors hover:bg-slate-800 ${
-                selectedId === team.id ? 'text-amber-400 font-semibold' : 'text-slate-300 hover:text-white'
+              className={`flex items-center gap-2.5 w-full px-3.5 py-2.5 text-sm transition-colors hover:bg-[var(--surface-raised)] ${
+                selectedId === team.id ? 'text-amber-600 dark:text-amber-400 font-bold' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
               }`}
             >
               {team.logo_url && !brokenTeamLogos.has(team.id) ? (
@@ -393,35 +393,44 @@ export default function PlayersPage() {
   };
 
   return (
-    <div className={`max-w-7xl mx-auto px-4 pt-12 ${comparePlayerIds.length > 0 ? 'pb-36' : 'pb-12'}`}>
+    <div className={`max-w-7xl mx-auto px-4 pt-10 ${comparePlayerIds.length > 0 ? 'pb-36' : 'pb-12'}`}>
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-2">
-        <h1 className="text-3xl font-bold text-white flex items-center gap-3">
-          <Users className="w-8 h-8 text-amber-400 shrink-0" />
+        <h1 className="text-3xl font-extrabold text-[var(--text-primary)] flex items-center gap-3">
+          <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-amber-500/30 bg-amber-500/10 text-amber-500 shadow-xs">
+            <Users className="w-6 h-6 shrink-0" />
+          </div>
           <span>Professional Players</span>
         </h1>
         <DataFreshnessBadge page="players" />
       </div>
-      <p className="text-slate-400 mb-8">Browse and scout all professional Dota 2 players to build your squad.</p>
+      <p className="text-[var(--text-secondary)] mb-8 text-sm sm:text-base">
+        Browse, scout, and compare all professional Dota 2 athletes across global teams to build your ultimate fantasy squad.
+      </p>
 
       {comparePlayerIds.length > 0 && (
         <section
           aria-label="Player comparison selection"
           aria-live="polite"
-          className="fixed inset-x-4 bottom-4 z-40 mx-auto flex max-w-7xl flex-col gap-3 rounded-xl border border-cyan-500/30 bg-slate-950/95 p-4 shadow-2xl shadow-black/40 backdrop-blur sm:flex-row sm:items-center sm:justify-between"
+          className="fixed inset-x-4 bottom-4 z-40 mx-auto flex max-w-7xl flex-col gap-3 rounded-2xl border border-cyan-500/40 bg-[var(--surface)] p-4.5 shadow-2xl shadow-cyan-500/10 backdrop-blur-md sm:flex-row sm:items-center sm:justify-between"
         >
-          <div>
-            <p className="text-sm font-semibold text-white">
-              {comparePlayerIds.length} of 4 players selected
-            </p>
-            <p className="mt-1 text-xs text-slate-400">
-              Select at least two players to compare their form, value, availability, and upcoming matches.
-            </p>
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-cyan-500/15 text-cyan-600 dark:text-cyan-400">
+              <ArrowLeftRight className="h-5 w-5" />
+            </div>
+            <div>
+              <p className="text-sm font-bold text-[var(--text-primary)]">
+                {comparePlayerIds.length} of 4 players selected
+              </p>
+              <p className="mt-0.5 text-xs text-[var(--text-secondary)]">
+                Select at least two players to compare form, market valuation, availability, and upcoming fixtures.
+              </p>
+            </div>
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-2.5">
             <button
               type="button"
               onClick={() => setComparePlayerIds([])}
-              className="rounded-lg border border-slate-600 px-3 py-2 text-sm text-slate-300 transition-colors hover:bg-slate-800"
+              className="rounded-xl border border-[var(--border)] bg-[var(--surface-raised)] px-4 py-2 text-xs font-semibold text-[var(--text-secondary)] transition-colors hover:text-[var(--text-primary)]"
             >
               Clear
             </button>
@@ -429,38 +438,38 @@ export default function PlayersPage() {
               type="button"
               onClick={openComparison}
               disabled={comparePlayerIds.length < 2}
-              className="inline-flex items-center justify-center gap-2 rounded-lg bg-cyan-500 px-4 py-2 text-sm font-semibold text-slate-950 transition-colors hover:bg-cyan-400 disabled:cursor-not-allowed disabled:opacity-50"
+              className="inline-flex items-center justify-center gap-2 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white px-5 py-2 text-xs font-bold transition-all shadow-md shadow-cyan-500/20 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              <ArrowLeftRight className="h-4 w-4" />
+              <ArrowLeftRight className="h-3.5 w-3.5" />
               Compare {comparePlayerIds.length} players
             </button>
           </div>
         </section>
       )}
 
-      <div className="bg-slate-800/50 border border-slate-700 rounded-xl overflow-hidden">
+      <div className="bg-[var(--surface)] border border-[var(--border)] rounded-2xl overflow-hidden shadow-xs">
 
         {/* ── Filter Panel ──────────────────────────────────────────────────── */}
-        <div className="p-5 border-b border-slate-700 bg-slate-800/80 space-y-4">
+        <div className="p-5 border-b border-[var(--border)] bg-[var(--surface-raised)]/60 space-y-4">
 
           {/* Row 1: Search + Team dropdown */}
           <div className="flex flex-col sm:flex-row gap-3">
             {/* Search */}
             <div className="relative grow">
-              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--text-muted)] pointer-events-none" />
               <input
                 data-tour="players-search"
                 type="text"
                 placeholder="Search players by name..."
                 value={search}
                 onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-                className="w-full pl-10 pr-4 py-2.5 bg-slate-900 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500/20 transition-all text-sm"
+                className="w-full pl-10 pr-4 py-2.5 bg-[var(--surface)] border border-[var(--border)] rounded-xl text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:outline-hidden focus:border-amber-500 focus:ring-1 focus:ring-amber-500/20 transition-all text-sm"
               />
               {search && (
                 <button
                   type="button"
                   onClick={() => { setSearch(''); setPage(1); }}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white transition-colors"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors"
                 >
                   <X className="w-4 h-4" />
                 </button>
@@ -482,7 +491,7 @@ export default function PlayersPage() {
           {/* Row 2: Role pills + Squad toggle + Clear */}
           <div data-tour="players-filters" className="flex flex-wrap items-center gap-2">
             {/* Role label */}
-            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider mr-1 shrink-0">Role:</span>
+            <span className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider mr-1 shrink-0">Role:</span>
 
             {/* Role pill buttons */}
             {ROLES.map(({ value, label, icon: Icon, color, bg, border }) => {
@@ -494,18 +503,18 @@ export default function PlayersPage() {
                   onClick={() => { setRoleFilter(active ? '' : value); setPage(1); }}
                   className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-semibold transition-all ${
                     active
-                      ? `${color} ${bg} ${border}`
-                      : 'border-slate-700 bg-slate-900/70 text-slate-400 hover:text-white hover:border-slate-500'
+                      ? `${color} ${bg} ${border} shadow-xs`
+                      : 'border-[var(--border)] bg-[var(--surface)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:border-slate-500'
                   }`}
                 >
-                  <Icon className={`w-3 h-3 ${active ? color : 'text-slate-500'}`} />
+                  <Icon className={`w-3 h-3 ${active ? color : 'text-[var(--text-muted)]'}`} />
                   {label}
                 </button>
               );
             })}
 
             {/* Divider */}
-            <div className="h-5 w-px bg-slate-700 mx-1 shrink-0" />
+            <div className="h-5 w-px bg-[var(--border)] mx-1 shrink-0" />
 
             {/* My Squad toggle — only shown when user has a squad */}
             {ownedPlayerIds.length > 0 && (
@@ -513,13 +522,13 @@ export default function PlayersPage() {
                 data-tour="players-squad-pin"
                 type="button"
                 onClick={() => setPinOwnedFirst((v) => !v)}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-semibold transition-all ${
+                className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-full border text-xs font-bold transition-all ${
                   pinOwnedFirst
-                    ? 'border-emerald-500/50 bg-emerald-500/15 text-emerald-400'
-                    : 'border-slate-700 bg-slate-900/70 text-slate-400 hover:text-white hover:border-slate-500'
+                    ? 'border-emerald-500/50 bg-emerald-500/15 text-emerald-600 dark:text-emerald-400'
+                    : 'border-[var(--border)] bg-[var(--surface)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:border-emerald-500/30'
                 }`}
               >
-                <ShieldCheck className={`w-3 h-3 ${pinOwnedFirst ? 'text-emerald-400' : 'text-slate-500'}`} />
+                <ShieldCheck className={`w-3 h-3 ${pinOwnedFirst ? 'text-emerald-600 dark:text-emerald-400' : 'text-[var(--text-muted)]'}`} />
                 My Squad at Top
               </button>
             )}
@@ -529,12 +538,12 @@ export default function PlayersPage() {
               <button
                 type="button"
                 onClick={clearAllFilters}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-slate-600 bg-slate-900/70 text-xs font-semibold text-slate-400 hover:border-red-500/50 hover:text-red-400 transition-all ml-auto"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-[var(--border)] bg-[var(--surface)] text-xs font-semibold text-[var(--text-secondary)] hover:border-red-500/50 hover:text-red-500 transition-all ml-auto"
               >
                 <X className="w-3 h-3" />
                 Clear filters
                 {activeFilterCount > 0 && (
-                  <span className="flex items-center justify-center w-4 h-4 rounded-full bg-amber-500/20 text-amber-400 text-[10px] font-bold">
+                  <span className="flex items-center justify-center w-4 h-4 rounded-full bg-amber-500/20 text-amber-600 dark:text-amber-400 text-[10px] font-bold">
                     {activeFilterCount}
                   </span>
                 )}
@@ -548,12 +557,12 @@ export default function PlayersPage() {
               {teamIdFilter && (() => {
                 const t = teams.find((t) => t.id === teamIdFilter);
                 return t ? (
-                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs font-medium">
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-600 dark:text-amber-300 text-xs font-medium">
                     {t.logo_url && !brokenTeamLogos.has(t.id) ? (
                       <Image src={t.logo_url} alt={t.name} width={12} height={12} unoptimized className="h-3 w-3 rounded-sm object-contain" onError={() => handleTeamLogoError(t.id)} />
                     ) : null}
                     {t.name}
-                    <button type="button" onClick={() => { setTeamIdFilter(null); setPage(1); }} className="hover:text-white transition-colors">
+                    <button type="button" onClick={() => { setTeamIdFilter(null); setPage(1); }} className="hover:text-[var(--text-primary)] transition-colors">
                       <X className="w-3 h-3" />
                     </button>
                   </span>
@@ -565,7 +574,7 @@ export default function PlayersPage() {
                   <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-xs font-medium ${r.color} ${r.bg} ${r.border}`}>
                     <r.icon className={`w-3 h-3 ${r.color}`} />
                     {r.label}
-                    <button type="button" onClick={() => { setRoleFilter(''); setPage(1); }} className="hover:text-white transition-colors">
+                    <button type="button" onClick={() => { setRoleFilter(''); setPage(1); }} className="hover:text-[var(--text-primary)] transition-colors">
                       <X className="w-3 h-3" />
                     </button>
                   </span>
@@ -574,9 +583,9 @@ export default function PlayersPage() {
             </div>
           )}
           {/* Row 3: Sort Controls Bar */}
-          <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-slate-700/60">
+          <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-[var(--border)]">
             <div className="flex items-center gap-2">
-              <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">Sort by:</span>
+              <span className="text-xs font-bold uppercase tracking-wider text-[var(--text-muted)]">Sort by:</span>
               <div className="flex flex-wrap items-center gap-1.5">
                 {(
                   [
@@ -601,17 +610,17 @@ export default function PlayersPage() {
                       }}
                       className={`flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-semibold transition-all ${
                         isActive
-                          ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40 shadow-xs'
-                          : 'bg-slate-900/60 text-slate-400 hover:text-slate-200 hover:bg-slate-700/60 border border-slate-700/60'
+                          ? 'bg-amber-500/20 text-amber-600 dark:text-amber-300 border border-amber-500/40 shadow-xs'
+                          : 'bg-[var(--surface)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] border border-[var(--border)]'
                       }`}
                       aria-pressed={isActive}
                     >
                       <span>{option.label}</span>
                       {isActive && (
                         sortDesc ? (
-                          <ArrowDown className="h-3 w-3 text-amber-400" />
+                          <ArrowDown className="h-3 w-3 text-amber-500" />
                         ) : (
-                          <ArrowUp className="h-3 w-3 text-amber-400" />
+                          <ArrowUp className="h-3 w-3 text-amber-500" />
                         )
                       )}
                     </button>
@@ -620,8 +629,8 @@ export default function PlayersPage() {
               </div>
             </div>
 
-            <div className="text-xs text-slate-400">
-              Sorted by <strong className="text-white capitalize">{sortBy}</strong> ({sortDesc ? 'Descending' : 'Ascending'})
+            <div className="text-xs text-[var(--text-muted)]">
+              Sorted by <strong className="text-[var(--text-primary)] capitalize">{sortBy}</strong> ({sortDesc ? 'Descending' : 'Ascending'})
             </div>
           </div>
         </div>
@@ -630,9 +639,9 @@ export default function PlayersPage() {
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
-              <tr className="bg-slate-800/50 border-b border-slate-700 text-slate-400 text-sm">
-                <th className="px-4 py-4 font-medium whitespace-nowrap">Compare</th>
-                <th className="px-6 py-4 font-medium whitespace-nowrap">
+              <tr className="bg-[var(--surface-raised)] border-b border-[var(--border)] text-[var(--text-muted)] text-xs uppercase tracking-wider">
+                <th className="px-4 py-3.5 font-bold whitespace-nowrap">Compare</th>
+                <th className="px-6 py-3.5 font-bold whitespace-nowrap">
                   <button
                     type="button"
                     onClick={() => {
@@ -640,17 +649,17 @@ export default function PlayersPage() {
                       else { setSortBy('name'); setSortDesc(false); }
                       setPage(1);
                     }}
-                    className="inline-flex items-center gap-1 hover:text-amber-400 transition-colors"
+                    className="inline-flex items-center gap-1 hover:text-amber-500 transition-colors"
                   >
                     <span>Player</span>
                     {sortBy === 'name' && (
-                      sortDesc ? <ArrowDown className="h-3.5 w-3.5 text-amber-400" /> : <ArrowUp className="h-3.5 w-3.5 text-amber-400" />
+                      sortDesc ? <ArrowDown className="h-3.5 w-3.5 text-amber-500" /> : <ArrowUp className="h-3.5 w-3.5 text-amber-500" />
                     )}
                   </button>
                 </th>
-                <th className="px-6 py-4 font-medium whitespace-nowrap">Team</th>
-                <th className="px-6 py-4 font-medium whitespace-nowrap">Role</th>
-                <th className="px-6 py-4 font-medium whitespace-nowrap text-right">
+                <th className="px-6 py-3.5 font-bold whitespace-nowrap">Team</th>
+                <th className="px-6 py-3.5 font-bold whitespace-nowrap">Role</th>
+                <th className="px-6 py-3.5 font-bold whitespace-nowrap text-right">
                   <button
                     type="button"
                     onClick={() => {
@@ -658,15 +667,15 @@ export default function PlayersPage() {
                       else { setSortBy('price'); setSortDesc(true); }
                       setPage(1);
                     }}
-                    className="inline-flex items-center gap-1 hover:text-amber-400 transition-colors ml-auto"
+                    className="inline-flex items-center gap-1 hover:text-amber-500 transition-colors ml-auto"
                   >
                     <span>Price</span>
                     {sortBy === 'price' && (
-                      sortDesc ? <ArrowDown className="h-3.5 w-3.5 text-amber-400" /> : <ArrowUp className="h-3.5 w-3.5 text-amber-400" />
+                      sortDesc ? <ArrowDown className="h-3.5 w-3.5 text-amber-500" /> : <ArrowUp className="h-3.5 w-3.5 text-amber-500" />
                     )}
                   </button>
                 </th>
-                <th className="px-6 py-4 font-medium whitespace-nowrap text-right">
+                <th className="px-6 py-3.5 font-bold whitespace-nowrap text-right">
                   <button
                     type="button"
                     onClick={() => {
@@ -674,49 +683,49 @@ export default function PlayersPage() {
                       else { setSortBy('ownership'); setSortDesc(true); }
                       setPage(1);
                     }}
-                    className="inline-flex items-center gap-1 hover:text-amber-400 transition-colors ml-auto"
+                    className="inline-flex items-center gap-1 hover:text-amber-500 transition-colors ml-auto"
                   >
                     <span>Ownership</span>
                     {sortBy === 'ownership' && (
-                      sortDesc ? <ArrowDown className="h-3.5 w-3.5 text-amber-400" /> : <ArrowUp className="h-3.5 w-3.5 text-amber-400" />
+                      sortDesc ? <ArrowDown className="h-3.5 w-3.5 text-amber-500" /> : <ArrowUp className="h-3.5 w-3.5 text-amber-500" />
                     )}
                   </button>
                 </th>
-                <th className="px-6 py-4 font-medium whitespace-nowrap text-center">Status</th>
-                <th className="px-6 py-4 font-medium whitespace-nowrap text-right">Action</th>
+                <th className="px-6 py-3.5 font-bold whitespace-nowrap text-center">Status</th>
+                <th className="px-6 py-3.5 font-bold whitespace-nowrap text-right">Action</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-700/50">
+            <tbody className="divide-y divide-[var(--border)]">
               {loading && displayedPlayers.length === 0 ? (
                 [1, 2, 3, 4, 5, 6].map((row) => (
                   <tr key={`player-skeleton-${row}`} className="animate-pulse">
-                    <td className="px-4 py-4 text-center"><div className="mx-auto h-4 w-4 rounded bg-slate-700" /></td>
+                    <td className="px-4 py-4 text-center"><div className="mx-auto h-4 w-4 rounded bg-[var(--surface-raised)]" /></td>
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
-                        <div className="h-10 w-10 shrink-0 rounded-full bg-slate-700" />
+                        <div className="h-10 w-10 shrink-0 rounded-full bg-[var(--surface-raised)]" />
                         <div className="space-y-2">
-                          <div className="h-4 w-32 max-w-[30vw] rounded bg-slate-700" />
-                          <div className="h-3 w-20 rounded bg-slate-800" />
+                          <div className="h-4 w-32 max-w-[30vw] rounded bg-[var(--surface-raised)]" />
+                          <div className="h-3 w-20 rounded bg-[var(--surface-muted)]" />
                         </div>
                       </div>
                     </td>
-                    <td className="px-6 py-4"><div className="h-4 w-24 max-w-[20vw] rounded bg-slate-700" /></td>
-                    <td className="px-6 py-4"><div className="h-6 w-16 rounded-full bg-slate-700" /></td>
-                    <td className="px-6 py-4"><div className="ml-auto h-4 w-14 rounded bg-slate-700" /></td>
-                    <td className="px-6 py-4"><div className="ml-auto h-5 w-20 rounded bg-slate-700" /></td>
-                    <td className="px-6 py-4 text-center"><div className="mx-auto h-6 w-16 rounded-full bg-slate-700" /></td>
-                    <td className="px-6 py-4"><div className="ml-auto h-8 w-20 rounded-lg bg-slate-700" /></td>
+                    <td className="px-6 py-4"><div className="h-4 w-24 max-w-[20vw] rounded bg-[var(--surface-raised)]" /></td>
+                    <td className="px-6 py-4"><div className="h-6 w-16 rounded-full bg-[var(--surface-raised)]" /></td>
+                    <td className="px-6 py-4"><div className="ml-auto h-4 w-14 rounded bg-[var(--surface-raised)]" /></td>
+                    <td className="px-6 py-4"><div className="ml-auto h-5 w-20 rounded bg-[var(--surface-raised)]" /></td>
+                    <td className="px-6 py-4 text-center"><div className="mx-auto h-6 w-16 rounded-full bg-[var(--surface-raised)]" /></td>
+                    <td className="px-6 py-4"><div className="ml-auto h-8 w-20 rounded-lg bg-[var(--surface-raised)]" /></td>
                   </tr>
                 ))
               ) : error ? (
                 <tr>
                   <td colSpan={8} className="px-6 py-16 text-center">
-                    <div className="flex flex-col items-center gap-2 text-rose-400">
+                    <div className="flex flex-col items-center gap-2 text-rose-500">
                       <p className="font-semibold text-sm">{error}</p>
                       <button
                         type="button"
                         onClick={() => setPage(1)}
-                        className="text-xs text-amber-400 hover:text-amber-300 underline transition-colors"
+                        className="text-xs text-amber-500 hover:text-amber-400 underline transition-colors"
                       >
                         Try refreshing
                       </button>
@@ -726,14 +735,14 @@ export default function PlayersPage() {
               ) : displayedPlayers.length === 0 ? (
                 <tr>
                   <td colSpan={8} className="px-6 py-16 text-center">
-                    <div className="flex flex-col items-center gap-3 text-slate-400">
-                      <Users className="w-8 h-8 text-slate-600" />
+                    <div className="flex flex-col items-center gap-3 text-[var(--text-muted)]">
+                      <Users className="w-8 h-8 text-[var(--text-muted)] opacity-60" />
                       <p className="text-sm">No players found matching your filters.</p>
                       {(activeFilterCount > 0 || search) && (
                         <button
                           type="button"
                           onClick={clearAllFilters}
-                          className="text-xs text-amber-400 hover:text-amber-300 underline transition-colors"
+                          className="text-xs text-amber-500 hover:text-amber-400 underline transition-colors"
                         >
                           Clear all filters
                         </button>
@@ -750,8 +759,8 @@ export default function PlayersPage() {
                       data-tour={index === 0 ? 'players-table-row' : undefined}
                       className={`transition-colors ${
                         isOwned
-                          ? 'bg-emerald-950/20 hover:bg-emerald-950/35 border-l-2 border-l-emerald-500'
-                          : 'hover:bg-slate-700/30'
+                          ? 'bg-emerald-500/10 hover:bg-emerald-500/15 border-l-3 border-l-emerald-500'
+                          : 'hover:bg-[var(--surface-raised)]/60'
                       }`}
                     >
                       <td className="px-4 py-4 text-center">
@@ -760,23 +769,23 @@ export default function PlayersPage() {
                           checked={comparePlayerIds.includes(player.id)}
                           onChange={() => toggleComparePlayer(player.id)}
                           aria-label={`Add ${player.in_game_name || player.name} to player comparison`}
-                          className="h-4 w-4 cursor-pointer rounded border-slate-500 bg-slate-900 text-cyan-500 accent-cyan-500 focus:ring-cyan-500"
+                          className="h-4 w-4 cursor-pointer rounded border-[var(--border)] bg-[var(--surface)] text-cyan-600 accent-cyan-600 focus:ring-cyan-500"
                         />
                       </td>
                       {/* Player name */}
                       <td className="px-6 py-4 whitespace-nowrap">
                         <Link href={`/players/${player.id}`} className="flex flex-col group">
-                          <span className="text-white font-medium group-hover:text-amber-500 transition-colors flex items-center gap-2">
+                          <span className="text-[var(--text-primary)] font-bold group-hover:text-amber-500 transition-colors flex items-center gap-2">
                             <span>{player.in_game_name || player.name}</span>
                             {isOwned && (
-                              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/20 text-emerald-400 text-[10px] font-semibold px-2 py-0.5 border border-emerald-500/30">
+                              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 text-[10px] font-bold px-2.5 py-0.5 border border-emerald-500/30">
                                 <CheckCircle2 className="w-3 h-3" />
                                 In Squad
                               </span>
                             )}
                           </span>
                           {player.in_game_name && player.name !== player.in_game_name && (
-                            <span className="text-xs text-slate-500">{player.name}</span>
+                            <span className="text-xs text-[var(--text-muted)]">{player.name}</span>
                           )}
                         </Link>
                       </td>
@@ -784,7 +793,7 @@ export default function PlayersPage() {
                       {/* Team */}
                       <td className="px-6 py-4 whitespace-nowrap">
                         {player.professional_teams?.name ? (
-                          <div className="flex items-center text-slate-300">
+                          <div className="flex items-center text-[var(--text-secondary)]">
                             {player.professional_teams.logo_url && !brokenLogos.has(player.id) ? (
                               <span className="mr-2 flex h-5 w-5 items-center justify-center rounded-sm">
                                 <Image
@@ -799,16 +808,16 @@ export default function PlayersPage() {
                               </span>
                             ) : (
                               <span
-                                className="mr-2 flex h-5 w-5 shrink-0 items-center justify-center rounded-sm bg-slate-700 text-[8px] font-bold tracking-wider text-slate-300"
+                                className="mr-2 flex h-5 w-5 shrink-0 items-center justify-center rounded-sm bg-[var(--surface-muted)] text-[8px] font-bold tracking-wider text-[var(--text-secondary)]"
                                 title={player.professional_teams.name}
                               >
                                 {player.professional_teams.name.slice(0, 3).toUpperCase()}
                               </span>
                             )}
-                            <span className="font-medium text-slate-200">{player.professional_teams.name}</span>
+                            <span className="font-semibold text-[var(--text-primary)]">{player.professional_teams.name}</span>
                           </div>
                         ) : (
-                          <span className="inline-flex items-center rounded-md border border-slate-700/80 bg-slate-800/60 px-2 py-0.5 text-xs text-slate-400">
+                          <span className="inline-flex items-center rounded-md border border-[var(--border)] bg-[var(--surface-raised)] px-2.5 py-0.5 text-xs font-medium text-[var(--text-muted)]">
                             Free Agent
                           </span>
                         )}
@@ -816,13 +825,13 @@ export default function PlayersPage() {
 
                       {/* Role */}
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`px-2.5 py-1 text-xs font-medium rounded-full border ${getRoleBadgeClass(player.primary_role)}`}>
+                        <span className={`px-2.5 py-1 text-xs font-bold rounded-full border ${getRoleBadgeClass(player.primary_role)}`}>
                           {player.primary_role || 'Unassigned'}
                         </span>
                       </td>
 
                       {/* Price */}
-                      <td className="px-6 py-4 whitespace-nowrap text-right font-semibold text-white">
+                      <td className="px-6 py-4 whitespace-nowrap text-right font-black text-[var(--text-primary)] font-mono">
                         {formatPrice(player.current_price)}
                       </td>
 
@@ -830,19 +839,19 @@ export default function PlayersPage() {
                       <td className="px-6 py-4 whitespace-nowrap text-right">
                         {player.ownership_percentage != null ? (
                           <div className="inline-flex flex-col items-end gap-1">
-                            <div className="flex items-center gap-1.5 font-mono text-sm font-semibold text-slate-200">
+                            <div className="flex items-center gap-1.5 font-mono text-sm font-bold text-[var(--text-primary)]">
                               <span>{Number(player.ownership_percentage).toFixed(1)}%</span>
                             </div>
                             <div className="flex items-center gap-1.5">
                               {/* Visual gauge bar */}
-                              <div className="h-1.5 w-14 overflow-hidden rounded-full bg-slate-700/80">
+                              <div className="h-1.5 w-14 overflow-hidden rounded-full bg-[var(--surface-muted)]">
                                 <div
                                   className={`h-full rounded-full transition-all duration-300 ${
                                     Number(player.ownership_percentage) >= 35
-                                      ? 'bg-emerald-400'
+                                      ? 'bg-emerald-500'
                                       : Number(player.ownership_percentage) >= 15
-                                        ? 'bg-cyan-400'
-                                        : 'bg-amber-400'
+                                        ? 'bg-cyan-500'
+                                        : 'bg-amber-500'
                                   }`}
                                   style={{ width: `${Math.min(100, Math.max(4, Number(player.ownership_percentage)))}%` }}
                                 />
@@ -858,7 +867,7 @@ export default function PlayersPage() {
                             </div>
                           </div>
                         ) : (
-                          <span className="font-mono text-sm text-slate-500">—</span>
+                          <span className="font-mono text-sm text-[var(--text-muted)]">—</span>
                         )}
                       </td>
 
@@ -868,7 +877,7 @@ export default function PlayersPage() {
                           aria-label={`Availability: ${player.availability_status || 'Available'}`}
                           title={player.availability_status || 'Available'}
                           style={getAvailabilityBadgeStyle(player.availability_status)}
-                          className="inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-semibold capitalize"
+                          className="inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-bold capitalize shadow-2xs"
                         >
                           {player.availability_status || 'Available'}
                         </span>
@@ -882,14 +891,14 @@ export default function PlayersPage() {
                               href={`/transfers?playerId=${player.id}`}
                               aria-label={`Start a transfer with ${player.in_game_name || player.name}`}
                               title="Select this player in the Transfer Market"
-                              className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-emerald-500/40 bg-emerald-500/10 text-[var(--success)] transition-colors hover:bg-emerald-500/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400"
+                              className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-emerald-500/40 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 transition-colors hover:bg-emerald-500/20 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-emerald-400"
                             >
                               <Plus className="h-4 w-4" />
                             </Link>
                           )}
                           <Link
                             href={`/players/${player.id}`}
-                            className="text-xs px-3 py-1.5 border border-slate-600 rounded text-slate-300 hover:bg-slate-700 transition-colors"
+                            className="text-xs font-semibold px-3 py-1.5 border border-[var(--border)] rounded-lg bg-[var(--surface-raised)] text-[var(--text-primary)] hover:border-amber-500/40 transition-colors shadow-2xs"
                           >
                             Profile
                           </Link>
@@ -905,22 +914,22 @@ export default function PlayersPage() {
 
         {/* ── Pagination ────────────────────────────────────────────────────── */}
         {!loading && totalPages > 1 && (
-          <div className="p-4 border-t border-slate-700 bg-slate-800/80 flex items-center justify-between">
-            <span className="text-sm text-slate-400">
+          <div className="p-4 border-t border-[var(--border)] bg-[var(--surface-raised)]/60 flex items-center justify-between">
+            <span className="text-xs font-medium text-[var(--text-muted)]">
               Showing {(page - 1) * limit + 1}–{Math.min(page * limit, total)} of {total} players
             </span>
             <div className="flex gap-2">
               <button
                 onClick={() => setPage((p) => Math.max(1, p - 1))}
                 disabled={page === 1}
-                className="px-3 py-1.5 border border-slate-600 rounded bg-slate-800 text-white disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-700 transition-colors text-sm"
+                className="px-3.5 py-1.5 border border-[var(--border)] rounded-lg bg-[var(--surface)] text-[var(--text-primary)] font-semibold disabled:opacity-40 disabled:cursor-not-allowed hover:bg-[var(--surface-raised)] transition-colors text-xs"
               >
                 Previous
               </button>
               <button
                 onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                 disabled={page === totalPages}
-                className="px-3 py-1.5 border border-slate-600 rounded bg-slate-800 text-white disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-700 transition-colors text-sm"
+                className="px-3.5 py-1.5 border border-[var(--border)] rounded-lg bg-[var(--surface)] text-[var(--text-primary)] font-semibold disabled:opacity-40 disabled:cursor-not-allowed hover:bg-[var(--surface-raised)] transition-colors text-xs"
               >
                 Next
               </button>
