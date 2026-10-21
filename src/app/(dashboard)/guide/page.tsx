@@ -26,7 +26,11 @@ import {
   ScrollText,
   Layers,
   CheckCircle2,
+  Clock,
+  Sparkles,
 } from 'lucide-react';
+
+type TourDifficulty = 'Beginner' | 'Tactical' | 'Advanced';
 
 interface GuidePageItem {
   href: string;
@@ -34,6 +38,8 @@ interface GuidePageItem {
   description: string;
   badge?: string;
   stepsCount: number;
+  difficulty?: TourDifficulty;
+  estimatedTime?: string;
   icon: React.ComponentType<{ className?: string }>;
 }
 
@@ -60,6 +66,8 @@ const guideSections: GuideSection[] = [
         description: 'Instant overview of your active squad value, bank balance, live points, rank, and gameweek alerts.',
         badge: 'Hub',
         stepsCount: 3,
+        difficulty: 'Beginner',
+        estimatedTime: '2 mins',
         icon: LayoutDashboard,
       },
       {
@@ -68,6 +76,8 @@ const guideSections: GuideSection[] = [
         description: 'Visual pitch layout displaying your 5 starters, 3 bench substitutes, player roles, and prices.',
         badge: 'Roster',
         stepsCount: 4,
+        difficulty: 'Beginner',
+        estimatedTime: '2 mins',
         icon: Users,
       },
       {
@@ -76,6 +86,8 @@ const guideSections: GuideSection[] = [
         description: 'Deploy starters, designate Captain (2x points) and Vice-Captain, fill bench, and activate seasonal chips.',
         badge: 'Tactics',
         stepsCount: 5,
+        difficulty: 'Tactical',
+        estimatedTime: '3 mins',
         icon: UserCheck,
       },
       {
@@ -84,6 +96,8 @@ const guideSections: GuideSection[] = [
         description: 'Filter pro players, evaluate market valuations, plan budget allocation, and execute roster trades.',
         badge: 'Market',
         stepsCount: 3,
+        difficulty: 'Tactical',
+        estimatedTime: '2 mins',
         icon: ArrowLeftRight,
       },
       {
@@ -92,6 +106,8 @@ const guideSections: GuideSection[] = [
         description: 'Comprehensive index of all professional Dota 2 athletes, filterable by role, pro team, and stats.',
         badge: 'Scouting',
         stepsCount: 3,
+        difficulty: 'Beginner',
+        estimatedTime: '1.5 mins',
         icon: UserRound,
       },
       {
@@ -100,6 +116,8 @@ const guideSections: GuideSection[] = [
         description: 'Detailed statistical inspection showing career fantasy averages, GPM/XPM breakdown, and price history.',
         badge: 'Telemetry',
         stepsCount: 3,
+        difficulty: 'Tactical',
+        estimatedTime: '2 mins',
         icon: FileText,
       },
     ],
@@ -117,6 +135,8 @@ const guideSections: GuideSection[] = [
         description: 'Create private or public leagues, join with invite codes, and challenge friends in Classic or H2H modes.',
         badge: 'Social',
         stepsCount: 3,
+        difficulty: 'Beginner',
+        estimatedTime: '2 mins',
         icon: Trophy,
       },
       {
@@ -125,6 +145,8 @@ const guideSections: GuideSection[] = [
         description: 'Real-time manager rankings across the entire platform, featuring country filters and rank velocity.',
         badge: 'Rankings',
         stepsCount: 3,
+        difficulty: 'Beginner',
+        estimatedTime: '1.5 mins',
         icon: Medal,
       },
       {
@@ -133,6 +155,8 @@ const guideSections: GuideSection[] = [
         description: 'Review lock deadlines, scoring windows, active matches, and historical gameweek summaries.',
         badge: 'Schedule',
         stepsCount: 3,
+        difficulty: 'Beginner',
+        estimatedTime: '1.5 mins',
         icon: Calendar,
       },
       {
@@ -141,6 +165,8 @@ const guideSections: GuideSection[] = [
         description: 'Live ticker of pro matches with tournament details, format, status, and upcoming fantasy schedules.',
         badge: 'Esports',
         stepsCount: 3,
+        difficulty: 'Beginner',
+        estimatedTime: '2 mins',
         icon: Gamepad2,
       },
       {
@@ -149,6 +175,8 @@ const guideSections: GuideSection[] = [
         description: 'Granular breakdown of draft picks, match outcome, game duration, and individual fantasy score contributions.',
         badge: 'Deep Dive',
         stepsCount: 3,
+        difficulty: 'Tactical',
+        estimatedTime: '2.5 mins',
         icon: Swords,
       },
       {
@@ -157,6 +185,8 @@ const guideSections: GuideSection[] = [
         description: 'Tier-1 and Tier-2 Dota 2 events eligible for fantasy points, with dates, prize pools, and schedules.',
         badge: 'Circuits',
         stepsCount: 3,
+        difficulty: 'Beginner',
+        estimatedTime: '1.5 mins',
         icon: Swords,
       },
     ],
@@ -174,6 +204,8 @@ const guideSections: GuideSection[] = [
         description: 'The master scoring manual covering point values for kills, assists, objectives, chip rules, and deadlines.',
         badge: 'Rulebook',
         stepsCount: 3,
+        difficulty: 'Advanced',
+        estimatedTime: '3 mins',
         icon: ScrollText,
       },
       {
@@ -182,6 +214,8 @@ const guideSections: GuideSection[] = [
         description: 'High-level fantasy meta metrics, ownership trends, captaincy popularity, and squad efficiency.',
         badge: 'Data',
         stepsCount: 3,
+        difficulty: 'Advanced',
+        estimatedTime: '2.5 mins',
         icon: BarChart3,
       },
       {
@@ -190,6 +224,8 @@ const guideSections: GuideSection[] = [
         description: 'Cutting-edge predictive modeling, optimal lineup solvers, and automated transfer recommendations.',
         badge: 'Pro Tier',
         stepsCount: 3,
+        difficulty: 'Advanced',
+        estimatedTime: '3 mins',
         icon: Crown,
       },
       {
@@ -198,6 +234,8 @@ const guideSections: GuideSection[] = [
         description: 'Public identity card showcasing your fantasy accolades, trophies, badges, and historic season stats.',
         badge: 'Identity',
         stepsCount: 3,
+        difficulty: 'Beginner',
+        estimatedTime: '1.5 mins',
         icon: User,
       },
       {
@@ -206,6 +244,8 @@ const guideSections: GuideSection[] = [
         description: 'Real-time notifications for deadline reminders, price adjustments, match finishes, and league standings.',
         badge: 'Inbox',
         stepsCount: 3,
+        difficulty: 'Beginner',
+        estimatedTime: '1.5 mins',
         icon: Bell,
       },
       {
@@ -214,6 +254,8 @@ const guideSections: GuideSection[] = [
         description: 'Configure light/dark Competitive Esports themes, notification delivery channels, and account security.',
         badge: 'Preferences',
         stepsCount: 3,
+        difficulty: 'Beginner',
+        estimatedTime: '2 mins',
         icon: Settings,
       },
       {
@@ -222,11 +264,33 @@ const guideSections: GuideSection[] = [
         description: 'Frequently asked questions, role guidelines, scoring clarifications, and direct user assistance.',
         badge: 'Support',
         stepsCount: 3,
+        difficulty: 'Beginner',
+        estimatedTime: '1.5 mins',
         icon: HelpCircle,
       },
     ],
   },
 ];
+
+function getDifficultyBadge(difficulty: TourDifficulty = 'Beginner') {
+  switch (difficulty) {
+    case 'Beginner':
+      return {
+        label: 'Beginner',
+        style: 'border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
+      };
+    case 'Tactical':
+      return {
+        label: 'Tactical',
+        style: 'border-cyan-500/30 bg-cyan-500/10 text-cyan-600 dark:text-cyan-400',
+      };
+    case 'Advanced':
+      return {
+        label: 'Advanced',
+        style: 'border-amber-500/30 bg-amber-500/10 text-amber-600 dark:text-amber-400',
+      };
+  }
+}
 
 export default function GuidePage() {
   const [searchQuery, setSearchQuery] = useState('');
@@ -243,7 +307,8 @@ export default function GuidePage() {
             page.name.toLowerCase().includes(query) ||
             page.description.toLowerCase().includes(query) ||
             page.href.toLowerCase().includes(query) ||
-            page.badge?.toLowerCase().includes(query)
+            page.badge?.toLowerCase().includes(query) ||
+            page.difficulty?.toLowerCase().includes(query)
           );
         });
         return { ...section, pages: matchingPages };
@@ -256,53 +321,53 @@ export default function GuidePage() {
   }, []);
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
-      {/* Hero Header */}
-      <div className="relative mb-10 overflow-hidden rounded-2xl border border-slate-700/80 bg-linear-to-br from-slate-900 via-slate-900/95 to-slate-950 p-6 sm:p-10 shadow-2xl">
-        {/* Glow ambient effects */}
+    <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+      {/* Hero Header with ambient glow and design tokens */}
+      <div className="relative mb-8 overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-6 sm:p-10 shadow-lg">
+        {/* Ambient lighting glows */}
         <div className="pointer-events-none absolute -right-20 -top-20 h-72 w-72 rounded-full bg-cyan-500/10 blur-3xl" />
         <div className="pointer-events-none absolute -left-20 -bottom-20 h-72 w-72 rounded-full bg-teal-500/10 blur-3xl" />
 
         <div className="relative z-10 flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
           <div className="max-w-2xl space-y-3">
-            <div className="inline-flex items-center gap-2 rounded-full border border-cyan-500/30 bg-cyan-500/10 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-cyan-400">
+            <div className="inline-flex items-center gap-2 rounded-full border border-cyan-500/30 bg-cyan-500/10 px-3 py-1 text-xs font-bold uppercase tracking-wider text-cyan-600 dark:text-cyan-400">
               <Compass className="h-3.5 w-3.5 animate-spin-slow" />
               Interactive Tour Directory
             </div>
-            <h1 className="text-3xl font-extrabold tracking-tight text-white sm:text-4xl lg:text-5xl">
-              Interactive Guide & <span className="bg-linear-to-r from-cyan-400 to-teal-400 bg-clip-text text-transparent">Feature Walkthroughs</span>
+            <h1 className="text-3xl font-extrabold tracking-tight text-[var(--text-primary)] sm:text-4xl lg:text-5xl">
+              Interactive Guide & <span className="bg-linear-to-r from-cyan-500 to-teal-400 bg-clip-text text-transparent">Feature Walkthroughs</span>
             </h1>
-            <p className="text-base text-slate-300 sm:text-lg">
+            <p className="text-base text-[var(--text-secondary)] sm:text-lg">
               Explore step-by-step interactive walkthroughs for every screen in Fantasy Dota 2. Click any card to launch the live guided overlay directly on that page.
             </p>
           </div>
 
           {/* Quick Metrics Bar */}
           <div className="flex shrink-0 flex-wrap gap-3 sm:gap-4">
-            <div className="flex items-center gap-3 rounded-xl border border-slate-700/80 bg-slate-800/80 px-4 py-3 shadow-inner">
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-cyan-500/20 text-cyan-400">
+            <div className="flex items-center gap-3 rounded-xl border border-[var(--border)] bg-[var(--surface-raised)] px-4 py-3 shadow-xs">
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-cyan-500/15 text-cyan-600 dark:text-cyan-400">
                 <Layers className="h-5 w-5" />
               </div>
               <div>
-                <div className="text-xl font-bold text-white">{totalTours}</div>
-                <div className="text-xs text-slate-400">Guided Tours</div>
+                <div className="text-xl font-bold text-[var(--text-primary)]">{totalTours}</div>
+                <div className="text-xs text-[var(--text-muted)]">Guided Tours</div>
               </div>
             </div>
 
-            <div className="flex items-center gap-3 rounded-xl border border-slate-700/80 bg-slate-800/80 px-4 py-3 shadow-inner">
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-teal-500/20 text-teal-400">
+            <div className="flex items-center gap-3 rounded-xl border border-[var(--border)] bg-[var(--surface-raised)] px-4 py-3 shadow-xs">
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-teal-500/15 text-teal-600 dark:text-teal-400">
                 <CheckCircle2 className="h-5 w-5" />
               </div>
               <div>
-                <div className="text-xl font-bold text-white">100%</div>
-                <div className="text-xs text-slate-400">Step-by-Step</div>
+                <div className="text-xl font-bold text-[var(--text-primary)]">100%</div>
+                <div className="text-xs text-[var(--text-muted)]">Step-by-Step</div>
               </div>
             </div>
           </div>
         </div>
 
         {/* Filter and Search Bar */}
-        <div className="mt-8 flex flex-col gap-3 border-t border-slate-800/80 pt-6 sm:flex-row sm:items-center sm:justify-between">
+        <div className="mt-8 flex flex-col gap-3 border-t border-[var(--border)] pt-6 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex flex-wrap gap-2">
             {[
               { id: 'all', label: 'All Modules' },
@@ -314,10 +379,10 @@ export default function GuidePage() {
                 key={tab.id}
                 type="button"
                 onClick={() => setSelectedCategory(tab.id)}
-                className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-all ${
+                className={`rounded-lg px-3 py-1.5 text-xs font-bold transition-all ${
                   selectedCategory === tab.id
-                    ? 'bg-cyan-500 text-slate-950 shadow-md shadow-cyan-500/20'
-                    : 'border border-slate-700/70 bg-slate-800/60 text-slate-300 hover:border-slate-600 hover:bg-slate-800 hover:text-white'
+                    ? 'bg-cyan-600 text-white shadow-xs'
+                    : 'border border-[var(--border)] bg-[var(--surface-raised)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:border-cyan-500/40'
                 }`}
               >
                 {tab.label}
@@ -326,92 +391,109 @@ export default function GuidePage() {
           </div>
 
           <div className="relative w-full sm:w-72">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--text-muted)]" />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search guides (e.g. captain, pitch)..."
-              className="w-full rounded-lg border border-slate-700 bg-slate-900/90 py-1.5 pl-9 pr-3 text-xs text-white placeholder-slate-400 focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500"
+              className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface-raised)] py-1.5 pl-9 pr-3 text-xs text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:border-cyan-500 focus:outline-hidden focus:ring-1 focus:ring-cyan-500"
             />
           </div>
         </div>
       </div>
 
       {/* Sections Grid */}
-      <div className="space-y-12">
+      <div className="space-y-10">
         {filteredSections.length === 0 ? (
-          <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-12 text-center">
-            <Compass className="mx-auto h-12 w-12 text-slate-600 mb-3" />
-            <h3 className="text-lg font-semibold text-white">No guide tours matched your search</h3>
-            <p className="mt-1 text-sm text-slate-400">Try adjusting your keywords or clearing the category filter.</p>
+          <div className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-12 text-center">
+            <Compass className="mx-auto h-12 w-12 text-[var(--text-muted)] mb-3" />
+            <h3 className="text-lg font-bold text-[var(--text-primary)]">No guide tours matched your search</h3>
+            <p className="mt-1 text-sm text-[var(--text-secondary)]">Try adjusting your keywords or clearing the category filter.</p>
             <button
               type="button"
               onClick={() => {
                 setSearchQuery('');
                 setSelectedCategory('all');
               }}
-              className="mt-4 inline-flex items-center gap-2 rounded-lg bg-slate-800 px-4 py-2 text-xs font-medium text-cyan-400 hover:bg-slate-700"
+              className="mt-4 inline-flex items-center gap-2 rounded-lg border border-[var(--border)] bg-[var(--surface-raised)] px-4 py-2 text-xs font-semibold text-cyan-600 dark:text-cyan-400 hover:border-cyan-500/40"
             >
               Clear filters
             </button>
           </div>
         ) : (
           filteredSections.map((section) => (
-            <section key={section.id} className="space-y-5">
-              <div className="flex flex-col gap-1 border-b border-slate-800 pb-3 sm:flex-row sm:items-baseline sm:justify-between">
+            <section key={section.id} className="space-y-4">
+              <div className="flex flex-col gap-1 border-b border-[var(--border)] pb-3 sm:flex-row sm:items-baseline sm:justify-between">
                 <div className="flex items-center gap-3">
                   <div className="h-6 w-1 rounded-full bg-cyan-500" />
-                  <h2 className="text-xl font-bold tracking-tight text-white sm:text-2xl">{section.title}</h2>
-                  <span className="rounded-md border border-slate-700 bg-slate-800/80 px-2 py-0.5 text-xs font-medium text-slate-400">
+                  <h2 className="text-xl font-bold tracking-tight text-[var(--text-primary)] sm:text-2xl">{section.title}</h2>
+                  <span className="rounded-md border border-[var(--border)] bg-[var(--surface-raised)] px-2 py-0.5 text-xs font-semibold text-[var(--text-muted)]">
                     {section.pages.length} tours
                   </span>
                 </div>
-                <p className="text-xs text-slate-400 sm:text-right">{section.description}</p>
+                <p className="text-xs text-[var(--text-muted)] sm:text-right">{section.description}</p>
               </div>
 
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {section.pages.map((page) => {
                   const Icon = page.icon;
+                  const diff = getDifficultyBadge(page.difficulty);
                   return (
                     <Link
                       key={page.href}
                       href={`${page.href}?guide=1`}
-                      className="group relative flex flex-col justify-between overflow-hidden rounded-xl border border-slate-800/90 bg-slate-900/60 p-5 transition-all duration-200 hover:-translate-y-1 hover:border-cyan-500/50 hover:bg-slate-800/90 hover:shadow-xl hover:shadow-cyan-500/10"
+                      className="group relative flex flex-col justify-between overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--surface)] p-5 transition-all duration-200 hover:-translate-y-1 hover:border-cyan-500/50 hover:bg-[var(--surface-raised)] hover:shadow-lg hover:shadow-cyan-500/5"
                     >
                       {/* Top Accent Gradient Line */}
                       <div className="absolute inset-x-0 top-0 h-0.5 bg-linear-to-r from-transparent via-cyan-500/0 to-transparent transition-all duration-300 group-hover:via-cyan-400" />
 
                       <div>
-                        <div className="mb-3 flex items-center justify-between gap-2">
+                        {/* Header Badges: Category, Steps, Difficulty, Estimated Time */}
+                        <div className="mb-3 flex items-start justify-between gap-2">
                           <div className="flex items-center gap-2.5">
-                            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-slate-700/80 bg-slate-800 text-cyan-400 transition-colors group-hover:border-cyan-500/40 group-hover:bg-cyan-500/10 group-hover:text-cyan-300">
+                            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-[var(--border)] bg-[var(--surface-raised)] text-cyan-600 dark:text-cyan-400 transition-colors group-hover:border-cyan-500/40 group-hover:bg-cyan-500/10">
                               <Icon className="h-4 w-4" />
                             </div>
-                            <span className="text-xs font-semibold uppercase tracking-wider text-slate-400 group-hover:text-slate-300">
+                            <span className="text-xs font-bold uppercase tracking-wider text-[var(--text-muted)] group-hover:text-[var(--text-secondary)]">
                               {page.badge}
                             </span>
                           </div>
 
-                          <div className="inline-flex items-center gap-1 rounded-full border border-slate-700/60 bg-slate-800/50 px-2.5 py-0.5 text-[11px] font-medium text-slate-400 transition-colors group-hover:border-cyan-500/30 group-hover:bg-cyan-500/10 group-hover:text-cyan-300">
-                            <span>{page.stepsCount} steps</span>
+                          <div className="flex flex-col items-end gap-1.5">
+                            <span className={`inline-flex items-center rounded-md border px-2 py-0.5 text-[10px] font-bold ${diff.style}`}>
+                              {diff.label}
+                            </span>
                           </div>
                         </div>
 
-                        <h3 className="text-base font-bold text-white transition-colors group-hover:text-cyan-300">
+                        <h3 className="text-base font-bold text-[var(--text-primary)] transition-colors group-hover:text-cyan-600 dark:group-hover:text-cyan-300">
                           {page.name}
                         </h3>
-                        <p className="mt-2 text-xs leading-relaxed text-slate-400 line-clamp-3 group-hover:text-slate-300">
+                        <p className="mt-2 text-xs leading-relaxed text-[var(--text-secondary)] line-clamp-3">
                           {page.description}
                         </p>
                       </div>
 
-                      <div className="mt-5 flex items-center justify-between border-t border-slate-800/80 pt-3.5 text-xs">
-                        <span className="font-mono text-[11px] text-slate-400">{page.href}</span>
-                        <span className="inline-flex items-center gap-1 font-semibold text-cyan-400 transition-transform group-hover:translate-x-0.5 group-hover:text-cyan-300">
-                          Launch Tour
-                          <ArrowUpRight className="h-3.5 w-3.5" />
-                        </span>
+                      <div className="mt-5 flex flex-col gap-2.5 border-t border-[var(--border)] pt-3 text-xs">
+                        <div className="flex items-center justify-between text-[11px] text-[var(--text-muted)]">
+                          <span className="inline-flex items-center gap-1 font-medium">
+                            <Sparkles className="h-3 w-3 text-cyan-500" />
+                            {page.stepsCount} steps
+                          </span>
+                          <span className="inline-flex items-center gap-1 font-medium">
+                            <Clock className="h-3 w-3 text-amber-500" />
+                            {page.estimatedTime || '2 mins'}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center justify-between">
+                          <span className="font-mono text-[11px] text-[var(--text-muted)]">{page.href}</span>
+                          <span className="inline-flex items-center gap-1 font-semibold text-cyan-600 dark:text-cyan-400 transition-transform group-hover:translate-x-0.5">
+                            Launch Tour
+                            <ArrowUpRight className="h-3.5 w-3.5" />
+                          </span>
+                        </div>
                       </div>
                     </Link>
                   );
@@ -423,20 +505,20 @@ export default function GuidePage() {
       </div>
 
       {/* Footer Banner Directing to the Learn Hub */}
-      <div className="mt-14 rounded-xl border border-slate-800 bg-linear-to-r from-slate-900 via-slate-900/90 to-slate-950 p-6 sm:p-8">
+      <div className="mt-12 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-6 sm:p-8 shadow-xs">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="space-y-1">
-            <h3 className="text-lg font-bold text-white flex items-center gap-2">
-              <ScrollText className="h-5 w-5 text-amber-400" />
+            <h3 className="text-lg font-bold text-[var(--text-primary)] flex items-center gap-2">
+              <ScrollText className="h-5 w-5 text-amber-500" />
               Continue learning from the Learn Hub
             </h3>
-            <p className="text-sm text-slate-400">
+            <p className="text-sm text-[var(--text-secondary)]">
               Keep the interactive guide open or jump to the complete scoring reference and quick rule summaries.
             </p>
           </div>
           <Link
             href="/learn"
-            className="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg bg-linear-to-r from-amber-500 to-amber-600 px-5 py-2.5 text-xs font-bold text-slate-950 transition-all hover:brightness-110 shadow-lg shadow-amber-500/20"
+            className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-950 px-5 py-2.5 text-xs font-bold transition-all shadow-md shadow-amber-500/20"
           >
             Open Learn Hub
             <ArrowUpRight className="h-4 w-4" />
@@ -446,4 +528,3 @@ export default function GuidePage() {
     </div>
   );
 }
-
