@@ -11,6 +11,9 @@ import {
 
 async function postHandler(request: Request) {
   try {
+    if (process.env.TELEMETRY_ENABLED !== 'true') {
+      return new Response(null, { status: 204 });
+    }
     await verifyAuth(request);
     const contentLength = Number(request.headers.get('content-length') ?? 0);
     if (contentLength > 2048) {

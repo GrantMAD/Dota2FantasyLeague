@@ -107,20 +107,46 @@ async function getHandler(request: NextRequest) {
       });
     }
 
-    // 1b. Fetch chip activation gameweeks separately from the core season record.
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const chipQueryResult = await (supabase.from('fantasy_seasons') as any)
-      .select('triple_captain_gameweek_id, bench_boost_gameweek_id, wildcard_used_gameweek_id')
-      .eq('id', fantasySeason.id)
-      .maybeSingle();
+    // 1b–4b. Fire all queries that only depend on fantasySeason.id / fantasySeason.season_id in parallel.
+    const [
+      chipQueryResult,
+      gameweekResult,
+      squadResult,
+      notificationsResult,
+    ] = await Promise.all([
+      // Chip activation gameweeks
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (supabase.from('fantasy_seasons') as any)
+        .select('triple_captain_gameweek_id, bench_boost_gameweek_id, wildcard_used_gameweek_id')
+        .eq('id', fantasySeason.id)
+        .maybeSingle(),
+      // All gameweeks for this season
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (supabase.from('gameweeks') as any)
+        .select('id, gameweek_number, status, start_date, end_date, deadline')
+        .eq('season_id', fantasySeason.season_id)
+        .order('id', { ascending: true }),
+      // Squad and current members
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (supabase.from('fantasy_squads') as any)
+        .select('id, fantasy_squad_members(player_id, removed_date)')
+        .eq('fantasy_season_id', fantasySeason.id)
+        .limit(1)
+        .maybeSingle(),
+      // Recent player-removed notifications
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (supabase.from('user_notifications') as any)
+        .select('id, title, message, metadata, created_at')
+        .eq('user_id', user.userId)
+        .eq('type', 'player_removed')
+        .order('created_at', { ascending: false })
+        .limit(5),
+    ]);
+
     const chipsRow = (!chipQueryResult.error && chipQueryResult.data) ? chipQueryResult.data : {};
 
-    // 2. Keep lineup planning scoped to the fantasy season and expose only editable weeks.
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: gameweekRows, error: gameweekError } = await (supabase.from('gameweeks') as any)
-      .select('id, gameweek_number, status, start_date, end_date, deadline')
-      .eq('season_id', fantasySeason.season_id)
-      .order('id', { ascending: true });
+    // 2. Resolve gameweeks
+    const { data: gameweekRows, error: gameweekError } = gameweekResult;
     if (gameweekError) return NextResponse.json({ error: 'Failed to load gameweeks.' }, { status: 500 });
 
     const allGws = (gameweekRows || []) as GameweekRow[];
@@ -164,13 +190,8 @@ async function getHandler(request: NextRequest) {
       isLocked: gw.status === 'closed' || Boolean(gw.deadline && new Date(gw.deadline).getTime() <= now),
     }));
 
-    // 3. Fetch Squad and Members
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: squad } = await (supabase.from('fantasy_squads') as any)
-      .select('id, fantasy_squad_members(player_id, removed_date)')
-      .eq('fantasy_season_id', fantasySeason.id)
-      .limit(1)
-      .maybeSingle();
+    // 3. Resolve squad from parallel fetch
+    const { data: squad } = squadResult;
 
     const ownedPlayerIds: number[] = (squad?.fantasy_squad_members ?? [])
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -178,48 +199,55 @@ async function getHandler(request: NextRequest) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       .map((member: any) => Number(member.player_id));
 
-    // 4. Fetch Target Gameweek Lineup
-    let lineupEntries: LineupEntry[] = [];
-    let lineupPlayerIds: number[] = [];
+    // 4. Fire lineup + all player enrichment queries in parallel.
+    // Lineup players are always a subset of owned players, so we use ownedPlayerIds
+    // for player enrichment immediately without waiting for the lineup to resolve.
     const ownedPlayerSet = new Set(ownedPlayerIds);
 
-    if (targetGw) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: lineupRow } = await (supabase.from('fantasy_lineups') as any)
-        .select('*')
-        .eq('fantasy_season_id', fantasySeason.id)
-        .eq('gameweek_id', targetGw.id)
-        .maybeSingle();
+    const [
+      lineupResult,
+      playersResult,
+      pricesResult,
+      scoresResult,
+    ] = await Promise.all([
+      // Lineup for the target gameweek (skip if no gameweek)
+      targetGw
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        ? (supabase.from('fantasy_lineups') as any)
+            .select('*')
+            .eq('fantasy_season_id', fantasySeason.id)
+            .eq('gameweek_id', targetGw.id)
+            .maybeSingle()
+        : Promise.resolve({ data: null, error: null }),
+      // Player details
+      ownedPlayerIds.length > 0
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        ? (supabase.from('professional_players') as any)
+            .select('id, name, in_game_name, primary_role, profile_image_url, availability_status, availability_reason, professional_teams(id, name, slug)')
+            .in('id', ownedPlayerIds)
+        : Promise.resolve({ data: [], error: null }),
+      // Player prices
+      ownedPlayerIds.length > 0
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        ? (supabase.from('player_prices') as any)
+            .select('player_id, price, gameweek_id')
+            .eq('season_id', fantasySeason.season_id)
+            .in('player_id', ownedPlayerIds)
+            .order('gameweek_id', { ascending: false })
+        : Promise.resolve({ data: [], error: null }),
+      // Player performance scores (up to 5 GWs per player)
+      ownedPlayerIds.length > 0
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        ? (supabase.from('player_performances') as any)
+            .select('player_id, gameweek_id, fantasy_points_breakdown(total_points)')
+            .in('player_id', ownedPlayerIds)
+            .order('gameweek_id', { ascending: false })
+            .limit(ownedPlayerIds.length * 5)
+        : Promise.resolve({ data: [], error: null }),
+    ]);
 
-      if (lineupRow) {
-        lineupEntries = slots
-          .map((slot) => {
-            const playerId = getSlotId(lineupRow, slot);
-            if (!playerId) return null;
-            // If the player is no longer owned (e.g. purged from pool), slot is vacant
-            if (!ownedPlayerSet.has(playerId)) return null;
-            return {
-              slot,
-              player_id: playerId,
-              is_starter: !slot.startsWith('bench'),
-              is_captain: lineupRow.captain_player_id === playerId,
-              is_vice_captain: lineupRow.vice_captain_player_id === playerId,
-            };
-          })
-          .filter((entry): entry is LineupEntry => entry !== null);
-
-        lineupPlayerIds = lineupEntries.map((e) => e.player_id);
-      }
-    }
-
-    // 4b. Fetch recent player_removed notifications to inform user
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: removedNotifications } = await (supabase.from('user_notifications') as any)
-      .select('id, title, message, metadata, created_at')
-      .eq('user_id', user.userId)
-      .eq('type', 'player_removed')
-      .order('created_at', { ascending: false })
-      .limit(5);
+    // 4b. Resolve notifications from parallel fetch
+    const { data: removedNotifications } = notificationsResult;
 
     const removedPlayersNotice = ((removedNotifications ?? []) as RemovedPlayerNotificationRow[]).map((notification) => ({
       id: notification.id,
@@ -229,36 +257,32 @@ async function getHandler(request: NextRequest) {
       createdAt: notification.created_at,
     }));
 
-    // 5. Gather all unique player IDs (owned + valid lineup) to fetch in single roundtrip
-    const allRelevantPlayerIds = Array.from(new Set([...ownedPlayerIds, ...lineupPlayerIds]));
+    // 5. Resolve lineup entries from the fetched lineup row
+    let lineupEntries: LineupEntry[] = [];
+    const lineupRow = lineupResult.data;
+    if (lineupRow) {
+      lineupEntries = slots
+        .map((slot) => {
+          const playerId = getSlotId(lineupRow, slot);
+          if (!playerId) return null;
+          // If the player is no longer owned (e.g. purged from pool), slot is vacant
+          if (!ownedPlayerSet.has(playerId)) return null;
+          return {
+            slot,
+            player_id: playerId,
+            is_starter: !slot.startsWith('bench'),
+            is_captain: lineupRow.captain_player_id === playerId,
+            is_vice_captain: lineupRow.vice_captain_player_id === playerId,
+          };
+        })
+        .filter((entry): entry is LineupEntry => entry !== null);
+    }
 
+    // 6. Build player enrichment map from already-fetched data
     const playerMap = new Map<number, EnrichedFantasyPlayer>();
-    if (allRelevantPlayerIds.length > 0) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: players } = await (supabase.from('professional_players') as any)
-        .select('id, name, in_game_name, primary_role, profile_image_url, availability_status, availability_reason, professional_teams(id, name, slug)')
-        .in('id', allRelevantPlayerIds);
-
-       
-      const [{ data: priceData }, { data: scoreData }] = await Promise.all([
-        // The generated local schema does not include this table.
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (supabase.from('player_prices') as any)
-          .select('player_id, price, gameweek_id')
-          .eq('season_id', fantasySeason.season_id)
-          .in('player_id', allRelevantPlayerIds)
-          .order('gameweek_id', { ascending: false }),
-        // Fetch scores from player_performances -> fantasy_points_breakdown
-        // (the actual scoring source; gameweek_scores is unused/empty)
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (supabase.from('player_performances') as any)
-          .select('player_id, gameweek_id, fantasy_points_breakdown(total_points)')
-          .in('player_id', allRelevantPlayerIds)
-          .order('gameweek_id', { ascending: false })
-          .limit(allRelevantPlayerIds.length * 5),
-      ]);
-          const prices = (priceData ?? []) as PlayerPriceRow[];
-          const rawPerformances = (scoreData ?? []) as GameweekScoreRow[];
+    if (ownedPlayerIds.length > 0) {
+      const prices = (pricesResult.data ?? []) as PlayerPriceRow[];
+      const rawPerformances = (scoresResult.data ?? []) as GameweekScoreRow[];
 
       const latestPrices = new Map<number, number>();
       for (const price of prices) {
@@ -289,7 +313,7 @@ async function getHandler(request: NextRequest) {
         playerScoresMap.set(pid, sorted);
       }
 
-      for (const p of (players ?? []) as FantasyPlayerRow[]) {
+      for (const p of (playersResult.data ?? []) as FantasyPlayerRow[]) {
         const pScores = playerScoresMap.get(p.id) ?? [];
         const lastGwPts = pScores[0] ?? 0;
         const avgPts = pScores.length

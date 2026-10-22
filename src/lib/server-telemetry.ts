@@ -62,6 +62,7 @@ export function flushTelemetryEvents(): void {
 }
 
 function persistTelemetryEvents(events: TelemetryEvent[]): void {
+  if (process.env.TELEMETRY_ENABLED !== 'true') return;
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!url || !serviceRoleKey || url.includes('ci-placeholder')) {
