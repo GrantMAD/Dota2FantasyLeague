@@ -16,17 +16,21 @@ import { POST } from './route';
 
 describe('POST /api/telemetry/events', () => {
   const originalDetailSampleRate = process.env.TELEMETRY_DETAIL_SAMPLE_RATE;
+  const originalTelemetryEnabled = process.env.TELEMETRY_ENABLED;
 
   beforeEach(() => {
     mockVerifyAuth.mockReset().mockResolvedValue({ userId: 'user-1' });
     mockRecord.mockReset().mockResolvedValue({ error: null });
     mockSupabaseServer.mockReset().mockReturnValue({ rpc: mockRecord });
+    process.env.TELEMETRY_ENABLED = 'true';
     process.env.TELEMETRY_DETAIL_SAMPLE_RATE = '1';
   });
 
   afterAll(() => {
     if (originalDetailSampleRate === undefined) delete process.env.TELEMETRY_DETAIL_SAMPLE_RATE;
     else process.env.TELEMETRY_DETAIL_SAMPLE_RATE = originalDetailSampleRate;
+    if (originalTelemetryEnabled === undefined) delete process.env.TELEMETRY_ENABLED;
+    else process.env.TELEMETRY_ENABLED = originalTelemetryEnabled;
   });
 
   it('stores only normalized page-view metadata', async () => {

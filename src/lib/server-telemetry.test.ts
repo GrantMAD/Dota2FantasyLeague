@@ -13,10 +13,12 @@ describe('server telemetry batching', () => {
   const originalUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const originalServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   const originalDetailSampleRate = process.env.TELEMETRY_DETAIL_SAMPLE_RATE;
+  const originalTelemetryEnabled = process.env.TELEMETRY_ENABLED;
 
   beforeEach(() => {
     mockCallbacks.length = 0;
     mockAfter.mockClear();
+    process.env.TELEMETRY_ENABLED = 'true';
     process.env.NEXT_PUBLIC_SUPABASE_URL = 'https://example.supabase.co';
     process.env.SUPABASE_SERVICE_ROLE_KEY = 'test-service-role-key';
     process.env.TELEMETRY_DETAIL_SAMPLE_RATE = '0';
@@ -29,6 +31,8 @@ describe('server telemetry batching', () => {
     else process.env.SUPABASE_SERVICE_ROLE_KEY = originalServiceRoleKey;
     if (originalDetailSampleRate === undefined) delete process.env.TELEMETRY_DETAIL_SAMPLE_RATE;
     else process.env.TELEMETRY_DETAIL_SAMPLE_RATE = originalDetailSampleRate;
+    if (originalTelemetryEnabled === undefined) delete process.env.TELEMETRY_ENABLED;
+    else process.env.TELEMETRY_ENABLED = originalTelemetryEnabled;
   });
 
   it('persists all events for one trace in a single request', async () => {
