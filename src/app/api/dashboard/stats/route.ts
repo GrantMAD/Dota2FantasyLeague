@@ -11,14 +11,20 @@ async function getHandler(request: NextRequest) {
     const user = await verifyAuth(request);
     const supabase = supabaseServer();
 
-    // Phase 1: Parallel initial queries (fantasy_season, active/upcoming gameweek, user leagues)
-    const [fantasySeason, gameweeksRes, leaguesRes, profileRes] = await Promise.all([
+    // Phase 1: Parallel initial queries (fantasy_season, gameweeks, user leagues)
+    const [fantasySeason, gameweeksRes, previousClosedGameweekRes, leaguesRes, profileRes] = await Promise.all([
       getOrCreateFantasySeason(supabase, user.userId),
       supabase
         .from('gameweeks')
         .select('id, gameweek_number, deadline, status')
         .in('status', ['upcoming', 'active'])
         .order('start_date', { ascending: true })
+        .limit(1),
+      supabase
+        .from('gameweeks')
+        .select('id, gameweek_number, deadline, status')
+        .eq('status', 'closed')
+        .order('id', { ascending: false })
         .limit(1),
       supabase
         .from('league_participants')
@@ -36,6 +42,11 @@ async function getHandler(request: NextRequest) {
         .maybeSingle(),
     ]);
 
+    if (previousClosedGameweekRes.error) {
+      console.warn('Unable to fetch the latest closed gameweek:', previousClosedGameweekRes.error.message);
+    }
+
+    const previousClosedGameweek = previousClosedGameweekRes.data?.[0] ?? null;
     let gameweek = gameweeksRes.data && gameweeksRes.data.length > 0 ? gameweeksRes.data[0] : null;
     if (profileRes.error) {
       throw new Error(`Failed to fetch manager profile: ${profileRes.error.message}`);
@@ -43,15 +54,7 @@ async function getHandler(request: NextRequest) {
     const displayName = profileRes.data?.display_name?.trim() || profileRes.data?.username || null;
 
     // No active/upcoming GW — fall back to the latest closed one so lineup still renders
-    if (!gameweek) {
-      const { data: closedGws } = await supabase
-        .from('gameweeks')
-        .select('id, gameweek_number, deadline, status')
-        .eq('status', 'closed')
-        .order('id', { ascending: false })
-        .limit(1);
-      gameweek = closedGws && closedGws.length > 0 ? closedGws[0] : null;
-    }
+    if (!gameweek) gameweek = previousClosedGameweek;
 
     const leagues = leaguesRes.data || [];
 
@@ -209,8 +212,8 @@ async function getHandler(request: NextRequest) {
           .filter(Boolean)
       : [];
 
-    // Fetch GW score breakdowns for starters when a gameweek is available
-    if (gameweek && starterObjects.length > 0) {
+    // Fetch current and previous GW scores together once the starter IDs are known.
+    if (starterObjects.length > 0) {
       type BreakdownRow = {
         player_id: number;
         fantasy_points_breakdown: {
@@ -226,14 +229,45 @@ async function getHandler(request: NextRequest) {
           total_points: number | null;
         } | null;
       };
-      const starterPlayerIds = starterObjects.map((s) => s!.id);
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: perfRows, error: perfError } = await (supabase.from('player_performances') as any)
-        .select('player_id, fantasy_points_breakdown(combat_points, economy_points, objective_points, teamfight_points, win_points, series_points, performance_index_points, consistency_points, penalty_points, total_points)')
-        .eq('gameweek_id', gameweek.id)
-        .in('player_id', starterPlayerIds);
+      type PrevPerfRow = {
+        player_id: number;
+        fantasy_points_breakdown: { total_points: number | null } | null;
+      };
+      type PerformanceQueryResult<Row> = {
+        data: Row[] | null;
+        error: { message: string } | null;
+      };
 
+      const starterPlayerIds = starterObjects.map((s) => s!.id);
+      const previousGameweek = previousClosedGameweek && gameweek && previousClosedGameweek.id !== gameweek.id
+        ? previousClosedGameweek
+        : null;
+
+      const currentPerformancesPromise: Promise<PerformanceQueryResult<BreakdownRow>> = gameweek
+        ? (supabase
+            .from('player_performances')
+            .select('player_id, fantasy_points_breakdown(combat_points, economy_points, objective_points, teamfight_points, win_points, series_points, performance_index_points, consistency_points, penalty_points, total_points)')
+            .eq('gameweek_id', gameweek.id)
+            .in('player_id', starterPlayerIds) as unknown as Promise<PerformanceQueryResult<BreakdownRow>>)
+        : Promise.resolve({ data: null, error: null });
+      const previousPerformancesPromise: Promise<PerformanceQueryResult<PrevPerfRow>> = previousGameweek
+        ? (supabase
+            .from('player_performances')
+            .select('player_id, fantasy_points_breakdown(total_points)')
+            .eq('gameweek_id', previousGameweek.id)
+            .in('player_id', starterPlayerIds) as unknown as Promise<PerformanceQueryResult<PrevPerfRow>>)
+        : Promise.resolve({ data: null, error: null });
+      const [currentPerformancesRes, previousPerformancesRes] = await Promise.all([
+        currentPerformancesPromise,
+        previousPerformancesPromise,
+      ]);
+
+      const { data: perfRows, error: perfError } = currentPerformancesRes;
       if (perfError) throw new Error(`Failed to fetch gameweek player scores: ${perfError.message}`);
+      const { data: prevPerfRows, error: prevPerfError } = previousPerformancesRes;
+      if (prevPerfError) {
+        console.warn('Unable to fetch previous gameweek player scores:', prevPerfError.message);
+      }
 
       if (perfRows && Array.isArray(perfRows)) {
         const breakdownMap = aggregatePlayerGameweekBreakdowns(perfRows as BreakdownRow[]);
@@ -258,42 +292,20 @@ async function getHandler(request: NextRequest) {
           }
         });
       }
-    }
 
-    // Fetch previous closed gameweek performance for form trend arrows
-    if (starterObjects.length > 0) {
-      const { data: prevGwData } = await supabase
-        .from('gameweeks')
-        .select('id')
-        .eq('status', 'closed')
-        .order('id', { ascending: false })
-        .limit(1);
-
-      const prevGwId = prevGwData && prevGwData.length > 0 ? prevGwData[0].id : null;
-
-      if (prevGwId && gameweek && prevGwId !== gameweek.id) {
-        const starterPlayerIds2 = starterObjects.map((s) => s!.id);
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { data: prevPerfRows } = await (supabase.from('player_performances') as any)
-          .select('player_id, fantasy_points_breakdown(total_points)')
-          .eq('gameweek_id', prevGwId)
-          .in('player_id', starterPlayerIds2);
-
-        if (prevPerfRows && Array.isArray(prevPerfRows)) {
-          type PrevPerfRow = { player_id: number; fantasy_points_breakdown: { total_points: number | null } | null };
-          const prevTotals = new Map<number, number>();
-          for (const row of prevPerfRows as PrevPerfRow[]) {
-            const pts = row.fantasy_points_breakdown?.total_points;
-            if (pts != null) {
-              prevTotals.set(row.player_id, (prevTotals.get(row.player_id) ?? 0) + pts);
-            }
+      if (prevPerfRows && Array.isArray(prevPerfRows)) {
+        const prevTotals = new Map<number, number>();
+        for (const row of prevPerfRows as PrevPerfRow[]) {
+          const pts = row.fantasy_points_breakdown?.total_points;
+          if (pts != null) {
+            prevTotals.set(row.player_id, (prevTotals.get(row.player_id) ?? 0) + pts);
           }
-          starterObjects.forEach((starter) => {
-            if (!starter) return;
-            const prev = prevTotals.get(starter.id);
-            starter.prev_gw_points = prev ?? null;
-          });
         }
+        starterObjects.forEach((starter) => {
+          if (!starter) return;
+          const prev = prevTotals.get(starter.id);
+          starter.prev_gw_points = prev ?? null;
+        });
       }
     }
 
