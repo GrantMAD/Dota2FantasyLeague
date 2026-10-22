@@ -408,34 +408,48 @@ export function PageGuideOverlay() {
             width: Math.min(typeof window !== 'undefined' ? window.innerWidth - 8 : activeTarget.width + pad * 2, activeTarget.width + pad * 2),
             height: Math.min(typeof window !== 'undefined' ? window.innerHeight - 8 : activeTarget.height + pad * 2, activeTarget.height + pad * 2),
           }}
-        />
+        >
+          <span
+            aria-hidden="true"
+            className="absolute -inset-0.5 animate-ping rounded-xl border border-cyan-200/80"
+          />
+        </div>
       )}
       <div
-        className={`fixed z-102 w-[min(380px,calc(100vw-32px))] rounded-xl border border-cyan-400/50 bg-slate-900 p-5 shadow-2xl transition-all duration-150 ${isCentered ? '-translate-x-1/2 -translate-y-1/2' : ''}`}
+        className={`fixed z-102 w-[min(380px,calc(100vw-32px))] rounded-xl border border-cyan-400/50 bg-[var(--surface)] p-5 text-[var(--text-primary)] shadow-2xl shadow-slate-950/40 backdrop-blur-md transition-all duration-150 ${isCentered ? '-translate-x-1/2 -translate-y-1/2' : ''}`}
         style={{ top: tooltipTop, left: tooltipLeft }}
       >
         <div className="mb-3 flex items-start justify-between gap-4">
           <div>
-            <p className="mb-1 text-xs font-semibold uppercase tracking-[0.18em] text-cyan-400">{content.title} guide</p>
-            <h2 id="page-guide-title" className="text-lg font-bold text-white">Step {stepIndex + 1} of {content.steps.length}</h2>
+            <p className="mb-1 text-xs font-semibold uppercase tracking-[0.18em] text-cyan-600 dark:text-cyan-300">{content.title} guide</p>
+            <h2 id="page-guide-title" className="text-lg font-bold">Step {stepIndex + 1} of {content.steps.length}</h2>
+          </div>
+          <div className="flex items-center gap-1.5 pt-1" role="img" aria-label={`Step ${stepIndex + 1} of ${content.steps.length}`}>
+            {content.steps.map((step, index) => (
+              <span
+                key={`${index}-${step}`}
+                aria-hidden="true"
+                className={`h-1.5 w-3 rounded-full transition-colors ${index === stepIndex ? 'bg-cyan-500' : 'bg-[var(--border)]'}`}
+              />
+            ))}
           </div>
           <button
             type="button"
             onClick={closeGuide}
             aria-label="Close page guide"
             title="Close page guide"
-            className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-800 hover:text-white"
+            className="rounded-lg p-1.5 text-[var(--text-muted)] transition hover:bg-[var(--surface-raised)] hover:text-[var(--text-primary)]"
           >
             <X className="h-5 w-5" />
           </button>
         </div>
-        <p className="text-sm leading-6 text-slate-300">{content.steps[stepIndex]}</p>
+        <p className="text-sm leading-6 text-[var(--text-secondary)]">{content.steps[stepIndex]}</p>
         <div className="mt-5 flex items-center justify-between gap-3">
           <button
             type="button"
             onClick={() => setStepIndex((current) => Math.max(0, current - 1))}
             disabled={stepIndex === 0}
-            className="inline-flex items-center gap-1 rounded-lg px-3 py-2 text-sm text-slate-300 hover:bg-slate-800 disabled:invisible"
+            className="inline-flex items-center gap-1 rounded-lg px-3 py-2 text-sm text-[var(--text-secondary)] transition hover:bg-[var(--surface-raised)] disabled:invisible"
           >
             <ArrowLeft className="h-4 w-4" />
             Back
@@ -443,7 +457,7 @@ export function PageGuideOverlay() {
           <button
             type="button"
             onClick={() => (isLastStep ? closeGuide() : setStepIndex((current) => current + 1))}
-            className="inline-flex items-center gap-2 rounded-lg bg-cyan-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-cyan-500"
+            className="inline-flex items-center gap-2 rounded-lg bg-cyan-500 px-4 py-2.5 text-sm font-bold text-slate-950 shadow-md shadow-cyan-950/30 transition hover:bg-cyan-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--surface)]"
           >
             {isLastStep ? 'Finish' : 'Next'}
             {!isLastStep && <ArrowRight className="h-4 w-4" />}

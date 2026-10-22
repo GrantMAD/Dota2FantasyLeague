@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState, useRef } from 'react';
 import { fetchWithAuth } from '@/lib/fetch-with-auth';
+import { useAccessibleDialog } from './use-accessible-dialog';
 
 interface JobDetailItem {
   jobName: string;
@@ -72,7 +73,13 @@ export function DataFreshnessBadge({
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [, setTick] = useState(0);
-  const modalRef = useRef<HTMLDivElement>(null);
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const closeModal = useCallback(() => setIsModalOpen(false), []);
+  const dialogRef = useAccessibleDialog<HTMLDivElement>({
+    open: isModalOpen,
+    onClose: closeModal,
+    initialFocusRef: closeButtonRef,
+  });
 
   const loadFreshness = useCallback(async () => {
     try {
@@ -112,26 +119,21 @@ export function DataFreshnessBadge({
     return () => clearInterval(timer);
   }, []);
 
-  // Close modal on Escape or click outside
+  // Close modal on click outside.
   useEffect(() => {
     if (!isModalOpen) return;
 
-    function handleKeyDown(e: KeyboardEvent) {
-      if (e.key === 'Escape') setIsModalOpen(false);
-    }
     function handleClickOutside(e: MouseEvent) {
-      if (modalRef.current && !modalRef.current.contains(e.target as Node)) {
-        setIsModalOpen(false);
+      if (dialogRef.current && !dialogRef.current.contains(e.target as Node)) {
+        closeModal();
       }
     }
 
-    document.addEventListener('keydown', handleKeyDown);
     document.addEventListener('mousedown', handleClickOutside);
     return () => {
-      document.removeEventListener('keydown', handleKeyDown);
       document.removeEventListener('mousedown', handleClickOutside);
     };
-  }, [isModalOpen]);
+  }, [closeModal, dialogRef, isModalOpen]);
 
   if (loading && !data) {
     return (
@@ -203,7 +205,14 @@ export function DataFreshnessBadge({
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 dark:bg-black/75 backdrop-blur-sm animate-in fade-in duration-150">
           <div
-            ref={modalRef}
+            ref={dialogRef}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="data-freshness-title"
+            tabIndex={-1}
+            onMouseDown={(event) => {
+              if (event.target === event.currentTarget) closeModal();
+            }}
             className="data-freshness-modal w-full max-w-lg rounded-2xl p-6 shadow-2xl text-left relative overflow-hidden"
           >
             {/* Header glow */}
@@ -218,7 +227,7 @@ export function DataFreshnessBadge({
                   </svg>
                 </div>
                 <div>
-                  <h3 className="text-lg font-bold data-freshness-modal-title flex items-center gap-2">
+                  <h3 id="data-freshness-title" className="text-lg font-bold data-freshness-modal-title flex items-center gap-2">
                     Live Data Sync Status
                     <span className="text-xs font-normal px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
                       Automated
@@ -232,8 +241,10 @@ export function DataFreshnessBadge({
 
               <button
                 type="button"
-                onClick={() => setIsModalOpen(false)}
+                ref={closeButtonRef}
+                onClick={closeModal}
                 className="data-freshness-close-btn p-1.5 rounded-lg transition-colors"
+                aria-label="Close data freshness details"
                 title="Close"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -263,7 +274,7 @@ export function DataFreshnessBadge({
                 <p className="data-freshness-card-label text-[11px] uppercase tracking-wider font-semibold mb-0.5">
                   Next Scheduled Sync
                 </p>
-                <p className="text-sm font-bold text-teal-600 dark:text-teal-400 flex items-center gap-1.5">
+                <p className="text-sm font-bold data-freshness-next-value flex items-center gap-1.5">
                   <span className="w-2 h-2 rounded-full bg-teal-500 dark:bg-teal-400 animate-pulse"></span>
                   {nextUpdateText}
                 </p>
@@ -276,7 +287,7 @@ export function DataFreshnessBadge({
             </div>
 
             {/* Individual Job Breakdown */}
-            <div className="space-y-2.5 max-h-64 overflow-y-auto pr-1 custom-scrollbar">
+            <div className="no-scrollbar max-h-64 space-y-2.5 overflow-y-auto pr-1">
               <p className="text-xs font-semibold data-freshness-card-label uppercase tracking-wider">
                 Active Job Pipelines
               </p>
@@ -296,12 +307,12 @@ export function DataFreshnessBadge({
                           {job.schedule}
                         </code>
                       </div>
-                      <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${
+                      <span className={`data-freshness-status text-[10px] px-2 py-0.5 rounded-full font-medium ${
                         job.status === 'running'
-                          ? 'bg-amber-500/20 text-amber-700 dark:text-amber-300 border border-amber-500/30 animate-pulse'
+                          ? 'data-freshness-status-running animate-pulse'
                           : job.status === 'completed'
-                          ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20'
-                          : 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300'
+                          ? 'data-freshness-status-completed'
+                          : 'data-freshness-status-idle'
                       }`}>
                         {job.status === 'completed' ? 'Synced' : job.status}
                       </span>
@@ -316,7 +327,7 @@ export function DataFreshnessBadge({
                         Last: <strong className="data-freshness-updated-value">{formatRelativeTime(job.lastRun)}</strong>
                       </span>
                       <span>
-                        Next: <strong className="text-teal-600 dark:text-teal-400">{formatCountdown(job.nextRun)}</strong>
+                        Next: <strong className="data-freshness-next-value">{formatCountdown(job.nextRun)}</strong>
                       </span>
                     </div>
                   </div>

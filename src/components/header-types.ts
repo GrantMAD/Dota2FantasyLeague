@@ -35,4 +35,5 @@ export type SearchResultItem = {
   category: 'Players' | 'Navigation' | 'Pages';
   href: string;
   badge?: string;
+  role?: string;
 };

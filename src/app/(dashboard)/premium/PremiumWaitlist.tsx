@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import Link from 'next/link';
-import { ArrowRight, CheckCircle2, X } from 'lucide-react';
+import { AlertTriangle, ArrowRight, CheckCircle2, X } from 'lucide-react';
 import { fetchWithAuth } from '@/lib/fetch-with-auth';
 
 interface WaitlistResponse {
@@ -144,7 +144,7 @@ export function PremiumWaitlistProvider({ children }: { children: ReactNode }) {
       {children}
       {isOpen ? (
         <div
-          className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/80 p-4 backdrop-blur-sm"
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/75 p-4 backdrop-blur-md"
           onClick={() => {
             if (!busy) setIsOpen(false);
           }}
@@ -155,13 +155,15 @@ export function PremiumWaitlistProvider({ children }: { children: ReactNode }) {
             aria-modal="true"
             aria-labelledby="premium-waitlist-title"
             tabIndex={-1}
-            className="w-full max-w-lg rounded-2xl border border-slate-700 bg-slate-900 p-6 shadow-2xl"
+            className="relative w-full max-w-lg overflow-hidden rounded-3xl border border-amber-500/30 bg-[var(--surface)] p-6 text-[var(--text-primary)] shadow-2xl shadow-amber-950/20 sm:p-7"
             onClick={(event) => event.stopPropagation()}
           >
-            <div className="flex items-start justify-between gap-4">
+            <div aria-hidden="true" className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-amber-400 via-yellow-400 to-orange-500" />
+            <div aria-hidden="true" className="pointer-events-none absolute -right-20 -top-24 h-64 w-64 rounded-full bg-amber-500/10 blur-3xl" />
+            <div className="relative flex items-start justify-between gap-4">
               <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-amber-300">Premium updates</p>
-                <h2 id="premium-waitlist-title" className="mt-2 text-2xl font-bold text-white">
+                <p className="text-xs font-bold uppercase tracking-[0.2em] text-amber-700 dark:text-amber-300">Premium updates</p>
+                <h2 id="premium-waitlist-title" className="mt-2 text-2xl font-black text-[var(--text-primary)]">
                   Join the waitlist
                 </h2>
               </div>
@@ -170,33 +172,33 @@ export function PremiumWaitlistProvider({ children }: { children: ReactNode }) {
                 aria-label="Close waitlist dialog"
                 disabled={busy}
                 onClick={() => setIsOpen(false)}
-                className="rounded-lg p-2 text-slate-400 transition hover:bg-slate-800 hover:text-white disabled:opacity-50"
+                className="rounded-xl p-2 text-[var(--text-muted)] transition hover:bg-[var(--surface-raised)] hover:text-[var(--text-primary)] disabled:opacity-50"
               >
                 <X className="h-5 w-5" />
               </button>
             </div>
 
             {loadingStatus ? (
-              <p role="status" className="mt-5 text-sm text-slate-300">Checking your waitlist status…</p>
+              <p role="status" className="relative mt-5 text-sm text-[var(--text-secondary)]">Checking your waitlist status…</p>
             ) : waitlisted && !editing ? (
               <div className="mt-5 space-y-4">
-                <div className="flex items-start gap-3 rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-4">
-                  <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-emerald-300" />
-                  <p className="text-sm leading-6 text-slate-200">
+                <div className="flex items-start gap-3 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-4">
+                  <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-emerald-700 dark:text-emerald-300" />
+                  <p className="text-sm leading-6 text-[var(--text-primary)]">
                     <span className="font-semibold">{email}</span> is on the Premium waitlist.
                     We are not sending emails yet.
                   </p>
                 </div>
-                {feedback ? <p role="status" className="text-sm text-cyan-300">{feedback}</p> : null}
+                {feedback ? <div role="status" className="rounded-xl border border-cyan-500/30 bg-cyan-500/10 px-3 py-2.5 text-sm text-cyan-800 dark:text-cyan-200">{feedback}</div> : null}
                 {confirmRemoval ? (
-                  <div className="space-y-3 rounded-xl border border-rose-500/20 bg-rose-500/5 p-4">
-                    <p className="text-sm text-slate-200">Remove your email and withdraw your waitlist consent?</p>
+                  <div className="space-y-3 rounded-2xl border border-rose-500/30 bg-rose-500/10 p-4">
+                    <p className="text-sm text-[var(--text-primary)]">Remove your email and withdraw your waitlist consent?</p>
                     <div className="flex flex-wrap gap-2">
                       <button
                         type="button"
                         disabled={busy}
                         onClick={() => void removeWaitlistEntry()}
-                        className="rounded-lg bg-rose-600 px-3 py-2 text-sm font-semibold text-white hover:bg-rose-500 disabled:opacity-50"
+                        className="rounded-xl bg-rose-600 px-3 py-2 text-sm font-semibold text-white hover:bg-rose-500 disabled:opacity-50"
                       >
                         {busy ? 'Removing…' : 'Confirm removal'}
                       </button>
@@ -204,7 +206,7 @@ export function PremiumWaitlistProvider({ children }: { children: ReactNode }) {
                         type="button"
                         disabled={busy}
                         onClick={() => setConfirmRemoval(false)}
-                        className="rounded-lg border border-slate-600 px-3 py-2 text-sm text-slate-200 hover:bg-slate-800"
+                        className="rounded-xl border border-[var(--border)] bg-[var(--surface-raised)] px-3 py-2 text-sm text-[var(--text-primary)] hover:bg-[var(--surface-muted)]"
                       >
                         Keep me on the list
                       </button>
@@ -218,14 +220,14 @@ export function PremiumWaitlistProvider({ children }: { children: ReactNode }) {
                         setEditing(true);
                         setFeedback(null);
                       }}
-                      className="rounded-lg border border-slate-600 px-3 py-2 text-sm font-semibold text-slate-200 hover:bg-slate-800"
+                      className="rounded-xl border border-[var(--border)] bg-[var(--surface-raised)] px-3 py-2 text-sm font-semibold text-[var(--text-primary)] hover:bg-[var(--surface-muted)]"
                     >
                       Change email
                     </button>
                     <button
                       type="button"
                       onClick={() => setConfirmRemoval(true)}
-                      className="rounded-lg border border-rose-700/60 px-3 py-2 text-sm font-semibold text-rose-200 hover:bg-rose-950/50"
+                      className="rounded-xl border border-rose-500/40 bg-rose-500/5 px-3 py-2 text-sm font-semibold text-rose-700 hover:bg-rose-500/10 dark:text-rose-200"
                     >
                       Remove me
                     </button>
@@ -234,12 +236,12 @@ export function PremiumWaitlistProvider({ children }: { children: ReactNode }) {
               </div>
             ) : (
               <form className="mt-5 space-y-4" onSubmit={(event) => void submitWaitlist(event)}>
-                <p className="text-sm leading-6 text-slate-300">
+                <p className="text-sm leading-6 text-[var(--text-secondary)]">
                   We will use this address only for Premium launch updates. Joining does not start a subscription,
                   and no email is sent now.
                 </p>
                 <div>
-                  <label htmlFor="premium-waitlist-email" className="mb-1.5 block text-sm font-medium text-slate-200">
+                  <label htmlFor="premium-waitlist-email" className="mb-1.5 block text-sm font-semibold text-[var(--text-primary)]">
                     Email address
                   </label>
                   <input
@@ -250,25 +252,29 @@ export function PremiumWaitlistProvider({ children }: { children: ReactNode }) {
                     maxLength={254}
                     value={email}
                     onChange={(event) => setEmail(event.target.value)}
-                    className="w-full rounded-lg border border-slate-600 bg-slate-950 px-3 py-2.5 text-white outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20"
+                    className="w-full rounded-xl border border-[var(--border)] bg-[var(--surface-raised)] px-3 py-2.5 text-[var(--text-primary)] outline-none transition focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20"
                   />
                 </div>
-                <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-slate-700 bg-slate-950/60 p-3">
+                <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-[var(--border)] bg-[var(--surface-raised)] p-3">
                   <input
                     type="checkbox"
                     checked={consent}
                     onChange={(event) => setConsent(event.target.checked)}
-                    className="mt-1 h-4 w-4 accent-amber-400"
+                    className="mt-1 h-4 w-4 accent-amber-500"
                   />
-                  <span className="text-sm leading-5 text-slate-300">
+                  <span className="text-sm leading-5 text-[var(--text-secondary)]">
                     I agree to receive Premium launch updates at this address. I can remove my waitlist entry at any time.{' '}
-                    <Link href="/privacy" className="text-cyan-300 underline underline-offset-2 hover:text-cyan-200">
+                    <Link href="/privacy" className="text-cyan-700 underline underline-offset-2 hover:text-cyan-600 dark:text-cyan-300 dark:hover:text-cyan-200">
                       Privacy policy
                     </Link>
                   </span>
                 </label>
-                {error ? <p role="alert" className="text-sm text-rose-300">{error}</p> : null}
-                {feedback ? <p role="status" className="text-sm text-cyan-300">{feedback}</p> : null}
+                {error ? (
+                  <div role="alert" className="flex items-start gap-2 rounded-xl border border-rose-500/30 bg-rose-500/10 px-3 py-2.5 text-sm text-rose-800 dark:text-rose-200">
+                    <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" /> <span>{error}</span>
+                  </div>
+                ) : null}
+                {feedback ? <div role="status" className="rounded-xl border border-cyan-500/30 bg-cyan-500/10 px-3 py-2.5 text-sm text-cyan-800 dark:text-cyan-200">{feedback}</div> : null}
                 <div className="flex flex-wrap justify-end gap-2">
                   {waitlisted ? (
                     <button
@@ -279,7 +285,7 @@ export function PremiumWaitlistProvider({ children }: { children: ReactNode }) {
                         setConsent(false);
                         setError(null);
                       }}
-                      className="rounded-lg border border-slate-600 px-4 py-2.5 text-sm font-semibold text-slate-200 hover:bg-slate-800"
+                      className="rounded-xl border border-[var(--border)] bg-[var(--surface-raised)] px-4 py-2.5 text-sm font-semibold text-[var(--text-primary)] hover:bg-[var(--surface-muted)]"
                     >
                       Cancel
                     </button>
@@ -287,7 +293,7 @@ export function PremiumWaitlistProvider({ children }: { children: ReactNode }) {
                   <button
                     type="submit"
                     disabled={busy || !consent}
-                    className="inline-flex items-center gap-2 rounded-lg bg-amber-500 px-4 py-2.5 text-sm font-bold text-slate-950 transition hover:bg-amber-400 disabled:cursor-not-allowed disabled:opacity-50"
+                    className="inline-flex items-center gap-2 rounded-xl bg-amber-500 px-4 py-2.5 text-sm font-bold text-slate-950 shadow-md shadow-amber-500/15 transition hover:bg-amber-400 disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     {busy ? 'Saving…' : waitlisted ? 'Update email' : 'Join waitlist'}
                     {!busy ? <ArrowRight className="h-4 w-4" /> : null}
@@ -296,7 +302,9 @@ export function PremiumWaitlistProvider({ children }: { children: ReactNode }) {
               </form>
             )}
             {!loadingStatus && error && waitlisted && !editing ? (
-              <p role="alert" className="mt-3 text-sm text-rose-300">{error}</p>
+              <div role="alert" className="mt-3 flex items-start gap-2 rounded-xl border border-rose-500/30 bg-rose-500/10 px-3 py-2.5 text-sm text-rose-800 dark:text-rose-200">
+                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" /> <span>{error}</span>
+              </div>
             ) : null}
           </section>
         </div>

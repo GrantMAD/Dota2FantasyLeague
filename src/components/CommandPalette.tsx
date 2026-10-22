@@ -26,6 +26,7 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [playerResults, setPlayerResults] = useState<SearchResultItem[]>([]);
   const [isSearchingPlayers, setIsSearchingPlayers] = useState(false);
+  const [selectedIndex, setSelectedIndex] = useState(0);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const commandPaletteRef = useAccessibleDialog<HTMLDivElement>({
     open: true,
@@ -66,6 +67,7 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
             category: 'Players',
             href: `/players/${player.id}`,
             badge: player.current_price ? `$${Number(player.current_price).toFixed(1)}M` : undefined,
+            role: player.primary_role || undefined,
           })),
         );
       } catch (error) {
@@ -92,98 +94,153 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
     );
     return [...playerResults, ...matchedPages];
   }, [searchQuery, playerResults]);
+  const activeIndex = Math.min(selectedIndex, Math.max(0, filteredSearchResults.length - 1));
+
+  function navigateToResult(item: SearchResultItem) {
+    onClose();
+    router.push(item.href);
+  }
+
+  function getRoleColor(role?: string) {
+    const normalizedRole = role?.toLowerCase() ?? '';
+    if (normalizedRole.includes('carry')) return 'border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300';
+    if (normalizedRole.includes('mid')) return 'border-violet-500/30 bg-violet-500/10 text-violet-700 dark:text-violet-300';
+    if (normalizedRole.includes('off')) return 'border-cyan-500/30 bg-cyan-500/10 text-cyan-700 dark:text-cyan-300';
+    if (normalizedRole.includes('support')) return 'border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300';
+    return 'border-[var(--border)] bg-[var(--surface-raised)] text-[var(--text-secondary)]';
+  }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center pt-20 px-4 bg-slate-950/70 backdrop-blur-xs animate-in fade-in duration-150">
+    <div className="fixed inset-0 z-50 flex items-start justify-center bg-slate-950/55 px-4 pt-20 backdrop-blur-md animate-in fade-in duration-150">
       <div
         ref={commandPaletteRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby="command-palette-title"
         tabIndex={-1}
-        className="w-full max-w-xl rounded-xl border border-slate-700 bg-slate-900 shadow-2xl overflow-hidden"
+        className="w-full max-w-xl overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface)] text-[var(--text-primary)] shadow-2xl shadow-slate-950/30 ring-1 ring-white/10"
       >
         <h2 id="command-palette-title" className="sr-only">Command palette</h2>
-        <div className="flex items-center px-4 border-b border-slate-700/80 bg-slate-800/40">
-          <Search className="h-5 w-5 text-slate-400 shrink-0" />
+        <div className="flex items-center border-b border-[var(--border)] bg-[var(--surface-raised)] px-4">
+          <Search className="h-5 w-5 shrink-0 text-[var(--text-muted)]" />
           <input
             ref={searchInputRef}
             type="text"
             aria-label="Search players, pages, and rules"
+            role="combobox"
+            aria-autocomplete="list"
+            aria-expanded={filteredSearchResults.length > 0}
+            aria-controls="command-palette-results"
+            aria-activedescendant={filteredSearchResults.length > 0 ? `command-palette-result-${activeIndex}` : undefined}
             value={searchQuery}
             onChange={(event) => {
               setSearchQuery(event.target.value);
+              setSelectedIndex(0);
               if (!event.target.value.trim()) setIsSearchingPlayers(false);
             }}
+            onKeyDown={(event) => {
+              if (event.key === 'ArrowDown' && filteredSearchResults.length > 0) {
+                event.preventDefault();
+                setSelectedIndex((index) => (Math.min(index, filteredSearchResults.length - 1) + 1) % filteredSearchResults.length);
+              } else if (event.key === 'ArrowUp' && filteredSearchResults.length > 0) {
+                event.preventDefault();
+                setSelectedIndex((index) => (
+                  Math.min(index, filteredSearchResults.length - 1) - 1 + filteredSearchResults.length
+                ) % filteredSearchResults.length);
+              } else if (event.key === 'Enter' && filteredSearchResults[activeIndex]) {
+                event.preventDefault();
+                navigateToResult(filteredSearchResults[activeIndex]);
+              }
+            }}
             placeholder="Search pro players, pages, rules... (Esc to close)"
-            className="w-full bg-transparent px-3 py-3.5 text-sm text-white placeholder-slate-400 focus:outline-none"
+            className="w-full bg-transparent px-3 py-4 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none"
           />
           {searchQuery ? (
             <button
               type="button"
               aria-label="Clear search"
               onClick={() => setSearchQuery('')}
-              className="p-1 rounded text-slate-400 hover:text-white"
+              className="rounded-lg p-1.5 text-[var(--text-muted)] transition hover:bg-[var(--surface-muted)] hover:text-[var(--text-primary)]"
             >
               <X className="h-4 w-4" />
             </button>
           ) : (
-            <kbd className="text-[10px] font-mono text-slate-400 bg-slate-800 px-1.5 py-0.5 rounded border border-slate-700">
-              ESC
+            <kbd className="rounded border border-[var(--border)] bg-[var(--surface)] px-1.5 py-0.5 font-mono text-[10px] text-[var(--text-muted)]">
+              Esc
             </kbd>
           )}
         </div>
 
-        <div className="max-h-80 overflow-y-auto p-2 space-y-1">
+        <div className="max-h-80 space-y-1 overflow-y-auto p-2">
           {isSearchingPlayers && (
             <div role="status" aria-label="Searching players" className="space-y-1.5 p-1">
               {[1, 2, 3].map((item) => (
                 <div key={item} className="flex items-center gap-3 rounded-lg p-2.5">
-                  <div className="h-8 w-8 shrink-0 animate-pulse rounded-md bg-slate-800" />
+                <div className="h-8 w-8 shrink-0 animate-pulse rounded-md bg-[var(--surface-muted)]" />
                   <div className="min-w-0 flex-1 space-y-2">
-                    <div className="h-3 w-2/5 animate-pulse rounded bg-slate-700" />
-                    <div className="h-2.5 w-3/5 animate-pulse rounded bg-slate-800" />
+                  <div className="h-3 w-2/5 animate-pulse rounded bg-[var(--surface-muted)]" />
+                  <div className="h-2.5 w-3/5 animate-pulse rounded bg-[var(--surface)]" />
                   </div>
                 </div>
               ))}
             </div>
           )}
           {filteredSearchResults.length === 0 && !isSearchingPlayers && (
-            <div className="p-8 text-center text-sm text-slate-400">
-              No results found for &ldquo;<span className="text-white">{searchQuery}</span>&rdquo;
+            <div className="p-8 text-center text-sm text-[var(--text-secondary)]">
+              No results found for &ldquo;<span className="text-[var(--text-primary)]">{searchQuery}</span>&rdquo;
             </div>
           )}
-          {filteredSearchResults.map((item) => (
-            <button
-              key={`${item.category}-${item.id}`}
-              type="button"
-              onClick={() => {
-                onClose();
-                router.push(item.href);
-              }}
-              className="w-full flex items-center justify-between p-2.5 rounded-lg hover:bg-slate-800 text-left transition-colors group"
-            >
-              <div className="flex items-center gap-3">
-                <div className={`p-2 rounded-md ${item.category === 'Players' ? 'bg-amber-500/10 text-amber-400' : 'bg-slate-800 text-slate-400'}`}>
-                  {item.category === 'Players' ? <Sparkles className="h-4 w-4" /> : <Compass className="h-4 w-4" />}
+          <div id="command-palette-results" role="listbox" aria-label="Search results">
+            {filteredSearchResults.map((item, index) => (
+              <button
+                key={`${item.category}-${item.id}`}
+                id={`command-palette-result-${index}`}
+                role="option"
+                aria-selected={activeIndex === index}
+                type="button"
+                onMouseEnter={() => setSelectedIndex(index)}
+                onClick={() => navigateToResult(item)}
+                className={`group flex w-full items-center justify-between rounded-xl p-2.5 text-left transition-colors ${
+                  activeIndex === index
+                    ? 'bg-[var(--surface-muted)] ring-1 ring-cyan-500/30'
+                    : 'hover:bg-[var(--surface-raised)]'
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <div className={`rounded-lg p-2 ${item.category === 'Players' ? getRoleColor(item.role) : 'bg-[var(--surface-raised)] text-[var(--text-muted)]'}`}>
+                    {item.category === 'Players' ? <Sparkles className="h-4 w-4" /> : <Compass className="h-4 w-4" />}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-semibold text-[var(--text-primary)] transition-colors group-hover:text-cyan-700 dark:group-hover:text-cyan-300">{item.title}</p>
+                    <p className="truncate text-xs text-[var(--text-secondary)]">{item.subtitle}</p>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-sm font-medium text-white group-hover:text-amber-400 transition-colors">{item.title}</p>
-                  <p className="text-xs text-slate-400">{item.subtitle}</p>
+                <div className="ml-3 flex shrink-0 items-center gap-2">
+                  {item.badge && (
+                    <span className="rounded-md border border-emerald-500/20 bg-emerald-500/10 px-2 py-0.5 text-xs font-semibold text-emerald-700 dark:text-emerald-300">
+                      {item.badge}
+                    </span>
+                  )}
+                  {activeIndex === index && (
+                    <kbd className="rounded border border-[var(--border)] bg-[var(--surface)] px-1.5 py-0.5 font-mono text-[9px] text-[var(--text-muted)]">Enter</kbd>
+                  )}
                 </div>
-              </div>
-              {item.badge && (
-                <span className="text-xs font-semibold px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                  {item.badge}
-                </span>
-              )}
-            </button>
-          ))}
+              </button>
+            ))}
+          </div>
         </div>
 
-        <div className="flex items-center justify-between px-4 py-2 border-t border-slate-800 bg-slate-900/60 text-[11px] text-slate-500">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-t border-[var(--border)] bg-[var(--surface-raised)] px-4 py-2.5 text-[10px] text-[var(--text-muted)]">
           <span>Select a result to navigate</span>
-          <span>ESC to close</span>
+          <span className="flex items-center gap-1.5">
+            <kbd className="rounded border border-[var(--border)] bg-[var(--surface)] px-1 py-0.5 font-mono">↑</kbd>
+            <kbd className="rounded border border-[var(--border)] bg-[var(--surface)] px-1 py-0.5 font-mono">↓</kbd>
+            <span>navigate</span>
+            <kbd className="ml-1 rounded border border-[var(--border)] bg-[var(--surface)] px-1 py-0.5 font-mono">Enter</kbd>
+            <span>open</span>
+            <kbd className="ml-1 rounded border border-[var(--border)] bg-[var(--surface)] px-1 py-0.5 font-mono">Esc</kbd>
+            <span>close</span>
+          </span>
         </div>
       </div>
     </div>

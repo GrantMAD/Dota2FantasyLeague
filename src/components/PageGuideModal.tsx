@@ -78,13 +78,9 @@ export function PageGuideModal() {
 
   if (!isGuideOpen || !pageGuide) return null;
 
-  const panelClass = dark
-    ? 'border-slate-700 bg-slate-900 text-white'
-    : 'border-slate-200 bg-white text-slate-900';
-  const secondaryTextClass = dark ? 'text-slate-300' : 'text-slate-600';
-  const cardClass = dark
-    ? 'border-slate-700 bg-slate-950/60'
-    : 'border-slate-200 bg-slate-50';
+  const panelClass = 'border-[var(--border)] bg-[var(--surface)] text-[var(--text-primary)]';
+  const secondaryTextClass = 'text-[var(--text-secondary)]';
+  const cardClass = 'border-[var(--border)] bg-[var(--surface-raised)]';
 
   return (
     <div
@@ -102,7 +98,7 @@ export function PageGuideModal() {
         tabIndex={-1}
         className={`flex max-h-[92dvh] w-full max-w-3xl flex-col overflow-hidden rounded-t-3xl border shadow-2xl sm:max-h-[min(88dvh,900px)] sm:rounded-3xl ${panelClass}`}
       >
-        <header className={`flex items-start justify-between gap-4 border-b p-5 sm:p-7 ${dark ? 'border-slate-700' : 'border-slate-200'}`}>
+        <header className="flex items-start justify-between gap-4 border-b border-[var(--border)] p-5 sm:p-7">
           <div className="flex items-start gap-3">
             <span className={`mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${dark ? 'bg-cyan-400/10 text-cyan-300' : 'bg-cyan-50 text-cyan-800'}`}>
               <BookOpen className="h-5 w-5" aria-hidden="true" />
@@ -126,6 +122,14 @@ export function PageGuideModal() {
         <div className="overflow-y-auto p-5 sm:p-7">
           <section aria-labelledby="page-guide-steps-title">
             <h3 id="page-guide-steps-title" className="text-base font-bold">How to use this page</h3>
+            <div className="mt-3 flex items-center gap-1.5" aria-hidden="true">
+              {pageGuide.steps.map((step, index) => (
+                <span
+                  key={`${index}-${step}`}
+                  className={`h-1.5 flex-1 rounded-full ${dark ? 'bg-cyan-300/70' : 'bg-cyan-700/70'}`}
+                />
+              ))}
+            </div>
             <ol className="mt-4 space-y-3">
               {pageGuide.steps.map((step, index) => (
                 <li key={step} className={`flex gap-3 rounded-xl border p-4 ${cardClass}`}>
@@ -174,13 +178,13 @@ export function PageGuideModal() {
           </section>
         </div>
 
-        <footer className={`flex flex-col-reverse gap-3 border-t p-5 sm:flex-row sm:items-center sm:justify-between sm:px-7 ${dark ? 'border-slate-700' : 'border-slate-200'}`}>
+        <footer className="flex flex-col-reverse gap-3 border-t border-[var(--border)] p-5 sm:flex-row sm:items-center sm:justify-between sm:px-7">
           <p className={`text-xs ${secondaryTextClass}`}>You can reopen this guide at any time with the help icon.</p>
           <div className="flex justify-end gap-2">
             <button
               type="button"
               onClick={closeGuide}
-              className={`rounded-lg border px-4 py-2.5 text-sm font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500 ${dark ? 'border-slate-700 text-slate-200 hover:bg-slate-800' : 'border-slate-300 text-slate-700 hover:bg-slate-100'}`}
+              className="rounded-lg border border-[var(--border)] px-4 py-2.5 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--surface-raised)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500"
             >
               Close
             </button>
@@ -188,7 +192,7 @@ export function PageGuideModal() {
               <button
                 type="button"
                 onClick={startTour}
-                className="inline-flex items-center justify-center gap-2 rounded-lg bg-cyan-500 px-4 py-2.5 text-sm font-bold text-slate-950 transition hover:bg-cyan-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500 focus-visible:ring-offset-2"
+                className="inline-flex items-center justify-center gap-2 rounded-lg bg-cyan-500 px-4 py-2.5 text-sm font-bold text-slate-950 shadow-md shadow-cyan-950/20 transition hover:bg-cyan-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500 focus-visible:ring-offset-2"
               >
                 <Play className="h-4 w-4" aria-hidden="true" />
                 Start page tour

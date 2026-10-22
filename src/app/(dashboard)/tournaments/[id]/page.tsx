@@ -3,7 +3,7 @@
 import { fetchWithAuth } from '@/lib/fetch-with-auth';
 import { useEffect, useState, use } from 'react';
 import Link from 'next/link';
-import { Activity, CalendarDays, Check, ChevronLeft, Gamepad2, Trophy, Users } from 'lucide-react';
+import { Activity, CalendarDays, Check, CheckCircle2, ChevronLeft, Clock3, Gamepad2, ListFilter, Trophy, Users } from 'lucide-react';
 import { TeamLogo } from '../../matches/components/TeamLogo';
 import { MatchCard, MatchData } from '../../matches/components/MatchCard';
 
@@ -281,9 +281,10 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
         </div>
       </section>
 
-      <div className="flex flex-wrap items-center gap-2 border-b border-[var(--border)] pb-3">
+      <div role="group" aria-label="Tournament details" className="flex flex-wrap items-center gap-2 border-b border-[var(--border)] pb-3">
         <button
           type="button"
+          aria-pressed={activeTab === 'matches'}
           onClick={() => setActiveTab('matches')}
           className={`flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-bold transition-all ${
             activeTab === 'matches'
@@ -291,6 +292,7 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
               : 'text-[var(--text-secondary)] hover:bg-[var(--surface-raised)] hover:text-[var(--text-primary)]'
           }`}
         >
+          <Gamepad2 className="h-4 w-4" />
           <span>Series & Matches</span>
           <span
             className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono ${
@@ -303,6 +305,7 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
 
         <button
           type="button"
+          aria-pressed={activeTab === 'teams'}
           onClick={() => setActiveTab('teams')}
           className={`flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-bold transition-all ${
             activeTab === 'teams'
@@ -310,6 +313,7 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
               : 'text-[var(--text-secondary)] hover:bg-[var(--surface-raised)] hover:text-[var(--text-primary)]'
           }`}
         >
+          <Users className="h-4 w-4" />
           <span>Competing Teams</span>
           <span
             className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono ${
@@ -325,11 +329,11 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
         <div className="space-y-5">
           <div role="group" aria-label="Filter tournament matches by status" className="flex flex-wrap gap-2">
             {([
-              ['all', 'All Matches'],
-              ['live', 'Live'],
-              ['upcoming', 'Upcoming'],
-              ['completed', 'Results'],
-            ] as const).map(([filter, label]) => (
+              ['all', 'All Matches', ListFilter],
+              ['live', 'Live', Activity],
+              ['upcoming', 'Upcoming', Clock3],
+              ['completed', 'Results', CheckCircle2],
+            ] as const).map(([filter, label, FilterIcon]) => (
               <button
                 key={filter}
                 type="button"
@@ -337,10 +341,11 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
                 onClick={() => setMatchFilter(filter)}
                 className={`inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-xs font-semibold transition ${
                   matchFilter === filter
-                    ? 'border-amber-500/50 bg-amber-500/10 text-amber-800 dark:text-amber-200'
-                    : 'border-[var(--border)] bg-[var(--surface)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+                    ? 'border-amber-500/50 bg-amber-500/10 text-amber-800 shadow-sm shadow-amber-500/10 dark:text-amber-200'
+                    : 'border-[var(--border)] bg-[var(--surface)] text-[var(--text-secondary)] hover:bg-[var(--surface-raised)] hover:text-[var(--text-primary)]'
                 }`}
               >
+                <FilterIcon className="h-3.5 w-3.5" />
                 {label}
                 <span className={`rounded-full px-1.5 py-0.5 text-[10px] ${
                   matchFilter === filter ? 'bg-amber-500/15' : 'bg-[var(--surface-raised)]'
@@ -392,21 +397,23 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
               {teams.map((team) => (
                 <div
                   key={team.id}
-                  className="group flex items-center gap-4 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4 transition-all hover:border-cyan-500/40 hover:bg-[var(--surface-raised)]"
+                  className="group flex items-center gap-4 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4 transition-all duration-200 hover:-translate-y-1 hover:border-cyan-500/50 hover:bg-[var(--surface-raised)] hover:shadow-lg hover:shadow-cyan-500/10"
                 >
-                  <TeamLogo
-                    name={team.name}
-                    logoUrl={team.logo_url}
-                    tag={team.name.slice(0, 4).toUpperCase()}
-                    size="md"
-                  />
+                  <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl border border-[var(--border)] bg-[var(--surface-raised)] p-2 shadow-inner">
+                    <TeamLogo
+                      name={team.name}
+                      logoUrl={team.logo_url}
+                      tag={team.name.slice(0, 4).toUpperCase()}
+                      size="md"
+                    />
+                  </div>
                   <div className="min-w-0 flex-1">
                     <h4 className="truncate text-sm font-bold text-[var(--text-primary)] transition-colors group-hover:text-amber-600 dark:group-hover:text-amber-300">
                       {team.name}
                     </h4>
                     {team.region && (
-                      <span className="text-[11px] font-semibold uppercase tracking-wider text-[var(--text-muted)]">
-                        {team.region} Region
+                      <span className="mt-1 inline-flex rounded-full border border-[var(--border)] bg-[var(--surface-raised)] px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-[var(--text-secondary)]">
+                        {team.region}
                       </span>
                     )}
                   </div>
