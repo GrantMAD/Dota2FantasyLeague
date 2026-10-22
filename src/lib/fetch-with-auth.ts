@@ -63,6 +63,13 @@ async function refreshClientSession(): Promise<Session | null> {
   return refreshSessionPromise;
 }
 
+export async function getAuthSession(): Promise<Session | null> {
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+  return session ?? refreshClientSession();
+}
+
 /**
  * A drop-in replacement for fetch() that automatically attaches the current
  * Supabase access token as an Authorization: Bearer header.
@@ -88,27 +95,18 @@ async function refreshClientSession(): Promise<Session | null> {
  */
 export async function fetchWithAuth(
   input: RequestInfo | URL,
-  init: RequestInit = {}
+  init: RequestInit = {},
+  initialSession?: Session | null
 ): Promise<Response> {
   const traceId = crypto.randomUUID();
-  const doRequest = async (retried = false): Promise<Response> => {
-    // getSession() automatically refreshes an expired access token when a valid
-    // refresh token is stored locally (Supabase JS v2 behaviour).
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
-
-    let token = session?.access_token;
-
-    // If no session token is available yet and this is the first attempt,
-    // try an explicit refresh. This handles hard reloads where getSession()
-    // returns null before the local session storage is warmed up, as well as
-    // cold dev-server starts where the httpOnly cookie holds the refresh token
-    // but the JS client has no in-memory session yet.
-    if (!token && !retried) {
-      const refreshed = await refreshClientSession();
-      token = refreshed?.access_token;
-    }
+  const doRequest = async (
+    retried = false,
+    sessionOverride: Session | null | undefined = initialSession
+  ): Promise<Response> => {
+    const session = sessionOverride === undefined
+      ? await getAuthSession()
+      : sessionOverride;
+    const token = session?.access_token;
 
     const headers = new Headers(init.headers);
     if (token) headers.set('Authorization', `Bearer ${token}`);
@@ -122,7 +120,7 @@ export async function fetchWithAuth(
     // On 401, force a full session refresh and retry once with the new token.
     if (response.status === 401 && !retried) {
       const refreshed = await refreshClientSession();
-      if (refreshed?.access_token) return doRequest(true);
+      if (refreshed?.access_token) return doRequest(true, refreshed);
     }
 
     return response;

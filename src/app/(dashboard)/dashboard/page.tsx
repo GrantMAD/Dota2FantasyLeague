@@ -12,9 +12,10 @@ import {
   Zap,
   Shield,
 } from 'lucide-react';
-import { fetchWithAuth } from '@/lib/fetch-with-auth';
+import { fetchWithAuth, getAuthSession } from '@/lib/fetch-with-auth';
 import { useToast } from '@/components/Toast';
 import type { DashboardData, DashboardStarter, ScoreBreakdown } from '@/types/fantasy';
+import type { Session } from '@supabase/supabase-js';
 import { PlayerDetailModal, type PlayerDetails } from '@/app/(dashboard)/squads/components/PlayerDetailModal';
 import { TotalPointsModal } from './components/TotalPointsModal';
 import { DashboardQuickActions } from './components/DashboardQuickActions';
@@ -60,15 +61,40 @@ export default function DashboardPage() {
   };
 
   useEffect(() => {
-    const fetchStats = async () => {
+    let cancelled = false;
+    let livePollTimer: number | null = null;
+    let whatsNewPollTimer: number | null = null;
+    let liveRequestInFlight = false;
+    let whatsNewRequestInFlight = false;
+    let hasLiveMatches = false;
+
+    const clearLivePoll = () => {
+      if (livePollTimer !== null) {
+        window.clearTimeout(livePollTimer);
+        livePollTimer = null;
+      }
+    };
+
+    const clearWhatsNewPoll = () => {
+      if (whatsNewPollTimer !== null) {
+        window.clearTimeout(whatsNewPollTimer);
+        whatsNewPollTimer = null;
+      }
+    };
+
+    const fetchStats = async (session: Session | null) => {
       try {
-        const res = await fetchWithAuth('/api/dashboard/stats');
+        const res = await fetchWithAuth('/api/dashboard/stats', {}, session);
         if (!res.ok) {
           const errBody = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
-          if (res.status === 401) { router.push('/login'); return; }
+          if (res.status === 401) {
+            if (!cancelled) router.push('/login');
+            return;
+          }
           throw new Error(errBody?.error || `Failed to fetch stats (${res.status})`);
         }
         const data = (await res.json()) as DashboardData;
+        if (cancelled) return;
         setDashboardData(data);
         
         setStats([
@@ -116,23 +142,28 @@ export default function DashboardPage() {
           },
         ]);
       } catch (err: unknown) {
+        if (cancelled) return;
         const msg = err instanceof Error ? err.message : 'Error fetching dashboard stats';
         setError(msg);
         toast.error('Load Error', msg);
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     };
-    
-    fetchStats();
-  }, [router, toast]);
 
-  useEffect(() => {
-    let cancelled = false;
+    const scheduleWhatsNewPoll = () => {
+      clearWhatsNewPoll();
+      if (cancelled || document.visibilityState === 'hidden') return;
+      whatsNewPollTimer = window.setTimeout(() => {
+        void fetchWhatsNew();
+      }, 15 * 60 * 1000);
+    };
 
-    const fetchWhatsNew = async () => {
+    const fetchWhatsNew = async (session?: Session | null) => {
+      if (whatsNewRequestInFlight) return;
+      whatsNewRequestInFlight = true;
       try {
-        const response = await fetchWithAuth('/api/dashboard/whats-new');
+        const response = await fetchWithAuth('/api/dashboard/whats-new', {}, session);
         const data = await response.json();
         if (!response.ok) {
           throw new Error(data.error || `Failed to load What's New (${response.status})`);
@@ -145,47 +176,89 @@ export default function DashboardPage() {
         if (!cancelled) {
           setWhatsNewError(err instanceof Error ? err.message : 'Unable to load What’s New.');
         }
+      } finally {
+        whatsNewRequestInFlight = false;
+        scheduleWhatsNewPoll();
       }
     };
 
-    void fetchWhatsNew();
-    const intervalId = window.setInterval(() => void fetchWhatsNew(), 5 * 60 * 1000);
-
-    return () => {
-      cancelled = true;
-      window.clearInterval(intervalId);
+    const scheduleLivePoll = () => {
+      clearLivePoll();
+      if (cancelled || document.visibilityState === 'hidden') return;
+      livePollTimer = window.setTimeout(() => {
+        void fetchLiveMatches();
+      }, hasLiveMatches ? 60 * 1000 : 5 * 60 * 1000);
     };
-  }, []);
 
-  useEffect(() => {
-    let cancelled = false;
-
-    const fetchLiveMatches = async () => {
+    const fetchLiveMatches = async (session?: Session | null) => {
+      if (liveRequestInFlight) return;
+      liveRequestInFlight = true;
       try {
-        const response = await fetchWithAuth('/api/matches?status=live&limit=6');
-        if (!response.ok) return;
+        const response = await fetchWithAuth('/api/matches?status=live&limit=6', {}, session);
+        if (!response.ok) throw new Error(`Failed to load live matches (${response.status})`);
         const data = await response.json();
-        if (!cancelled && data && Array.isArray(data.matches)) {
+        if (!data || !Array.isArray(data.matches)) {
+          throw new Error('Live matches response did not contain a matches list.');
+        }
+        if (!cancelled) {
+          hasLiveMatches = data.matches.length > 0;
           setLiveMatches(data.matches);
         }
-      } catch {
-        // Silently tolerate live match polling error
+      } catch (matchError) {
+        if (!cancelled) {
+          console.warn('Unable to refresh dashboard live matches:', matchError);
+        }
       } finally {
+        liveRequestInFlight = false;
         if (!cancelled) {
           setLiveMatchesLoading(false);
+          scheduleLivePoll();
         }
       }
     };
 
-    void fetchLiveMatches();
-    // Poll live matches every 60 seconds
-    const intervalId = window.setInterval(() => void fetchLiveMatches(), 60 * 1000);
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') {
+        clearLivePoll();
+        clearWhatsNewPoll();
+        return;
+      }
+      void fetchLiveMatches();
+      void fetchWhatsNew();
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    const loadDashboard = async () => {
+      try {
+        const session = await getAuthSession();
+        if (cancelled) return;
+        await Promise.all([
+          fetchStats(session),
+          fetchWhatsNew(session),
+          fetchLiveMatches(session),
+        ]);
+      } catch (sessionError: unknown) {
+        if (cancelled) return;
+        const message = sessionError instanceof Error
+          ? sessionError.message
+          : 'Unable to establish an authenticated session.';
+        setError(message);
+        setWhatsNewError(message);
+        toast.error('Load Error', message);
+        setLoading(false);
+        setLiveMatchesLoading(false);
+      }
+    };
+    void loadDashboard();
 
     return () => {
       cancelled = true;
-      window.clearInterval(intervalId);
+      clearLivePoll();
+      clearWhatsNewPoll();
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, []);
+  }, [router, toast]);
 
 
 

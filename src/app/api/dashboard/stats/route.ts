@@ -3,12 +3,22 @@ import { supabaseServer } from '@/lib/supabase';
 import { verifyAuth, applyRefreshedTokens, AuthError } from '@/lib/auth-utils';
 import { getOrCreateFantasySeason } from '@/lib/fantasy-season';
 import { aggregatePlayerGameweekBreakdowns } from '@/lib/player-gameweek-breakdown';
+import { getCached, setCached } from '@/lib/response-cache';
 import { withApiTelemetry } from '@/lib/api-telemetry';
 
+const DASHBOARD_STATS_CACHE_TTL_MS = 30_000;
 
 async function getHandler(request: NextRequest) {
   try {
     const user = await verifyAuth(request);
+    const cacheKey = `dashboard-stats:${user.userId}`;
+    const cachedData = getCached<unknown>(cacheKey);
+    if (cachedData !== null) {
+      const cachedResponse = NextResponse.json(cachedData);
+      applyRefreshedTokens(cachedResponse, user);
+      return cachedResponse;
+    }
+
     const supabase = supabaseServer();
 
     // Phase 1: Parallel initial queries (fantasy_season, gameweeks, user leagues)
@@ -59,7 +69,7 @@ async function getHandler(request: NextRequest) {
     const leagues = leaguesRes.data || [];
 
     if (!fantasySeason || !fantasySeason.id) {
-      const emptyResponse = NextResponse.json({
+      const emptyData = {
         fantasySeasonId: null,
         displayName,
         gameweek,
@@ -75,7 +85,9 @@ async function getHandler(request: NextRequest) {
         captain: null,
         viceCaptain: null,
         leagueStandings: leagues,
-      });
+      };
+      setCached(cacheKey, emptyData, DASHBOARD_STATS_CACHE_TTL_MS);
+      const emptyResponse = NextResponse.json(emptyData);
       applyRefreshedTokens(emptyResponse, user);
       return emptyResponse;
     }
@@ -311,7 +323,7 @@ async function getHandler(request: NextRequest) {
 
     const starters = starterObjects;
 
-    const response = NextResponse.json({
+    const dashboardData = {
       fantasySeasonId: fantasySeason.id,
       displayName,
       gameweek,
@@ -329,7 +341,9 @@ async function getHandler(request: NextRequest) {
       viceCaptain,
       starters,
       leagueStandings: leagues || [],
-    });
+    };
+    setCached(cacheKey, dashboardData, DASHBOARD_STATS_CACHE_TTL_MS);
+    const response = NextResponse.json(dashboardData);
     applyRefreshedTokens(response, user);
     return response;
 

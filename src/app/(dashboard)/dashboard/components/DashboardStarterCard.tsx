@@ -110,6 +110,8 @@ export function DashboardStarterCard({ player, onOpenPlayer }: DashboardStarterC
             src={player.profile_image_url}
             alt=""
             className="h-full w-full object-cover object-top transition-transform duration-300 group-hover:scale-105"
+            loading="eager"
+            fetchPriority="high"
             onError={(event) => {
               event.currentTarget.style.display = 'none';
               event.currentTarget.nextElementSibling?.removeAttribute('hidden');

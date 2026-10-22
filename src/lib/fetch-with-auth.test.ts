@@ -1,4 +1,5 @@
 import { fetchWithAuth } from './fetch-with-auth';
+import type { Session } from '@supabase/supabase-js';
 
 const mockGetSession = jest.fn();
 const mockRefreshSession = jest.fn();
@@ -47,6 +48,21 @@ describe('fetchWithAuth', () => {
     expect(apiCall).toBeDefined();
     const headers = apiCall[1].headers as Headers;
     expect(headers.get('Authorization')).toBe('Bearer my-access-token');
+  });
+
+  it('uses a shared session without resolving it again for each request', async () => {
+    const session = {
+      access_token: 'shared-access-token',
+      refresh_token: 'shared-refresh-token',
+    } as Session;
+    (global.fetch as jest.Mock).mockResolvedValueOnce(new Response(null, { status: 200 }));
+
+    const response = await fetchWithAuth('/api/shared-session', {}, session);
+
+    expect(response.status).toBe(200);
+    expect(mockGetSession).not.toHaveBeenCalled();
+    const [, init] = (global.fetch as jest.Mock).mock.calls[0];
+    expect((init.headers as Headers).get('Authorization')).toContain(session.access_token);
   });
 
   it('bootstraps via server session endpoint when no in-memory session exists', async () => {
