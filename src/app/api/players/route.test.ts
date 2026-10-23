@@ -20,6 +20,7 @@ type MockQuery = {
   not: () => MockQuery;
   in: () => MockQuery;
   order: () => MockQuery;
+  limit: (count: number) => MockQuery;
   range: () => MockQuery;
   or: () => MockQuery;
   then: Promise<QueryResult>['then'];
@@ -38,7 +39,11 @@ jest.mock('@/lib/api-telemetry', () => ({
   withApiTelemetry: (_method: string, _route: string, handler: unknown) => handler,
 }));
 
-function createQuery(table: string, availabilityFilters: string[]) {
+function createQuery(
+  table: string,
+  availabilityFilters: string[],
+  rowLimits: Record<string, number>,
+) {
   const result: QueryResult = table === 'professional_players'
     ? { data: [unavailablePlayer], count: 1, error: null }
     : { data: [], error: null };
@@ -54,6 +59,10 @@ function createQuery(table: string, availabilityFilters: string[]) {
     not: () => query,
     in: () => query,
     order: () => query,
+    limit: (count) => {
+      rowLimits[table] = count;
+      return query;
+    },
     range: () => query,
     or: () => query,
     then: (onfulfilled, onrejected) => Promise.resolve(result).then(onfulfilled, onrejected),
@@ -69,8 +78,9 @@ describe('GET /api/players availability filtering', () => {
 
   it('includes unavailable owned players when show_all=true is requested by ID', async () => {
     const availabilityFilters: string[] = [];
+    const rowLimits: Record<string, number> = {};
     mockSupabaseServer.mockReturnValue({
-      from: (table: string) => createQuery(table, availabilityFilters),
+      from: (table: string) => createQuery(table, availabilityFilters, rowLimits),
     });
 
     const response = await GET(new NextRequest(
@@ -80,12 +90,14 @@ describe('GET /api/players availability filtering', () => {
     expect(response.status).toBe(200);
     expect((await response.json()).data).toEqual([expect.objectContaining(unavailablePlayer)]);
     expect(availabilityFilters).toEqual([]);
+    expect(response.headers.get('Cache-Control')).toBe('public, s-maxage=60, stale-while-revalidate=30');
   });
 
   it('continues to filter unavailable players from the default market listing', async () => {
     const availabilityFilters: string[] = [];
+    const rowLimits: Record<string, number> = {};
     mockSupabaseServer.mockReturnValue({
-      from: (table: string) => createQuery(table, availabilityFilters),
+      from: (table: string) => createQuery(table, availabilityFilters, rowLimits),
     });
 
     const response = await GET(new NextRequest('http://localhost:3000/api/players'));
@@ -96,25 +108,43 @@ describe('GET /api/players availability filtering', () => {
 
   it('enriches player data with price_history', async () => {
     const availabilityFilters: string[] = [];
+    const rowLimits: Record<string, number> = {};
     mockSupabaseServer.mockReturnValue({
       from: (table: string) => {
         if (table === 'player_prices') {
+          const priceRows = [
+            { player_id: 17, price: 8.5, price_change: 0.5, gameweek_id: 3 },
+            { player_id: 17, price: 8.0, price_change: 0.2, gameweek_id: 2 },
+            { player_id: 17, price: 7.8, price_change: 0.0, gameweek_id: 1 },
+          ];
           return {
             select: () => ({
               in: () => ({
-                order: () => Promise.resolve({
-                  data: [
-                    { player_id: 17, price: 8.5, price_change: 0.5, gameweek_id: 3 },
-                    { player_id: 17, price: 8.0, price_change: 0.2, gameweek_id: 2 },
-                    { player_id: 17, price: 7.8, price_change: 0.0, gameweek_id: 1 },
-                  ],
-                  error: null,
+                order: () => ({
+                  limit: (count: number) => {
+                    rowLimits[table] = count;
+                    return Promise.resolve({ data: priceRows, error: null });
+                  },
                 }),
               }),
             }),
           };
         }
-        return createQuery(table, availabilityFilters);
+        if (table === 'gameweek_scores') {
+          return {
+            select: () => ({
+              in: () => ({
+                order: () => ({
+                  limit: (count: number) => {
+                    rowLimits[table] = count;
+                    return Promise.resolve({ data: [], error: null });
+                  },
+                }),
+              }),
+            }),
+          };
+        }
+        return createQuery(table, availabilityFilters, rowLimits);
       },
     });
 
@@ -124,5 +154,7 @@ describe('GET /api/players availability filtering', () => {
     expect(body.data[0].price_history).toEqual([7.8, 8.0, 8.5]);
     expect(body.data[0].current_price).toBe(8.5);
     expect(body.data[0].price_change).toBe(0.5);
+    expect(rowLimits.player_prices).toBe(7);
+    expect(rowLimits.gameweek_scores).toBe(5);
   });
 });

@@ -283,7 +283,7 @@ export default function LeaderboardPage() {
                   <div className="mb-3 h-14 w-14 overflow-hidden rounded-full border-2 bg-[var(--surface-raised)]"
                     style={{ borderColor: accent }}>
                     {profile?.avatar_url ? (
-                      <Image src={profile.avatar_url} alt={`${managerName} avatar`} width={56} height={56} unoptimized className="h-full w-full object-cover" />
+                      <Image src={profile.avatar_url} alt={`${managerName} avatar`} width={56} height={56} priority unoptimized className="h-full w-full object-cover" />
                     ) : (
                       <span className="flex h-full items-center justify-center text-lg font-bold text-[var(--text-secondary)]">
                         {teamName.substring(0, 1).toUpperCase()}
