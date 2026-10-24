@@ -9,6 +9,7 @@ import { useSearchParams } from 'next/navigation';
 import { useTheme, type Theme } from '@/components/theme/ThemeProvider';
 import { useToast } from '@/components/Toast';
 import { PROFILE_UPDATED_EVENT } from '@/components/header-types';
+import { getCountryOptions } from '@/lib/country-options';
 import {
   LayoutDashboard,
   User,
@@ -34,6 +35,7 @@ type SettingsTab = 'overview' | 'account' | 'profile' | 'notifications' | 'secur
 
 const inputClass =
   'w-full rounded-xl border border-[var(--border)] bg-[var(--surface-raised)] px-4 py-3 text-[var(--text-primary)] placeholder-[var(--text-muted)] outline-none transition focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/20';
+const countryOptions = getCountryOptions();
 
 const tabs: Array<{
   key: SettingsTab;
@@ -641,12 +643,9 @@ function SettingsContent() {
                       onChange={(event) => setFormData({ ...formData, countryCode: event.target.value })}
                       className={inputClass}
                     >
-                      <option value="US">United States</option>
-                      <option value="UK">United Kingdom</option>
-                      <option value="CN">China</option>
-                      <option value="RU">Russia</option>
-                      <option value="PH">Philippines</option>
-                      <option value="PE">Peru</option>
+                      {countryOptions.map(({ code, name }) => (
+                        <option key={code} value={code}>{name}</option>
+                      ))}
                     </select>
                   </div>
 
