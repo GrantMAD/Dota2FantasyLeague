@@ -333,63 +333,118 @@ export default function LeaderboardPageClient({ initialData }: LeaderboardPagePr
             </div>
             <Medal className="h-6 w-6 text-amber-500" aria-hidden="true" />
           </div>
-          <div className="grid items-end gap-3 md:grid-cols-3">
-            {podiumOrder.map((entry) => {
-              const profile = entry.fantasy_teams?.profiles;
-              const managerName = profile?.display_name || profile?.username || 'Anonymous Manager';
-              const teamName = entry.fantasy_teams?.name || 'Unknown Team';
-              const podiumPlace = podiumEntries.indexOf(entry) + 1;
-              const isFirst = podiumPlace === 1;
-              const accent = isFirst ? '#f59e0b' : podiumPlace === 2 ? '#94a3b8' : '#b45309';
-              const flag = getCountryFlag(profile?.country_code);
-              return (
-                <article
-                  key={`podium-${entry.id}`}
-                  className={`relative flex min-h-40 flex-col items-center justify-center rounded-2xl border p-4 text-center ${
-                    isFirst ? 'md:min-h-44 md:-translate-y-1' : ''
-                  }`}
-                  style={{
-                    borderColor: `color-mix(in srgb, ${accent} 45%, var(--border))`,
-                    background: `linear-gradient(160deg, color-mix(in srgb, ${accent} 15%, var(--surface-raised)), var(--surface))`,
-                    boxShadow: isFirst ? `0 12px 36px color-mix(in srgb, ${accent} 15%, transparent)` : undefined,
-                  }}
-                >
-                  <div
-                    className="mb-2 flex h-8 w-8 items-center justify-center rounded-full text-sm font-black"
-                    style={{ color: isFirst ? '#451a03' : 'var(--text-primary)', backgroundColor: accent }}
-                    aria-label={`Leaderboard podium place ${podiumPlace}; global rank ${entry.rank}`}
+          {/* Fade-in keyframes */}
+          <style>{`
+            @keyframes podium-in {
+              from { opacity: 0; transform: translateY(12px); }
+              to   { opacity: 1; transform: translateY(0); }
+            }
+          `}</style>
+          <div className="flex flex-col gap-2">
+            {/* Re-sort to display 1st, 2nd, 3rd top-to-bottom */}
+            {[podiumEntries[0], podiumEntries[1], podiumEntries[2]]
+              .filter((entry): entry is LeaderboardEntry => entry !== undefined)
+              .map((entry, visualIndex) => {
+                const profile = entry.fantasy_teams?.profiles;
+                const managerName = profile?.display_name || profile?.username || 'Anonymous Manager';
+                const teamName = entry.fantasy_teams?.name || 'Unknown Team';
+                const podiumPlace = podiumEntries.indexOf(entry) + 1;
+                const isFirst = podiumPlace === 1;
+                const isSecond = podiumPlace === 2;
+                const accent = isFirst ? '#f59e0b' : isSecond ? '#94a3b8' : '#b45309';
+                const flag = getCountryFlag(profile?.country_code);
+                const isDefending = isFirst && entry.previous_rank === 1;
+                const animDelay = `${visualIndex * 80}ms`;
+                const leftBorderWidth = isFirst ? '4px' : '3px';
+                return (
+                  <article
+                    key={`podium-${entry.id}`}
+                    onClick={() => setSelectedUser({
+                      manager: managerName,
+                      username: profile?.username || managerName.toLowerCase().replace(/\s+/g, '_'),
+                      displayName: profile?.display_name || null,
+                      avatarUrl: profile?.avatar_url || null,
+                      bio: profile?.bio || null,
+                      points: entry.total_points || 0,
+                      gwPoints: entry.gameweek_points || 0,
+                      rank: entry.rank,
+                      teamName: teamName,
+                      country: profile?.country || null,
+                    })}
+                    className="flex items-center gap-4 rounded-xl border cursor-pointer px-4 py-3 transition-all hover:scale-[1.01] hover:shadow-lg"
+                    style={{
+                      borderColor: `color-mix(in srgb, ${accent} 35%, var(--border))`,
+                      borderLeftColor: accent,
+                      borderLeftWidth: leftBorderWidth,
+                      background: `linear-gradient(100deg, color-mix(in srgb, ${accent} 12%, var(--surface-raised)), var(--surface))`,
+                      boxShadow: isFirst ? `0 4px 20px color-mix(in srgb, ${accent} 15%, transparent)` : undefined,
+                      animation: `podium-in 0.4s ease both`,
+                      animationDelay: animDelay,
+                    }}
                   >
-                    {isFirst ? <Crown className="h-4 w-4" aria-hidden="true" /> : podiumPlace}
-                  </div>
-                  <div className="mb-2 h-12 w-12 overflow-hidden rounded-full border-2 bg-[var(--surface-raised)]"
-                    style={{ borderColor: accent }}>
-                    {profile?.avatar_url ? (
-                      <Image
-                        src={profile.avatar_url}
-                        alt={`${managerName} avatar`}
-                        width={48}
-                        height={48}
-                        priority
-                        unoptimized={!canOptimizeImage(profile.avatar_url)}
-                        className="h-full w-full object-cover"
-                      />
-                    ) : (
-                      <span className="flex h-full items-center justify-center text-base font-bold text-[var(--text-secondary)]">
-                        {teamName.substring(0, 1).toUpperCase()}
-                      </span>
-                    )}
-                  </div>
-                  <p className="max-w-full truncate text-sm font-bold text-[var(--text-primary)]">{teamName}</p>
-                  <p className="mt-1 max-w-full truncate text-xs text-[var(--text-secondary)]">
-                    {flag && <span className="mr-1.5" role="img" aria-label={profile?.country || 'Country'}>{flag}</span>}
-                    {managerName}
-                  </p>
-                  <p className="mt-2 font-mono text-lg font-black" style={{ color: accent }}>
-                    {entry.total_points.toLocaleString()} <span className="text-xs font-semibold">pts</span>
-                  </p>
-                </article>
-              );
-            })}
+                    {/* Rank badge */}
+                    <div
+                      className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-black ${isFirst ? 'animate-bounce' : ''}`}
+                      style={{ color: isFirst ? '#451a03' : 'var(--text-primary)', backgroundColor: accent }}
+                      aria-label={`Leaderboard podium place ${podiumPlace}; global rank ${entry.rank}`}
+                    >
+                      {isFirst ? <Crown className="h-4 w-4" aria-hidden="true" /> : podiumPlace}
+                    </div>
+
+                    {/* Avatar */}
+                    <div
+                      className="h-10 w-10 shrink-0 overflow-hidden rounded-full bg-[var(--surface-raised)]"
+                      style={{
+                        border: `2px solid ${accent}`,
+                        boxShadow: isFirst ? `0 0 0 3px color-mix(in srgb, ${accent} 25%, transparent)` : undefined,
+                      }}
+                    >
+                      {profile?.avatar_url ? (
+                        <Image
+                          src={profile.avatar_url}
+                          alt={`${managerName} avatar`}
+                          width={40}
+                          height={40}
+                          priority
+                          unoptimized={!canOptimizeImage(profile.avatar_url)}
+                          className="h-full w-full object-cover"
+                        />
+                      ) : (
+                        <span className="flex h-full items-center justify-center text-sm font-bold text-[var(--text-secondary)]">
+                          {teamName.substring(0, 1).toUpperCase()}
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Name / team info — grows to fill */}
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <p className="truncate text-sm font-bold text-[var(--text-primary)]">{teamName}</p>
+                        {isDefending && (
+                          <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-amber-500/40 bg-amber-500/15 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-amber-400">
+                            <Crown className="h-2 w-2" aria-hidden="true" /> Defending
+                          </span>
+                        )}
+                      </div>
+                      <p className="mt-0.5 truncate text-xs text-[var(--text-secondary)]">
+                        {flag && <span className="mr-1" role="img" aria-label={profile?.country || 'Country'}>{flag}</span>}
+                        {managerName}
+                      </p>
+                    </div>
+
+                    {/* Points — right-aligned */}
+                    <div className="shrink-0 text-right">
+                      <p className="font-mono text-base font-black" style={{ color: accent }}>
+                        {entry.total_points.toLocaleString()}
+                        <span className="ml-0.5 text-[10px] font-semibold">pts</span>
+                      </p>
+                      <p className="text-[10px] text-[var(--text-muted)]">
+                        GW: <span className="font-semibold text-[var(--text-secondary)]">{entry.gameweek_points ?? 0}</span>
+                      </p>
+                    </div>
+                  </article>
+                );
+              })}
           </div>
         </section>
       )}
