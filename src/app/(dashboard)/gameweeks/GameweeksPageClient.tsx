@@ -25,7 +25,7 @@ const isWeekPast = (gw: GameweekRow) => gw.status === 'closed' || gw.status === 
 
 export default function GameweeksPage({ initialGameweeks }: { initialGameweeks: GameweekRow[] }) {
   const [gameweeks, setGameweeks] = useState<GameweekRow[]>(initialGameweeks);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(initialGameweeks.length === 0);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<GameweekTab>('all');
   const viewMode = useSyncExternalStore(
@@ -61,12 +61,13 @@ export default function GameweeksPage({ initialGameweeks }: { initialGameweeks: 
       }
     }
 
+    if (initialGameweeks.length === 0) void fetchGameweeks();
     const refreshInterval = window.setInterval(() => void fetchGameweeks(), 65_000);
     return () => {
       cancelled = true;
       window.clearInterval(refreshInterval);
     };
-  }, []);
+  }, [initialGameweeks.length]);
 
   useEffect(() => {
     if (initialGameweeks.length === 0) return;

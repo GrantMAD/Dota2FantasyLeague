@@ -1,10 +1,18 @@
+import React from 'react';
 import GameweeksPageClient from './GameweeksPageClient';
 import { getInitialGameweeks } from '@/lib/gameweeks-initial-data';
-export type { GameweekRow } from '@/types/fantasy';
+import type { GameweekRow } from '@/types/fantasy';
+export type { GameweekRow };
 
 export const revalidate = 60;
 
 export default async function GameweeksPage() {
-  const { gameweeks } = await getInitialGameweeks();
+  let gameweeks: GameweekRow[] = [];
+  try {
+    ({ gameweeks } = await getInitialGameweeks());
+  } catch (error) {
+    console.error('[Gameweeks] Failed to load prerendered data; the client will retry:', error);
+    gameweeks = [];
+  }
   return <GameweeksPageClient initialGameweeks={gameweeks} />;
 }

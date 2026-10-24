@@ -59,7 +59,7 @@ export default function MatchesPage({ initialData }: { initialData: InitialMatch
 
   useEffect(() => {
     const requestKey = `${page}|${activeTab}|${selectedTournamentId}|${debouncedSearch}`;
-    if (lastRequestKey.current === null) {
+    if (lastRequestKey.current === null && initialData.matches.length > 0) {
       lastRequestKey.current = requestKey;
       return;
     }
@@ -107,7 +107,7 @@ export default function MatchesPage({ initialData }: { initialData: InitialMatch
     return () => {
       cancelled = true;
     };
-  }, [activeTab, debouncedSearch, page, selectedTournamentId]);
+  }, [activeTab, debouncedSearch, initialData.matches.length, page, selectedTournamentId]);
 
   useEffect(() => {
     async function loadSquadPlayers() {
