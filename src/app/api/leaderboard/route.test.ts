@@ -84,8 +84,8 @@ function createQuery(table: string) {
     if (table === 'gameweeks') {
       return resolve({
         data: [
-          { id: 9, season_id: 3 },
-          { id: 8, season_id: 3 },
+          { id: 9, season_id: 3, end_date: '2026-10-15', status: 'closed' },
+          { id: 8, season_id: 3, end_date: '2026-10-08', status: 'closed' },
         ],
         error: null,
       });
@@ -126,6 +126,7 @@ describe('GET /api/leaderboard', () => {
     const body = await response.json();
 
     expect(response.status).toBe(200);
+    expect(response.headers.get('Cache-Control')).toBe('public, s-maxage=60, stale-while-revalidate=30');
     expect(body.leaderboard[0]).toMatchObject({
       rank: 1,
       previous_rank: 2,
@@ -166,5 +167,35 @@ describe('GET /api/leaderboard', () => {
       is_pinned: true,
       fantasy_teams: { user_id: 'manager-2', name: 'Bravo Squad' },
     });
+    expect(body.currentUserId).toBe('manager-2');
+    expect(response.headers.get('Cache-Control')).toBe('private, no-store');
+  });
+
+  it('returns only the authenticated manager position without fetching the public leaderboard payload', async () => {
+    mockCurrentUserId = 'manager-2';
+    mockCurrentUserEntry = {
+      id: 11,
+      season_id: 3,
+      global_rank: 57,
+      total_points: 75,
+      gameweek_points_latest: 8,
+      user_id: 'manager-2',
+      users: { id: 'manager-2', username: 'bravo', display_name: 'Bravo', country_code: 'CA' },
+      fantasy_squads: [{ id: 101, name: 'Bravo Squad' }],
+    };
+
+    const response = await GET(new NextRequest('http://localhost/api/leaderboard?currentUserOnly=true'));
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get('Cache-Control')).toBe('private, no-store');
+    expect(body.currentUserId).toBe('manager-2');
+    expect(body.currentUserEntry).toMatchObject({
+      rank: 57,
+      previous_rank: 57,
+      fantasy_teams: { user_id: 'manager-2', name: 'Bravo Squad' },
+    });
+    expect(mockQueries.map(({ table }) => table)).toEqual(['fantasy_seasons', 'gameweeks', 'season_standings']);
+    expect(mockGetCached).not.toHaveBeenCalled();
   });
 });
