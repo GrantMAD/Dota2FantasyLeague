@@ -16,6 +16,7 @@ import Link from 'next/link';
 import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { fetchWithAuth } from '@/lib/fetch-with-auth';
 import { buildOwnedSquadRoster, type OwnedSquadPlayer } from '@/lib/squad-roster';
+import { canOptimizeImage } from '@/lib/optimized-image';
 import type { FantasyPlayer as SquadPlayer, LineupEntry } from '@/types/fantasy';
 
 type Gameweek = { id: number; gameweek_number: number; status: string };
@@ -840,7 +841,7 @@ export default function SquadsPage() {
                               alt=""
                               width={44}
                               height={44}
-                              unoptimized
+                              unoptimized={!canOptimizeImage(player.profile_image_url)}
                               className="h-full w-full object-cover"
                             />
                           ) : (
@@ -932,7 +933,7 @@ export default function SquadsPage() {
                               alt=""
                               width={56}
                               height={56}
-                              unoptimized
+                              unoptimized={!canOptimizeImage(player.profile_image_url)}
                               className="h-full w-full object-cover"
                             />
                           ) : (
@@ -1167,7 +1168,7 @@ function PitchPlayerSlot({
               alt=""
               width={48}
               height={48}
-              unoptimized
+              unoptimized={!canOptimizeImage(player.profile_image_url)}
               className="h-full w-full object-cover"
             />
           ) : (

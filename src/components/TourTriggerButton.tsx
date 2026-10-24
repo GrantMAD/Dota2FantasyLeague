@@ -2,7 +2,7 @@
 
 import { CircleHelp } from 'lucide-react';
 import { usePathname } from 'next/navigation';
-import { getPageGuide } from '@/lib/pageGuides';
+import { hasPageGuide } from '@/lib/pageGuideRoutes';
 import { useTour } from '@/context/TourContext';
 import { useTheme } from '@/components/theme/ThemeProvider';
 
@@ -10,9 +10,9 @@ export function TourTriggerButton() {
   const pathname = usePathname();
   const { isOpen, isGuideOpen, openGuide } = useTour();
   const { theme } = useTheme();
-  const pageGuide = getPageGuide(pathname);
+  const pageHasGuide = hasPageGuide(pathname);
 
-  if (!pageGuide || isOpen || isGuideOpen) return null;
+  if (!pageHasGuide || isOpen || isGuideOpen) return null;
 
   return (
     <div className="fixed bottom-6 right-6 z-50">

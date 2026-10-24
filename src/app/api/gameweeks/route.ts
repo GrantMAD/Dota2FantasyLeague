@@ -26,6 +26,23 @@ async function getHandler(request: NextRequest) {
       }
     }
 
+    if (searchParams.get('scoresOnly') === 'true') {
+      if (!userId) return NextResponse.json({ error: 'Authentication required.' }, { status: 401 });
+      const idsParam = searchParams.get('gameweekIds') ?? '';
+      const gameweekIds = idsParam.split(',').filter(Boolean).map(Number);
+      if (
+        gameweekIds.length > 100
+        || gameweekIds.some((id) => !Number.isSafeInteger(id) || id <= 0)
+      ) {
+        return NextResponse.json({ error: 'Invalid gameweek IDs.' }, { status: 400 });
+      }
+      const userScoreMap = await getUserScoreMap(supabaseServer(), userId, gameweekIds);
+      return NextResponse.json(
+        { user_scores: Object.fromEntries(userScoreMap) },
+        { headers: { 'Cache-Control': 'private, no-store' } },
+      );
+    }
+
     const cacheKey = `gameweeks:v2:${searchParams.toString()}`;
     const cached = getCached<{ gameweeks: Array<Record<string, unknown>> }>(cacheKey);
     if (cached) {

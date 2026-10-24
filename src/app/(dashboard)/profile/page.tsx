@@ -4,6 +4,7 @@ import { fetchWithAuth } from '@/lib/fetch-with-auth';
 import { useEffect, useState, useMemo } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
+import { canOptimizeImage } from '@/lib/optimized-image';
 import {
   BANNER_THEMES,
   DEFAULT_BANNER_THEME_ID,
@@ -175,7 +176,7 @@ export default function ProfilePage() {
           <div className="-mt-12 flex flex-col gap-4 sm:flex-row sm:items-end md:gap-6">
             <div className="relative z-20 flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-full border-4 border-[var(--surface)] bg-[var(--surface-raised)] shadow-2xl ring-2 ring-[var(--border)] md:h-28 md:w-28">
               {profile.avatar_url ? (
-                <Image src={profile.avatar_url} alt={profile.username} width={112} height={112} unoptimized className="h-full w-full object-cover" />
+                <Image src={profile.avatar_url} alt={profile.username} width={112} height={112} unoptimized={!canOptimizeImage(profile.avatar_url)} className="h-full w-full object-cover" />
               ) : (
                 <span className="text-4xl font-black text-cyan-700 dark:text-cyan-300">{initials}</span>
               )}

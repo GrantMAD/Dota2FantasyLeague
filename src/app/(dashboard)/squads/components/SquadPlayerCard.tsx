@@ -3,6 +3,7 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import { Plus, TrendingUp, TrendingDown, Minus, Info } from 'lucide-react';
+import { canOptimizeImage } from '@/lib/optimized-image';
 
 export type SquadPlayer = {
   id: number;
@@ -122,7 +123,7 @@ export function SquadPlayerCard({
                 alt={player.in_game_name || player.name}
                 width={32}
                 height={32}
-                unoptimized
+                unoptimized={!canOptimizeImage(player.profile_image_url)}
                 className="h-full w-full object-cover"
               />
             ) : (
@@ -199,7 +200,7 @@ export function SquadPlayerCard({
               alt={player.in_game_name || player.name}
               width={56}
               height={56}
-              unoptimized
+              unoptimized={!canOptimizeImage(player.profile_image_url)}
               className="h-full w-full object-cover"
             />
           ) : (

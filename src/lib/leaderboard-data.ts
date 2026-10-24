@@ -4,6 +4,7 @@ export type RawEntry = {
   id: number;
   rank?: number | null;
   global_rank?: number | null;
+  previous_rank?: number | null;
   total_points?: number | null;
   gameweek_points?: number | null;
   gameweek_points_latest?: number | null;
@@ -103,7 +104,9 @@ export function mapLeaderboardEntry(
   return {
     id: entry.id,
     rank,
-    previous_rank: fantasySeasonId ? previousRanks.get(fantasySeasonId) ?? null : null,
+    previous_rank: gameweekId
+      ? fantasySeasonId ? previousRanks.get(fantasySeasonId) ?? null : null
+      : entry.previous_rank ?? null,
     total_points: entry.total_points ?? 0,
     gameweek_points: entry.gameweek_points ?? entry.gameweek_points_latest ?? 0,
     created_at: entry.created_at ?? null,
@@ -121,6 +124,7 @@ export async function getPreviousRanks(
   entries: RawEntry[],
   gameweekId: string | null,
 ): Promise<Map<number, number>> {
+  if (!gameweekId) return new Map();
   const seasonIds = [...new Set(
     entries
       .map((entry) => getSeason(entry, gameweekId)?.season_id ?? entry.season_id)
@@ -179,7 +183,7 @@ export async function getCurrentUserLeaderboardEntry(
   const sourceTable = gameweekId ? 'season_standings' : 'fantasy_seasons';
   const select = gameweekId
     ? `id, fantasy_season_id, rank, total_points, gameweek_points, fantasy_seasons!inner(id, user_id, season_id, users${country ? '!inner' : ''}(id, username, display_name, avatar_url, bio, country_code), fantasy_squads(id, name))`
-    : `id, season_id, global_rank, total_points, gameweek_points_latest, user_id, users${country ? '!inner' : ''}(id, username, display_name, avatar_url, bio, country_code), fantasy_squads(id, name)`;
+    : `id, season_id, global_rank, previous_rank, total_points, gameweek_points_latest, user_id, users${country ? '!inner' : ''}(id, username, display_name, avatar_url, bio, country_code), fantasy_squads(id, name)`;
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let query = (supabase.from(sourceTable) as any)
@@ -210,7 +214,7 @@ export async function getLeaderboardData(
   const sourceTable = gameweekId ? 'season_standings' : 'fantasy_seasons';
   const select = gameweekId
     ? `id, fantasy_season_id, rank, total_points, gameweek_points, fantasy_seasons!inner(id, user_id, season_id, users${country ? '!inner' : ''}(id, username, display_name, avatar_url, bio, country_code), fantasy_squads(id, name))`
-    : `id, season_id, global_rank, total_points, gameweek_points_latest, user_id, users${country ? '!inner' : ''}(id, username, display_name, avatar_url, bio, country_code), fantasy_squads(id, name)`;
+    : `id, season_id, global_rank, previous_rank, total_points, gameweek_points_latest, user_id, users${country ? '!inner' : ''}(id, username, display_name, avatar_url, bio, country_code), fantasy_squads(id, name)`;
 
   // Keep the existing frontend response shape while reading the current schema.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

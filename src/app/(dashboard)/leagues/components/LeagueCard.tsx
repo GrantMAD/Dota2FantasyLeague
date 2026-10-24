@@ -2,6 +2,7 @@
 
 import { Users, ChevronRight, Shield, Swords, Trophy } from 'lucide-react';
 import Image from 'next/image';
+import { canOptimizeImage } from '@/lib/optimized-image';
 import type { LeagueRecord, StandingEntry } from '@/app/(dashboard)/leagues/types';
 
 interface LeagueCardProps {
@@ -101,7 +102,7 @@ export function LeagueCard({ league, onClick }: LeagueCardProps) {
                 </span>
                 <div className="flex h-6 w-6 shrink-0 items-center justify-center overflow-hidden rounded-full border border-[var(--border)] bg-[var(--surface-raised)]">
                   {entry.avatarUrl ? (
-                    <Image src={entry.avatarUrl} alt="" width={24} height={24} unoptimized className="h-full w-full object-cover" />
+                    <Image src={entry.avatarUrl} alt="" width={24} height={24} unoptimized={!canOptimizeImage(entry.avatarUrl)} className="h-full w-full object-cover" />
                   ) : (
                     <span className="text-[9px] font-bold text-[var(--text-secondary)]">{entry.manager.substring(0, 1).toUpperCase()}</span>
                   )}

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Image from 'next/image';
+import { canOptimizeImage } from '@/lib/optimized-image';
 import Link from 'next/link';
 import {
   Trophy,
@@ -502,7 +503,7 @@ export default function LeaguesPage() {
                           <div className="flex min-w-0 flex-col items-center gap-2 text-center">
                             <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-full border border-[var(--border)] bg-[var(--surface-raised)]">
                               {fixture.homeAvatarUrl ? (
-                                <Image src={fixture.homeAvatarUrl} alt="" width={48} height={48} unoptimized className="h-full w-full object-cover" />
+                                <Image src={fixture.homeAvatarUrl} alt="" width={48} height={48} unoptimized={!canOptimizeImage(fixture.homeAvatarUrl)} className="h-full w-full object-cover" />
                               ) : (
                                 <span className="font-bold text-[var(--text-secondary)]">{fixture.home.substring(0, 2).toUpperCase()}</span>
                               )}
@@ -516,7 +517,7 @@ export default function LeaguesPage() {
                           <div className="flex min-w-0 flex-col items-center gap-2 text-center">
                             <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-full border border-[var(--border)] bg-[var(--surface-raised)]">
                               {fixture.awayAvatarUrl ? (
-                                <Image src={fixture.awayAvatarUrl} alt="" width={48} height={48} unoptimized className="h-full w-full object-cover" />
+                                <Image src={fixture.awayAvatarUrl} alt="" width={48} height={48} unoptimized={!canOptimizeImage(fixture.awayAvatarUrl)} className="h-full w-full object-cover" />
                               ) : (
                                 <span className="font-bold text-[var(--text-secondary)]">{fixture.away.substring(0, 2).toUpperCase()}</span>
                               )}
@@ -800,7 +801,7 @@ export default function LeaguesPage() {
               <div className="flex items-center gap-4">
                 <div className="h-14 w-14 rounded-full bg-slate-800 border-2 border-amber-500/50 flex items-center justify-center overflow-hidden shrink-0 shadow-md">
                   {selectedUser.avatarUrl ? (
-                    <Image src={selectedUser.avatarUrl} alt={selectedUser.manager} width={56} height={56} unoptimized className="h-full w-full object-cover" />
+                    <Image src={selectedUser.avatarUrl} alt={selectedUser.manager} width={56} height={56} unoptimized={!canOptimizeImage(selectedUser.avatarUrl)} className="h-full w-full object-cover" />
                   ) : (
                     <span className="text-xl font-bold text-amber-400">
                       {(selectedUser.displayName || selectedUser.username || selectedUser.manager).substring(0, 2).toUpperCase()}
@@ -912,7 +913,7 @@ export default function LeaguesPage() {
                 <div className="flex flex-col items-center text-center">
                   <div className="h-16 w-16 rounded-full bg-slate-800 border-2 border-slate-700 flex items-center justify-center overflow-hidden mb-2 shadow-inner">
                     {selectedFixture.homeAvatarUrl ? (
-                      <Image src={selectedFixture.homeAvatarUrl} alt={selectedFixture.home} width={64} height={64} unoptimized className="h-full w-full object-cover" />
+                      <Image src={selectedFixture.homeAvatarUrl} alt={selectedFixture.home} width={64} height={64} unoptimized={!canOptimizeImage(selectedFixture.homeAvatarUrl)} className="h-full w-full object-cover" />
                     ) : (
                       <span className="text-xl font-bold text-amber-400">{selectedFixture.home.substring(0, 2).toUpperCase()}</span>
                     )}
@@ -946,7 +947,7 @@ export default function LeaguesPage() {
                 <div className="flex flex-col items-center text-center">
                   <div className="h-16 w-16 rounded-full bg-slate-800 border-2 border-slate-700 flex items-center justify-center overflow-hidden mb-2 shadow-inner">
                     {selectedFixture.awayAvatarUrl ? (
-                      <Image src={selectedFixture.awayAvatarUrl} alt={selectedFixture.away} width={64} height={64} unoptimized className="h-full w-full object-cover" />
+                      <Image src={selectedFixture.awayAvatarUrl} alt={selectedFixture.away} width={64} height={64} unoptimized={!canOptimizeImage(selectedFixture.awayAvatarUrl)} className="h-full w-full object-cover" />
                     ) : (
                       <span className="text-xl font-bold text-slate-400">{selectedFixture.away.substring(0, 2).toUpperCase()}</span>
                     )}

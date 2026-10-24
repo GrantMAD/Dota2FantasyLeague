@@ -52,9 +52,9 @@ describe('Calculate Global Rankings Job', () => {
       { data: { id: 1 }, error: null },
       {
         data: [
-          { id: 10, total_points: 150 },
-          { id: 11, total_points: 150 },
-          { id: 12, total_points: 140 },
+          { id: 10, total_points: 150, global_rank: 2 },
+          { id: 11, total_points: 150, global_rank: 1 },
+          { id: 12, total_points: 140, global_rank: 3 },
         ],
         error: null,
       },
@@ -68,7 +68,8 @@ describe('Calculate Global Rankings Job', () => {
     expect(result.managersRanked).toBe(3);
     
     // Check rank assignments (1, 1, 3 for ties)
-    expect(mockSupabase.update).toHaveBeenCalledWith({ global_rank: 1 });
-    expect(mockSupabase.update).toHaveBeenCalledWith({ global_rank: 3 });
+    expect(mockSupabase.update).toHaveBeenCalledWith({ global_rank: 1, previous_rank: 2 });
+    expect(mockSupabase.update).toHaveBeenCalledWith({ global_rank: 1, previous_rank: 1 });
+    expect(mockSupabase.update).toHaveBeenCalledWith({ global_rank: 3, previous_rank: 3 });
   });
 });

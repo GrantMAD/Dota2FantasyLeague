@@ -1,6 +1,7 @@
 'use client';
 
 import Image from 'next/image';
+import { canOptimizeImage } from '@/lib/optimized-image';
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { BrandLogo } from './BrandLogo';
@@ -235,7 +236,7 @@ export const Header = memo(function Header() {
                   className="h-9 w-9 overflow-hidden rounded-full border border-slate-600 bg-slate-800 text-sm font-bold text-white hover:border-amber-500 transition-colors flex items-center justify-center ring-2 ring-transparent hover:ring-amber-500/20"
                 >
                   {profile?.avatar_url ? (
-                    <Image src={profile.avatar_url} alt={`${profile.display_name || profile.username} avatar`} width={36} height={36} unoptimized className="h-full w-full object-cover" />
+                    <Image src={profile.avatar_url} alt={`${profile.display_name || profile.username} avatar`} width={36} height={36} unoptimized={!canOptimizeImage(profile.avatar_url)} className="h-full w-full object-cover" />
                   ) : (
                     initials
                   )}

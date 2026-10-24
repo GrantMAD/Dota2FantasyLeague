@@ -124,6 +124,7 @@ export interface FantasySeason {
   budget: number;
   total_points: number;
   global_rank?: number;
+  previous_rank?: number | null;
   created_at: string;
   updated_at: string;
 }

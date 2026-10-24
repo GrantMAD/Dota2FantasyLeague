@@ -273,17 +273,8 @@ const guides: Record<string, PageGuide> = {
   },
 };
 
-export function getPageGuideKey(pathname: string): string | undefined {
-  const normalized = pathname.split('?')[0].split('#')[0] || '/';
-  if (guides[normalized]) return normalized;
-  if (/^\/players\/[^/]+$/.test(normalized)) return '/players/[id]';
-  if (/^\/gameweeks\/[^/]+$/.test(normalized)) return '/gameweeks/[id]';
-  if (/^\/matches\/[^/]+$/.test(normalized)) return '/matches/[id]';
-  if (/^\/tournaments\/[^/]+$/.test(normalized)) return '/tournaments/[id]';
-  return undefined;
-}
-
 export function getPageGuide(pathname: string): PageGuide | undefined {
   const key = getPageGuideKey(pathname);
   return key ? guides[key] : undefined;
 }
+import { getPageGuideKey } from '@/lib/pageGuideRoutes';

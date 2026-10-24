@@ -2,6 +2,8 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   images: {
+    formats: ['image/avif', 'image/webp'],
+    minimumCacheTTL: 3600,
     remotePatterns: [
       {
         protocol: 'https',
@@ -29,6 +31,9 @@ const nextConfig: NextConfig = {
         pathname: '/storage/v1/object/public/profile-avatars/**',
       },
     ],
+  },
+  experimental: {
+    optimizePackageImports: ['lucide-react'],
   },
 };
 

@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
+import { canOptimizeImage } from '@/lib/optimized-image';
 import { ShieldCheck, ArrowRightLeft } from 'lucide-react';
 import { fetchWithAuth } from '@/lib/fetch-with-auth';
 
@@ -347,7 +348,7 @@ export default function PlayerDetailPage() {
             <div className="flex flex-col md:flex-row md:items-end gap-6 -mt-16">
                <div className="relative w-32 h-32 rounded-2xl bg-[var(--surface-raised)] border-4 border-[var(--surface)] shadow-2xl overflow-hidden flex items-center justify-center shrink-0 z-10">
                   {player.profile_image_url ? (
-                     <Image src={player.profile_image_url} alt={player.in_game_name || player.name} fill sizes="128px" unoptimized loading="eager" className="object-cover" />
+                     <Image src={player.profile_image_url} alt={player.in_game_name || player.name} fill sizes="128px" unoptimized={!canOptimizeImage(player.profile_image_url)} loading="eager" className="object-cover" />
                   ) : (
                      <span className="text-4xl font-black text-cyan-400 font-mono tracking-wider">{player.in_game_name?.substring(0, 2).toUpperCase()}</span>
                   )}

@@ -11,6 +11,7 @@ interface JobResult {
 interface FantasySeasonPointsRow {
   id: number;
   total_points: number;
+  global_rank: number | null;
 }
 
 interface GameweekIdRow {
@@ -55,7 +56,7 @@ class CalculateGlobalRankings {
       // Fetch all fantasy seasons for the current season, ordered by points
       const { data: fantasySeasons, error: fetchError } = await this.supabase
         .from('fantasy_seasons')
-        .select('id, total_points')
+        .select('id, total_points, global_rank')
         .eq('season_id', seasonId)
         .order('total_points', { ascending: false });
 
@@ -91,8 +92,11 @@ class CalculateGlobalRankings {
         }
 
         // Update fantasy_seasons table
-        const seasonUpdates = this.supabase.from('fantasy_seasons') as unknown as FilteredMutationTable<{ global_rank: number }>;
-        await seasonUpdates.update({ global_rank: rank })
+        const seasonUpdates = this.supabase.from('fantasy_seasons') as unknown as FilteredMutationTable<{
+          global_rank: number;
+          previous_rank: number | null;
+        }>;
+        await seasonUpdates.update({ global_rank: rank, previous_rank: fs.global_rank })
           .eq('id', fs.id);
 
         // Create snapshot in season_standings

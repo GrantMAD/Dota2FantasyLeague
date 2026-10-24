@@ -20,20 +20,20 @@ export interface MatchData {
     name: string;
     tag?: string;
     logo_url?: string | null;
-    region?: string;
+    region?: string | null;
   } | null;
   dire_team?: {
     id: number;
     name: string;
     tag?: string;
     logo_url?: string | null;
-    region?: string;
+    region?: string | null;
   } | null;
   tournaments?: {
     id: number;
     name: string;
     slug: string;
-    tier?: string;
+    tier?: string | null;
   } | null;
 }
 

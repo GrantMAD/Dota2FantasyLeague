@@ -7,6 +7,7 @@ import { X, ExternalLink } from 'lucide-react';
 import { useAccessibleDialog } from '@/components/use-accessible-dialog';
 import type { ScoreBreakdown } from '@/types/fantasy';
 import type { SquadPlayer } from './SquadPlayerCard';
+import { canOptimizeImage } from '@/lib/optimized-image';
 
 type PlayerPerformance = {
   id: number;
@@ -93,7 +94,7 @@ export function PlayerDetailModal({ player, loading, onClose, scoreBreakdown }: 
                   alt={player.in_game_name || player.name}
                   width={64}
                   height={64}
-                  unoptimized
+                  unoptimized={!canOptimizeImage(player.profile_image_url)}
                   className="h-full w-full object-cover"
                 />
               ) : (

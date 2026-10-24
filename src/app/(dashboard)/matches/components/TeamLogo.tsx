@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import Image from 'next/image';
+import { canOptimizeImage } from '@/lib/optimized-image';
 
 interface TeamLogoProps {
   name: string;
@@ -53,7 +54,7 @@ export function TeamLogo({
           sizes="(max-width: 768px) 48px, 64px"
           className="object-contain p-1.5 transition-transform duration-300 group-hover:scale-110"
           onError={() => setImageError(true)}
-          unoptimized={logoUrl.startsWith('http')}
+          unoptimized={!canOptimizeImage(logoUrl)}
         />
       ) : (
         <span

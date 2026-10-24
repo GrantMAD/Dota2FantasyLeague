@@ -24,6 +24,7 @@ import {
 import { fetchWithAuth, getAuthSession } from '@/lib/fetch-with-auth';
 import { useToast } from '@/components/Toast';
 import { DataFreshnessBadge } from '@/components/DataFreshnessBadge';
+import { canOptimizeImage } from '@/lib/optimized-image';
 import type { PlayersCatalogResponse } from '@/lib/players-catalog';
 
 interface ProfessionalTeam {
@@ -842,7 +843,7 @@ export default function PlayersPageClient({
                                 alt=""
                                 width={40}
                                 height={40}
-                                unoptimized
+                                unoptimized={!canOptimizeImage(player.profile_image_url)}
                                 className="h-full w-full object-cover"
                                 onError={() => handlePlayerAvatarError(player.id)}
                               />

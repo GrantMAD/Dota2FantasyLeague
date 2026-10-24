@@ -5,6 +5,7 @@ import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'rea
 import type { ReactNode } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
+import { canOptimizeImage } from '@/lib/optimized-image';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { ArrowLeft, ArrowLeftRight, CalendarDays, X } from 'lucide-react';
 
@@ -382,7 +383,7 @@ function PlayerComparisonContent() {
                             alt=""
                             width={20}
                             height={20}
-                            unoptimized
+                            unoptimized={!canOptimizeImage(player.professional_teams.logo_url)}
                             className="h-5 w-5 rounded-sm object-contain"
                           />
                         ) : (

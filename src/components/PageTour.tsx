@@ -4,7 +4,8 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import { ArrowLeft, ArrowRight, X } from 'lucide-react';
 import { useTour } from '@/context/TourContext';
-import { getPageTour } from '@/lib/tourSteps';
+import type { PageTourDefinition } from '@/lib/tourSteps';
+import { getPageTourKey } from '@/lib/pageGuideRoutes';
 
 type TargetRect = {
   top: number;
@@ -19,13 +20,31 @@ const clamp = (value: number, min: number, max: number) =>
 export function PageTour() {
   const pathname = usePathname();
   const { isOpen, closeTour, stepIndex, setStepIndex, markCompleted } = useTour();
-  const pageTour = useMemo(() => getPageTour(pathname), [pathname]);
+  const [loadedTour, setLoadedTour] = useState<{ key: string; definition: PageTourDefinition | undefined } | null>(null);
+  const tourKey = getPageTourKey(pathname);
+  const pageTour = loadedTour && loadedTour.key === tourKey ? loadedTour.definition : undefined;
   const [target, setTarget] = useState<TargetRect | null>(null);
   const [isMobile, setIsMobile] = useState(false);
   const dialogRef = useRef<HTMLDivElement>(null);
   const previousFocusRef = useRef<HTMLElement | null>(null);
 
-  const currentStep = pageTour?.steps[Math.min(stepIndex, (pageTour.steps.length || 1) - 1)] ?? null;
+  useEffect(() => {
+    let cancelled = false;
+    if (!isOpen || !tourKey) {
+      return;
+    }
+    void import('@/lib/tourSteps').then((tours) => {
+      if (!cancelled) setLoadedTour({ key: tourKey, definition: tours.getPageTour(pathname) });
+    }).catch((error: unknown) => console.error('[Page Tour] Failed to load tour content:', error));
+    return () => {
+      cancelled = true;
+    };
+  }, [isOpen, pathname, tourKey]);
+
+  const currentStep = useMemo(
+    () => pageTour?.steps[Math.min(stepIndex, (pageTour.steps.length || 1) - 1)] ?? null,
+    [pageTour, stepIndex],
+  );
 
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth < 768);

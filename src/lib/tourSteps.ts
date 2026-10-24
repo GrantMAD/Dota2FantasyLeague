@@ -195,16 +195,7 @@ export const pageTours: Record<string, PageTourDefinition> = {
 };
 
 export function getPageTour(pathname: string): PageTourDefinition | undefined {
-  const normalized = pathname.split('?')[0].split('#')[0] || '/';
-
-  const direct = pageTours[normalized];
-  if (direct) return direct;
-
-  if (normalized === '/players') return pageTours['/players'];
-  if (/^\/players\/[^/]+$/.test(normalized)) return pageTours['/players/[id]'];
-  if (/^\/gameweeks\/[^/]+$/.test(normalized)) return pageTours['/gameweeks/[id]'];
-  if (/^\/matches\/[^/]+$/.test(normalized)) return pageTours['/matches/[id]'];
-  if (/^\/tournaments\/[^/]+$/.test(normalized)) return pageTours['/tournaments/[id]'];
-
-  return undefined;
+  const key = getPageTourKey(pathname);
+  return key ? pageTours[key] : undefined;
 }
+import { getPageTourKey } from '@/lib/pageGuideRoutes';

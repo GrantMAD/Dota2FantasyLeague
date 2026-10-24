@@ -3,6 +3,7 @@
 import { fetchWithAuth } from '@/lib/fetch-with-auth';
 import { useState, useEffect, useCallback } from 'react';
 import Image from 'next/image';
+import { canOptimizeImage } from '@/lib/optimized-image';
 import { CircleAlert, UserCheck, TrendingUp, TrendingDown, Minus, Clock, ShieldCheck, Lock, Sparkles, ChevronDown } from 'lucide-react';
 import { useToast } from '@/components/Toast';
 import type { ChipType, ChipStatus, FantasyPlayer as LineupPlayer, LineupEntry } from '@/types/fantasy';
@@ -680,7 +681,7 @@ export default function LineupsPage() {
                               <div className="flex items-center gap-3 min-w-0">
                                 <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full border border-slate-600 bg-slate-700">
                                   {selected.professional_players.profile_image_url ? (
-                                    <Image src={selected.professional_players.profile_image_url} alt={selected.professional_players.in_game_name || selected.professional_players.name} width={40} height={40} unoptimized className="h-full w-full object-cover" />
+                                    <Image src={selected.professional_players.profile_image_url} alt={selected.professional_players.in_game_name || selected.professional_players.name} width={40} height={40} unoptimized={!canOptimizeImage(selected.professional_players.profile_image_url)} className="h-full w-full object-cover" />
                                   ) : (
                                     <span className="player-avatar-initials text-xs font-bold">{(selected.professional_players.in_game_name || selected.professional_players.name || 'P').slice(0, 2).toUpperCase()}</span>
                                   )}
@@ -802,7 +803,7 @@ export default function LineupsPage() {
                               <div className="flex items-center gap-2.5 min-w-0">
                                 <div className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full border border-slate-600 bg-slate-700">
                                   {selected.professional_players.profile_image_url ? (
-                                    <Image src={selected.professional_players.profile_image_url} alt={selected.professional_players.in_game_name || selected.professional_players.name} width={32} height={32} unoptimized className="h-full w-full object-cover" />
+                                    <Image src={selected.professional_players.profile_image_url} alt={selected.professional_players.in_game_name || selected.professional_players.name} width={32} height={32} unoptimized={!canOptimizeImage(selected.professional_players.profile_image_url)} className="h-full w-full object-cover" />
                                   ) : (
                                     <span className="player-avatar-initials text-xs font-bold">{(selected.professional_players.in_game_name || selected.professional_players.name || 'P').slice(0, 2).toUpperCase()}</span>
                                   )}

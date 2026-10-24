@@ -4,6 +4,7 @@ import { fetchWithAuth } from '@/lib/fetch-with-auth';
 import { Suspense, useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
+import { canOptimizeImage } from '@/lib/optimized-image';
 import { useSearchParams } from 'next/navigation';
 import { useTheme, type Theme } from '@/components/theme/ThemeProvider';
 import { useToast } from '@/components/Toast';
@@ -711,7 +712,7 @@ function SettingsContent() {
                         alt="Current profile image"
                         width={80}
                         height={80}
-                        unoptimized
+                        unoptimized={!canOptimizeImage(formData.avatarUrl)}
                         className="h-full w-full object-cover"
                       />
                     ) : (
@@ -1012,4 +1013,3 @@ export default function SettingsPage() {
     </Suspense>
   );
 }
-

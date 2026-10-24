@@ -1,12 +1,12 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { ArrowRight, BookOpen, Lightbulb, Play, TriangleAlert, X } from 'lucide-react';
 import { useTour } from '@/context/TourContext';
-import { getPageGuide } from '@/lib/pageGuides';
-import { getPageTour } from '@/lib/tourSteps';
+import type { PageGuide } from '@/lib/pageGuides';
+import { getPageGuideKey, getPageGuideTitle, hasPageTour } from '@/lib/pageGuideRoutes';
 import { useTheme } from '@/components/theme/ThemeProvider';
 
 export function PageGuideModal() {
@@ -17,10 +17,28 @@ export function PageGuideModal() {
   const { isGuideOpen, openGuide, closeGuide, startTour } = useTour();
   const dialogRef = useRef<HTMLElement>(null);
   const previousFocusRef = useRef<HTMLElement | null>(null);
-  const pageGuide = getPageGuide(pathname);
-  const pageTour = getPageTour(pathname);
-  const pageTitle = pageTour?.pageTitle ?? (pathname === '/guide' ? 'Interactive Guide Directory' : pathname === '/learn' ? 'Learn Hub' : 'Page guide');
+  const [guideData, setGuideData] = useState<{ key: string; guide?: PageGuide } | null>(null);
+  const guideKey = getPageGuideKey(pathname);
+  const pageGuide = guideData && guideData.key === guideKey ? guideData.guide : undefined;
+  const pageTitle = getPageGuideTitle(pathname);
+  const pageHasTour = hasPageTour(pathname);
   const dark = theme === 'dark';
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!isGuideOpen || !guideKey) return;
+    void import('@/lib/pageGuides').then((guides) => {
+      if (!cancelled) {
+        setGuideData({
+          key: guideKey,
+          guide: guides.getPageGuide(guideKey),
+        });
+      }
+    }).catch((error: unknown) => console.error('[Page Guide] Failed to load guide content:', error));
+    return () => {
+      cancelled = true;
+    };
+  }, [guideKey, isGuideOpen, pathname]);
 
   useEffect(() => {
     if (searchParams.get('guide') !== '1') return;
@@ -188,7 +206,7 @@ export function PageGuideModal() {
             >
               Close
             </button>
-            {pageTour && (
+            {pageHasTour && (
               <button
                 type="button"
                 onClick={startTour}

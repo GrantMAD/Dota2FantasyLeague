@@ -11,6 +11,7 @@ import { TourProvider } from "@/context/TourContext";
 import { HeaderDataProvider } from "@/context/HeaderDataContext";
 import { ToastProvider } from "@/components/Toast/ToastContext";
 import { ToastContainer } from "@/components/Toast/ToastContainer";
+import { DataFreshnessProvider } from "@/context/DataFreshnessContext";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -43,15 +44,17 @@ export default function RootLayout({ children }: { children: ReactNode }) {
           <SessionProvider>
             <ToastProvider>
               <HeaderDataProvider>
-                <TourProvider>
-                  {children}
-                  <Suspense fallback={null}>
-                    <TelemetryPageTracker />
-                    <PageTour />
-                    <PageGuideModal />
-                    <TourTriggerButton />
-                  </Suspense>
-                </TourProvider>
+                <DataFreshnessProvider>
+                  <TourProvider>
+                    {children}
+                    <Suspense fallback={null}>
+                      <TelemetryPageTracker />
+                      <PageTour />
+                      <PageGuideModal />
+                      <TourTriggerButton />
+                    </Suspense>
+                  </TourProvider>
+                </DataFreshnessProvider>
               </HeaderDataProvider>
               <ToastContainer />
             </ToastProvider>

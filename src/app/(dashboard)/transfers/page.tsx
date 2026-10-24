@@ -22,6 +22,7 @@ import { fetchWithAuth } from '@/lib/fetch-with-auth';
 import { useToast } from '@/components/Toast';
 import { PriceSparkline } from '@/components/PriceSparkline';
 import { DataFreshnessBadge } from '@/components/DataFreshnessBadge';
+import { canOptimizeImage } from '@/lib/optimized-image';
 import type { FantasyPlayer as TransferPlayer } from '@/types/fantasy';
 
 // 5 starters + 3 bench = 8 player squad
@@ -1322,7 +1323,7 @@ function TransfersPageContent() {
                                 isOwned ? 'bg-slate-800 border-emerald-500/50' : 'bg-slate-700 border-slate-600'
                               }`}>
                                 {player.profile_image_url ? (
-                                  <Image src={player.profile_image_url} alt={player.in_game_name || player.name} width={40} height={40} unoptimized className="w-full h-full object-cover" />
+                                  <Image src={player.profile_image_url} alt={player.in_game_name || player.name} width={40} height={40} unoptimized={!canOptimizeImage(player.profile_image_url)} className="w-full h-full object-cover" />
                                 ) : (
                                   <span className="player-avatar-initials text-xs font-bold">
                                     {(player.in_game_name || player.name || '').substring(0, 2).toUpperCase()}
@@ -1527,7 +1528,7 @@ function TransfersPageContent() {
               <div className="flex flex-col sm:flex-row items-center sm:items-start gap-5">
                 <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl bg-slate-800 border-2 border-slate-700 shadow-xl overflow-hidden shrink-0 flex items-center justify-center">
                   {modalPlayer.profile_image_url ? (
-                    <Image src={modalPlayer.profile_image_url} alt={modalPlayer.in_game_name || modalPlayer.name} width={96} height={96} unoptimized className="w-full h-full object-cover" />
+                    <Image src={modalPlayer.profile_image_url} alt={modalPlayer.in_game_name || modalPlayer.name} width={96} height={96} unoptimized={!canOptimizeImage(modalPlayer.profile_image_url)} className="w-full h-full object-cover" />
                   ) : (
                     <span className="player-avatar-initials text-3xl font-bold">
                       {(modalPlayer.in_game_name || modalPlayer.name || 'P').substring(0, 2).toUpperCase()}

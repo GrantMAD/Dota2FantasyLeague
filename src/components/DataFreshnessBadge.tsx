@@ -1,26 +1,8 @@
 'use client';
 
 import { useCallback, useEffect, useState, useRef } from 'react';
-import { fetchWithAuth } from '@/lib/fetch-with-auth';
 import { useAccessibleDialog } from './use-accessible-dialog';
-
-interface JobDetailItem {
-  jobName: string;
-  title: string;
-  description: string;
-  schedule: string;
-  status: string;
-  lastRun: string | null;
-  nextRun: string | null;
-}
-
-interface FreshnessData {
-  lastUpdated: string | null;
-  nextUpdate: string | null;
-  jobName?: string;
-  serverTime: string;
-  jobs?: JobDetailItem[];
-}
+import { useDataFreshness } from '@/context/DataFreshnessContext';
 
 interface DataFreshnessBadgeProps {
   page: string;
@@ -69,10 +51,10 @@ export function DataFreshnessBadge({
   className = '',
   variant = 'both',
 }: DataFreshnessBadgeProps) {
-  const [data, setData] = useState<FreshnessData | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { dataByPage, loadingByPage, subscribePage, refreshPage, tick } = useDataFreshness();
+  const data = dataByPage[page] ?? null;
+  const loading = loadingByPage[page] ?? true;
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [, setTick] = useState(0);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
   const closeModal = useCallback(() => setIsModalOpen(false), []);
   const dialogRef = useAccessibleDialog<HTMLDivElement>({
@@ -81,43 +63,9 @@ export function DataFreshnessBadge({
     initialFocusRef: closeButtonRef,
   });
 
-  const loadFreshness = useCallback(async () => {
-    try {
-      const res = await fetchWithAuth(`/api/data/freshness?page=${encodeURIComponent(page)}`);
-      if (res.ok) {
-        const json = await res.json();
-        if (json.success) {
-          setData(json);
-        }
-      }
-    } catch {
-      // Silently fail without interrupting page UX
-    } finally {
-      setLoading(false);
-    }
-  }, [page]);
-
   useEffect(() => {
-    let cancelled = false;
-    const initialLoad = window.setTimeout(() => void loadFreshness(), 0);
-
-    // Re-fetch freshness data every 2 minutes
-    const interval = setInterval(() => {
-      if (!cancelled) void loadFreshness();
-    }, 120_000);
-
-    return () => {
-      cancelled = true;
-      window.clearTimeout(initialLoad);
-      clearInterval(interval);
-    };
-  }, [loadFreshness]);
-
-  // Update relative time strings every 15 seconds
-  useEffect(() => {
-    const timer = setInterval(() => setTick((t) => t + 1), 15_000);
-    return () => clearInterval(timer);
-  }, []);
+    return subscribePage(page);
+  }, [page, subscribePage]);
 
   // Close modal on click outside.
   useEffect(() => {
@@ -146,6 +94,7 @@ export function DataFreshnessBadge({
 
   const lastUpdatedText = formatRelativeTime(data?.lastUpdated ?? null);
   const nextUpdateText = formatCountdown(data?.nextUpdate ?? null);
+  void tick;
 
   return (
     <div className={`data-freshness-container relative inline-flex items-center gap-2 ${className}`}>
@@ -344,7 +293,7 @@ export function DataFreshnessBadge({
               </span>
               <button
                 type="button"
-                onClick={() => void loadFreshness()}
+                onClick={() => void refreshPage(page)}
                 className="data-freshness-refresh-btn px-3 py-1.5 rounded-lg font-medium transition-colors flex items-center gap-1.5 shadow-sm"
               >
                 <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

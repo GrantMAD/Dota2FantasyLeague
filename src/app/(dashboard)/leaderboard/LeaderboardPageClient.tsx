@@ -6,6 +6,7 @@ import Image from 'next/image';
 import { Crown, Medal, RefreshCw, Star } from 'lucide-react';
 import { DataFreshnessBadge } from '@/components/DataFreshnessBadge';
 import type { LeaderboardData } from '@/lib/leaderboard-data';
+import { canOptimizeImage } from '@/lib/optimized-image';
 
 type LeaderboardEntry = {
    id: number;
@@ -47,25 +48,6 @@ function getCountryFlag(countryCode?: string | null) {
    return String.fromCodePoint(
       ...countryCode.toUpperCase().split('').map((character) => 127397 + character.charCodeAt(0))
    );
-}
-
-const OPTIMIZABLE_AVATAR_HOSTS = new Set([
-  'steamcdn-a.akamaihd.net',
-  'steamusercontent-a.akamaihd.net',
-  'cdn.steamusercontent.com',
-  'cdn.cloudflare.steamstatic.com',
-]);
-
-function canOptimizeAvatar(avatarUrl: string): boolean {
-  try {
-    const url = new URL(avatarUrl);
-    if (url.protocol !== 'https:') return false;
-    if (OPTIMIZABLE_AVATAR_HOSTS.has(url.hostname)) return true;
-    return url.hostname.endsWith('.supabase.co')
-      && url.pathname.startsWith('/storage/v1/object/public/profile-avatars/');
-  } catch {
-    return false;
-  }
 }
 
 type LeaderboardPageProps = {
@@ -382,7 +364,15 @@ export default function LeaderboardPageClient({ initialData }: LeaderboardPagePr
                   <div className="mb-2 h-12 w-12 overflow-hidden rounded-full border-2 bg-[var(--surface-raised)]"
                     style={{ borderColor: accent }}>
                     {profile?.avatar_url ? (
-                      <Image src={profile.avatar_url} alt={`${managerName} avatar`} width={48} height={48} priority unoptimized={!canOptimizeAvatar(profile.avatar_url)} className="h-full w-full object-cover" />
+                      <Image
+                        src={profile.avatar_url}
+                        alt={`${managerName} avatar`}
+                        width={48}
+                        height={48}
+                        priority
+                        unoptimized={!canOptimizeImage(profile.avatar_url)}
+                        className="h-full w-full object-cover"
+                      />
                     ) : (
                       <span className="flex h-full items-center justify-center text-base font-bold text-[var(--text-secondary)]">
                         {teamName.substring(0, 1).toUpperCase()}
@@ -543,7 +533,14 @@ export default function LeaderboardPageClient({ initialData }: LeaderboardPagePr
                                  <div className="flex items-center gap-3">
                                     <div className={`w-10 h-10 rounded-full bg-[var(--surface-raised)] overflow-hidden shrink-0 border ${isCurrentUser ? 'border-teal-500/70 ring-2 ring-teal-500/20' : isTop3 ? 'border-amber-500/50' : 'border-[var(--border)]'}`}>
                                        {profile?.avatar_url ? (
-                                          <Image src={profile.avatar_url} alt={`${managerName} avatar`} width={40} height={40} unoptimized={!canOptimizeAvatar(profile.avatar_url)} className="w-full h-full object-cover" />
+                                          <Image
+                                            src={profile.avatar_url}
+                                            alt={`${managerName} avatar`}
+                                            width={40}
+                                            height={40}
+                                            unoptimized={!canOptimizeImage(profile.avatar_url)}
+                                            className="w-full h-full object-cover"
+                                          />
                                        ) : (
                                           <div className={`w-full h-full flex items-center justify-center font-bold ${isCurrentUser ? 'text-teal-700 dark:text-teal-300' : 'text-[var(--text-secondary)]'}`}>
                                              {team?.name?.substring(0, 1).toUpperCase() || '?'}
@@ -626,7 +623,7 @@ export default function LeaderboardPageClient({ initialData }: LeaderboardPagePr
               <div className="flex items-center gap-4">
                 <div className="w-14 h-14 rounded-full bg-slate-800 border-2 border-amber-500/50 flex items-center justify-center overflow-hidden shrink-0 shadow-md">
                   {selectedUser.avatarUrl ? (
-                    <Image src={selectedUser.avatarUrl} alt={selectedUser.manager} width={56} height={56} unoptimized={!canOptimizeAvatar(selectedUser.avatarUrl)} className="h-full w-full object-cover" />
+                    <Image src={selectedUser.avatarUrl} alt={selectedUser.manager} width={56} height={56} unoptimized={!canOptimizeImage(selectedUser.avatarUrl)} className="h-full w-full object-cover" />
                   ) : (
                     <span className="text-xl font-bold text-amber-400">
                       {(selectedUser.displayName || selectedUser.username || selectedUser.manager).substring(0, 2).toUpperCase()}

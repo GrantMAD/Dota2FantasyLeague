@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
+import { canOptimizeImage } from '@/lib/optimized-image';
 import { ArrowLeft, CalendarClock, CalendarDays, CircleAlert, ShieldCheck } from 'lucide-react';
 import { fetchWithAuth } from '@/lib/fetch-with-auth';
 
@@ -393,7 +394,7 @@ export default function SquadPlannerPage() {
                             alt=""
                             width={40}
                             height={40}
-                            unoptimized
+                            unoptimized={!canOptimizeImage(player.profile_image_url)}
                             className="h-10 w-10 rounded-full bg-slate-700 object-cover"
                           />
                         ) : (

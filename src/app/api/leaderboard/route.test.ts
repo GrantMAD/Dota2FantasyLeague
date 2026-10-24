@@ -30,6 +30,7 @@ const firstEntry = {
   id: 10,
   season_id: 3,
   global_rank: 1,
+  previous_rank: 2,
   total_points: 120,
   gameweek_points_latest: 20,
   user_id: 'manager-1',
@@ -145,6 +146,7 @@ describe('GET /api/leaderboard', () => {
       id: 11,
       season_id: 3,
       global_rank: 57,
+      previous_rank: 57,
       total_points: 75,
       gameweek_points_latest: 8,
       user_id: 'manager-2',
@@ -177,6 +179,7 @@ describe('GET /api/leaderboard', () => {
       id: 11,
       season_id: 3,
       global_rank: 57,
+      previous_rank: 57,
       total_points: 75,
       gameweek_points_latest: 8,
       user_id: 'manager-2',
@@ -195,7 +198,7 @@ describe('GET /api/leaderboard', () => {
       previous_rank: 57,
       fantasy_teams: { user_id: 'manager-2', name: 'Bravo Squad' },
     });
-    expect(mockQueries.map(({ table }) => table)).toEqual(['fantasy_seasons', 'gameweeks', 'season_standings']);
+    expect(mockQueries.map(({ table }) => table)).toEqual(['fantasy_seasons']);
     expect(mockGetCached).not.toHaveBeenCalled();
   });
 });
