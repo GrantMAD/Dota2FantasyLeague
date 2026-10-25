@@ -1,3 +1,12 @@
+jest.mock('@/lib/supabase', () => ({
+  supabaseServer: jest.fn(),
+  getSupabaseClient: jest.fn(),
+}));
+
+jest.mock('@/lib/fetch-with-auth', () => ({
+  fetchWithAuth: jest.fn(),
+}));
+
 import { formatCountdown, getRushBadgeMeta } from './DashboardTransferRush';
 
 describe('DashboardTransferRush helpers', () => {

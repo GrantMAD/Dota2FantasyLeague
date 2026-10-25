@@ -14,6 +14,7 @@ import {
   Activity,
   AlertCircle,
 } from 'lucide-react';
+import { fetchWithAuth } from '@/lib/fetch-with-auth';
 import type { TransferRushData, TransferRushPlayer } from '@/types/fantasy';
 
 export function formatCountdown(totalSec: number): string {
@@ -83,7 +84,7 @@ export function DashboardTransferRush({
 
     const fetchRush = async () => {
       try {
-        const res = await fetch('/api/fantasy/transfer-rush?windowMinutes=60');
+        const res = await fetchWithAuth('/api/fantasy/transfer-rush?windowMinutes=60');
         if (!res.ok) return;
         const json: TransferRushData = await res.json();
         if (!cancelled) {
