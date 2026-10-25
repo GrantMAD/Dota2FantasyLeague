@@ -344,6 +344,14 @@ export default function DashboardPage() {
           />
         ) : null}
 
+        {/* What's New Feed — full-width row, shown prominently before the main grid */}
+        {whatsNew && <DashboardWhatsNew whatsNew={whatsNew} />}
+        {whatsNewError && (
+          <div role="status" className="mb-6 rounded-xl border border-rose-500/30 bg-rose-950/30 px-5 py-4 text-sm text-rose-200">
+            What&apos;s New could not be loaded: {whatsNewError}
+          </div>
+        )}
+
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
           {/* Primary Column */}
           <div className="lg:col-span-2 space-y-8">
@@ -521,13 +529,7 @@ export default function DashboardPage() {
               />
             ) : null}
 
-            {/* What's New Feed */}
-            {whatsNew && <DashboardWhatsNew whatsNew={whatsNew} />}
-            {whatsNewError && (
-              <div role="status" className="rounded-xl border border-rose-500/30 bg-rose-950/30 px-5 py-4 text-sm text-rose-200">
-                What&apos;s New could not be loaded: {whatsNewError}
-              </div>
-            )}
+
           </div>
 
           {/* Sidebar */}
