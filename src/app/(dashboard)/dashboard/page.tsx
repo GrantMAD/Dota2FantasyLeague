@@ -26,6 +26,7 @@ import { EmptySquadState } from './components/EmptySquadState';
 import { DashboardLiveMatches } from './components/DashboardLiveMatches';
 import { DashboardWhatsNew, type WhatsNewData } from './components/DashboardWhatsNew';
 import { DashboardGoalProgress } from './components/DashboardGoalProgress';
+import { DashboardTransferRush } from './components/DashboardTransferRush';
 import { DataFreshnessBadge } from '@/components/DataFreshnessBadge';
 import type { MatchData } from '@/app/(dashboard)/matches/components/MatchCard';
 
@@ -346,6 +347,9 @@ export default function DashboardPage() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
           {/* Primary Column */}
           <div className="lg:col-span-2 space-y-8">
+            {/* Transfer Deadline Rush Widget */}
+            <DashboardTransferRush />
+
             {/* Squads Status & Starting Five Section */}
             {loading ? (
               <div

@@ -265,3 +265,44 @@ export interface LeagueRecord {
   standings?: StandingEntry[];
   fixtures?: FixtureEntry[];
 }
+
+/**
+ * Transfer Deadline Rush interfaces (Section 5.5)
+ */
+export interface TransferRushPlayer {
+  id: number;
+  name: string;
+  inGameName?: string | null;
+  teamName: string | null;
+  teamLogoUrl?: string | null;
+  role: string | null;
+  currentPrice: number;
+  transferCount: number;
+}
+
+export interface TransferRushPulse {
+  id: string;
+  type: 'milestone' | 'velocity' | 'swap';
+  message: string;
+  timestamp: string;
+  highlightPlayerName?: string;
+}
+
+export interface TransferRushData {
+  gameweek: {
+    id: number;
+    gameweekNumber: number;
+    deadline: string | null;
+    status: string;
+    isLocked: boolean;
+    secondsRemaining: number;
+  } | null;
+  windowMinutes: number;
+  totalTransfersInWindow: number;
+  transfersPerMinute: number;
+  topTransferredIn: TransferRushPlayer[];
+  topTransferredOut: TransferRushPlayer[];
+  activityPulses: TransferRushPulse[];
+  isRushActive: boolean;
+}
+
