@@ -134,7 +134,7 @@ export default function GameweeksPage({ initialGameweeks }: { initialGameweeks: 
         <div className="flex flex-wrap items-center gap-3">
           <Link
             href="/gameweeks/planner"
-            className="inline-flex items-center gap-2 rounded-xl border border-cyan-500/40 bg-cyan-500/10 px-3 py-2 text-sm font-medium text-cyan-200 transition hover:border-cyan-400 hover:bg-cyan-500/15"
+            className="inline-flex items-center gap-2 rounded-xl border border-cyan-500/40 bg-cyan-500/10 px-3 py-2 text-sm font-medium text-cyan-800 dark:text-cyan-200 transition hover:border-cyan-400 hover:bg-cyan-500/15"
           >
             My Squad Planner
           </Link>
@@ -165,7 +165,7 @@ export default function GameweeksPage({ initialGameweeks }: { initialGameweeks: 
           </details>
           <Link
             href="/season-recap"
-            className="inline-flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-900/80 px-3 py-2 text-sm font-medium text-slate-200 transition hover:border-slate-500 hover:text-white md:hidden xl:inline-flex"
+            className="inline-flex items-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--surface-raised)] px-3 py-2 text-sm font-medium text-slate-800 dark:text-slate-200 transition hover:border-slate-400 dark:hover:border-slate-500 hover:text-slate-950 dark:hover:text-white md:hidden xl:inline-flex"
           >
             Season Recap
           </Link>
@@ -198,17 +198,24 @@ export default function GameweeksPage({ initialGameweeks }: { initialGameweeks: 
         </div>
       )}
 
+      <GameweekFilters
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+        viewMode={viewMode}
+        onViewModeChange={saveGameweekViewMode}
+      />
+
       {loading ? (
         <div className="space-y-6">
-          <div className="animate-pulse rounded-3xl border border-slate-800 bg-slate-900/70 p-6">
-            <div className="mb-4 h-6 w-48 rounded bg-slate-800" />
-            <div className="mb-3 h-10 w-72 rounded bg-slate-800" />
-            <div className="h-4 w-full rounded bg-slate-800" />
+          <div className="animate-pulse rounded-3xl border border-[var(--border)] bg-[var(--surface-raised)] p-6">
+            <div className="mb-4 h-6 w-48 rounded bg-[var(--surface)]" />
+            <div className="mb-3 h-10 w-72 rounded bg-[var(--surface)]" />
+            <div className="h-4 w-full rounded bg-[var(--surface)]" />
           </div>
           {[1, 2, 3].map((item) => (
-            <div key={item} className="animate-pulse rounded-2xl border border-slate-800 bg-slate-900/60 p-5">
-              <div className="mb-4 h-4 w-40 rounded bg-slate-800" />
-              <div className="h-24 rounded bg-slate-800" />
+            <div key={item} className="animate-pulse rounded-2xl border border-[var(--border)] bg-[var(--surface-raised)] p-5">
+              <div className="mb-4 h-4 w-40 rounded bg-[var(--surface)]" />
+              <div className="h-24 rounded bg-[var(--surface)]" />
             </div>
           ))}
         </div>
@@ -217,13 +224,6 @@ export default function GameweeksPage({ initialGameweeks }: { initialGameweeks: 
           {activeGameweek && (
             <ActiveGameweekHero gameweek={activeGameweek} />
           )}
-
-          <GameweekFilters
-            activeTab={activeTab}
-            onTabChange={setActiveTab}
-            viewMode={viewMode}
-            onViewModeChange={saveGameweekViewMode}
-          />
 
           <div className={viewMode === 'compact' ? 'grid gap-4 md:grid-cols-2 xl:grid-cols-3' : 'space-y-5'}>
             {filteredGameweeks.length === 0 ? (

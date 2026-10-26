@@ -522,24 +522,26 @@ export default function LineupsPage() {
             )}
 
             {loading ? (
-              <div className="animate-pulse space-y-6">
-                <div className="grid grid-cols-1 gap-3 rounded-lg border border-slate-700 bg-slate-900/60 p-4 md:grid-cols-2">
-                  <div className="h-10 rounded bg-slate-800" />
-                  <div className="h-10 rounded bg-slate-800" />
+              <div className="animate-pulse space-y-6" role="status" aria-label="Loading lineup">
+                <div className="grid grid-cols-1 gap-3 rounded-lg border border-[var(--border)] bg-[var(--surface-raised)] p-4 md:grid-cols-2">
+                  <div className="h-10 rounded-xl bg-[var(--surface)]" />
+                  <div className="h-10 rounded-xl bg-[var(--surface)]" />
                 </div>
                 <div className="space-y-3">
                   {[1, 2, 3, 4, 5].map((slot) => (
-                    <div key={slot} className="rounded-xl border p-4 transition-all hover:border-cyan-500/40" style={{ background: "var(--surface-raised)", borderColor: "var(--border)" }}>
-                      <div className="mb-3 h-3 w-24 rounded bg-slate-700" />
-                      <div className="h-10 rounded bg-slate-800" />
-                      <div className="mt-3 h-10 w-40 rounded bg-slate-800" />
+                    <div key={slot} className="rounded-xl border border-[var(--border)] bg-[var(--surface-raised)] p-4">
+                      <div className="mb-3 h-3 w-24 rounded bg-[var(--surface)]" />
+                      <div className="h-10 rounded bg-[var(--surface)]" />
+                      <div className="mt-3 h-10 w-40 rounded bg-[var(--surface)]" />
                     </div>
                   ))}
                 </div>
-                <div className="border-t pt-6" style={{ borderColor: "var(--border)" }}>
-                  <div className="mb-3 h-3 w-36 rounded bg-slate-700" />
+                <div className="border-t border-[var(--border)] pt-6">
+                  <div className="mb-3 h-3 w-36 rounded bg-[var(--surface-raised)]" />
                   <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-                    {[1, 2, 3].map((slot) => <div key={slot} className="h-24 rounded-lg border border-slate-700 bg-slate-900/40" />)}
+                    {[1, 2, 3].map((slot) => (
+                      <div key={slot} className="h-24 rounded-lg border border-[var(--border)] bg-[var(--surface-raised)]" />
+                    ))}
                   </div>
                 </div>
               </div>

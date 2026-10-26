@@ -102,46 +102,61 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
 
   if (loading) {
     return (
-      <div className="tournament-detail-page mx-auto max-w-7xl px-4 py-10 space-y-8 animate-pulse" role="status" aria-label="Loading tournament hub">
-        <div className="flex items-center justify-between gap-4">
-          <div className="h-4 w-48 rounded bg-slate-800" />
-          <div className="h-4 w-40 rounded bg-slate-800" />
+      <div className="tournament-detail-page mx-auto max-w-7xl px-4 py-8 sm:py-10 space-y-6 animate-pulse" role="status" aria-label="Loading tournament hub">
+        {/* Navigation Breadcrumb */}
+        <div className="flex items-center justify-between gap-3">
+          <Link
+            href="/tournaments"
+            className="inline-flex items-center gap-2 text-xs font-semibold text-[var(--text-secondary)] transition-colors hover:text-amber-600 dark:hover:text-amber-300"
+          >
+            <ChevronLeft className="h-4 w-4" />
+            <span>Tournaments Circuit</span>
+          </Link>
+
+          <Link
+            href="/matches"
+            className="flex items-center gap-1 text-xs font-medium text-amber-700 transition-colors hover:text-amber-600 dark:text-amber-300 dark:hover:text-amber-200"
+          >
+            <span>View Global Match Center</span>
+            <span>→</span>
+          </Link>
         </div>
-        <section className="rounded-3xl border border-slate-800 bg-slate-900/80 p-8 sm:p-10">
+
+        <section className="rounded-3xl border border-[var(--border)] bg-[var(--surface-raised)] p-8 sm:p-10">
           <div className="flex flex-col items-start justify-between gap-6 md:flex-row md:items-center">
             <div className="w-full space-y-4">
               <div className="flex gap-2">
-                <div className="h-6 w-24 rounded-full bg-slate-800" />
-                <div className="h-6 w-32 rounded-full bg-slate-800" />
+                <div className="h-6 w-24 rounded-full bg-[var(--surface)]" />
+                <div className="h-6 w-32 rounded-full bg-[var(--surface)]" />
               </div>
-              <div className="h-10 w-3/4 max-w-xl rounded bg-slate-800" />
-              <div className="h-4 w-52 rounded bg-slate-800" />
+              <div className="h-10 w-3/4 max-w-xl rounded bg-[var(--surface)]" />
+              <div className="h-4 w-52 rounded bg-[var(--surface)]" />
             </div>
-            <div className="grid w-full grid-cols-3 gap-2 rounded-2xl border border-slate-800 bg-slate-950/70 p-4 md:w-auto">
+            <div className="grid w-full grid-cols-3 gap-2 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4 md:w-auto">
               {[1, 2, 3].map((item) => (
-                <div key={item} className="space-y-2 border-r border-slate-800 px-3 text-center last:border-0">
-                  <div className="mx-auto h-6 w-10 rounded bg-slate-800" />
-                  <div className="mx-auto h-3 w-14 rounded bg-slate-800" />
+                <div key={item} className="space-y-2 border-r border-[var(--border)] px-3 text-center last:border-0">
+                  <div className="mx-auto h-6 w-10 rounded bg-[var(--surface-raised)]" />
+                  <div className="mx-auto h-3 w-14 rounded bg-[var(--surface-raised)]" />
                 </div>
               ))}
             </div>
           </div>
         </section>
-        <div className="flex gap-3 border-b border-slate-800 pb-4">
-          <div className="h-9 w-36 rounded-xl bg-slate-800" />
-          <div className="h-9 w-36 rounded-xl bg-slate-800" />
+        <div className="flex gap-3 border-b border-[var(--border)] pb-4">
+          <div className="h-9 w-36 rounded-xl bg-[var(--surface-raised)]" />
+          <div className="h-9 w-36 rounded-xl bg-[var(--surface-raised)]" />
         </div>
         <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
           {[1, 2, 3, 4, 5, 6].map((item) => (
-            <div key={item} className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5">
+            <div key={item} className="rounded-2xl border border-[var(--border)] bg-[var(--surface-raised)] p-5">
               <div className="mb-5 flex justify-between">
-                <div className="h-4 w-24 rounded bg-slate-800" />
-                <div className="h-6 w-16 rounded-full bg-slate-800" />
+                <div className="h-4 w-24 rounded bg-[var(--surface)]" />
+                <div className="h-6 w-16 rounded-full bg-[var(--surface)]" />
               </div>
               <div className="flex items-center justify-between gap-3">
-                <div className="flex items-center gap-2"><div className="h-9 w-9 rounded-full bg-slate-800" /><div className="h-4 w-20 rounded bg-slate-800" /></div>
-                <div className="h-4 w-6 rounded bg-slate-800" />
-                <div className="flex items-center gap-2"><div className="h-9 w-9 rounded-full bg-slate-800" /><div className="h-4 w-20 rounded bg-slate-800" /></div>
+                <div className="flex items-center gap-2"><div className="h-9 w-9 rounded-full bg-[var(--surface)]" /><div className="h-4 w-20 rounded bg-[var(--surface)]" /></div>
+                <div className="h-4 w-6 rounded bg-[var(--surface)]" />
+                <div className="flex items-center gap-2"><div className="h-9 w-9 rounded-full bg-[var(--surface)]" /><div className="h-4 w-20 rounded bg-[var(--surface)]" /></div>
               </div>
             </div>
           ))}
@@ -246,22 +261,22 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
             <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-raised)] px-3 py-3 text-center">
               <Users className="mx-auto h-4 w-4 text-cyan-700 dark:text-cyan-300" />
               <div className="tournament-detail-stat-value mt-1 text-xl font-black text-[var(--text-primary)]">{teams.length}</div>
-              <div className="tournament-detail-stat-label text-[9px] font-semibold uppercase tracking-wider text-[var(--text-muted)]">Teams</div>
+              <div className="tournament-detail-stat-label text-[9px] font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-400">Teams</div>
             </div>
             <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-raised)] px-3 py-3 text-center">
               <Trophy className="mx-auto h-4 w-4 text-amber-600 dark:text-amber-300" />
               <div className="tournament-detail-stat-value mt-1 text-xl font-black text-[var(--text-primary)]">{series?.length ?? 0}</div>
-              <div className="tournament-detail-stat-label text-[9px] font-semibold uppercase tracking-wider text-[var(--text-muted)]">Series</div>
+              <div className="tournament-detail-stat-label text-[9px] font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-400">Series</div>
             </div>
             <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-raised)] px-3 py-3 text-center">
-              <Gamepad2 className="mx-auto h-4 w-4 text-[var(--text-muted)]" />
+              <Gamepad2 className="mx-auto h-4 w-4 text-slate-600 dark:text-slate-400" />
               <div className="tournament-detail-stat-value mt-1 text-xl font-black text-[var(--text-primary)]">{matches.length}</div>
-              <div className="tournament-detail-stat-label text-[9px] font-semibold uppercase tracking-wider text-[var(--text-muted)]">Matches</div>
+              <div className="tournament-detail-stat-label text-[9px] font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-400">Matches</div>
             </div>
             <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-raised)] px-3 py-3 text-center">
               <Activity className="mx-auto h-4 w-4 text-emerald-700 dark:text-emerald-300" />
               <div className="tournament-detail-stat-value mt-1 text-xl font-black text-emerald-700 dark:text-emerald-300">{completedMatchesCount}</div>
-              <div className="tournament-detail-stat-label text-[9px] font-semibold uppercase tracking-wider text-[var(--text-muted)]">Complete</div>
+              <div className="tournament-detail-stat-label text-[9px] font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-400">Complete</div>
             </div>
           </div>
         </div>

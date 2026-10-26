@@ -89,7 +89,20 @@ export function TotalPointsModal({ onClose }: TotalPointsModalProps) {
         </header>
 
         {loading ? (
-          <div className="py-10 text-center text-sm text-slate-400">Loading your points breakdown…</div>
+          <div role="status" aria-label="Loading points breakdown" className="space-y-4 py-2">
+            <div className="h-24 animate-pulse rounded-xl border border-slate-700/60 bg-slate-800/40 p-5">
+              <div className="h-3 w-24 rounded bg-slate-700" />
+              <div className="mt-3 h-7 w-32 rounded bg-slate-700" />
+            </div>
+            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+              {[1, 2, 3, 4, 5, 6].map((i) => (
+                <div key={i} className="flex h-12 animate-pulse items-center justify-between rounded-lg border border-slate-800 bg-slate-950/40 px-3">
+                  <div className="h-3.5 w-24 rounded bg-slate-800" />
+                  <div className="h-4 w-12 rounded bg-slate-800" />
+                </div>
+              ))}
+            </div>
+          </div>
         ) : error ? (
           <div role="alert" className="rounded-xl border border-rose-500/30 bg-rose-500/10 p-4 text-sm text-rose-200">
             {error}

@@ -42,7 +42,7 @@ export function MatchFilters({
       {/* Top row: Status Tabs & View Mode */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         {/* Status segmented buttons */}
-        <div role="group" aria-label="Filter matches by status" className="flex items-center gap-1.5 p-1 bg-slate-900/90 border border-slate-800 rounded-xl overflow-x-auto w-full sm:w-auto">
+        <div role="group" aria-label="Filter matches by status" className="flex items-center gap-1.5 p-1 bg-[var(--surface-raised)] border border-[var(--border)] rounded-xl overflow-x-auto w-full sm:w-auto">
           {tabs.map((tab) => {
             const isActive = activeTab === tab.id;
             return (
@@ -54,7 +54,7 @@ export function MatchFilters({
                 className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all ${
                   isActive
                     ? 'bg-amber-500 text-slate-950 shadow-md shadow-amber-500/20'
-                    : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+                    : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--surface)]'
                 }`}
               >
                 {tab.isLive && counts.live > 0 && (
@@ -65,7 +65,7 @@ export function MatchFilters({
                   className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono font-bold ${
                     isActive
                       ? 'bg-slate-950/20 text-slate-950'
-                      : 'bg-slate-800 text-slate-400'
+                      : 'bg-[var(--surface)] text-[var(--text-muted)]'
                   }`}
                 >
                   {tab.count}
@@ -76,7 +76,7 @@ export function MatchFilters({
         </div>
 
         {/* View Toggle */}
-        <div role="group" aria-label="Match display mode" className="flex items-center gap-1 bg-slate-900/90 border border-slate-800 p-1 rounded-xl shrink-0 self-end sm:self-auto">
+        <div role="group" aria-label="Match display mode" className="flex items-center gap-1 bg-[var(--surface-raised)] border border-[var(--border)] p-1 rounded-xl shrink-0 self-end sm:self-auto">
           <button
             type="button"
             aria-label="Grid view"
@@ -86,7 +86,7 @@ export function MatchFilters({
             className={`flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-semibold transition-colors ${
               viewMode === 'grid'
                 ? 'border border-amber-500/40 bg-amber-500/15 text-amber-800 dark:text-amber-300'
-                : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+                : 'text-[var(--text-secondary)] hover:bg-[var(--surface)] hover:text-[var(--text-primary)]'
             }`}
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -103,7 +103,7 @@ export function MatchFilters({
             className={`flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-semibold transition-colors ${
               viewMode === 'list'
                 ? 'border border-amber-500/40 bg-amber-500/15 text-amber-800 dark:text-amber-300'
-                : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+                : 'text-[var(--text-secondary)] hover:bg-[var(--surface)] hover:text-[var(--text-primary)]'
             }`}
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

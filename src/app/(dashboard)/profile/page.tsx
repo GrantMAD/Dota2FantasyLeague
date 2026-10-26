@@ -112,32 +112,24 @@ export default function ProfilePage() {
     });
   }, [profile]);
 
-  if (loading) {
-    return (
-      <div className="mx-auto max-w-5xl px-4 py-12">
-        <div className="h-48 animate-pulse rounded-2xl border border-[var(--border)] bg-[var(--surface)]" />
-      </div>
-    );
+  if (error && !loading) {
+    return <div className="mx-auto max-w-5xl px-4 py-12 text-rose-600 dark:text-rose-400">{error}</div>;
   }
 
-  if (error || !profile) {
-    return <div className="mx-auto max-w-5xl px-4 py-12 text-rose-600 dark:text-rose-400">{error || 'Profile not available'}</div>;
-  }
-
-  const initials = (profile.display_name || profile.username || 'U').slice(0, 1).toUpperCase();
-  const memberSince = new Date(profile.member_since || profile.created_at).toLocaleDateString([], { month: 'short', year: 'numeric' });
-  const hasBio = Boolean(profile.bio?.trim());
-  const hasFantasyTeam = Boolean(profile.fantasy_team);
-  const seasonRank = profile.fantasy_team?.global_rank ?? null;
+  const initials = profile ? (profile.display_name || profile.username || 'U').slice(0, 1).toUpperCase() : 'U';
+  const memberSince = profile ? new Date(profile.member_since || profile.created_at).toLocaleDateString([], { month: 'short', year: 'numeric' }) : '';
+  const hasBio = Boolean(profile?.bio?.trim());
+  const hasFantasyTeam = Boolean(profile?.fantasy_team);
+  const seasonRank = profile?.fantasy_team?.global_rank ?? null;
   const seasonRankTier = getSeasonRankTier(seasonRank);
-  const totalPoints = Number(profile.fantasy_team?.total_points ?? 0);
+  const totalPoints = Number(profile?.fantasy_team?.total_points ?? 0);
 
-  const accountHealthItems: Array<[string, boolean]> = [
+  const accountHealthItems: Array<[string, boolean]> = profile ? [
     ['Profile identity', Boolean(profile.display_name || profile.username)],
     ['Fantasy squad', hasFantasyTeam],
     ['Bio added', hasBio],
     ['Preferences set', Boolean(profile.timezone)],
-  ];
+  ] : [];
   const completedHealthCount = accountHealthItems.filter(([, complete]) => complete).length;
 
   return (
@@ -161,7 +153,26 @@ export default function ProfilePage() {
       </div>
 
       {/* Hero Banner Card */}
-      <section className={`overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface)] shadow-2xl transition-all duration-300 ${bannerTheme.glowClass}`}>
+      {loading ? (
+        <section className="overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface)] shadow-2xl animate-pulse">
+          <div className="h-36 md:h-44 bg-[var(--surface-muted)]" />
+          <div className="px-5 pb-6 md:px-8">
+            <div className="-mt-12 flex flex-col gap-4 sm:flex-row sm:items-end md:gap-6">
+              <div className="h-24 w-24 shrink-0 rounded-full border-4 border-[var(--surface)] bg-[var(--surface-raised)] md:h-28 md:w-28" />
+              <div className="space-y-2 pb-1">
+                <div className="h-6 w-48 rounded bg-[var(--surface-raised)]" />
+                <div className="h-4 w-36 rounded bg-[var(--surface-raised)]" />
+              </div>
+            </div>
+            <div className="mt-7 grid gap-3 sm:grid-cols-3">
+              <div className="h-20 rounded-xl border border-[var(--border)] bg-[var(--surface-raised)]" />
+              <div className="h-20 rounded-xl border border-[var(--border)] bg-[var(--surface-raised)]" />
+              <div className="h-20 rounded-xl border border-[var(--border)] bg-[var(--surface-raised)]" />
+            </div>
+          </div>
+        </section>
+      ) : profile ? (
+        <section className={`overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface)] shadow-2xl transition-all duration-300 ${bannerTheme.glowClass}`}>
         {/* Dynamic Dota Hero Theme Banner */}
         <div className={`relative h-36 md:h-44 bg-linear-to-r ${bannerTheme.gradientClass} transition-all duration-500`}>
           <div className="pointer-events-none absolute inset-0 bg-linear-to-b from-slate-950/10 via-slate-950/10 to-slate-950/75" />
@@ -211,6 +222,7 @@ export default function ProfilePage() {
           </div>
         </div>
       </section>
+      ) : null}
 
       {/* Manager Bio & Account Health Progress */}
       <div className="grid gap-6 lg:grid-cols-[1.35fr_0.65fr]">
@@ -223,12 +235,19 @@ export default function ProfilePage() {
               </div>
               <Link href="/settings?section=profile" className="text-sm font-semibold text-cyan-800 hover:text-cyan-700 dark:text-cyan-300 dark:hover:text-cyan-200">Edit</Link>
             </div>
-            <p className="min-h-16 text-sm leading-7 text-[var(--text-secondary)]">{hasBio ? profile.bio : 'Add a short bio to tell your league rivals who they are competing against.'}</p>
+            {loading ? (
+              <div className="space-y-2 animate-pulse py-2">
+                <div className="h-4 w-full rounded bg-[var(--surface-raised)]" />
+                <div className="h-4 w-3/4 rounded bg-[var(--surface-raised)]" />
+              </div>
+            ) : (
+              <p className="min-h-16 text-sm leading-7 text-[var(--text-secondary)]">{hasBio ? profile?.bio : 'Add a short bio to tell your league rivals who they are competing against.'}</p>
+            )}
           </div>
           <div className="mt-5 flex flex-wrap gap-2 text-xs text-[var(--text-secondary)]">
-            <span className="rounded-full border border-[var(--border)] bg-[var(--surface-raised)] px-3 py-1.5">{profile.country_code || 'Country not set'}</span>
-            <span className="rounded-full border border-[var(--border)] bg-[var(--surface-raised)] px-3 py-1.5">{profile.timezone || 'UTC'}</span>
-            <span className="rounded-full border border-[var(--border)] bg-[var(--surface-raised)] px-3 py-1.5">{profile.role === 'admin' ? 'Admin access' : 'Manager account'}</span>
+            <span className="rounded-full border border-[var(--border)] bg-[var(--surface-raised)] px-3 py-1.5">{profile?.country_code || 'Country not set'}</span>
+            <span className="rounded-full border border-[var(--border)] bg-[var(--surface-raised)] px-3 py-1.5">{profile?.timezone || 'UTC'}</span>
+            <span className="rounded-full border border-[var(--border)] bg-[var(--surface-raised)] px-3 py-1.5">{profile?.role === 'admin' ? 'Admin access' : 'Manager account'}</span>
           </div>
         </section>
 
@@ -240,18 +259,24 @@ export default function ProfilePage() {
               <p className="mt-1 text-xs text-[var(--text-secondary)]">Profile readiness for competition.</p>
             </div>
             {/* Circular Progress Ring */}
-            <AccountHealthProgress completed={completedHealthCount} total={accountHealthItems.length} size={88} strokeWidth={8} />
+            <AccountHealthProgress completed={completedHealthCount} total={accountHealthItems.length || 4} size={88} strokeWidth={8} />
           </div>
 
           <div className="mt-5 space-y-2.5">
-            {accountHealthItems.map(([label, complete]) => (
-              <div key={String(label)} className="flex items-center justify-between rounded-lg border border-[var(--border)] bg-[var(--surface-raised)] px-3 py-2.5">
-                <span className="text-sm text-[var(--text-secondary)]">{String(label)}</span>
-                <span className={`text-xs font-semibold ${complete ? 'text-emerald-700 dark:text-emerald-300' : 'text-amber-700 dark:text-amber-300'}`}>
-                  {complete ? 'Ready' : 'Review'}
-                </span>
-              </div>
-            ))}
+            {loading ? (
+              [1, 2, 3, 4].map((item) => (
+                <div key={item} className="h-10 rounded-lg border border-[var(--border)] bg-[var(--surface-raised)] animate-pulse" />
+              ))
+            ) : (
+              accountHealthItems.map(([label, complete]) => (
+                <div key={String(label)} className="flex items-center justify-between rounded-lg border border-[var(--border)] bg-[var(--surface-raised)] px-3 py-2.5">
+                  <span className="text-sm text-[var(--text-secondary)]">{String(label)}</span>
+                  <span className={`text-xs font-semibold ${complete ? 'text-emerald-700 dark:text-emerald-300' : 'text-amber-700 dark:text-amber-300'}`}>
+                    {complete ? 'Ready' : 'Review'}
+                  </span>
+                </div>
+              ))
+            )}
           </div>
           <Link href="/settings?section=account" className="mt-5 inline-flex text-sm font-semibold text-cyan-800 hover:text-cyan-700 dark:text-cyan-300 dark:hover:text-cyan-200">Manage account details →</Link>
         </section>

@@ -28,16 +28,16 @@ export function LeagueHero({ league, onOpen }: LeagueHeroProps) {
   };
 
   return (
-    <div className="mb-8 overflow-hidden rounded-3xl border border-amber-500/30 bg-[radial-gradient(circle_at_top_left,rgba(251,191,36,0.14),transparent_35%),linear-gradient(135deg,rgba(15,23,42,0.98),rgba(2,6,23,0.96))] p-6 shadow-2xl shadow-amber-500/10">
+    <div className="mb-8 overflow-hidden rounded-3xl border border-amber-500/30 bg-[radial-gradient(circle_at_top_left,rgba(251,191,36,0.18),transparent_40%),linear-gradient(135deg,var(--surface-raised),var(--surface))] p-6 shadow-xl">
       <div className="mb-5 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div>
-          <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-amber-500/40 bg-amber-500/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.22em] text-amber-300">
+          <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-amber-500/40 bg-amber-500/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.22em] text-amber-700 dark:text-amber-300">
             <Trophy className="h-3.5 w-3.5" />
             {isH2H ? 'Head-to-Head League' : 'Classic League'}
           </div>
-          <h2 className="text-3xl font-black tracking-tight text-white">{league.name}</h2>
+          <h2 className="text-3xl font-black tracking-tight text-[var(--text-primary)]">{league.name}</h2>
           {league.description && (
-            <p className="mt-1 text-sm text-slate-400">{league.description}</p>
+            <p className="mt-1 text-sm text-[var(--text-secondary)]">{league.description}</p>
           )}
         </div>
 
@@ -46,19 +46,19 @@ export function LeagueHero({ league, onOpen }: LeagueHeroProps) {
             <button
               type="button"
               onClick={handleCopy}
-              className="flex items-center gap-2 rounded-xl border border-slate-600 bg-slate-900/80 px-3 py-2 text-sm text-slate-300 transition hover:border-amber-500/50 hover:text-amber-300"
+              className="flex items-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--surface-raised)] px-3 py-2 text-sm text-[var(--text-secondary)] transition hover:border-amber-500/50 hover:text-amber-600 dark:hover:text-amber-300 shadow-xs"
             >
               {copied ? (
                 <>
-                  <Check className="h-4 w-4 text-emerald-400" />
-                  <span className="font-mono text-emerald-400 text-xs">{league.inviteCode}</span>
-                  <span className="text-emerald-400 text-xs">Copied!</span>
+                  <Check className="h-4 w-4 text-emerald-500 dark:text-emerald-400" />
+                  <span className="font-mono text-emerald-600 dark:text-emerald-400 text-xs">{league.inviteCode}</span>
+                  <span className="text-emerald-600 dark:text-emerald-400 text-xs">Copied!</span>
                 </>
               ) : (
                 <>
                   <Copy className="h-4 w-4" />
                   <span className="font-mono text-xs">{league.inviteCode}</span>
-                  <span className="text-xs text-slate-400">Copy Invite</span>
+                  <span className="text-xs text-[var(--text-muted)]">Copy Invite</span>
                 </>
               )}
             </button>
@@ -66,7 +66,7 @@ export function LeagueHero({ league, onOpen }: LeagueHeroProps) {
           <button
             type="button"
             onClick={onOpen}
-            className="inline-flex items-center gap-2 rounded-xl border border-amber-500/40 bg-amber-500/10 px-4 py-2 text-sm font-semibold text-amber-300 transition hover:border-amber-400 hover:bg-amber-500/20"
+            className="inline-flex items-center gap-2 rounded-xl border border-amber-500/40 bg-amber-500/10 px-4 py-2 text-sm font-semibold text-amber-700 dark:text-amber-300 transition hover:border-amber-400 hover:bg-amber-500/20 shadow-xs"
           >
             View League
           </button>
@@ -74,44 +74,44 @@ export function LeagueHero({ league, onOpen }: LeagueHeroProps) {
       </div>
 
       <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-4">
-        <div className="rounded-2xl border border-slate-700 bg-slate-950/50 p-4">
-          <div className="flex items-center gap-2 text-[10px] uppercase tracking-[0.2em] text-slate-400">
+        <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface-raised)] p-4 shadow-xs">
+          <div className="flex items-center gap-2 text-[10px] uppercase tracking-[0.2em] text-[var(--text-muted)]">
             <Users className="h-3.5 w-3.5" />
             Managers
           </div>
-          <div className="mt-2 text-2xl font-black text-white">{league.currentParticipants}</div>
-          <div className="mt-0.5 text-xs text-slate-500">of {league.maxParticipants} spots</div>
-          <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-slate-800">
+          <div className="mt-2 text-2xl font-black text-[var(--text-primary)]">{league.currentParticipants}</div>
+          <div className="mt-0.5 text-xs text-[var(--text-muted)]">of {league.maxParticipants} spots</div>
+          <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-[var(--surface-muted)]">
             <div
-              className="h-full rounded-full bg-amber-500/60"
+              className="h-full rounded-full bg-amber-500"
               style={{ width: `${Math.min(100, (league.currentParticipants / league.maxParticipants) * 100)}%` }}
             />
           </div>
         </div>
 
-        <div className="rounded-2xl border border-slate-700 bg-slate-950/50 p-4">
-          <div className="flex items-center gap-2 text-[10px] uppercase tracking-[0.2em] text-slate-400">
+        <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface-raised)] p-4 shadow-xs">
+          <div className="flex items-center gap-2 text-[10px] uppercase tracking-[0.2em] text-[var(--text-muted)]">
             {isH2H ? <Swords className="h-3.5 w-3.5" /> : <Trophy className="h-3.5 w-3.5" />}
             Format
           </div>
-          <div className="mt-2 text-lg font-bold text-white">{isH2H ? 'Head-to-Head' : 'Classic'}</div>
-          <div className="mt-0.5 text-xs text-slate-500">{isH2H ? '3pts Win / 1pt Draw' : 'Total Points'}</div>
+          <div className="mt-2 text-lg font-bold text-[var(--text-primary)]">{isH2H ? 'Head-to-Head' : 'Classic'}</div>
+          <div className="mt-0.5 text-xs text-[var(--text-muted)]">{isH2H ? '3pts Win / 1pt Draw' : 'Total Points'}</div>
         </div>
 
-        <div className="rounded-2xl border border-slate-700 bg-slate-950/50 p-4">
-          <div className="flex items-center gap-2 text-[10px] uppercase tracking-[0.2em] text-slate-400">
+        <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface-raised)] p-4 shadow-xs">
+          <div className="flex items-center gap-2 text-[10px] uppercase tracking-[0.2em] text-[var(--text-muted)]">
             <Star className="h-3.5 w-3.5" />
             Privacy
           </div>
-          <div className="mt-2 text-lg font-bold capitalize text-white">{league.privacyLevel}</div>
-          <div className="mt-0.5 text-xs text-slate-500">{league.privacyLevel === 'private' ? 'Invite code required' : 'Open to all'}</div>
+          <div className="mt-2 text-lg font-bold capitalize text-[var(--text-primary)]">{league.privacyLevel}</div>
+          <div className="mt-0.5 text-xs text-[var(--text-muted)]">{league.privacyLevel === 'private' ? 'Invite code required' : 'Open to all'}</div>
         </div>
 
         {topEntry && (
-          <div className="rounded-2xl border border-amber-500/20 bg-amber-500/[0.05] p-4">
-            <div className="text-[10px] uppercase tracking-[0.2em] text-amber-400/80">League Leader</div>
-            <div className="mt-2 truncate text-base font-bold text-white">{topEntry.manager}</div>
-            <div className="mt-0.5 font-mono text-2xl font-black text-amber-400">{topEntry.points}<span className="ml-1 text-xs font-sans text-amber-300/70">pts</span></div>
+          <div className="rounded-2xl border border-amber-500/30 bg-white dark:bg-amber-500/[0.08] p-4 shadow-sm">
+            <div className="text-[10px] uppercase tracking-[0.2em] font-semibold text-amber-700 dark:text-amber-400/90">League Leader</div>
+            <div className="mt-2 truncate text-base font-bold text-slate-900 dark:text-white">{topEntry.manager}</div>
+            <div className="mt-0.5 font-mono text-2xl font-black text-amber-600 dark:text-amber-400">{topEntry.points}<span className="ml-1 text-xs font-sans text-amber-700 dark:text-amber-300/80">pts</span></div>
           </div>
         )}
       </div>

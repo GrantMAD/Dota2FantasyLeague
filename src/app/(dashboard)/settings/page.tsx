@@ -352,13 +352,6 @@ function SettingsContent() {
     </div>
   );
 
-  if (loading) {
-    return (
-      <div className="mx-auto max-w-5xl px-4 py-12">
-        <div className="h-80 animate-pulse rounded-2xl border border-[var(--border)] bg-[var(--surface)]" />
-      </div>
-    );
-  }
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-10 space-y-8">
@@ -500,6 +493,20 @@ function SettingsContent() {
 
         {/* Content Panel */}
         <main className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-6 md:p-8 shadow-sm">
+          {loading ? (
+            <div className="space-y-6 animate-pulse">
+              <div className="space-y-2">
+                <div className="h-6 w-48 rounded bg-[var(--surface-raised)]" />
+                <div className="h-4 w-96 max-w-full rounded bg-[var(--surface-raised)]" />
+              </div>
+              <div className="space-y-4 pt-4">
+                <div className="h-12 w-full rounded-xl bg-[var(--surface-raised)]" />
+                <div className="h-12 w-full rounded-xl bg-[var(--surface-raised)]" />
+                <div className="h-12 w-full rounded-xl bg-[var(--surface-raised)]" />
+              </div>
+            </div>
+          ) : (
+            <>
           {/* TAB 1: OVERVIEW */}
           {activeTab === 'overview' && (
             <div className="space-y-6">
@@ -992,6 +999,8 @@ function SettingsContent() {
                 </div>
               </div>
             </div>
+          )}
+            </>
           )}
         </main>
       </div>

@@ -52,7 +52,7 @@ export function TeamLogo({
           alt={name}
           fill
           sizes="(max-width: 768px) 48px, 64px"
-          className="object-contain p-1.5 transition-transform duration-300 group-hover:scale-110"
+          className="object-contain p-1.5 transition-transform duration-300 group-hover:scale-110 drop-shadow-[0_1px_3px_rgba(0,0,0,0.4)] drop-shadow-[0_0_1px_rgba(15,23,42,0.7)] dark:drop-shadow-none"
           onError={() => setImageError(true)}
           unoptimized={!canOptimizeImage(logoUrl)}
         />

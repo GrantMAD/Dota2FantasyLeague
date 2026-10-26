@@ -1166,7 +1166,7 @@ body {
   }
 
   :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) .leaderboard-pagination-button {
-    color: #e0f7ff !important;
+    color: #132238 !important;
   }
 
   :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) .leaderboard-manager-bio,
@@ -1193,15 +1193,15 @@ body {
   }
 
   :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) .gameweeks-hero-heading {
-    color: #e0f7ff !important;
+    color: #132238 !important;
   }
 
   :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) .gameweeks-hero-dates {
-    color: #d2e6f2 !important;
+    color: #334d64 !important;
   }
 
   :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) .gameweeks-quick-actions-heading {
-    color: #e0f7ff !important;
+    color: #132238 !important;
   }
 
   :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) .gameweeks-transfer-link,
@@ -1210,35 +1210,46 @@ body {
   }
 
   :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) .gameweeks-compact-toggle {
-    color: #d2e6f2 !important;
+    color: #334d64 !important;
   }
 
   :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) .gameweeks-quick-actions-heading svg {
-    color: #fcd34d !important;
+    color: #d97706 !important;
   }
 
   :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) .gameweeks-closed-date,
   :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) .gameweeks-closed-deadline,
-  :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) .gameweeks-closed-results,
   :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) .gameweeks-closed-card-label {
-    color: #e0f7ff !important;
+    color: #506070 !important;
+  }
+
+  :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) .gameweeks-closed-results {
+    color: #b45309 !important;
   }
 
   :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) .gameweeks-closed-date-icon,
   :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) .gameweeks-closed-deadline-icon {
-    color: #d2e6f2 !important;
+    color: #506070 !important;
   }
 
   :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) .gameweeks-closed-score-value {
-    color: #e0f7ff !important;
+    color: #047857 !important;
   }
 
   :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) .tournament-live-matches-link {
-    color: #e0f7ff !important;
+    color: #132238 !important;
   }
 
   :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) .tournaments-match-center-link {
-    color: #17324d !important;
+    color: #132238 !important;
+  }
+
+  :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) .tournament-status-tab:not([aria-pressed='true']) {
+    color: #132238 !important;
+  }
+
+  :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) .tournament-status-tab:not([aria-pressed='true']) span:last-child {
+    color: #334d64 !important;
   }
 
   :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) .tournament-card-footer {
@@ -1287,7 +1298,7 @@ body {
   }
 
   :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) .tournament-detail-stat-label {
-    color: #d2e6f2 !important;
+    color: #475569 !important;
   }
 
   :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) .tournament-detail-stats > div {
@@ -1295,23 +1306,28 @@ body {
   }
 
   :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) .tournament-detail-page .match-card-footer {
-    background-color: #0d1b2e !important;
-    border-top-color: #29415d !important;
+    background-color: var(--surface-raised) !important;
+    border-top-color: var(--border) !important;
   }
 
   :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) .tournament-detail-page .match-card-footer-meta,
   :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) .tournament-detail-page .match-card-footer-meta span {
-    color: #d2e6f2 !important;
+    color: var(--text-secondary) !important;
   }
 
-  :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) .matches-page .match-card-footer {
-    background-color: #0d1b2e !important;
-    border-top-color: #29415d !important;
+  :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) .match-card-footer {
+    background-color: var(--surface-raised) !important;
+    border-top-color: var(--border) !important;
   }
 
-  :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) .matches-page .match-card-footer-meta,
-  :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) .matches-page .match-card-footer-meta span {
-    color: #d2e6f2 !important;
+  :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) .match-card-footer-meta,
+  :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) .match-card-footer-meta span {
+    color: var(--text-secondary) !important;
+  }
+
+  :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) .match-card-score-pill {
+    background-color: var(--surface-raised) !important;
+    border-color: var(--border) !important;
   }
 
   :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) .matches-page .match-card-team-name {
@@ -1375,7 +1391,7 @@ body {
   }
 
   :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) .tournament-status-tab:not(.bg-amber-500) {
-    color: #d2e6f2 !important;
+    color: #132238 !important;
   }
 
 /* ─── Admin Console Light Mode ─────────────────────────────────────────────── */

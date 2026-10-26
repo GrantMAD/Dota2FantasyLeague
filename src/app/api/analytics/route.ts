@@ -330,14 +330,18 @@ async function getHandler(request: NextRequest) {
       allScorers.sort((a, b) => b.points - a.points);
 
       const chosenIds = new Set<number>();
-      const starters: typeof allScorers = [];
+      const starters: Array<(typeof allScorers)[number] & { assignedRole: string }> = [];
       const requiredRoles = ['Carry', 'Mid', 'Offlane', 'Support', 'Hard Support'];
 
       for (const reqRole of requiredRoles) {
-        const bestForRole = allScorers.find((s) => !chosenIds.has(s.id) && s.role === reqRole);
+        let bestForRole = allScorers.find((s) => !chosenIds.has(s.id) && s.role === reqRole);
+        // If 'Hard Support' is not directly tagged on players, assign the best remaining Support player
+        if (!bestForRole && reqRole === 'Hard Support') {
+          bestForRole = allScorers.find((s) => !chosenIds.has(s.id) && (s.role === 'Support' || s.role === 'Hard Support'));
+        }
         if (bestForRole) {
           chosenIds.add(bestForRole.id);
-          starters.push(bestForRole);
+          starters.push({ ...bestForRole, assignedRole: reqRole });
         }
       }
 
@@ -346,19 +350,20 @@ async function getHandler(request: NextRequest) {
         const nextBest = allScorers.find((s) => !chosenIds.has(s.id));
         if (!nextBest) break;
         chosenIds.add(nextBest.id);
-        starters.push(nextBest);
+        const unassignedRole = requiredRoles.find((r) => !starters.some((s) => s.assignedRole === r)) || nextBest.role;
+        starters.push({ ...nextBest, assignedRole: unassignedRole });
       }
 
       // Next 3 highest scoring remaining players for bench
-      const bench: typeof allScorers = [];
+      const bench: Array<(typeof allScorers)[number] & { assignedRole: string }> = [];
       for (const scorer of allScorers) {
         if (!chosenIds.has(scorer.id) && bench.length < 3) {
           chosenIds.add(scorer.id);
-          bench.push(scorer);
+          bench.push({ ...scorer, assignedRole: scorer.role });
         }
       }
 
-      dreamTeam = [...starters, ...bench].map(({ id, player: p, points, role }) => {
+      dreamTeam = [...starters, ...bench].map(({ id, player: p, points, role, assignedRole }) => {
         const team = firstRelation(p.professional_teams);
         const displayName = (p.in_game_name && p.in_game_name !== 'Player (Unknown)')
           ? p.in_game_name
@@ -367,7 +372,7 @@ async function getHandler(request: NextRequest) {
         return {
           playerName: displayName,
           team: team?.name || 'Unknown',
-          role: role || p.primary_role || 'Support',
+          role: assignedRole || role || p.primary_role || 'Support',
           points: Number(points.toFixed(1)),
           price,
           roi: Number(((points / price) * 10).toFixed(2)),

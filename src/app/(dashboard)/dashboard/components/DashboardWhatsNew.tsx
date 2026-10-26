@@ -125,16 +125,21 @@ export function DashboardWhatsNew({ whatsNew }: DashboardWhatsNewProps) {
       {/* ── ROW 1: Dedicated Gameweek Command Banner ── */}
       {gameweek && (
         <div
-          className="relative overflow-hidden rounded-2xl p-4 sm:p-5 shadow-sm transition-all"
+          className="relative overflow-hidden rounded-2xl p-4 sm:p-5 transition-all"
           style={{
             background: 'var(--surface)',
             border: '1px solid var(--border)',
+            boxShadow: '0 4px 24px color-mix(in srgb, var(--accent-primary) 12%, transparent), 0 1px 4px rgba(0,0,0,0.18)',
+            animation: 'wn-enter 340ms cubic-bezier(.22,1,.36,1) both',
           }}
         >
           {/* Subtle Accent Edge */}
           <div
-            className="absolute top-0 left-0 bottom-0 w-1.5"
-            style={{ background: 'linear-gradient(180deg, var(--accent-primary), var(--accent-secondary))' }}
+            className="absolute top-0 left-0 bottom-0 w-2"
+            style={{
+              background: 'linear-gradient(180deg, var(--accent-primary), var(--accent-secondary))',
+              boxShadow: '2px 0 12px color-mix(in srgb, var(--accent-primary) 50%, transparent)',
+            }}
             aria-hidden="true"
           />
 
@@ -219,18 +224,20 @@ export function DashboardWhatsNew({ whatsNew }: DashboardWhatsNewProps) {
       {/* ── ROW 2: Thin, Clean Feed Rows ── */}
       {allFeedItems.length > 0 && (
         <div
-          className="rounded-2xl overflow-hidden shadow-xs transition-all"
+          className="rounded-2xl overflow-hidden transition-all"
           style={{
             background: 'var(--surface)',
             border: '1px solid var(--border)',
+            boxShadow: '0 4px 24px color-mix(in srgb, var(--accent-primary) 10%, transparent), 0 1px 4px rgba(0,0,0,0.14)',
+            animation: 'wn-enter 380ms cubic-bezier(.22,1,.36,1) 60ms both',
           }}
         >
           {/* Feed Header with Filtering Pills */}
           <div
             className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-4 py-2.5"
             style={{
-              background: 'var(--surface-raised)',
-              borderBottom: '1px solid var(--border)',
+              background: 'color-mix(in srgb, var(--accent-primary) 5%, var(--surface-raised))',
+              borderBottom: '1px solid color-mix(in srgb, var(--accent-primary) 18%, var(--border))',
             }}
           >
             <div className="flex items-center gap-1.5 flex-wrap">

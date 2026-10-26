@@ -22,11 +22,11 @@ export function MatchRow({ match, userSquadPlayerNames = [] }: MatchRowProps) {
     return `${m}:${s.toString().padStart(2, '0')}`;
   };
 
-  const formattedDate = new Date(match.scheduled_at).toLocaleDateString([], {
+  const formattedDate = new Date(match.scheduled_at).toLocaleDateString('en-US', {
     month: 'short',
     day: 'numeric',
   });
-  const formattedTime = new Date(match.scheduled_at).toLocaleTimeString([], {
+  const formattedTime = new Date(match.scheduled_at).toLocaleTimeString('en-US', {
     hour: '2-digit',
     minute: '2-digit',
   });
@@ -47,7 +47,7 @@ export function MatchRow({ match, userSquadPlayerNames = [] }: MatchRowProps) {
           <div className="text-xs font-semibold text-slate-300 truncate max-w-[180px]">
             {match.tournaments?.name || 'Tournament'}
           </div>
-          <div className="text-[11px] text-slate-500 font-mono">
+          <div suppressHydrationWarning className="text-[11px] text-slate-500 font-mono">
             {isLive ? (
               <span className="text-red-400 font-bold uppercase">Live Now</span>
             ) : isCompleted ? (

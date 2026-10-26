@@ -238,56 +238,7 @@ export default function SquadPlannerPage() {
       .sort((a, b) => new Date(a.scheduled_time).getTime() - new Date(b.scheduled_time).getTime());
   }, [matchesByTeam]);
 
-  if (loading) {
-    return (
-      <div className="mx-auto max-w-7xl px-4 py-10 animate-pulse" role="status" aria-label="Loading your gameweek planner">
-        <div className="mb-6 h-4 w-36 rounded bg-slate-800" />
-        <header className="mb-8 space-y-3">
-          <div className="h-9 w-72 max-w-full rounded bg-slate-800" />
-          <div className="h-4 w-full max-w-xl rounded bg-slate-800" />
-        </header>
-        <section className="mb-8 grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
-          <div className="rounded-2xl border border-slate-800 bg-slate-900/70 p-6">
-            <div className="mb-3 h-3 w-24 rounded bg-slate-800" />
-            <div className="h-7 w-48 rounded bg-slate-800" />
-            <div className="mt-4 h-4 w-56 max-w-full rounded bg-slate-800" />
-            <div className="mt-6 flex flex-wrap gap-3">
-              <div className="h-10 w-28 rounded-lg bg-slate-800" />
-              <div className="h-10 w-36 rounded-lg bg-slate-800" />
-            </div>
-          </div>
-          <div className="rounded-2xl border border-slate-800 bg-slate-800/50 p-6">
-            <div className="mb-4 h-3 w-24 rounded bg-slate-800" />
-            <div className="h-9 w-36 rounded bg-slate-800" />
-            <div className="mt-3 h-4 w-48 max-w-full rounded bg-slate-800" />
-            <div className="mt-5 h-3 w-full rounded bg-slate-800" />
-          </div>
-        </section>
-        <div className="grid gap-6 xl:grid-cols-[1fr_0.9fr]">
-          {[1, 2].map((section) => (
-            <section key={section} className="overflow-hidden rounded-2xl border border-slate-800 bg-slate-800/40">
-              <div className="border-b border-slate-800 p-5">
-                <div className="h-5 w-48 rounded bg-slate-800" />
-                <div className="mt-2 h-4 w-64 max-w-full rounded bg-slate-800" />
-              </div>
-              {[1, 2, 3, 4].map((row) => (
-                <div key={row} className="flex items-center gap-3 border-b border-slate-800/70 p-4 sm:p-5">
-                  <div className="h-10 w-10 shrink-0 rounded-full bg-slate-800" />
-                  <div className="min-w-0 flex-1 space-y-2">
-                    <div className="h-4 w-36 max-w-full rounded bg-slate-800" />
-                    <div className="h-3 w-24 rounded bg-slate-800" />
-                  </div>
-                  <div className="h-6 w-20 rounded-full bg-slate-800" />
-                </div>
-              ))}
-            </section>
-          ))}
-        </div>
-      </div>
-    );
-  }
-
-  if (error) {
+  if (error && !loading) {
     return (
       <div className="mx-auto max-w-7xl px-4 py-12">
         <div role="alert" className="rounded-xl border border-rose-500/30 bg-rose-950/30 p-5 text-rose-200">
@@ -306,58 +257,76 @@ export default function SquadPlannerPage() {
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-10">
-      <Link href="/gameweeks" className="mb-6 inline-flex items-center gap-2 text-sm text-slate-400 hover:text-white">
+      <Link href="/gameweeks" className="mb-6 inline-flex items-center gap-2 text-sm text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors">
         <ArrowLeft className="h-4 w-4" /> Back to gameweeks
       </Link>
 
       <header className="mb-8">
         <div className="mb-2 flex items-center gap-3">
-          <CalendarClock className="h-7 w-7 text-cyan-400" />
-          <h1 className="text-3xl font-bold text-white">My Gameweek Planner</h1>
+          <CalendarClock className="h-7 w-7 text-cyan-600 dark:text-cyan-400" />
+          <h1 className="text-3xl font-bold text-[var(--text-primary)]">My Gameweek Planner</h1>
         </div>
-        <p className="text-slate-400">
+        <p className="text-[var(--text-secondary)]">
           Check your squad availability, lineup, deadline, and upcoming team fixtures in one place.
         </p>
       </header>
 
       <section className="mb-8 grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
-        <div className="rounded-2xl border border-cyan-500/25 bg-linear-to-br from-cyan-950/40 to-slate-900 p-6">
-          <p className="text-xs font-semibold uppercase tracking-wider text-cyan-300">Planning for</p>
-          <h2 className="mt-2 text-2xl font-bold text-white">
-            {gameweek ? `Gameweek ${gameweek.gameweekNumber}` : 'No active gameweek'}
-          </h2>
-          <p className="mt-3 text-sm text-slate-300">
-            {gameweek?.status === 'closed' || gameweek?.isLocked
-              ? 'The current lineup is locked.'
-              : gameweek?.deadline
-                ? formatDeadline(gameweek.deadline)
-                : 'There is no upcoming deadline available.'}
-          </p>
+        <div className="rounded-2xl border border-cyan-500/30 bg-gradient-to-br from-cyan-500/10 via-[var(--surface-raised)] to-[var(--surface)] p-6 shadow-sm">
+          <p className="text-xs font-semibold uppercase tracking-wider text-cyan-700 dark:text-cyan-300">Planning for</p>
+          {loading ? (
+            <div className="mt-2 space-y-2 animate-pulse">
+              <div className="h-7 w-48 rounded bg-[var(--surface-muted)]" />
+              <div className="h-4 w-64 rounded bg-[var(--surface-muted)]" />
+            </div>
+          ) : (
+            <>
+              <h2 className="mt-2 text-2xl font-bold text-[var(--text-primary)]">
+                {gameweek ? `Gameweek ${gameweek.gameweekNumber}` : 'No active gameweek'}
+              </h2>
+              <p className="mt-3 text-sm text-[var(--text-secondary)]">
+                {gameweek?.status === 'closed' || gameweek?.isLocked
+                  ? 'The current lineup is locked.'
+                  : gameweek?.deadline
+                    ? formatDeadline(gameweek.deadline)
+                    : 'There is no upcoming deadline available.'}
+              </p>
+            </>
+          )}
           <div className="mt-5 flex flex-wrap gap-3">
             <Link
               href="/lineups"
-              className="rounded-lg bg-cyan-400 px-4 py-2 text-sm font-semibold text-slate-950 hover:bg-cyan-300"
+              className="rounded-lg bg-cyan-600 dark:bg-cyan-400 px-4 py-2 text-sm font-semibold text-white dark:text-slate-950 hover:bg-cyan-500 dark:hover:bg-cyan-300 transition-colors shadow-xs"
             >
               {gameweek?.isLocked ? 'View lineup' : 'Set lineup'}
             </Link>
             <Link
               href={gameweek ? `/matches?gameweekId=${gameweek.id}` : '/matches'}
-              className="rounded-lg border border-slate-600 px-4 py-2 text-sm font-medium text-slate-200 hover:bg-slate-800"
+              className="rounded-lg border border-[var(--border)] bg-[var(--surface)] px-4 py-2 text-sm font-medium text-[var(--text-primary)] hover:bg-[var(--surface-raised)] transition-colors shadow-xs"
             >
               Gameweek fixtures
             </Link>
           </div>
         </div>
 
-        <div className="rounded-2xl border border-slate-700 bg-slate-800/50 p-6">
-          <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">Squad status</p>
-          <p className="mt-3 text-3xl font-bold text-white">{ownedPlayers.length} players</p>
-          <p className={`mt-2 text-sm ${unavailableCount ? 'text-amber-300' : 'text-emerald-300'}`}>
-            {unavailableCount
-              ? `${unavailableCount} unavailable or status unconfirmed`
-              : 'All players currently marked available'}
-          </p>
-          <p className="mt-4 text-xs text-slate-500">
+        <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-6 shadow-sm">
+          <p className="text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]">Squad status</p>
+          {loading ? (
+            <div className="mt-3 space-y-2 animate-pulse">
+              <div className="h-8 w-32 rounded bg-[var(--surface-muted)]" />
+              <div className="h-4 w-48 rounded bg-[var(--surface-muted)]" />
+            </div>
+          ) : (
+            <>
+              <p className="mt-3 text-3xl font-bold text-[var(--text-primary)]">{ownedPlayers.length} players</p>
+              <p className={`mt-2 text-sm ${unavailableCount ? 'text-amber-600 dark:text-amber-300' : 'text-emerald-600 dark:text-emerald-300'}`}>
+                {unavailableCount
+                  ? `${unavailableCount} unavailable or status unconfirmed`
+                  : 'All players currently marked available'}
+              </p>
+            </>
+          )}
+          <p className="mt-4 text-xs text-[var(--text-muted)]">
             Always review the latest lineup status before the deadline.
           </p>
         </div>
@@ -369,7 +338,19 @@ export default function SquadPlannerPage() {
             <h2 className="text-lg font-semibold text-white">My squad availability</h2>
             <p className="mt-1 text-sm text-slate-400">Role, status, and recent form for your owned players.</p>
           </div>
-          {ownedPlayers.length === 0 ? (
+          {loading ? (
+            <div className="divide-y divide-slate-700/70 p-4 space-y-4 animate-pulse">
+              {[1, 2, 3, 4].map((item) => (
+                <div key={item} className="flex items-center gap-3 pt-3 first:pt-0">
+                  <div className="h-10 w-10 rounded-full bg-slate-700 shrink-0" />
+                  <div className="flex-1 space-y-1.5">
+                    <div className="h-4 w-36 rounded bg-slate-700" />
+                    <div className="h-3 w-24 rounded bg-slate-800" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : ownedPlayers.length === 0 ? (
             <div className="p-8 text-center">
               <p className="font-medium text-white">Your squad is empty</p>
               <Link href="/transfers" className="mt-3 inline-block text-sm text-cyan-300 hover:text-cyan-200">
@@ -469,11 +450,16 @@ export default function SquadPlannerPage() {
             </div>
           )}
           {fixtureLoading && (
-            <p role="status" className="border-b border-slate-700/70 p-4 text-sm text-slate-400">
-              Loading upcoming fixtures…
-            </p>
+            <div role="status" aria-label="Loading upcoming fixtures" className="p-4 space-y-4 animate-pulse">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="rounded-xl border border-[var(--border)] bg-[var(--surface-raised)] p-4 space-y-2">
+                  <div className="h-4 w-48 rounded bg-[var(--surface)]" />
+                  <div className="h-3 w-32 rounded bg-[var(--surface)]" />
+                </div>
+              ))}
+            </div>
           )}
-          {schedule.length === 0 ? (
+          {!fixtureLoading && schedule.length === 0 ? (
             <div className="p-8 text-center text-sm text-slate-400">No upcoming fixtures found for your squad.</div>
           ) : (
             <ol className="divide-y divide-slate-700/70">

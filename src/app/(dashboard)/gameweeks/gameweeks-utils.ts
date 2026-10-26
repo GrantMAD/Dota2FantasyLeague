@@ -88,17 +88,23 @@ export function getDeadlineCountdown(deadline: string | Date): CountdownParts {
 }
 
 export function formatGameweekDate(date: string | Date): string {
-  return new Date(date).toLocaleDateString(undefined, {
+  const d = new Date(date);
+  if (Number.isNaN(d.getTime())) return 'TBD';
+  return d.toLocaleDateString('en-US', {
     month: 'short',
     day: 'numeric',
+    timeZone: 'UTC',
   });
 }
 
 export function formatGameweekDeadline(deadline: string | Date): string {
-  return new Date(deadline).toLocaleString(undefined, {
+  const d = new Date(deadline);
+  if (Number.isNaN(d.getTime())) return 'TBD';
+  return d.toLocaleString('en-US', {
     month: 'short',
     day: 'numeric',
     hour: '2-digit',
     minute: '2-digit',
+    timeZone: 'UTC',
   });
 }

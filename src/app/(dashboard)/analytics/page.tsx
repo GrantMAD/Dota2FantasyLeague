@@ -626,38 +626,38 @@ export default function AnalyticsDashboard() {
 
               {tab === 'market' && (
                 <div className="space-y-6">
-                  <div className="rounded-2xl border border-slate-800 bg-slate-950/70 p-4">
+                  <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4 sm:p-5">
                     <div className="mb-4">
-                      <h3 className="analytics-market-heading text-lg font-semibold text-white">Value for Money</h3>
-                      <p className="mt-1 text-xs text-slate-400">High-return players by points per million</p>
+                      <h3 className="analytics-market-heading text-lg font-semibold text-[var(--text-primary)]">Value for Money</h3>
+                      <p className="mt-1 text-xs text-[var(--text-secondary)]">High-return players by points per million</p>
                     </div>
                     <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
                       {data.market.length ? data.market.map((row: MarketRow, index: number) => (
-                        <article key={`${row.playerName}-${index}`} className="analytics-market-card rounded-xl border border-slate-800 bg-slate-900/70 p-4 transition hover:border-cyan-500/40 hover:bg-slate-900">
+                        <article key={`${row.playerName}-${index}`} className="analytics-market-card rounded-xl border border-[var(--border)] bg-[var(--surface-raised)] p-4 transition hover:border-cyan-500/40">
                           <div className="flex items-start justify-between gap-3">
                             <div className="min-w-0">
-                              <h4 className="truncate font-bold text-white">{row.playerName}</h4>
-                              <p className="mt-1 truncate text-xs text-slate-400">{row.team}</p>
+                              <h4 className="truncate font-bold text-[var(--text-primary)]">{row.playerName}</h4>
+                              <p className="mt-1 truncate text-xs text-[var(--text-secondary)]">{row.team}</p>
                             </div>
-                            <span className="shrink-0 rounded-full border border-cyan-500/30 bg-cyan-500/10 px-2.5 py-1 text-xs font-semibold text-cyan-300">{row.role}</span>
+                            <span className="shrink-0 rounded-full border border-cyan-500/30 bg-cyan-500/10 px-2.5 py-1 text-xs font-semibold text-cyan-700 dark:text-cyan-300">{row.role}</span>
                           </div>
-                          <div className="mt-4 grid grid-cols-3 gap-2 border-t border-slate-800 pt-3">
+                          <div className="mt-4 grid grid-cols-3 gap-2 border-t border-[var(--border)] pt-3">
                             <div>
-                              <p className="text-[10px] uppercase tracking-wider text-slate-500">Price</p>
-                              <p className="mt-1 text-sm font-semibold text-slate-200">${row.price}M</p>
+                              <p className="text-[10px] uppercase tracking-wider text-[var(--text-muted)]">Price</p>
+                              <p className="analytics-market-value mt-1 text-sm font-semibold text-[var(--text-primary)]">${row.price}M</p>
                             </div>
                             <div>
-                              <p className="text-[10px] uppercase tracking-wider text-slate-500">Owned</p>
-                              <p className="mt-1 text-sm font-semibold text-slate-200">{row.ownership}%</p>
+                              <p className="text-[10px] uppercase tracking-wider text-[var(--text-muted)]">Owned</p>
+                              <p className="analytics-market-value mt-1 text-sm font-semibold text-[var(--text-primary)]">{row.ownership}%</p>
                             </div>
                             <div>
-                              <p className="text-[10px] uppercase tracking-wider text-slate-500">ROI</p>
-                              <p className="mt-1 text-sm font-bold text-emerald-400">{row.roi}</p>
+                              <p className="text-[10px] uppercase tracking-wider text-[var(--text-muted)]">ROI</p>
+                              <p className="mt-1 text-sm font-bold text-emerald-600 dark:text-emerald-400">{row.roi}</p>
                             </div>
                           </div>
                         </article>
                       )) : (
-                        <div className="rounded-xl border border-dashed border-slate-700 bg-slate-900/40 p-6 text-sm text-slate-400 sm:col-span-2 xl:col-span-3">
+                        <div className="rounded-xl border border-dashed border-[var(--border)] bg-[var(--surface-raised)] p-6 text-sm text-[var(--text-secondary)] sm:col-span-2 xl:col-span-3">
                           No value-for-money player data is available yet.
                         </div>
                       )}
@@ -692,15 +692,15 @@ export default function AnalyticsDashboard() {
                               return (
                                 <article
                                   key={`${player.playerName}-${index}`}
-                                  className={`min-w-0 rounded-xl border border-white/20 bg-slate-950/70 p-2 text-center shadow-lg backdrop-blur-sm transition hover:-translate-y-0.5 hover:border-amber-300/60 sm:p-3 ${position}`}
+                                  className={`min-w-0 rounded-xl border border-black/10 bg-white/90 p-2 text-center shadow-lg backdrop-blur-sm transition hover:-translate-y-0.5 hover:border-amber-400 dark:border-white/20 dark:bg-slate-950/70 dark:hover:border-amber-300/60 sm:p-3 ${position}`}
                                 >
-                                  <p className="truncate text-[9px] font-bold uppercase tracking-wide text-emerald-200 sm:text-[10px]">{player.role}</p>
-                                  <h4 className="mt-1 truncate text-[11px] font-bold text-white sm:text-sm">{player.playerName}</h4>
-                                  <p className="truncate text-[9px] text-slate-300 sm:text-[10px]">{player.team}</p>
-                                  <p className="mt-1 font-mono text-base font-black text-amber-300 sm:text-lg">
-                                    {player.points}<span className="ml-1 text-[9px] font-semibold text-amber-200">PTS</span>
+                                  <p className="truncate text-[9px] font-bold uppercase tracking-wide text-emerald-800 dark:text-emerald-200 sm:text-[10px]">{player.role}</p>
+                                  <h4 className="mt-1 truncate text-[11px] font-bold text-slate-900 dark:text-white sm:text-sm">{player.playerName}</h4>
+                                  <p className="truncate text-[9px] text-slate-600 dark:text-slate-300 sm:text-[10px]">{player.team}</p>
+                                  <p className="mt-1 font-mono text-base font-black text-amber-700 dark:text-amber-300 sm:text-lg">
+                                    {player.points}<span className="ml-1 text-[9px] font-semibold text-amber-800 dark:text-amber-200">PTS</span>
                                   </p>
-                                  <p className="mt-1 truncate text-[9px] text-slate-300 sm:text-[10px]">
+                                  <p className="mt-1 truncate text-[9px] text-slate-600 dark:text-slate-300 sm:text-[10px]">
                                     ${player.price.toFixed(1)}M · {player.roi.toFixed(1)} pts / $10M
                                   </p>
                                 </article>
@@ -733,23 +733,23 @@ export default function AnalyticsDashboard() {
 
                   <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4">
                     <div className="mb-4">
-                      <h3 className="analytics-dream-heading text-lg font-semibold text-white">Top Individual Performances</h3>
-                      <p className="mt-1 text-xs text-slate-400">Standout scoring and value signals</p>
+                      <h3 className="analytics-dream-heading text-lg font-semibold text-[var(--text-primary)]">Top Individual Performances</h3>
+                      <p className="mt-1 text-xs text-[var(--text-secondary)]">Standout scoring and value signals</p>
                     </div>
                     <div className="grid gap-3 sm:grid-cols-2">
                       {data.valueForMoney.length ? data.valueForMoney.map((row: MarketRow, index: number) => (
                         <article key={`${row.playerName}-${index}`} className="analytics-performance-card rounded-xl border border-[var(--border)] bg-[var(--surface-raised)] p-4 transition hover:border-amber-500/40">
                           <div className="flex items-start justify-between gap-3">
                             <div className="min-w-0">
-                              <h4 className="truncate font-bold text-white">{row.playerName}</h4>
-                              <p className="mt-1 truncate text-xs text-slate-400">{row.team}</p>
+                              <h4 className="truncate font-bold text-[var(--text-primary)]">{row.playerName}</h4>
+                              <p className="mt-1 truncate text-xs text-[var(--text-secondary)]">{row.team}</p>
                             </div>
-                            <span className="shrink-0 rounded-lg bg-amber-500/10 px-2.5 py-1.5 text-sm font-bold text-amber-300">{row.roi} ROI</span>
+                            <span className="shrink-0 rounded-lg bg-amber-500/10 px-2.5 py-1.5 text-sm font-bold text-amber-800 dark:text-amber-300">{row.roi} ROI</span>
                           </div>
                           <div className="mt-3 flex flex-wrap gap-2">
-                            <span className="rounded-full border border-slate-700 px-2.5 py-1 text-xs text-slate-300">{row.role}</span>
-                            <span className="rounded-full border border-slate-700 px-2.5 py-1 text-xs text-slate-300">${row.price}M</span>
-                            <span className="rounded-full border border-slate-700 px-2.5 py-1 text-xs text-slate-300">{row.ownership}% owned</span>
+                            <span className="rounded-full border border-[var(--border)] bg-[var(--surface)] px-2.5 py-1 text-xs text-[var(--text-secondary)]">{row.role}</span>
+                            <span className="rounded-full border border-[var(--border)] bg-[var(--surface)] px-2.5 py-1 text-xs text-[var(--text-secondary)]">${row.price}M</span>
+                            <span className="rounded-full border border-[var(--border)] bg-[var(--surface)] px-2.5 py-1 text-xs text-[var(--text-secondary)]">{row.ownership}% owned</span>
                           </div>
                         </article>
                       )) : (

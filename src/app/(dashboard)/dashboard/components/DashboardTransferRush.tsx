@@ -121,10 +121,32 @@ export function DashboardTransferRush({
 
   if (loading && !data) {
     return (
-      <div className="card animate-pulse p-5 rounded-2xl border border-slate-800 bg-slate-900/60 flex items-center justify-center min-h-[160px]">
-        <div className="flex items-center gap-3 text-slate-400 text-sm">
-          <Activity className="w-5 h-5 animate-spin text-teal-400" />
-          <span>Tracking market velocity & transfer deadline...</span>
+      <div
+        className="animate-pulse p-5 rounded-2xl mb-6 space-y-4"
+        style={{
+          background: 'var(--surface-raised)',
+          border: '1px solid var(--border)',
+        }}
+        role="status"
+        aria-label="Loading transfer rush data"
+      >
+        <div className="flex items-center justify-between pb-3" style={{ borderBottom: '1px solid var(--border)' }}>
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-slate-300 dark:bg-slate-700/60" />
+            <div className="space-y-1.5">
+              <div className="h-4 w-36 rounded bg-slate-300 dark:bg-slate-700/60" />
+              <div className="h-3 w-24 rounded bg-slate-200 dark:bg-slate-800" />
+            </div>
+          </div>
+          <div className="h-6 w-20 rounded-full bg-slate-300 dark:bg-slate-700/60" />
+        </div>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-1">
+          {[1, 2, 3, 4].map((i) => (
+            <div key={i} className="h-16 rounded-xl bg-[var(--surface)] border border-[var(--border)] p-3">
+              <div className="h-2.5 w-16 rounded bg-slate-300 dark:bg-slate-700/50" />
+              <div className="mt-2 h-5 w-20 rounded bg-slate-300 dark:bg-slate-700/50" />
+            </div>
+          ))}
         </div>
       </div>
     );
@@ -152,68 +174,96 @@ export function DashboardTransferRush({
 
   return (
     <div
-      className={`relative overflow-hidden rounded-2xl border transition-all duration-300 ${
-        isRushActive
-          ? 'bg-gradient-to-br from-slate-900 via-amber-950/20 to-slate-900 border-amber-500/40 shadow-lg shadow-amber-950/20'
-          : 'bg-slate-900/80 border-slate-800 backdrop-blur-sm'
-      } p-5 sm:p-6 mb-6`}
+      className={`relative overflow-hidden rounded-2xl transition-all duration-300 p-5 sm:p-6 mb-6 ${
+        isRushActive ? 'shadow-lg shadow-amber-500/10' : 'shadow-sm'
+      }`}
+      style={{
+        background: isRushActive
+          ? 'linear-gradient(135deg, var(--surface) 0%, color-mix(in srgb, #f59e0b 8%, var(--surface)) 50%, var(--surface) 100%)'
+          : 'var(--surface)',
+        border: isRushActive
+          ? '1px solid color-mix(in srgb, #f59e0b 40%, var(--border))'
+          : '1px solid var(--border)',
+      }}
       data-testid="transfer-deadline-rush"
     >
       {/* Top Header Row */}
-      <div className="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-slate-800/80">
+      <div
+        className="flex flex-wrap items-center justify-between gap-4 pb-4"
+        style={{ borderBottom: '1px solid var(--border)' }}
+      >
         <div className="flex items-center gap-3">
           <div
             className={`w-10 h-10 rounded-xl flex items-center justify-center ${
               isRushActive
-                ? 'bg-amber-500/20 text-amber-400'
-                : 'bg-teal-500/15 text-teal-400'
+                ? 'bg-amber-500/20 text-amber-500 dark:text-amber-400'
+                : 'bg-teal-500/15 text-teal-600 dark:text-teal-400'
             }`}
           >
             {isRushActive ? <Flame className="w-5 h-5" /> : <Zap className="w-5 h-5" />}
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h3 className="text-base sm:text-lg font-bold text-white tracking-tight">
+              <h3
+                className="text-base sm:text-lg font-bold tracking-tight"
+                style={{ color: 'var(--text-primary)' }}
+              >
                 Transfer Deadline Rush
               </h3>
               <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${headerBadgeStyle}`}>
                 {badgeLabel}
               </span>
             </div>
-            <p className="text-xs text-slate-400">
+            <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
               GW {gameweek.gameweekNumber} Deadline Tracking & Global Player Demand
             </p>
           </div>
         </div>
 
         {/* Live Countdown Clock */}
-        <div className="flex items-center gap-3 bg-slate-950/70 border border-slate-800 px-4 py-2 rounded-xl">
+        <div
+          className="flex items-center gap-3 px-4 py-2 rounded-xl"
+          style={{
+            background: 'var(--surface-raised)',
+            border: '1px solid var(--border)',
+          }}
+        >
           {isLocked ? (
             <>
-              <Lock className="w-4 h-4 text-rose-400" />
+              <Lock className="w-4 h-4 text-rose-500 dark:text-rose-400" />
               <div className="text-right">
-                <span className="block text-xs text-slate-400">GW {gameweek.gameweekNumber}</span>
-                <span className="text-sm font-bold text-rose-400 uppercase tracking-wide">Locked</span>
+                <span className="block text-xs" style={{ color: 'var(--text-muted)' }}>
+                  GW {gameweek.gameweekNumber}
+                </span>
+                <span className="text-sm font-bold text-rose-500 dark:text-rose-400 uppercase tracking-wide">
+                  Locked
+                </span>
               </div>
             </>
           ) : (
             <>
               <Clock
                 className={`w-4 h-4 ${
-                  isRushActive ? 'text-amber-400 animate-spin' : 'text-teal-400'
+                  isRushActive
+                    ? 'text-amber-500 dark:text-amber-400 animate-spin'
+                    : 'text-teal-600 dark:text-teal-400'
                 }`}
                 style={{ animationDuration: isRushActive ? '4s' : '0s' }}
               />
               <div>
-                <span className="block text-[10px] uppercase font-bold text-slate-400 tracking-wider">
+                <span
+                  className="block text-[10px] uppercase font-bold tracking-wider"
+                  style={{ color: 'var(--text-muted)' }}
+                >
                   Deadline In
                 </span>
                 <span
                   className={`text-sm sm:text-base font-mono font-bold ${
                     isRushActive
-                      ? 'text-amber-400 drop-shadow-[0_0_8px_rgba(251,191,36,0.3)]'
-                      : 'text-white'
+                      ? 'text-amber-600 dark:text-amber-400 drop-shadow-[0_0_8px_rgba(251,191,36,0.3)]'
+                      : ''
                   }`}
+                  style={!isRushActive ? { color: 'var(--text-primary)' } : undefined}
                 >
                   {formatCountdown(timeRemaining)}
                 </span>
@@ -224,7 +274,7 @@ export function DashboardTransferRush({
           {!isLocked && (
             <Link
               href="/transfers"
-              className="ml-2 px-3 py-1.5 text-xs font-semibold rounded-lg bg-teal-500 hover:bg-teal-400 text-slate-950 transition-colors flex items-center gap-1.5 shadow-sm shadow-teal-500/20"
+              className="ml-2 px-3 py-1.5 text-xs font-semibold rounded-lg bg-teal-600 hover:bg-teal-500 dark:bg-teal-500 dark:hover:bg-teal-400 text-white dark:text-slate-950 transition-colors flex items-center gap-1.5 shadow-xs"
             >
               <span>Transfers</span>
               <ArrowRight className="w-3.5 h-3.5" />
@@ -235,14 +285,29 @@ export function DashboardTransferRush({
 
       {/* Activity Pulse Marquee / Milestone Alert */}
       {activityPulses.length > 0 && (
-        <div className="mt-4 px-3.5 py-2.5 rounded-xl bg-slate-950/50 border border-slate-800/80 flex items-center gap-2.5 text-xs text-slate-300 overflow-hidden">
-          <Activity className="w-4 h-4 text-teal-400 shrink-0" />
+        <div
+          className="mt-4 px-3.5 py-2.5 rounded-xl flex items-center gap-2.5 text-xs overflow-hidden"
+          style={{
+            background: 'var(--surface-raised)',
+            border: '1px solid var(--border)',
+            color: 'var(--text-secondary)',
+          }}
+        >
+          <Activity className="w-4 h-4 text-teal-600 dark:text-teal-400 shrink-0" />
           <div className="truncate">
-            <span className="font-semibold text-slate-200">Market Pulse: </span>
+            <span className="font-semibold" style={{ color: 'var(--text-primary)' }}>
+              Market Pulse:{' '}
+            </span>
             <span>{activityPulses[0].message}</span>
           </div>
           {totalTransfersInWindow > 0 && (
-            <span className="ml-auto shrink-0 text-[11px] font-medium text-slate-400 bg-slate-800/80 px-2 py-0.5 rounded-md">
+            <span
+              className="ml-auto shrink-0 text-[11px] font-medium px-2 py-0.5 rounded-md"
+              style={{
+                background: 'var(--surface-muted)',
+                color: 'var(--text-secondary)',
+              }}
+            >
               {totalTransfersInWindow} moves / hr
             </span>
           )}
@@ -252,29 +317,41 @@ export function DashboardTransferRush({
       {/* Top Transferred Players: In vs Out */}
       <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
         {/* Most Transferred In */}
-        <div className="rounded-xl bg-slate-950/40 border border-slate-800/60 p-3.5">
+        <div
+          className="rounded-xl p-3.5"
+          style={{
+            background: 'var(--surface-raised)',
+            border: '1px solid var(--border)',
+          }}
+        >
           <div className="flex items-center justify-between mb-2.5">
-            <div className="flex items-center gap-1.5 text-emerald-400 text-xs font-bold uppercase tracking-wider">
+            <div className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 text-xs font-bold uppercase tracking-wider">
               <TrendingUp className="w-3.5 h-3.5" />
               <span>Top Transferred In (Past Hour)</span>
             </div>
           </div>
 
           {topTransferredIn.length === 0 ? (
-            <div className="py-4 text-center text-xs text-slate-400 flex flex-col items-center gap-1">
-              <AlertCircle className="w-4 h-4 text-slate-400" />
+            <div
+              className="py-4 text-center text-xs flex flex-col items-center gap-1"
+              style={{ color: 'var(--text-muted)' }}
+            >
+              <AlertCircle className="w-4 h-4" style={{ color: 'var(--text-muted)' }} />
               <span>No transfers recorded yet this hour</span>
             </div>
           ) : (
-            <div className="space-y-2">
+            <div className="space-y-1">
               {topTransferredIn.map((player: TransferRushPlayer, index: number) => (
                 <Link
                   key={player.id}
                   href={`/transfers?player=${player.id}`}
-                  className="flex items-center justify-between p-2 rounded-lg hover:bg-slate-800/60 transition-colors group"
+                  className="flex items-center justify-between p-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/5 transition-colors group"
                 >
                   <div className="flex items-center gap-2.5 min-w-0">
-                    <span className="text-xs font-mono font-bold text-slate-400 w-4">
+                    <span
+                      className="text-xs font-mono font-bold w-4"
+                      style={{ color: 'var(--text-muted)' }}
+                    >
                       #{index + 1}
                     </span>
                     {player.teamLogoUrl ? (
@@ -286,25 +363,40 @@ export function DashboardTransferRush({
                         className="rounded-full object-cover shrink-0"
                       />
                     ) : (
-                      <div className="w-5 h-5 rounded-full bg-slate-800 flex items-center justify-center text-[10px] text-slate-400 shrink-0">
+                      <div
+                        className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] shrink-0 font-medium"
+                        style={{
+                          background: 'var(--surface-muted)',
+                          color: 'var(--text-muted)',
+                        }}
+                      >
                         {player.teamName ? player.teamName[0] : '•'}
                       </div>
                     )}
                     <div className="truncate">
-                      <span className="text-xs font-semibold text-white group-hover:text-teal-300 transition-colors">
+                      <span
+                        className="text-xs font-semibold group-hover:text-teal-600 dark:group-hover:text-teal-300 transition-colors"
+                        style={{ color: 'var(--text-primary)' }}
+                      >
                         {player.inGameName || player.name}
                       </span>
-                      <span className="block text-[11px] text-slate-400 truncate">
+                      <span
+                        className="block text-[11px] truncate"
+                        style={{ color: 'var(--text-muted)' }}
+                      >
                         {player.teamName || 'Free Agent'} • {player.role || 'Player'}
                       </span>
                     </div>
                   </div>
 
                   <div className="text-right shrink-0">
-                    <span className="text-xs font-bold text-emerald-400">
+                    <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400">
                       +{player.transferCount}
                     </span>
-                    <span className="block text-[10px] text-slate-400">
+                    <span
+                      className="block text-[10px]"
+                      style={{ color: 'var(--text-muted)' }}
+                    >
                       ${Number(player.currentPrice).toFixed(1)}M
                     </span>
                   </div>
@@ -315,29 +407,41 @@ export function DashboardTransferRush({
         </div>
 
         {/* Most Transferred Out */}
-        <div className="rounded-xl bg-slate-950/40 border border-slate-800/60 p-3.5">
+        <div
+          className="rounded-xl p-3.5"
+          style={{
+            background: 'var(--surface-raised)',
+            border: '1px solid var(--border)',
+          }}
+        >
           <div className="flex items-center justify-between mb-2.5">
-            <div className="flex items-center gap-1.5 text-rose-400 text-xs font-bold uppercase tracking-wider">
+            <div className="flex items-center gap-1.5 text-rose-600 dark:text-rose-400 text-xs font-bold uppercase tracking-wider">
               <TrendingDown className="w-3.5 h-3.5" />
               <span>Top Transferred Out (Past Hour)</span>
             </div>
           </div>
 
           {topTransferredOut.length === 0 ? (
-            <div className="py-4 text-center text-xs text-slate-400 flex flex-col items-center gap-1">
-              <AlertCircle className="w-4 h-4 text-slate-400" />
+            <div
+              className="py-4 text-center text-xs flex flex-col items-center gap-1"
+              style={{ color: 'var(--text-muted)' }}
+            >
+              <AlertCircle className="w-4 h-4" style={{ color: 'var(--text-muted)' }} />
               <span>No transfers recorded yet this hour</span>
             </div>
           ) : (
-            <div className="space-y-2">
+            <div className="space-y-1">
               {topTransferredOut.map((player: TransferRushPlayer, index: number) => (
                 <Link
                   key={player.id}
                   href={`/transfers?player=${player.id}`}
-                  className="flex items-center justify-between p-2 rounded-lg hover:bg-slate-800/60 transition-colors group"
+                  className="flex items-center justify-between p-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/5 transition-colors group"
                 >
                   <div className="flex items-center gap-2.5 min-w-0">
-                    <span className="text-xs font-mono font-bold text-slate-400 w-4">
+                    <span
+                      className="text-xs font-mono font-bold w-4"
+                      style={{ color: 'var(--text-muted)' }}
+                    >
                       #{index + 1}
                     </span>
                     {player.teamLogoUrl ? (
@@ -349,25 +453,40 @@ export function DashboardTransferRush({
                         className="rounded-full object-cover shrink-0"
                       />
                     ) : (
-                      <div className="w-5 h-5 rounded-full bg-slate-800 flex items-center justify-center text-[10px] text-slate-400 shrink-0">
+                      <div
+                        className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] shrink-0 font-medium"
+                        style={{
+                          background: 'var(--surface-muted)',
+                          color: 'var(--text-muted)',
+                        }}
+                      >
                         {player.teamName ? player.teamName[0] : '•'}
                       </div>
                     )}
                     <div className="truncate">
-                      <span className="text-xs font-semibold text-white group-hover:text-rose-300 transition-colors">
+                      <span
+                        className="text-xs font-semibold group-hover:text-rose-600 dark:group-hover:text-rose-300 transition-colors"
+                        style={{ color: 'var(--text-primary)' }}
+                      >
                         {player.inGameName || player.name}
                       </span>
-                      <span className="block text-[11px] text-slate-400 truncate">
+                      <span
+                        className="block text-[11px] truncate"
+                        style={{ color: 'var(--text-muted)' }}
+                      >
                         {player.teamName || 'Free Agent'} • {player.role || 'Player'}
                       </span>
                     </div>
                   </div>
 
                   <div className="text-right shrink-0">
-                    <span className="text-xs font-bold text-rose-400">
+                    <span className="text-xs font-bold text-rose-600 dark:text-rose-400">
                       -{player.transferCount}
                     </span>
-                    <span className="block text-[10px] text-slate-400">
+                    <span
+                      className="block text-[10px]"
+                      style={{ color: 'var(--text-muted)' }}
+                    >
                       ${Number(player.currentPrice).toFixed(1)}M
                     </span>
                   </div>

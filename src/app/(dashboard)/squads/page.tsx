@@ -231,50 +231,6 @@ export default function SquadsPage() {
     };
   }, [transferHistory]);
 
-  if (loading) {
-    return (
-      <div className="mx-auto max-w-7xl px-4 py-8">
-        <div className="mb-8 flex animate-pulse items-end justify-between gap-4">
-          <div>
-            <div className="mb-3 h-9 w-40 rounded-lg bg-slate-800" />
-            <div className="h-4 w-28 rounded bg-slate-800" />
-          </div>
-          <div className="flex gap-3">
-            <div className="h-10 w-32 rounded-lg bg-slate-800" />
-            <div className="h-10 w-28 rounded-lg bg-slate-800" />
-          </div>
-        </div>
-
-        <div className="mb-6 h-28 animate-pulse rounded-2xl border border-slate-700 bg-slate-900/50 p-6" />
-
-        <div className="mb-8 animate-pulse rounded-2xl border border-slate-700 bg-slate-900/50 p-4 sm:p-6">
-          <div className="mb-5 flex items-end justify-between">
-            <div>
-              <div className="mb-2 h-3 w-28 rounded bg-slate-800" />
-              <div className="h-6 w-44 rounded bg-slate-800" />
-            </div>
-            <div className="h-3 w-24 rounded bg-slate-800" />
-          </div>
-          <div className="space-y-3">
-            {[1, 2, 3, 4, 5].map((row) => (
-              <div key={row} className="flex min-h-24 items-center gap-4 rounded-xl border border-slate-800 bg-slate-800/50 px-4 py-3">
-                <div className="h-14 w-14 shrink-0 rounded-full bg-slate-700" />
-                <div className="flex-1 space-y-2">
-                  <div className="h-3 w-16 rounded bg-slate-700" />
-                  <div className="h-4 w-40 rounded bg-slate-700" />
-                  <div className="h-3 w-24 rounded bg-slate-700" />
-                </div>
-                <div className="space-y-2 text-right">
-                  <div className="ml-auto h-4 w-14 rounded bg-slate-700" />
-                  <div className="ml-auto h-3 w-12 rounded bg-slate-700" />
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8">
@@ -285,7 +241,14 @@ export default function SquadsPage() {
             <Users className="h-7 w-7 text-cyan-400" aria-hidden="true" />
             My Squad
           </h1>
-          {gameweek ? (
+          {loading ? (
+            <div>
+              <div className="h-5 w-28 rounded-md bg-slate-700/50 dark:bg-slate-800 animate-pulse mb-1" />
+              <p className="mt-1 text-sm" style={{ color: 'var(--text-muted)' }}>
+                Review your owned players, budget allocation, and gameweek tactical formation.
+              </p>
+            </div>
+          ) : gameweek ? (
             <div>
               <p className="font-semibold text-amber-500">
                 {gameweek.status === 'closed' ? 'Last available gameweek' : 'Gameweek'} {gameweek.gameweek_number}
@@ -295,7 +258,9 @@ export default function SquadsPage() {
               </p>
             </div>
           ) : (
-            <p className="mt-1 text-sm" style={{ color: 'var(--text-muted)' }}>Manage your owned roster and view your transfer history.</p>
+            <p className="mt-1 text-sm" style={{ color: 'var(--text-muted)' }}>
+              Review your owned players, budget allocation, and gameweek tactical formation.
+            </p>
           )}
         </div>
         <div data-guide="squad-actions" data-tour="squad-actions" className="flex gap-3">
@@ -350,17 +315,29 @@ export default function SquadsPage() {
           <div className="flex items-center gap-4 text-right">
             <div>
               <span className="block text-[11px] font-medium uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Squad Value</span>
-              <span className="font-mono text-lg font-bold text-cyan-400">${squadValue.toFixed(1)}M</span>
+              {loading ? (
+                <div className="h-6 w-16 mt-1 rounded bg-slate-700/50 dark:bg-slate-800 animate-pulse ml-auto" />
+              ) : (
+                <span className="font-mono text-lg font-bold text-cyan-400">${squadValue.toFixed(1)}M</span>
+              )}
             </div>
             <div className="h-8 w-px" style={{ background: 'var(--border)' }} />
             <div>
               <span className="block text-[11px] font-medium uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>In Bank</span>
-              <span className="font-mono text-lg font-bold text-emerald-400">${budget.toFixed(1)}M</span>
+              {loading ? (
+                <div className="h-6 w-16 mt-1 rounded bg-slate-700/50 dark:bg-slate-800 animate-pulse ml-auto" />
+              ) : (
+                <span className="font-mono text-lg font-bold text-emerald-400">${budget.toFixed(1)}M</span>
+              )}
             </div>
             <div className="h-8 w-px" style={{ background: 'var(--border)' }} />
             <div>
               <span className="block text-[11px] font-medium uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Total Account Value</span>
-              <span className="font-mono text-lg font-bold" style={{ color: 'var(--text-primary)' }}>${totalAccountValue.toFixed(1)}M</span>
+              {loading ? (
+                <div className="h-6 w-16 mt-1 rounded bg-slate-700/50 dark:bg-slate-800 animate-pulse ml-auto" />
+              ) : (
+                <span className="font-mono text-lg font-bold" style={{ color: 'var(--text-primary)' }}>${totalAccountValue.toFixed(1)}M</span>
+              )}
             </div>
           </div>
         </div>
@@ -368,28 +345,41 @@ export default function SquadsPage() {
         {/* Dual Progress Bar */}
         <div className="mt-4">
           <div className="relative h-3 w-full overflow-hidden rounded-full" style={{ background: 'var(--surface-muted)' }}>
-            <div
-              className="absolute left-0 top-0 h-full bg-linear-to-r from-cyan-600 to-cyan-400 transition-all duration-500"
-              style={{ width: `${squadValuePercent}%` }}
-              title={`Squad Value: $${squadValue.toFixed(1)}M (${squadValuePercent.toFixed(1)}%)`}
-            />
-            <div
-              className="absolute top-0 h-full bg-linear-to-r from-emerald-600 to-emerald-400 transition-all duration-500"
-              style={{ left: `${squadValuePercent}%`, width: `${bankPercent}%` }}
-              title={`In Bank: $${budget.toFixed(1)}M (${bankPercent.toFixed(1)}%)`}
-            />
+            {loading ? (
+              <div className="h-full w-full bg-slate-700/40 dark:bg-slate-800/60 animate-pulse" />
+            ) : (
+              <>
+                <div
+                  className="absolute left-0 top-0 h-full bg-linear-to-r from-cyan-600 to-cyan-400 transition-all duration-500"
+                  style={{ width: `${squadValuePercent}%` }}
+                  title={`Squad Value: $${squadValue.toFixed(1)}M (${squadValuePercent.toFixed(1)}%)`}
+                />
+                <div
+                  className="absolute top-0 h-full bg-linear-to-r from-emerald-600 to-emerald-400 transition-all duration-500"
+                  style={{ left: `${squadValuePercent}%`, width: `${bankPercent}%` }}
+                  title={`In Bank: $${budget.toFixed(1)}M (${bankPercent.toFixed(1)}%)`}
+                />
+              </>
+            )}
           </div>
           <div className="mt-2.5 flex items-center justify-between text-xs" style={{ color: 'var(--text-muted)' }}>
-            <div className="flex items-center gap-4">
-              <span className="flex items-center gap-1.5">
-                <span className="h-2 w-2 rounded-full bg-cyan-400" />
-                <span>Squad: <strong style={{ color: 'var(--text-primary)' }}>${squadValue.toFixed(1)}M</strong></span>
-              </span>
-              <span className="flex items-center gap-1.5">
-                <span className="h-2 w-2 rounded-full bg-emerald-400" />
-                <span>Liquid Bank: <strong style={{ color: 'var(--text-primary)' }}>${budget.toFixed(1)}M</strong></span>
-              </span>
-            </div>
+            {loading ? (
+              <div className="flex items-center gap-4">
+                <div className="h-4 w-28 rounded bg-slate-700/40 dark:bg-slate-800/60 animate-pulse" />
+                <div className="h-4 w-28 rounded bg-slate-700/40 dark:bg-slate-800/60 animate-pulse" />
+              </div>
+            ) : (
+              <div className="flex items-center gap-4">
+                <span className="flex items-center gap-1.5">
+                  <span className="h-2 w-2 rounded-full bg-cyan-400" />
+                  <span>Squad: <strong style={{ color: 'var(--text-primary)' }}>${squadValue.toFixed(1)}M</strong></span>
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <span className="h-2 w-2 rounded-full bg-emerald-400" />
+                  <span>Liquid Bank: <strong style={{ color: 'var(--text-primary)' }}>${budget.toFixed(1)}M</strong></span>
+                </span>
+              </div>
+            )}
           </div>
         </div>
       </section>
@@ -408,7 +398,7 @@ export default function SquadsPage() {
               color: activeTab === 'squad' ? 'var(--accent-primary)' : 'var(--text-muted)',
             }}
           >
-            My Squad ({ownedRoster.length}/8)
+            My Squad {loading ? '' : `(${ownedRoster.length}/8)`}
           </button>
           <button
             type="button"
@@ -694,7 +684,7 @@ export default function SquadsPage() {
             </div>
           )}
 
-          {ownedRoster.length === 0 ? (
+          {!loading && ownedRoster.length === 0 ? (
             <div className="rounded-2xl border border-dashed border-slate-700 bg-slate-900/30 px-5 py-16 text-center">
               <Users className="mx-auto h-12 w-12 text-slate-600 mb-3" />
               <h3 className="text-lg font-bold text-white">Your squad is currently empty</h3>
@@ -760,6 +750,7 @@ export default function SquadsPage() {
                       roleTitle="Offlane (Pos 3)"
                       slotItem={pitchRoster.offlane}
                       onSelect={openPlayerDetails}
+                      isLoading={loading}
                     />
                   </div>
 
@@ -769,6 +760,7 @@ export default function SquadsPage() {
                       roleTitle="Mid Lane (Pos 2)"
                       slotItem={pitchRoster.mid}
                       onSelect={openPlayerDetails}
+                      isLoading={loading}
                     />
                   </div>
 
@@ -778,11 +770,13 @@ export default function SquadsPage() {
                       roleTitle="Support (Pos 4)"
                       slotItem={pitchRoster.pos4}
                       onSelect={openPlayerDetails}
+                      isLoading={loading}
                     />
                     <PitchPlayerSlot
                       roleTitle="Hard Support (Pos 5)"
                       slotItem={pitchRoster.pos5}
                       onSelect={openPlayerDetails}
+                      isLoading={loading}
                     />
                   </div>
 
@@ -792,6 +786,7 @@ export default function SquadsPage() {
                       roleTitle="Safe Lane Carry (Pos 1)"
                       slotItem={pitchRoster.carry}
                       onSelect={openPlayerDetails}
+                      isLoading={loading}
                     />
                   </div>
                 </div>
@@ -810,10 +805,32 @@ export default function SquadsPage() {
                     <span className="text-xs font-bold uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>Substitutes</span>
                     <h3 className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>Bench Dugout</h3>
                   </div>
-                  <span className="text-xs font-semibold" style={{ color: 'var(--text-muted)' }}>{pitchRoster.bench.length} Reserves</span>
+                  <span className="text-xs font-semibold" style={{ color: 'var(--text-muted)' }}>
+                    {loading ? 'Reserves' : `${pitchRoster.bench.length} Reserves`}
+                  </span>
                 </div>
 
-                {pitchRoster.bench.length === 0 ? (
+                {loading ? (
+                  <div className="grid gap-3 grid-cols-1 sm:grid-cols-3">
+                    {[1, 2, 3].map((b) => (
+                      <div
+                        key={b}
+                        className="flex items-center gap-3 rounded-xl p-3 animate-pulse"
+                        style={{
+                          background: 'var(--surface-raised)',
+                          border: '1px solid var(--border)',
+                        }}
+                      >
+                        <div className="h-11 w-11 shrink-0 rounded-full bg-slate-700/40 dark:bg-slate-800/60" />
+                        <div className="min-w-0 flex-1 space-y-1.5">
+                          <div className="h-2.5 w-14 rounded bg-slate-700/40 dark:bg-slate-800/60" />
+                          <div className="h-3.5 w-24 rounded bg-slate-700/40 dark:bg-slate-800/60" />
+                          <div className="h-2.5 w-16 rounded bg-slate-700/40 dark:bg-slate-800/60" />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : pitchRoster.bench.length === 0 ? (
                   <p className="text-sm italic" style={{ color: 'var(--text-muted)' }}>No substitutes on the bench.</p>
                 ) : (
                   <div className="grid gap-3 grid-cols-1 sm:grid-cols-3">
@@ -885,16 +902,40 @@ export default function SquadsPage() {
                   >
                     Owned Squad
                   </span>
-                  <h2 className="mt-1 text-xl font-bold text-white">Roster List</h2>
-                  <p className="mt-1 text-sm text-slate-400">
+                  <h2 className="mt-1 text-xl font-bold" style={{ color: 'var(--text-primary)' }}>Roster List</h2>
+                  <p className="mt-1 text-sm" style={{ color: 'var(--text-muted)' }}>
                     Squad ownership is shown independently from your gameweek lineup.
                   </p>
                 </div>
-                <span className="text-xs text-slate-500">{ownedRoster.length} players</span>
+                <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                  {loading ? '8 players' : `${ownedRoster.length} players`}
+                </span>
               </div>
 
               <div className="grid gap-3 sm:grid-cols-2">
-                {ownedRoster.map(({ player, lineupEntry }, index) => {
+                {loading ? (
+                  [1, 2, 3, 4, 5, 6, 7, 8].map((item) => (
+                    <div
+                      key={item}
+                      className="flex min-h-24 w-full items-center gap-4 rounded-2xl border p-4 animate-pulse"
+                      style={{
+                        background: 'var(--surface-raised)',
+                        borderColor: 'var(--border)',
+                      }}
+                    >
+                      <div className="h-14 w-14 shrink-0 rounded-full bg-slate-700/40 dark:bg-slate-800/60" />
+                      <div className="min-w-0 flex-1 space-y-2">
+                        <div className="h-3 w-16 rounded bg-slate-700/40 dark:bg-slate-800/60" />
+                        <div className="h-4 w-32 rounded bg-slate-700/40 dark:bg-slate-800/60" />
+                        <div className="h-3 w-24 rounded bg-slate-700/40 dark:bg-slate-800/60" />
+                      </div>
+                      <div className="flex shrink-0 flex-col items-end gap-1 text-right">
+                        <div className="h-4 w-14 rounded bg-slate-700/40 dark:bg-slate-800/60" />
+                        <div className="h-3 w-12 rounded bg-slate-700/40 dark:bg-slate-800/60" />
+                      </div>
+                    </div>
+                  ))
+                ) : ownedRoster.map(({ player, lineupEntry }, index) => {
                   const playerName = player.in_game_name || player.name;
                   const lineupLabel = lineupEntry
                     ? `${lineupEntry.slot.replace('_', ' ')} · ${lineupEntry.is_starter ? 'Starter' : 'Bench'}`
@@ -1017,9 +1058,31 @@ export default function SquadsPage() {
 
       {/* Loading overlay for player details */}
       {playerLoading && (
-        <div className="fixed inset-0 z-100 flex items-center justify-center bg-slate-950/70 p-4" role="status">
-          <div className="rounded-xl border border-slate-700 bg-slate-900 px-6 py-4 text-sm text-slate-300">
-            Loading player details...
+        <div className="fixed inset-0 z-100 flex items-center justify-center bg-slate-950/75 p-4 backdrop-blur-sm" role="status" aria-label="Loading player details">
+          <div className="max-h-[90vh] w-full max-w-2xl overflow-hidden rounded-3xl border border-[var(--border)] bg-[var(--surface)] p-6 shadow-2xl animate-pulse">
+            <div className="mb-6 flex items-start justify-between gap-4">
+              <div className="flex items-center gap-4">
+                <div className="h-16 w-16 rounded-full bg-[var(--surface-raised)]" />
+                <div className="space-y-2">
+                  <div className="h-4 w-20 rounded-full bg-[var(--surface-raised)]" />
+                  <div className="h-7 w-40 rounded-lg bg-[var(--surface-raised)]" />
+                  <div className="h-3.5 w-32 rounded bg-[var(--surface-raised)]" />
+                </div>
+              </div>
+              <div className="h-9 w-9 rounded-xl bg-[var(--surface-raised)]" />
+            </div>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+              {[1, 2, 3, 4].map((i) => (
+                <div key={i} className="rounded-2xl border border-[var(--border)] bg-[var(--surface-raised)] p-3.5">
+                  <div className="h-2.5 w-16 rounded bg-[var(--surface)] mb-2" />
+                  <div className="h-6 w-12 rounded bg-[var(--surface)]" />
+                </div>
+              ))}
+            </div>
+            <div className="mt-6 rounded-2xl border border-[var(--border)] bg-[var(--surface-raised)] p-5">
+              <div className="h-4 w-36 rounded bg-[var(--surface)] mb-4" />
+              <div className="h-32 w-full rounded-xl bg-[var(--surface)]" />
+            </div>
           </div>
         </div>
       )}
@@ -1119,11 +1182,34 @@ function PitchPlayerSlot({
   roleTitle,
   slotItem,
   onSelect,
+  isLoading = false,
 }: {
   roleTitle: string;
   slotItem: OwnedSquadPlayer | null;
   onSelect: (playerId: number) => void;
+  isLoading?: boolean;
 }) {
+  if (isLoading) {
+    return (
+      <div
+        className="w-48 sm:w-56 rounded-2xl border p-3 flex items-center gap-3 animate-pulse"
+        style={{
+          borderColor: 'var(--border)',
+          background: 'var(--surface-raised)',
+        }}
+      >
+        <div className="h-12 w-12 shrink-0 rounded-full bg-slate-700/40 dark:bg-slate-800/60" />
+        <div className="min-w-0 flex-1 space-y-1.5">
+          <span className="text-[10px] font-bold uppercase tracking-wider block" style={{ color: 'var(--text-muted)' }}>
+            {roleTitle}
+          </span>
+          <div className="h-3.5 w-24 rounded bg-slate-700/40 dark:bg-slate-800/60" />
+          <div className="h-2.5 w-16 rounded bg-slate-700/40 dark:bg-slate-800/60" />
+        </div>
+      </div>
+    );
+  }
+
   if (!slotItem) {
     return (
       <div

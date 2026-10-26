@@ -159,10 +159,10 @@ export default function MatchesPage({ initialData }: { initialData: InitialMatch
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
               </svg>
             </span>
-            <h1 className="text-3xl font-black text-white tracking-tight">Match Center</h1>
+            <h1 className="text-3xl font-black text-[var(--text-primary)] tracking-tight">Match Center</h1>
             <DataFreshnessBadge page="matches" />
           </div>
-          <p className="text-slate-400 text-sm">
+          <p className="text-[var(--text-secondary)] text-sm">
             Live pro circuit scores, upcoming series schedule, and your fantasy squad tracking
           </p>
         </div>
@@ -242,15 +242,15 @@ export default function MatchesPage({ initialData }: { initialData: InitialMatch
           {[1, 2, 3, 4, 5, 6].map((i) => (
             <div
               key={i}
-              className="animate-pulse bg-slate-900/60 rounded-2xl h-56 border border-slate-800 p-5 flex flex-col justify-between"
+              className="animate-pulse bg-[var(--surface-raised)] rounded-2xl h-56 border border-[var(--border)] p-5 flex flex-col justify-between"
             >
-              <div className="h-4 bg-slate-800 rounded w-1/3" />
+              <div className="h-4 bg-[var(--surface)] rounded w-1/3" />
               <div className="flex justify-between items-center px-4">
-                <div className="w-12 h-12 rounded-xl bg-slate-800" />
-                <div className="w-12 h-6 rounded bg-slate-800" />
-                <div className="w-12 h-12 rounded-xl bg-slate-800" />
+                <div className="w-12 h-12 rounded-xl bg-[var(--surface)]" />
+                <div className="w-12 h-6 rounded bg-[var(--surface)]" />
+                <div className="w-12 h-12 rounded-xl bg-[var(--surface)]" />
               </div>
-              <div className="h-3 bg-slate-800 rounded w-1/2" />
+              <div className="h-3 bg-[var(--surface)] rounded w-1/2" />
             </div>
           ))}
         </div>

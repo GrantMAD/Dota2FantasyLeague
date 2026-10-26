@@ -116,7 +116,26 @@ export function GameweekHistoryModal({ gameweekId, gameweekNumber, onClose }: Ga
         </header>
 
         {loading ? (
-          <div className="py-10 text-center text-sm text-slate-400">Loading your gameweek history…</div>
+          <div role="status" aria-label="Loading gameweek history" className="space-y-4 py-2">
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="h-20 animate-pulse rounded-xl border border-slate-700/60 bg-slate-800/40 p-4">
+                <div className="h-3 w-20 rounded bg-slate-700" />
+                <div className="mt-2 h-6 w-24 rounded bg-slate-700" />
+              </div>
+              <div className="h-20 animate-pulse rounded-xl border border-slate-700/60 bg-slate-800/40 p-4">
+                <div className="h-3 w-24 rounded bg-slate-700" />
+                <div className="mt-2 h-6 w-24 rounded bg-slate-700" />
+              </div>
+            </div>
+            <div className="h-28 animate-pulse rounded-xl border border-slate-700/60 bg-slate-800/40 p-4">
+              <div className="h-3 w-32 rounded bg-slate-700" />
+              <div className="mt-3 flex gap-2">
+                <div className="h-10 w-10 rounded-lg bg-slate-700" />
+                <div className="h-10 w-10 rounded-lg bg-slate-700" />
+                <div className="h-10 w-10 rounded-lg bg-slate-700" />
+              </div>
+            </div>
+          </div>
         ) : error ? (
           <div role="alert" className="rounded-xl border border-rose-500/30 bg-rose-500/10 p-4 text-sm text-rose-200">{error}</div>
         ) : history ? (

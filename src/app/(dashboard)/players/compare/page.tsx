@@ -268,11 +268,7 @@ function PlayerComparisonContent() {
     router.replace(`/players/compare${query}`);
   };
 
-  if (loading) {
-    return <PlayerComparisonSkeleton />;
-  }
-
-  if (error) {
+  if (error && !loading) {
     return (
       <div className="mx-auto max-w-7xl px-4 py-12">
         <div role="alert" className="rounded-xl border border-rose-500/30 bg-rose-950/30 p-6 text-rose-200">
@@ -303,7 +299,31 @@ function PlayerComparisonContent() {
         </p>
       </div>
 
-      {ids.length < 2 ? (
+      {loading ? (
+        <div className="overflow-x-auto rounded-2xl border border-[var(--border)] bg-[var(--surface)] animate-pulse">
+          <div className="min-w-160">
+            <div className="grid grid-cols-[minmax(8rem,0.8fr)_repeat(3,minmax(0,1fr))] border-b border-[var(--border)]">
+              <div className="p-4"><div className="h-4 w-24 rounded bg-[var(--surface-raised)]" /></div>
+              {[1, 2, 3].map((column) => (
+                <div key={column} className="border-l border-[var(--border)] p-4">
+                  <div className="h-5 w-28 rounded bg-[var(--surface-raised)]" />
+                  <div className="mt-2 h-3 w-20 rounded bg-[var(--surface-muted)]" />
+                </div>
+              ))}
+            </div>
+            {['Team', 'Price', 'Price delta', 'Ownership', 'Last GW', 'Recent avg', 'Status', 'Fixtures'].map((label) => (
+              <div key={label} className="grid grid-cols-[minmax(8rem,0.8fr)_repeat(3,minmax(0,1fr))] border-b border-[var(--border)] last:border-0">
+                <div className="p-4"><div className="h-4 w-24 max-w-full rounded bg-[var(--surface-raised)]" /></div>
+                {[1, 2, 3].map((column) => (
+                  <div key={column} className="border-l border-[var(--border)] p-4">
+                    <div className="h-4 w-28 max-w-full rounded bg-[var(--surface-raised)]" />
+                  </div>
+                ))}
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : ids.length < 2 ? (
         <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-10 text-center shadow-xs">
           <p className="text-lg font-bold text-[var(--text-primary)]">Choose at least two players</p>
           <p className="mt-2 text-sm text-[var(--text-secondary)]">You can select up to four athletes at a time from the directory.</p>
@@ -335,7 +355,10 @@ function PlayerComparisonContent() {
             </div>
           )}
           {fixtureLoading && (
-            <p role="status" className="mb-4 text-xs font-semibold text-[var(--text-muted)]">Loading upcoming pro matches…</p>
+            <div role="status" aria-label="Loading upcoming pro matches" className="mb-4 flex items-center gap-2 animate-pulse">
+              <div className="h-4 w-4 rounded-full bg-[var(--surface-raised)]" />
+              <div className="h-3 w-44 rounded bg-[var(--surface-raised)]" />
+            </div>
           )}
           <div className="overflow-x-auto rounded-2xl border border-[var(--border)] bg-[var(--surface)] shadow-xs">
             <table className="w-full min-w-190 border-collapse text-left">

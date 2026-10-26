@@ -178,11 +178,27 @@ export default function PlayerDetailPage() {
     fetchTransferContext();
   }, []);
 
+
+
   if (loading) {
     return (
-      <div className="max-w-5xl mx-auto px-4 py-12 text-center">
-        <div className="animate-pulse bg-[var(--surface-raised)] rounded-2xl h-64 border border-[var(--border)] mb-8"></div>
-        <div className="animate-pulse bg-[var(--surface-raised)] rounded-xl h-96 border border-[var(--border)]"></div>
+      <div className="max-w-5xl mx-auto px-4 py-8">
+        {isFromAdminFantasyTeams ? (
+          <Link
+            href="/admin/fantasy-teams"
+            className="inline-flex items-center text-sm font-medium text-amber-400 hover:text-amber-300 mb-6 transition-colors group"
+          >
+            <svg className="w-4 h-4 mr-1.5 transition-transform group-hover:-translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
+            Back to Fantasy Teams
+          </Link>
+        ) : (
+          <Link href="/players" className="inline-flex items-center text-sm font-medium text-[var(--text-secondary)] hover:text-[var(--text-primary)] mb-6 transition-colors group">
+            <svg className="w-4 h-4 mr-1.5 transition-transform group-hover:-translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
+            Back to Players
+          </Link>
+        )}
+        <div className="animate-pulse bg-[var(--surface-raised)] rounded-2xl h-64 border border-[var(--border)] mb-8" />
+        <div className="animate-pulse bg-[var(--surface-raised)] rounded-xl h-96 border border-[var(--border)]" />
       </div>
     );
   }

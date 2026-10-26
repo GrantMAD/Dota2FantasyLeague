@@ -63,11 +63,11 @@ export function MatchCard({ match, userSquadPlayerNames = [] }: MatchCardProps) 
     return name;
   };
 
-  const formattedDate = new Date(match.scheduled_at).toLocaleDateString([], {
+  const formattedDate = new Date(match.scheduled_at).toLocaleDateString('en-US', {
     month: 'short',
     day: 'numeric',
   });
-  const formattedTime = new Date(match.scheduled_at).toLocaleTimeString([], {
+  const formattedTime = new Date(match.scheduled_at).toLocaleTimeString('en-US', {
     hour: '2-digit',
     minute: '2-digit',
   });
@@ -106,11 +106,11 @@ export function MatchCard({ match, userSquadPlayerNames = [] }: MatchCardProps) 
               Live
             </span>
           ) : isCompleted ? (
-            <span className="text-slate-400 font-medium font-mono text-[11px]">
+            <span suppressHydrationWarning className="text-slate-400 font-medium font-mono text-[11px]">
               Final · {formattedDate}
             </span>
           ) : (
-            <span className="text-amber-400/90 font-mono text-[11px] bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">
+            <span suppressHydrationWarning className="text-amber-400/90 font-mono text-[11px] bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">
               {formattedDate} {formattedTime}
             </span>
           )}
@@ -151,18 +151,18 @@ export function MatchCard({ match, userSquadPlayerNames = [] }: MatchCardProps) 
         {/* Center Scoreboard / VS Pill */}
         <div className="shrink-0 flex flex-col items-center justify-center px-1 sm:px-2">
           {isCompleted ? (
-            <div className="flex items-center gap-1.5 bg-slate-950/80 border border-slate-700/80 rounded-xl px-3.5 py-1.5 shadow-inner">
+            <div className="match-card-score-pill flex items-center gap-1.5 rounded-xl border border-[var(--border)] bg-[var(--surface-raised)] px-3.5 py-1.5 shadow-inner dark:border-slate-700/80 dark:bg-slate-950/80">
               <span
                 className={`font-mono text-lg font-black ${
-                  isRadiantWinner ? 'text-emerald-400' : 'text-slate-400'
+                  isRadiantWinner ? 'text-emerald-500 dark:text-emerald-400' : 'text-[var(--text-muted)]'
                 }`}
               >
                 {isRadiantWinner ? '1' : '0'}
               </span>
-              <span className="text-slate-600 font-bold">:</span>
+              <span className="text-[var(--text-muted)] font-bold">:</span>
               <span
                 className={`font-mono text-lg font-black ${
-                  isDireWinner ? 'text-rose-400' : 'text-slate-400'
+                  isDireWinner ? 'text-rose-500 dark:text-rose-400' : 'text-[var(--text-muted)]'
                 }`}
               >
                 {isDireWinner ? '1' : '0'}
@@ -175,7 +175,7 @@ export function MatchCard({ match, userSquadPlayerNames = [] }: MatchCardProps) 
               </div>
             </div>
           ) : (
-            <div className="w-9 h-9 rounded-full bg-slate-800/80 border border-slate-700 flex items-center justify-center text-xs font-black text-slate-400 tracking-wider">
+            <div className="match-card-vs-pill w-9 h-9 rounded-full border border-[var(--border)] bg-[var(--surface-raised)] flex items-center justify-center text-xs font-black text-[var(--text-secondary)] tracking-wider dark:border-slate-700 dark:bg-slate-800/80">
               VS
             </div>
           )}
@@ -238,7 +238,7 @@ export function MatchCard({ match, userSquadPlayerNames = [] }: MatchCardProps) 
       )}
 
       {/* Hover action footer */}
-      <div className="match-card-footer mt-auto px-5 py-2.5 bg-slate-950/40 border-t border-slate-800/60 flex items-center justify-between text-xs text-slate-400">
+      <div className="match-card-footer mt-auto px-5 py-2.5 bg-[var(--surface-raised)] border-t border-[var(--border)] dark:bg-slate-950/40 dark:border-slate-800/60 flex items-center justify-between text-xs text-[var(--text-secondary)]">
         <span className="match-card-footer-meta flex items-center gap-1 text-[11px]">
           {match.radiant_team?.region && (
             <span className="text-slate-500">{match.radiant_team.region} vs {match.dire_team?.region || 'INT'}</span>

@@ -9,6 +9,8 @@ import {
   ArrowLeftRight,
   ArrowUp,
   CheckCircle2,
+  ChevronDown,
+  ChevronUp,
   Minus,
   Pin,
   Plus,
@@ -801,103 +803,195 @@ function TransfersPageContent() {
       </section>
 
       {ownedPlayerIds.length >= SQUAD_MAX_SIZE && fantasySeasonId ? (
-        <section className="mb-6 rounded-xl border border-indigo-500/30 bg-indigo-950/30 p-4 shadow-sm">
-          <button
-            type="button"
-            onClick={() => setSuggestionsOpen((open) => !open)}
-            aria-expanded={suggestionsOpen}
-            className="flex w-full items-center justify-between gap-3 text-left"
-          >
-            <span className="flex min-w-0 items-center gap-3">
-              <Sparkles className="h-5 w-5 shrink-0 text-indigo-300" />
-              <span className="min-w-0">
-                <span className="block text-sm font-bold text-white">Smart Transfer Suggestions</span>
-                <span className="mt-0.5 block text-xs text-indigo-100/70">
-                  {transferSuggestionsLoading
-                    ? 'Finding suitable swaps…'
-                    : transferSuggestionsError
-                      ? 'Suggestions need attention'
-                      : transferSuggestions.length > 0
-                        ? `${transferSuggestions.length} role-matched swap${transferSuggestions.length === 1 ? '' : 's'} available`
-                        : 'Review transfer recommendations'}
+        <section className="mb-8 overflow-hidden rounded-2xl border border-indigo-500/25 bg-[var(--surface)] shadow-md shadow-indigo-500/5 transition-all">
+          <div className="relative overflow-hidden bg-gradient-to-r from-indigo-500/10 via-purple-500/5 to-transparent p-5 sm:p-6">
+            <button
+              type="button"
+              onClick={() => setSuggestionsOpen((open) => !open)}
+              aria-expanded={suggestionsOpen}
+              className="flex w-full items-center justify-between gap-4 text-left transition hover:opacity-95"
+            >
+              <div className="flex min-w-0 items-center gap-3.5">
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 text-white shadow-md shadow-indigo-500/25">
+                  <Sparkles className="h-5 w-5" />
+                </div>
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h2 className="text-base font-extrabold tracking-tight text-[var(--text-primary)]">
+                      Smart Transfer Suggestions
+                    </h2>
+                    <span className="rounded-full bg-indigo-500/15 px-2.5 py-0.5 text-[11px] font-bold text-indigo-700 dark:text-indigo-300">
+                      AI Assist
+                    </span>
+                  </div>
+                  <p className="mt-0.5 text-xs text-[var(--text-secondary)]">
+                    {transferSuggestionsLoading
+                      ? 'Analyzing recent performance, price swings, and squad limits…'
+                      : transferSuggestionsError
+                        ? 'Suggestions need attention'
+                        : transferSuggestions.length > 0
+                          ? `${transferSuggestions.length} role-matched recommended swap${transferSuggestions.length === 1 ? '' : 's'} available`
+                          : 'Algorithmic recommendations based on recent form and budget'}
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex shrink-0 items-center gap-2">
+                <span className="hidden text-xs font-semibold text-indigo-600 dark:text-indigo-400 sm:inline">
+                  {suggestionsOpen ? 'Collapse' : 'Expand Recommendations'}
                 </span>
-              </span>
-            </span>
-            <span className="shrink-0 rounded-lg border border-indigo-300/25 bg-indigo-300/10 px-3 py-1.5 text-xs font-semibold text-indigo-100">
-              {suggestionsOpen ? 'Hide' : 'Show'}
-            </span>
-          </button>
+                <span className="flex h-8 w-8 items-center justify-center rounded-lg border border-indigo-500/20 bg-indigo-500/10 text-indigo-700 dark:text-indigo-300">
+                  {suggestionsOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                </span>
+              </div>
+            </button>
+          </div>
+
           {suggestionsOpen && (
-            <div className="mt-4 border-t border-indigo-300/15 pt-4">
-              <p className="mb-3 text-xs leading-5 text-slate-300">
-                Role-matched swaps based on the last three completed gameweeks, price movement, your budget, and squad limits.
-                Suggestions are advisory; the transfer server rechecks eligibility and budget.
-              </p>
+            <div className="border-t border-[var(--border)] p-5 sm:p-6">
+              <div className="mb-5 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <p className="text-xs text-[var(--text-muted)] max-w-2xl leading-relaxed">
+                  Recommended swaps are calculated from the last three completed gameweeks, price trajectory, remaining budget, and team limit constraints.
+                </p>
+                {transferSuggestions.length > 0 && (
+                  <span className="shrink-0 text-xs font-medium text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5">
+                    <CheckCircle2 className="h-3.5 w-3.5" />
+                    Budget verified
+                  </span>
+                )}
+              </div>
+
               {transferSuggestionsLoading ? (
-                <p className="mt-3 text-sm text-slate-300">Finding suitable swaps…</p>
+                <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                  {[1, 2, 3].map((i) => (
+                    <div key={i} className="animate-pulse rounded-xl border border-[var(--border)] bg-[var(--surface-raised)] p-5">
+                      <div className="mb-4 h-4 w-28 rounded bg-[var(--surface)]" />
+                      <div className="mb-3 h-8 w-full rounded bg-[var(--surface)]" />
+                      <div className="h-16 rounded bg-[var(--surface)]" />
+                    </div>
+                  ))}
+                </div>
               ) : transferSuggestionsError ? (
-                <p role="alert" className="mt-3 text-sm text-red-300">{transferSuggestionsError}</p>
+                <div role="alert" className="rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-600 dark:text-red-300">
+                  {transferSuggestionsError}
+                </div>
               ) : transferSuggestions.length > 0 ? (
-                <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
                   {transferSuggestions.map((suggestion) => (
                     <article
                       key={`${suggestion.player_out_id}-${suggestion.player_in_id}`}
-                      className="rounded-lg border border-slate-700 bg-slate-900/80 p-4"
+                      className="group flex flex-col justify-between rounded-xl border border-[var(--border)] bg-[var(--surface-raised)] p-5 shadow-xs transition hover:border-indigo-500/40 hover:shadow-md"
                     >
-                      <p className="text-sm font-semibold text-white">
-                        <span className="text-rose-300">{suggestion.player_out_name}</span>
-                        <span className="mx-2 text-slate-500">→</span>
-                        <span className="text-emerald-300">{suggestion.player_in_name}</span>
-                      </p>
-                      <p className="mt-1 text-xs text-slate-400">
-                        {suggestion.player_in_role} · ${suggestion.player_in_current_price.toFixed(1)}M ·
-                        {' '}estimated bank after swap ${suggestion.budget_after.toFixed(1)}M
-                      </p>
-                      <ul className="mt-3 list-disc space-y-1 pl-4 text-xs leading-5 text-slate-300">
-                        {suggestion.reasons.map((reason) => <li key={reason}>{reason}</li>)}
-                      </ul>
+                      <div>
+                        {/* Role tag & Estimated bank */}
+                        <div className="mb-3 flex items-center justify-between gap-2">
+                          <span
+                            className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wider"
+                            style={{
+                              backgroundColor: `color-mix(in srgb, ${ROLE_ACCENTS[suggestion.player_in_role] || 'var(--accent-primary)'} 15%, transparent)`,
+                              color: ROLE_ACCENTS[suggestion.player_in_role] || 'var(--text-primary)',
+                              border: `1px solid color-mix(in srgb, ${ROLE_ACCENTS[suggestion.player_in_role] || 'var(--accent-primary)'} 30%, transparent)`,
+                            }}
+                          >
+                            {suggestion.player_in_role}
+                          </span>
+                          <span className="rounded-md bg-[var(--surface)] border border-[var(--border)] px-2 py-0.5 text-[11px] font-semibold text-[var(--text-secondary)]">
+                            Bank after: <span className="text-[var(--text-primary)] font-bold">${suggestion.budget_after.toFixed(1)}M</span>
+                          </span>
+                        </div>
+
+                        {/* Player swap comparison panel */}
+                        <div className="grid grid-cols-[1fr,auto,1fr] items-center gap-2 rounded-lg border border-[var(--border)] bg-[var(--surface)] p-3">
+                          {/* OUT Player */}
+                          <div className="min-w-0">
+                            <span className="block text-[10px] font-bold uppercase tracking-wider text-rose-500 dark:text-rose-400">
+                              SELL
+                            </span>
+                            <span className="block truncate text-sm font-bold text-[var(--text-primary)]" title={suggestion.player_out_name}>
+                              {suggestion.player_out_name}
+                            </span>
+                          </div>
+
+                          {/* Arrow Divider */}
+                          <div className="flex h-7 w-7 items-center justify-center rounded-full bg-indigo-500/10 text-indigo-600 dark:text-indigo-400">
+                            <ArrowLeftRight className="h-3.5 w-3.5" />
+                          </div>
+
+                          {/* IN Player */}
+                          <div className="min-w-0 text-right">
+                            <span className="block text-[10px] font-bold uppercase tracking-wider text-emerald-500 dark:text-emerald-400">
+                              BUY (${suggestion.player_in_current_price.toFixed(1)}M)
+                            </span>
+                            <span className="block truncate text-sm font-bold text-[var(--text-primary)]" title={suggestion.player_in_name}>
+                              {suggestion.player_in_name}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Key rationale bullets */}
+                        <div className="mt-3.5 space-y-1.5">
+                          <span className="text-[11px] font-bold uppercase tracking-wider text-[var(--text-muted)]">
+                            Why this swap
+                          </span>
+                          <ul className="space-y-1 pl-1">
+                            {suggestion.reasons.map((reason, idx) => (
+                              <li key={idx} className="flex items-start gap-1.5 text-xs text-[var(--text-secondary)] leading-relaxed">
+                                <span className="text-indigo-500 mt-1 shrink-0">•</span>
+                                <span>{reason}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      </div>
+
+                      {/* Action CTA */}
                       <button
                         type="button"
                         disabled={actionLoading}
                         onClick={() => void selectSuggestedTransfer(suggestion)}
-                        className="mt-4 w-full rounded-lg bg-indigo-500/20 px-3 py-2 text-xs font-semibold text-indigo-200 transition-colors hover:bg-indigo-500/30 disabled:opacity-50"
+                        className="mt-4 flex w-full items-center justify-center gap-2 rounded-lg bg-indigo-600 text-white font-semibold text-xs py-2.5 px-3 shadow-xs hover:bg-indigo-500 active:scale-[0.99] transition disabled:opacity-50"
                       >
-                        Select this swap
+                        <Zap className="h-3.5 w-3.5" />
+                        <span>Load Swap into Transfer Staging</span>
                       </button>
                     </article>
                   ))}
                 </div>
               ) : (
-                <div className="mt-3 space-y-2 text-sm text-slate-300">
-                  {transferSuggestionsSummary &&
-                  transferSuggestionsSummary.status !== 'no_fantasy_season' &&
-                  transferSuggestionsSummary.status !== 'no_open_gameweek' &&
-                  transferSuggestionsSummary.status !== 'no_squad' &&
-                  transferSuggestionsSummary.completed_gameweeks < transferSuggestionsSummary.required_gameweeks ? (
-                    <p>
-                      More scoring history is needed: {transferSuggestionsSummary.completed_gameweeks} of
-                      {' '}{transferSuggestionsSummary.required_gameweeks} gameweeks are complete.
-                    </p>
-                  ) : null}
-                  {transferSuggestionsSummary &&
-                  transferSuggestionsSummary.status !== 'no_fantasy_season' &&
-                  transferSuggestionsSummary.status !== 'no_open_gameweek' &&
-                  transferSuggestionsSummary.status !== 'no_squad' &&
-                  transferSuggestionsSummary.priced_role_matched_candidates === 0 ? (
-                    <p>No available same-role replacements have a price recorded for the upcoming gameweek yet.</p>
-                  ) : null}
-                  {transferSuggestionsSummary?.status === 'no_squad' ? (
-                    <p>Build your squad before getting transfer suggestions.</p>
-                  ) : null}
-                  {transferSuggestionsSummary?.status === 'no_open_gameweek' ? (
-                    <p>Suggestions are unavailable because there is no gameweek currently open for transfers.</p>
-                  ) : null}
-                  {transferSuggestionsSummary?.status === 'no_fantasy_season' ? (
-                    <p>Join a fantasy season and build your squad to get transfer suggestions.</p>
-                  ) : null}
-                  {transferSuggestionsSummary?.status === 'no_recommendations' ? (
-                    <p>No swaps currently meet the budget, form, price-trend, and team-limit criteria.</p>
-                  ) : null}
+                <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-raised)] p-6 text-center">
+                  <Sparkles className="mx-auto h-8 w-8 text-indigo-400/60 mb-2" />
+                  <h3 className="text-sm font-bold text-[var(--text-primary)]">No Active Recommendations</h3>
+                  <div className="mt-1 space-y-1 text-xs text-[var(--text-secondary)] max-w-md mx-auto">
+                    {transferSuggestionsSummary &&
+                    transferSuggestionsSummary.status !== 'no_fantasy_season' &&
+                    transferSuggestionsSummary.status !== 'no_open_gameweek' &&
+                    transferSuggestionsSummary.status !== 'no_squad' &&
+                    transferSuggestionsSummary.completed_gameweeks < transferSuggestionsSummary.required_gameweeks ? (
+                      <p>
+                        More scoring history is needed: {transferSuggestionsSummary.completed_gameweeks} of
+                        {' '}{transferSuggestionsSummary.required_gameweeks} gameweeks are complete.
+                      </p>
+                    ) : null}
+                    {transferSuggestionsSummary &&
+                    transferSuggestionsSummary.status !== 'no_fantasy_season' &&
+                    transferSuggestionsSummary.status !== 'no_open_gameweek' &&
+                    transferSuggestionsSummary.status !== 'no_squad' &&
+                    transferSuggestionsSummary.priced_role_matched_candidates === 0 ? (
+                      <p>No available same-role replacements have a price recorded for the upcoming gameweek yet.</p>
+                    ) : null}
+                    {transferSuggestionsSummary?.status === 'no_squad' ? (
+                      <p>Build your squad before getting transfer suggestions.</p>
+                    ) : null}
+                    {transferSuggestionsSummary?.status === 'no_open_gameweek' ? (
+                      <p>Suggestions are unavailable because there is no gameweek currently open for transfers.</p>
+                    ) : null}
+                    {transferSuggestionsSummary?.status === 'no_fantasy_season' ? (
+                      <p>Join a fantasy season and build your squad to get transfer suggestions.</p>
+                    ) : null}
+                    {transferSuggestionsSummary?.status === 'no_recommendations' ? (
+                      <p>No swaps currently meet the budget, form, price-trend, and team-limit criteria.</p>
+                    ) : null}
+                  </div>
                 </div>
               )}
             </div>
@@ -1208,7 +1302,7 @@ function TransfersPageContent() {
                         else { setSortBy('name'); setSortDesc(false); }
                         setPage(1);
                       }}
-                      className="px-4 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wider cursor-pointer hover:text-amber-400 transition-colors select-none"
+                      className="px-4 py-3 text-xs font-semibold text-slate-100 uppercase tracking-wider cursor-pointer hover:text-amber-400 transition-colors select-none"
                     >
                       <div className="flex items-center gap-1">
                         <span>Player</span>
@@ -1217,7 +1311,7 @@ function TransfersPageContent() {
                         )}
                       </div>
                     </th>
-                    <th scope="col" className="px-4 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wider text-center">Role</th>
+                    <th scope="col" className="px-4 py-3 text-xs font-semibold text-slate-100 uppercase tracking-wider text-center">Role</th>
                     <th
                       scope="col"
                       onClick={() => {
@@ -1225,7 +1319,7 @@ function TransfersPageContent() {
                         else { setSortBy('price'); setSortDesc(true); }
                         setPage(1);
                       }}
-                      className="px-4 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wider text-right cursor-pointer hover:text-amber-400 transition-colors select-none"
+                      className="px-4 py-3 text-xs font-semibold text-slate-100 uppercase tracking-wider text-right cursor-pointer hover:text-amber-400 transition-colors select-none"
                     >
                       <div className="flex items-center justify-end gap-1">
                         <span>Price</span>
@@ -1241,7 +1335,7 @@ function TransfersPageContent() {
                         else { setSortBy('points'); setSortDesc(true); }
                         setPage(1);
                       }}
-                      className="px-4 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wider text-right cursor-pointer hover:text-amber-400 transition-colors select-none"
+                      className="px-4 py-3 text-xs font-semibold text-slate-100 uppercase tracking-wider text-right cursor-pointer hover:text-amber-400 transition-colors select-none"
                     >
                       <div className="flex items-center justify-end gap-1">
                         <span>Form (Avg)</span>
@@ -1257,7 +1351,7 @@ function TransfersPageContent() {
                         else { setSortBy('ownership'); setSortDesc(true); }
                         setPage(1);
                       }}
-                      className="px-4 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wider text-right cursor-pointer hover:text-amber-400 transition-colors select-none"
+                      className="px-4 py-3 text-xs font-semibold text-slate-100 uppercase tracking-wider text-right cursor-pointer hover:text-amber-400 transition-colors select-none"
                     >
                       <div className="flex items-center justify-end gap-1">
                         <span>Own %</span>
@@ -1266,8 +1360,8 @@ function TransfersPageContent() {
                         )}
                       </div>
                     </th>
-                    <th scope="col" className="px-4 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wider text-right">Last GW</th>
-                    <th scope="col" className="px-4 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wider text-center">Action</th>
+                    <th scope="col" className="px-4 py-3 text-xs font-semibold text-slate-100 uppercase tracking-wider text-right">Last GW</th>
+                    <th scope="col" className="px-4 py-3 text-xs font-semibold text-slate-100 uppercase tracking-wider text-center">Action</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-700/50">
@@ -1314,7 +1408,7 @@ function TransfersPageContent() {
                               ? 'bg-amber-500/10 ring-1 ring-inset ring-amber-400/60'
                               : isOwned
                                 ? 'bg-emerald-950/20 hover:bg-emerald-950/35'
-                                : 'hover:bg-slate-700/40'
+                                : 'hover:bg-slate-800/60'
                           }`}
                         >
                           <td className="px-4 py-3">
@@ -1331,7 +1425,7 @@ function TransfersPageContent() {
                                 )}
                               </div>
                               <div>
-                                <div className="font-bold text-white group-hover:text-amber-400 transition-colors flex items-center gap-1.5">
+                                <div className="font-bold text-slate-900 dark:text-slate-100 group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors flex items-center gap-1.5">
                                   {player.in_game_name || player.name}
                                   {isOwned && (
                                     <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/20 text-emerald-400 text-[10px] font-semibold px-2 py-0.5 border border-emerald-500/30">
@@ -1346,7 +1440,7 @@ function TransfersPageContent() {
                                     </span>
                                   )}
                                 </div>
-                                <div className="text-xs text-slate-400">{player.professional_teams?.name || 'Free Agent'}</div>
+                                <div className="text-xs text-slate-500 dark:text-slate-400">{player.professional_teams?.name || 'Free Agent'}</div>
                               </div>
                             </div>
                           </td>
@@ -1394,15 +1488,15 @@ function TransfersPageContent() {
                             </div>
                           </td>
                           <td className="px-4 py-3 text-right">
-                            <div className="transfer-form-average text-sm text-slate-200 font-mono">{player.recent_points ?? '-'}</div>
+                            <div className="transfer-form-average text-sm text-slate-800 dark:text-slate-200 font-mono">{player.recent_points ?? '-'}</div>
                           </td>
                           <td className="px-4 py-3 text-right">
-                            <div className="text-sm text-slate-300 font-mono">
+                            <div className="text-sm text-slate-700 dark:text-slate-300 font-mono">
                               {player.ownership_percentage != null ? `${Number(player.ownership_percentage).toFixed(1)}%` : '—'}
                             </div>
                           </td>
                           <td className="px-4 py-3 text-right">
-                            <div className="text-sm font-bold text-white font-mono">{player.gameweek_points ?? '-'}</div>
+                            <div className="text-sm font-bold text-slate-900 dark:text-white font-mono">{player.gameweek_points ?? '-'}</div>
                           </td>
                           <td className="px-4 py-3 text-center" onClick={(e) => e.stopPropagation()}>
                             <button

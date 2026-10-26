@@ -276,11 +276,11 @@ export default function LeaguesPage() {
             </div>
             <DataFreshnessBadge page="leagues" />
           </div>
-          <h1 className="text-3xl font-black tracking-tight text-white flex items-center gap-3">
-            <Trophy className="h-8 w-8 text-amber-400 shrink-0" />
+          <h1 className="text-3xl font-black tracking-tight text-[var(--text-primary)] flex items-center gap-3">
+            <Trophy className="h-8 w-8 text-amber-500 dark:text-amber-400 shrink-0" />
             Leagues
           </h1>
-          <p className="mt-2 max-w-xl text-sm text-slate-400">
+          <p className="mt-2 max-w-xl text-sm text-[var(--text-secondary)]">
             Classic rankings, private leagues, and head-to-head matchups powered by live pro match data.
           </p>
         </div>
@@ -290,7 +290,7 @@ export default function LeaguesPage() {
             type="button"
             onClick={() => void loadLeagues(true)}
             disabled={refreshing}
-            className="inline-flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-900/80 px-3 py-2 text-sm font-medium text-slate-200 transition hover:border-slate-500 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+            className="inline-flex items-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--surface-raised)] px-3 py-2 text-sm font-medium text-slate-800 dark:text-slate-200 transition hover:border-slate-400 dark:hover:border-slate-500 hover:text-slate-950 dark:hover:text-white shadow-xs disabled:cursor-not-allowed disabled:opacity-50"
             title="Refresh league standings"
           >
             <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
@@ -300,7 +300,7 @@ export default function LeaguesPage() {
             data-tour="leagues-join"
             type="button"
             onClick={() => setActionMode('join')}
-            className="inline-flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-900/80 px-3 py-2 text-sm font-medium text-slate-200 transition hover:border-slate-500 hover:text-white"
+            className="inline-flex items-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--surface-raised)] px-3 py-2 text-sm font-medium text-slate-800 dark:text-slate-200 transition hover:border-slate-400 dark:hover:border-slate-500 hover:text-slate-950 dark:hover:text-white shadow-xs"
           >
             <Hash className="h-4 w-4" />
             Join with Code
@@ -309,14 +309,14 @@ export default function LeaguesPage() {
             data-tour="leagues-create"
             type="button"
             onClick={() => setActionMode('create')}
-            className="inline-flex items-center gap-2 rounded-xl border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm font-medium text-amber-300 transition hover:border-amber-400 hover:bg-amber-500/15"
+            className="inline-flex items-center gap-2 rounded-xl border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm font-medium text-amber-600 dark:text-amber-300 transition hover:border-amber-400 hover:bg-amber-500/15"
           >
             <Plus className="h-4 w-4" />
             Create League
           </button>
           <Link
             href="/leaderboard"
-            className="inline-flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-900/80 px-3 py-2 text-sm font-medium text-slate-200 transition hover:border-slate-500 hover:text-white"
+            className="inline-flex items-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--surface-raised)] px-3 py-2 text-sm font-medium text-slate-800 dark:text-slate-200 transition hover:border-slate-400 dark:hover:border-slate-500 hover:text-slate-950 dark:hover:text-white shadow-xs"
           >
             <BarChart3 className="h-4 w-4" />
             Leaderboard
@@ -331,19 +331,27 @@ export default function LeaguesPage() {
         {' · '}Auto-refreshes every minute
       </p>
 
+      {/* ── Tabs (Always visible) ─────────────────────────────────── */}
+      <LeagueFilters
+        activeTab={tab}
+        onTabChange={setTab}
+        classicCount={classicCount}
+        h2hCount={h2hCount}
+      />
+
       {/* ── Loading Skeleton ──────────────────────────────────────── */}
       {loading ? (
         <div className="space-y-6">
-          <div className="animate-pulse rounded-3xl border border-slate-800 bg-slate-900/70 p-6">
-            <div className="mb-4 h-6 w-48 rounded bg-slate-800" />
-            <div className="mb-3 h-10 w-72 rounded bg-slate-800" />
-            <div className="h-4 w-full rounded bg-slate-800" />
+          <div className="animate-pulse rounded-3xl border border-[var(--border)] bg-[var(--surface-raised)] p-6">
+            <div className="mb-4 h-6 w-48 rounded bg-[var(--surface)]" />
+            <div className="mb-3 h-10 w-72 rounded bg-[var(--surface)]" />
+            <div className="h-4 w-full rounded bg-[var(--surface)]" />
           </div>
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             {[1, 2, 3].map((i) => (
-              <div key={i} className="animate-pulse rounded-2xl border border-slate-800 bg-slate-900/60 p-5">
-                <div className="mb-4 h-4 w-40 rounded bg-slate-800" />
-                <div className="h-24 rounded bg-slate-800" />
+              <div key={i} className="animate-pulse rounded-2xl border border-[var(--border)] bg-[var(--surface-raised)] p-5">
+                <div className="mb-4 h-4 w-40 rounded bg-[var(--surface)]" />
+                <div className="h-24 rounded bg-[var(--surface)]" />
               </div>
             ))}
           </div>
@@ -382,7 +390,7 @@ export default function LeaguesPage() {
                 <button
                   type="button"
                   onClick={() => setActionMode('join')}
-                  className="inline-flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-800 px-5 py-2.5 text-sm font-semibold text-slate-200 transition hover:bg-slate-700"
+                  className="inline-flex items-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--surface-raised)] px-5 py-2.5 text-sm font-semibold text-slate-800 dark:text-slate-200 transition hover:bg-[var(--surface-muted)] hover:text-slate-950 dark:hover:text-white shadow-xs"
                 >
                   <Hash className="h-4 w-4" />
                   Join with Code
@@ -393,13 +401,6 @@ export default function LeaguesPage() {
 
           {leagues.length > 0 && (
             <>
-              {/* ── Tabs ─────────────────────────────────────────────── */}
-              <LeagueFilters
-                activeTab={tab}
-                onTabChange={setTab}
-                classicCount={classicCount}
-                h2hCount={h2hCount}
-              />
 
               {/* ── League Cards Grid ─────────────────────────────────── */}
               {visibleLeagues.length === 0 ? (
@@ -553,26 +554,26 @@ export default function LeaguesPage() {
       {/* ── League Detail Modal ───────────────────────────────────── */}
       {selectedLeague && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm">
-          <div className="relative max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-3xl border border-slate-700 bg-slate-900 shadow-2xl no-scrollbar">
+          <div className="relative max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-3xl border border-[var(--border)] bg-[var(--surface)] shadow-2xl no-scrollbar">
             {/* Header */}
-            <div className="sticky top-0 z-10 border-b border-slate-800 bg-slate-900/95 p-6 backdrop-blur-sm">
+            <div className="sticky top-0 z-10 border-b border-[var(--border)] bg-[var(--surface-raised)]/95 p-6 backdrop-blur-sm">
               <div className="flex items-start justify-between gap-4">
                 <div>
                   <div className="flex items-center gap-2 mb-1.5">
                     <span className={`rounded-full border px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider ${
                       selectedLeague.type === 'h2h'
-                        ? 'border-sky-500/40 bg-sky-500/10 text-sky-300'
-                        : 'border-amber-500/40 bg-amber-500/10 text-amber-300'
+                        ? 'border-sky-500/40 bg-sky-500/10 text-sky-700 dark:text-sky-300'
+                        : 'border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-300'
                     }`}>
                       {selectedLeague.type === 'h2h' ? 'Head-to-Head' : 'Classic League'}
                     </span>
-                    <span className="rounded-full border border-slate-700 bg-slate-800 px-2 py-0.5 text-[10px] capitalize text-slate-300">
+                    <span className="rounded-full border border-[var(--border)] bg-[var(--surface-muted)] px-2 py-0.5 text-[10px] capitalize text-[var(--text-secondary)]">
                       {selectedLeague.privacyLevel}
                     </span>
                   </div>
-                  <h2 className="text-2xl font-black text-white">{selectedLeague.name}</h2>
+                  <h2 className="text-2xl font-black text-[var(--text-primary)]">{selectedLeague.name}</h2>
                   {selectedLeague.description && (
-                    <p className="mt-1 text-sm text-slate-400">{selectedLeague.description}</p>
+                    <p className="mt-1 text-sm text-[var(--text-secondary)]">{selectedLeague.description}</p>
                   )}
                 </div>
                 <button
@@ -581,7 +582,7 @@ export default function LeaguesPage() {
                     activityRequestId.current += 1;
                     setSelectedLeague(null);
                   }}
-                  className="shrink-0 rounded-xl p-2 text-slate-400 transition hover:bg-slate-800 hover:text-white"
+                  className="shrink-0 rounded-xl p-2 text-[var(--text-muted)] transition hover:bg-[var(--surface-muted)] hover:text-[var(--text-primary)]"
                 >
                   <X className="h-5 w-5" />
                 </button>
@@ -591,21 +592,21 @@ export default function LeaguesPage() {
             <div className="p-6">
               {/* Quick Stats */}
               <div className="mb-6 grid grid-cols-3 gap-3">
-                <div className="rounded-2xl border border-slate-800 bg-slate-950/60 p-4 text-center">
-                  <div className="flex items-center justify-center gap-1.5 text-[10px] uppercase tracking-wider text-slate-400 mb-1">
+                <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface-raised)] p-4 text-center shadow-xs">
+                  <div className="flex items-center justify-center gap-1.5 text-[10px] uppercase tracking-wider text-[var(--text-muted)] mb-1">
                     <Users className="h-3 w-3" /> Managers
                   </div>
-                  <div className="text-xl font-black text-white">{selectedLeague.currentParticipants}<span className="text-sm font-normal text-slate-500">/{selectedLeague.maxParticipants}</span></div>
+                  <div className="text-xl font-black text-[var(--text-primary)]">{selectedLeague.currentParticipants}<span className="text-sm font-normal text-[var(--text-muted)]">/{selectedLeague.maxParticipants}</span></div>
                 </div>
-                <div className="rounded-2xl border border-slate-800 bg-slate-950/60 p-4 text-center">
-                  <div className="text-[10px] uppercase tracking-wider text-slate-400 mb-1">Scoring</div>
-                  <div className="text-sm font-bold text-amber-400">{selectedLeague.type === 'h2h' ? 'Weekly Wins' : 'Total Points'}</div>
+                <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface-raised)] p-4 text-center shadow-xs">
+                  <div className="text-[10px] uppercase tracking-wider text-[var(--text-muted)] mb-1">Scoring</div>
+                  <div className="text-sm font-bold text-amber-600 dark:text-amber-400">{selectedLeague.type === 'h2h' ? 'Weekly Wins' : 'Total Points'}</div>
                 </div>
-                <div className="rounded-2xl border border-slate-800 bg-slate-950/60 p-4 text-center">
-                  <div className="text-[10px] uppercase tracking-wider text-slate-400 mb-1">Invite Code</div>
+                <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface-raised)] p-4 text-center shadow-xs">
+                  <div className="text-[10px] uppercase tracking-wider text-[var(--text-muted)] mb-1">Invite Code</div>
                   {selectedLeague.inviteCode ? (
                     <div className="flex items-center justify-center gap-1.5">
-                      <span className="font-mono text-sm font-bold text-slate-200">{selectedLeague.inviteCode}</span>
+                      <span className="font-mono text-sm font-bold text-[var(--text-primary)]">{selectedLeague.inviteCode}</span>
                       <button
                         type="button"
                         onClick={(e) => {
@@ -615,34 +616,34 @@ export default function LeaguesPage() {
                           toast.info('Copied to Clipboard', `Invite code ${selectedLeague.inviteCode} copied.`);
                           setTimeout(() => setCopiedInvite(false), 2000);
                         }}
-                        className="rounded p-1 text-slate-400 hover:text-amber-400 transition-colors"
+                        className="rounded p-1 text-[var(--text-muted)] hover:text-amber-500 dark:hover:text-amber-400 transition-colors"
                       >
-                        {copiedInvite ? <Check className="h-3.5 w-3.5 text-emerald-400" /> : <Copy className="h-3.5 w-3.5" />}
+                        {copiedInvite ? <Check className="h-3.5 w-3.5 text-emerald-500 dark:text-emerald-400" /> : <Copy className="h-3.5 w-3.5" />}
                       </button>
                     </div>
                   ) : (
-                    <span className="text-sm text-slate-500">N/A</span>
+                    <span className="text-sm text-[var(--text-muted)]">N/A</span>
                   )}
                 </div>
               </div>
 
               {/* Standings Table */}
               <div className="mb-6">
-                <h3 className="mb-3 flex items-center gap-2 text-base font-bold text-white">
-                  <Trophy className="h-4 w-4 text-amber-400" /> League Standings
+                <h3 className="mb-3 flex items-center gap-2 text-base font-bold text-[var(--text-primary)]">
+                  <Trophy className="h-4 w-4 text-amber-500 dark:text-amber-400" /> League Standings
                 </h3>
                 {(!selectedLeague.standings || selectedLeague.standings.length === 0) ? (
-                  <p className="text-sm text-slate-400">No participants registered yet.</p>
+                  <p className="text-sm text-[var(--text-muted)]">No participants registered yet.</p>
                 ) : (
-                  <div className="overflow-hidden rounded-2xl border border-slate-800">
+                  <div className="overflow-hidden rounded-2xl border border-slate-700 bg-slate-900/60 shadow-xs">
                     <table className="w-full text-left text-sm">
-                      <thead className="border-b border-slate-800 bg-slate-950/80 text-xs uppercase text-slate-400">
+                      <thead className="border-b border-slate-700 bg-slate-900 text-xs uppercase text-white font-semibold">
                         <tr>
-                          <th className="px-4 py-3">Rank</th>
-                          <th className="px-4 py-3">Manager</th>
-                          {selectedLeague.type === 'h2h' && <th className="px-4 py-3 text-center">W-L-D</th>}
-                          <th className="px-4 py-3 text-right">GW Pts</th>
-                          <th className="px-4 py-3 text-right">Total</th>
+                          <th className="px-4 py-3 text-white">Rank</th>
+                          <th className="px-4 py-3 text-white">Manager</th>
+                          {selectedLeague.type === 'h2h' && <th className="px-4 py-3 text-center text-white">W-L-D</th>}
+                          <th className="px-4 py-3 text-right text-white">GW Pts</th>
+                          <th className="px-4 py-3 text-right text-white">Total</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-800/60 bg-slate-900/40">
@@ -685,7 +686,17 @@ export default function LeaguesPage() {
                     <Activity className="h-4 w-4 text-sky-400" /> League Activity
                   </h3>
                   {activityLoading ? (
-                    <p className="text-sm text-slate-400">Loading recent activity...</p>
+                    <div className="space-y-3 animate-pulse" role="status" aria-label="Loading recent activity">
+                      {[1, 2, 3].map((i) => (
+                        <div key={i} className="flex items-center gap-3 py-2">
+                          <div className="h-8 w-8 rounded-full bg-[var(--surface-raised)] shrink-0" />
+                          <div className="space-y-1.5 flex-1">
+                            <div className="h-3.5 w-3/4 rounded bg-[var(--surface-raised)]" />
+                            <div className="h-2.5 w-1/4 rounded bg-[var(--surface-raised)]" />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
                   ) : activityError ? (
                     <div role="alert" className="flex items-center justify-between gap-3 rounded-xl border border-red-900 bg-red-950/60 p-3">
                       <p className="text-sm text-red-200">{activityError}</p>

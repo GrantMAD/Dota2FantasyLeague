@@ -56,11 +56,36 @@ export function PlayerDetailModal({ player, loading, onClose, scoreBreakdown }: 
       <div
         className="fixed inset-0 z-100 flex items-center justify-center bg-slate-950/75 p-4 backdrop-blur-sm"
         role="status"
+        aria-label="Loading player details"
       >
-        <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-6 text-sm text-[var(--text-secondary)] shadow-xl">
-          <div className="flex items-center gap-3">
-            <div className="h-5 w-5 animate-spin rounded-full border-2 border-teal-500 border-t-transparent" />
-            <span>Loading player details...</span>
+        <div className="max-h-[90vh] w-full max-w-2xl overflow-hidden rounded-3xl border border-[var(--border)] bg-[var(--surface)] p-6 shadow-2xl animate-pulse">
+          {/* Header Skeleton */}
+          <div className="mb-6 flex items-start justify-between gap-4">
+            <div className="flex items-center gap-4">
+              <div className="h-16 w-16 rounded-full bg-[var(--surface-raised)]" />
+              <div className="space-y-2">
+                <div className="h-4 w-20 rounded-full bg-[var(--surface-raised)]" />
+                <div className="h-7 w-40 rounded-lg bg-[var(--surface-raised)]" />
+                <div className="h-3.5 w-32 rounded bg-[var(--surface-raised)]" />
+              </div>
+            </div>
+            <div className="h-9 w-9 rounded-xl bg-[var(--surface-raised)]" />
+          </div>
+
+          {/* Quick Stats Grid Skeleton */}
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            {[1, 2, 3, 4].map((i) => (
+              <div key={i} className="rounded-2xl border border-[var(--border)] bg-[var(--surface-raised)] p-3.5">
+                <div className="h-2.5 w-16 rounded bg-[var(--surface)] mb-2" />
+                <div className="h-6 w-12 rounded bg-[var(--surface)]" />
+              </div>
+            ))}
+          </div>
+
+          {/* Telemetry Chart Box Skeleton */}
+          <div className="mt-6 rounded-2xl border border-[var(--border)] bg-[var(--surface-raised)] p-5">
+            <div className="h-4 w-36 rounded bg-[var(--surface)] mb-4" />
+            <div className="h-32 w-full rounded-xl bg-[var(--surface)]" />
           </div>
         </div>
       </div>

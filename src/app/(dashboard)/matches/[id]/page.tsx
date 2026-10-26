@@ -83,7 +83,13 @@ function MatchDetailSkeleton() {
   return (
     <div className="mx-auto max-w-6xl px-4 py-10 space-y-8 animate-pulse" role="status" aria-label="Loading match center">
       <div className="flex items-center justify-between">
-        <div className="h-4 w-36 rounded bg-[var(--surface-raised)]" />
+        <Link
+          href="/matches"
+          className="group inline-flex items-center gap-1.5 text-xs font-semibold text-[var(--text-muted)] transition-colors hover:text-amber-500"
+        >
+          <ArrowLeft className="w-3.5 h-3.5 transition-transform group-hover:-translate-x-0.5" />
+          <span>Back to Matches</span>
+        </Link>
         <div className="h-7 w-28 rounded-lg bg-[var(--surface-raised)]" />
       </div>
       <section className="overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-6 sm:p-8">

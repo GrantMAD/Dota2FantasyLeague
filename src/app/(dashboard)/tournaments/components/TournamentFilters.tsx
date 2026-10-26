@@ -50,7 +50,7 @@ export function TournamentFilters({
                 className={`tournament-status-tab flex items-center gap-2 whitespace-nowrap rounded-lg px-3.5 py-2 text-xs font-semibold transition-all ${
                   isActive
                     ? 'bg-amber-500 text-slate-950 shadow-md shadow-amber-500/20'
-                    : 'text-[var(--text-secondary)] hover:bg-[var(--surface)] hover:text-[var(--text-primary)]'
+                    : 'text-[var(--text-primary)] hover:bg-[var(--surface)] hover:text-[var(--text-primary)]'
                 }`}
               >
                 <span>{tab.label}</span>
@@ -58,7 +58,7 @@ export function TournamentFilters({
                   className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono font-bold ${
                     isActive
                       ? 'bg-slate-950/20 text-slate-950'
-                        : 'bg-[var(--surface)] text-[var(--text-muted)]'
+                      : 'bg-[var(--surface)] text-slate-600 dark:text-slate-400'
                   }`}
                 >
                   {tab.count}
@@ -80,7 +80,7 @@ export function TournamentFilters({
                 className={`whitespace-nowrap rounded-xl border px-3 py-2 text-xs font-medium transition-colors ${
                   isSelected
                     ? 'border-amber-500/50 bg-amber-500/10 text-amber-800 dark:text-amber-200'
-                    : 'border-[var(--border)] bg-[var(--surface-raised)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+                    : 'border-[var(--border)] bg-[var(--surface-raised)] text-[var(--text-primary)] hover:text-[var(--text-primary)]'
                 }`}
               >
                 {t.label}

@@ -325,8 +325,8 @@ export default function GuidePage() {
       {/* Hero Header with ambient glow and design tokens */}
       <div className="relative mb-8 overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-6 sm:p-10 shadow-lg">
         {/* Ambient lighting glows */}
-        <div className="pointer-events-none absolute -right-20 -top-20 h-72 w-72 rounded-full bg-cyan-500/10 blur-3xl" />
-        <div className="pointer-events-none absolute -left-20 -bottom-20 h-72 w-72 rounded-full bg-teal-500/10 blur-3xl" />
+        <div className="pointer-events-none absolute -right-20 -top-20 h-72 w-72 rounded-full bg-cyan-500/5 dark:bg-cyan-500/10 blur-3xl" />
+        <div className="pointer-events-none absolute -left-20 -bottom-20 h-72 w-72 rounded-full bg-teal-500/5 dark:bg-teal-500/10 blur-3xl" />
 
         <div className="relative z-10 flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
           <div className="max-w-2xl space-y-3">
@@ -367,8 +367,8 @@ export default function GuidePage() {
         </div>
 
         {/* Filter and Search Bar */}
-        <div className="mt-8 flex flex-col gap-3 border-t border-[var(--border)] pt-6 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex flex-wrap gap-2">
+        <div className="relative z-20 mt-8 flex flex-col gap-3 border-t border-[var(--border)] pt-6 sm:flex-row sm:items-center sm:justify-between">
+          <div className="relative z-20 flex flex-wrap gap-2">
             {[
               { id: 'all', label: 'All Modules' },
               { id: 'squad', label: 'Squad & Lineups' },
@@ -379,10 +379,10 @@ export default function GuidePage() {
                 key={tab.id}
                 type="button"
                 onClick={() => setSelectedCategory(tab.id)}
-                className={`rounded-lg px-3 py-1.5 text-xs font-bold transition-all ${
+                className={`relative z-20 rounded-lg px-3 py-1.5 text-xs font-bold transition-all shadow-xs ${
                   selectedCategory === tab.id
-                    ? 'bg-cyan-600 text-white shadow-xs'
-                    : 'border border-[var(--border)] bg-[var(--surface-raised)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:border-cyan-500/40'
+                    ? 'bg-cyan-600 text-white shadow-md shadow-cyan-600/20'
+                    : 'border border-[var(--border)] bg-[var(--surface-raised)] text-[var(--text-primary)] hover:border-cyan-500/50 hover:bg-[var(--surface)]'
                 }`}
               >
                 {tab.label}
