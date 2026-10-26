@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
-import { ChevronDown, HelpCircle, BookOpen, ShieldCheck, Mail, Sparkles, ExternalLink } from 'lucide-react';
+import { ChevronDown, HelpCircle, BookOpen, ShieldCheck, Mail, Sparkles, ExternalLink, Bug } from 'lucide-react';
 
 const FAQItem = ({ question, answer }: { question: string; answer: React.ReactNode }) => {
   const [isOpen, setIsOpen] = useState(false);
@@ -164,15 +164,15 @@ export default function HelpPage() {
               <h3 className="text-base font-bold text-[var(--text-primary)]">Still need help?</h3>
             </div>
             <p className="text-[var(--text-secondary)] text-xs leading-relaxed mb-4">
-              If you found a bug or have an account or scoring dispute, our team is ready to assist.
+              Found a bug, error, or interface problem? Send the team a report and follow its status here.
             </p>
-            <a
-              href="mailto:support@fantasydota2.com"
-              className="inline-flex w-full items-center justify-center gap-2 px-4 py-2 border border-[var(--border)] bg-[var(--surface-raised)] hover:bg-[var(--surface)] text-[var(--text-primary)] font-semibold rounded-xl transition-colors text-xs shadow-xs"
+            <Link
+              href="/report-issue"
+              className="inline-flex w-full items-center justify-center gap-2 px-4 py-2 bg-violet-600 hover:bg-violet-500 text-white font-semibold rounded-xl transition-colors text-xs shadow-xs"
             >
-              <Mail className="h-3.5 w-3.5 text-violet-500" />
-              Contact Support
-            </a>
+              <Bug className="h-3.5 w-3.5" />
+              Report an issue
+            </Link>
           </div>
         </div>
       </div>

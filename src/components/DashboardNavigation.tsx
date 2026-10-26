@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation';
 import {
   ArrowLeftRight,
   BarChart3,
+  Bug,
   BookOpen,
   Calendar,
   ChevronLeft,
@@ -80,6 +81,7 @@ const navSections: NavigationSection[] = [
 const bottomNavLinks: NavigationLink[] = [
   { href: '/season-recap', label: 'Season Recap', description: 'Review a finished season', icon: Trophy },
   { href: '/learn', label: 'Learn', description: 'Rules, guides, and fantasy basics', icon: BookOpen },
+  { href: '/report-issue', label: 'Report Issue', description: 'Report bugs, errors, or UI problems', icon: Bug },
 ];
 
 function isActive(pathname: string, path: string) {

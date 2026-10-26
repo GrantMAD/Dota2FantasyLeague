@@ -6,6 +6,7 @@ import Link from 'next/link';
 import {
   AlertTriangle,
   Bell,
+  Bug,
   CalendarDays,
   CheckCircle2,
   Clock,
@@ -212,6 +213,8 @@ export default function NotificationsPage() {
 
   const getIconForType = (type: string) => {
     switch (type) {
+      case 'issue_report_status':
+        return <div className="flex h-11 w-11 items-center justify-center rounded-full border border-violet-500/30 bg-violet-500/15 text-violet-300"><Bug className="h-5 w-5" /></div>;
       case 'gameweek_deadline':
       case 'lineup_deadline':
       case 'deadline_reminder':
@@ -294,6 +297,8 @@ export default function NotificationsPage() {
       case 'league_result':
       case 'h2h_result':
         return '/leagues';
+      case 'issue_report_status':
+        return '/report-issue';
       default:
         return '/dashboard';
     }
@@ -325,6 +330,8 @@ export default function NotificationsPage() {
       case 'league_result':
       case 'h2h_result':
         return 'Open League';
+      case 'issue_report_status':
+        return 'View Report';
       default:
         return 'View Feed';
     }
@@ -333,6 +340,15 @@ export default function NotificationsPage() {
   const getNotificationPresentation = (notification: Notification) => {
     const type = notification.type;
     const priceChange = Number(notification.metadata?.price_change ?? 0);
+    if (type === 'issue_report_status') {
+      return {
+        Icon: Bug,
+        label: 'Issue report',
+        iconTone: 'text-violet-700 dark:text-violet-300',
+        iconSurface: 'border-violet-500/30 bg-violet-500/10',
+        rowTone: 'border-l-violet-500',
+      };
+    }
     if (type === 'player_removed' || type === 'player_unavailable' || (type === 'system' && notification.metadata?.player_id)) {
       return {
         Icon: AlertTriangle,
@@ -408,6 +424,13 @@ export default function NotificationsPage() {
       return { href: `/gameweeks/${gameweekId}`, label: 'View Gameweek' };
     }
     if (type === 'rank_update') return { href: '/leaderboard', label: 'View Leaderboard' };
+    if (type === 'issue_report_status') {
+      const reportId = Number(metadata?.issue_report_id);
+      return {
+        href: Number.isSafeInteger(reportId) && reportId > 0 ? `/report-issue?report=${reportId}` : '/report-issue',
+        label: 'View Report',
+      };
+    }
     return { href: getActionHref(type), label: getActionLabel(type) };
   };
 

@@ -62,6 +62,8 @@ export function pushRouteForNotification(
   type: string,
   metadata: Record<string, unknown> | null,
 ): string {
+  if (type === 'issue_report_status') return '/notifications';
+
   const matchId = positiveMetadataId(metadata, 'match_id');
   if (matchId) return `/match/${matchId}`;
 

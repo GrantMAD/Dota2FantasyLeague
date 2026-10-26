@@ -75,6 +75,7 @@ describe('push notification delivery', () => {
     expect(isExpoPushToken('https://example.test')).toBe(false);
     expect(pushRouteForNotification('price_change', { player_id: '8' })).toBe('/player/8');
     expect(pushRouteForNotification('rank_update', { gameweek_id: 12 })).toBe('/gameweek/12');
+    expect(pushRouteForNotification('issue_report_status', { issue_report_id: 28 })).toBe('/notifications');
     expect(pushRouteForNotification('unknown', { league_id: -1 })).toBe('/notifications');
   });
 

@@ -18,6 +18,7 @@ import {
   Activity,
   Shield,
   Swords,
+  Bug,
 } from 'lucide-react';
 
 const adminMenuSections = [
@@ -34,6 +35,7 @@ const adminMenuSections = [
       { href: '/admin/observability', label: 'Observability', description: 'Inspect job health and failures', icon: Activity },
       { href: '/admin/telemetry', label: 'Telemetry', description: 'Search API and data-access activity', icon: BarChart3 },
       { href: '/admin/data-quality', label: 'Data Quality', description: 'Review provider conflicts and metrics', icon: AlertCircle },
+      { href: '/admin/issue-reports', label: 'Issue Reports', description: 'Review user-submitted bugs and status updates', icon: Bug },
       { href: '/admin/audit', label: 'Audit Log', description: 'Review administrative changes', icon: Database },
     ],
   },
