@@ -19,7 +19,7 @@ import {
 const quickRules = [
   { label: 'Squad size', value: '8 players', href: '/rules#squad', icon: Users, color: 'text-cyan-500 dark:text-cyan-400' },
   { label: 'Starting roles', value: '5 positions', href: '/rules#squad', icon: Shield, color: 'text-emerald-500 dark:text-emerald-400' },
-  { label: 'Starting budget', value: '$100.0M', href: '/rules#squad', icon: Gauge, color: 'text-amber-500 dark:text-amber-400' },
+  { label: 'Starting budget', value: '$45.0M', href: '/rules#squad', icon: Gauge, color: 'text-amber-500 dark:text-amber-400' },
   { label: 'Captain bonus', value: '2.0x points', href: '/rules#captain', icon: Crown, color: 'text-amber-500 dark:text-amber-400' },
   { label: 'Free transfers', value: '1 per gameweek', href: '/rules#transfers', icon: ArrowRight, color: 'text-cyan-500 dark:text-cyan-400' },
   { label: 'Lock window', value: 'Gameweek deadline', href: '/rules#deadlines', icon: Calendar, color: 'text-rose-500 dark:text-rose-400' },
