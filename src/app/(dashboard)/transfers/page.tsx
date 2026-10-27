@@ -80,7 +80,7 @@ function TransfersPageContent() {
   const [sortBy, setSortBy] = useState<'price' | 'name' | 'points' | 'ownership'>('price');
   const [sortDesc, setSortDesc] = useState(true);
   const [fantasySeasonId, setFantasySeasonId] = useState<number | null>(null);
-  const [budget, setBudget] = useState(100);
+  const [budget, setBudget] = useState<number | null>(null);
   const [freeTransfers, setFreeTransfers] = useState(2);
   const [wildcardUsed, setWildcardUsed] = useState(false);
   const [wildcardUsedGameweekNumber, setWildcardUsedGameweekNumber] = useState<number | null>(null);
@@ -376,6 +376,7 @@ function TransfersPageContent() {
   const outgoingPlayerCost = selectedPlayerOut !== null ? ownedPlayerCosts.get(selectedPlayerOut) : undefined;
   const incomingPlayerPrice = selectedPlayerInDetails?.current_price;
   const selectedTransferBudgetAfter =
+    budget !== null &&
     outgoingPlayerCost !== undefined &&
     incomingPlayerPrice !== null &&
     incomingPlayerPrice !== undefined &&
@@ -603,7 +604,10 @@ function TransfersPageContent() {
         <div className="bg-slate-800 border border-slate-700 rounded-lg px-4 py-2 flex items-center gap-4 shadow-sm">
           <div className="text-center">
             <div className="text-xs text-slate-400 uppercase">Bank</div>
-            <div className="text-lg font-mono font-bold text-emerald-400">${(budget).toFixed(1)}M</div>
+            {budget === null
+              ? <div className="h-6 w-16 animate-pulse rounded bg-slate-700 mt-0.5" />
+              : <div className="text-lg font-mono font-bold text-emerald-400">${(budget).toFixed(1)}M</div>
+            }
           </div>
           <div className="w-px h-8 bg-slate-700"></div>
           <div className="text-center">

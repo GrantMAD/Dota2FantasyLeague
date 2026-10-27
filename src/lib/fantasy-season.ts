@@ -14,7 +14,7 @@ export interface EnsureFantasySeasonResult {
 
 /**
  * Ensures the user has an enrolled fantasy_season record for the currently active season.
- * Defaults to 100M budget and 2 free transfers.
+ * Defaults to 45M budget and 2 free transfers.
  */
 export async function getOrCreateFantasySeason(
   supabase: SupabaseClient,
@@ -64,7 +64,7 @@ export async function getOrCreateFantasySeason(
     return {
       id: 0,
       season_id: 0,
-      budget: 100,
+      budget: 45,
       free_transfers: 2,
       total_points: 0,
       global_rank: null,
@@ -98,8 +98,13 @@ export async function getOrCreateFantasySeason(
     };
   }
 
-  // Create the initial enrollment for this season.
-  const initialBudget = 100.0;
+  // Read the starting budget from the season row so the app always honours whatever the admin configured.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: seasonRow } = await (supabase.from('seasons') as any)
+    .select('starting_budget')
+    .eq('id', seasonId)
+    .maybeSingle();
+  const initialBudget = Number(seasonRow?.starting_budget ?? 45000000) / 1000000;
   const initialFreeTransfers = 2;
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

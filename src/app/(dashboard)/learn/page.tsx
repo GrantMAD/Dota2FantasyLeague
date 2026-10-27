@@ -38,7 +38,7 @@ const learningPath = [
   {
     step: 2,
     title: 'Draft Your Squad',
-    description: 'Build your 8-man roster under the $100M competitive salary cap.',
+    description: 'Build your 8-man roster under the $45M competitive salary cap.',
     href: '/squads',
     badge: 'Step 2',
     label: 'Assemble Squad',

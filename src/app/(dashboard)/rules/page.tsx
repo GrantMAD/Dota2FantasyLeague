@@ -139,7 +139,7 @@ export default function RulesPage() {
         <div className="grid gap-3.5 sm:grid-cols-2 lg:grid-cols-4">
           <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface-raised)] p-4.5">
             <p className="text-xs font-medium text-[var(--text-muted)]">Budget</p>
-            <p className="mt-1.5 text-2xl font-black text-amber-600 dark:text-amber-400">$100.0M</p>
+            <p className="mt-1.5 text-2xl font-black text-amber-600 dark:text-amber-400">$45.0M</p>
           </div>
           <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface-raised)] p-4.5">
             <p className="text-xs font-medium text-[var(--text-muted)]">Squad size</p>

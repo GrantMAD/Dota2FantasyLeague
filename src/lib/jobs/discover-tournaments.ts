@@ -91,7 +91,7 @@ export async function discoverTournaments(): Promise<DiscoveryResult> {
                   status: 'active',
                   start_date: `${currentYear}-01-01`,
                   end_date: `${currentYear}-12-31`,
-                  starting_budget: 100.0,
+                  starting_budget: 45.0,
                   max_players_per_team: 3,
                   squad_size: 5,
                   starters_required: 5,

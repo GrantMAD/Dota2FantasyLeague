@@ -77,7 +77,7 @@ export default function AdminSettingsPage() {
           loadedSeasons.forEach(s => {
             sEdits[s.id] = {
               status: s.status,
-              starting_budget: s.starting_budget ?? 100000000,
+              starting_budget: s.starting_budget ?? 45000000,
               max_players_per_team: s.max_players_per_team ?? 3,
               squad_size: s.squad_size ?? 8,
               starters_required: s.starters_required ?? 5,
@@ -476,8 +476,8 @@ export default function AdminSettingsPage() {
                             step="1000000"
                             min="50000000"
                             max="200000000"
-                            value={((edit.starting_budget ?? 100000000) / 1000000).toFixed(1)}
-                            onChange={(e) => handleSeasonFieldChange(season.id, 'starting_budget', Math.round(parseFloat(e.target.value || '100') * 1000000))}
+                            value={((edit.starting_budget ?? 45000000) / 1000000).toFixed(1)}
+                            onChange={(e) => handleSeasonFieldChange(season.id, 'starting_budget', Math.round(parseFloat(e.target.value || '45') * 1000000))}
                             className="w-full px-2 py-1 bg-slate-900 border border-slate-700 rounded text-white text-xs font-semibold focus:outline-none focus:border-amber-500"
                           />
                           <span className="text-slate-400 text-xs">M</span>

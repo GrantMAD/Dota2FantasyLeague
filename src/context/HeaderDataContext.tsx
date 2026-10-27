@@ -114,6 +114,21 @@ export function HeaderDataProvider({ children }: { children: ReactNode }) {
     };
   }, [loadQuickStats]);
 
+  // ── Auth state changes ────────────────────────────────────────────────────
+  // Reload profile + stats when a new user signs in, clear them on sign-out.
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'SIGNED_IN') {
+        void loadProfile();
+        void loadQuickStats();
+      } else if (event === 'SIGNED_OUT') {
+        setProfile(null);
+        setQuickStats(null);
+      }
+    });
+    return () => subscription.unsubscribe();
+  }, [loadProfile, loadQuickStats]);
+
   // ── Notifications ─────────────────────────────────────────────────────────
   const loadNotifications = useCallback(async () => {
     try {
