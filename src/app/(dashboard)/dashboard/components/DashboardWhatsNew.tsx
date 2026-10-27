@@ -445,7 +445,7 @@ export function DashboardWhatsNew({ whatsNew }: DashboardWhatsNewProps) {
                     return (
                       <Link
                         key={`f-${activity.activity_id}`}
-                        href="/friends"
+                        href={`/friends?activityId=${encodeURIComponent(activity.activity_id)}`}
                         className="group relative flex items-center justify-between gap-3 px-4 py-2.5 border-l-3 border-l-teal-500/80 bg-linear-to-r from-teal-500/[0.04] to-transparent hover:bg-teal-500/[0.07] transition-all"
                       >
                         <div className="flex items-center gap-3 min-w-0">

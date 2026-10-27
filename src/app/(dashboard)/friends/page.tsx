@@ -1,5 +1,10 @@
+import { Suspense } from 'react';
 import FriendsPageClient from './FriendsPageClient';
 
 export default function FriendsPage() {
-  return <FriendsPageClient />;
+  return (
+    <Suspense fallback={null}>
+      <FriendsPageClient />
+    </Suspense>
+  );
 }

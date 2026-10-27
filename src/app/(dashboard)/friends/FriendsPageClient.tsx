@@ -1,13 +1,24 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import {
   ArrowLeftRight,
   Activity,
+  ArrowDown,
+  ArrowRight,
+  ArrowUp,
+  ChevronDown,
+  ChevronRight,
+  ChevronUp,
   ClipboardList,
+  Flame,
+  History,
   LoaderCircle,
   Search,
   Sparkles,
+  TrendingDown,
+  TrendingUp,
   Trophy,
   UserMinus,
   UserPlus,
@@ -15,8 +26,10 @@ import {
 } from 'lucide-react';
 import { fetchWithAuth } from '@/lib/fetch-with-auth';
 
-import type { FriendProfile, FriendActivity, FriendProgress } from '@/types/friends';
+import type { FriendProfile, FriendActivity } from '@/types/friends';
 import { FriendAvatar, FriendProgressModal } from '@/components/friends/FriendProgressModal';
+
+const THREE_DAYS_MS = 3 * 24 * 60 * 60 * 1000;
 
 function displayName(user: Pick<FriendProfile, 'username' | 'display_name'>) {
   return user.display_name?.trim() || user.username;
@@ -45,80 +58,306 @@ function formatRelativeTime(value: string) {
 
 function ActivityCard({
   activity,
+  isExpanded,
+  onToggleExpand,
   onOpenManager,
 }: {
   activity: FriendActivity;
+  isExpanded: boolean;
+  onToggleExpand: () => void;
   onOpenManager: (userId: string) => void;
 }) {
   const rankChange = activity.previous_gameweek_rank !== null && activity.gameweek_rank !== null
     ? activity.previous_gameweek_rank - activity.gameweek_rank
     : null;
-  const Icon = activity.activity_type === 'transfer'
-    ? ArrowLeftRight
-    : activity.activity_type === 'chip'
-      ? Sparkles
-      : activity.activity_type === 'lineup'
-        ? ClipboardList
-        : Trophy;
+
+  const config = useMemo(() => {
+    switch (activity.activity_type) {
+      case 'transfer':
+        return {
+          icon: ArrowLeftRight,
+          label: 'Squad Transfer',
+          borderAccent: 'border-l-emerald-500',
+          badgeBg: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20',
+          iconBg: 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400',
+        };
+      case 'chip':
+        return {
+          icon: Sparkles,
+          label: 'Chip Activated',
+          borderAccent: 'border-l-purple-500',
+          badgeBg: 'bg-purple-500/10 text-purple-700 dark:text-purple-400 border border-purple-500/20',
+          iconBg: 'bg-purple-500/15 text-purple-600 dark:text-purple-400',
+        };
+      case 'lineup':
+        return {
+          icon: ClipboardList,
+          label: 'Lineup Update',
+          borderAccent: 'border-l-cyan-500',
+          badgeBg: 'bg-cyan-500/10 text-cyan-700 dark:text-cyan-400 border border-cyan-500/20',
+          iconBg: 'bg-cyan-500/15 text-cyan-600 dark:text-cyan-400',
+        };
+      case 'gameweek_score':
+      default:
+        return {
+          icon: Trophy,
+          label: 'Gameweek Result',
+          borderAccent: 'border-l-amber-500',
+          badgeBg: 'bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20',
+          iconBg: 'bg-amber-500/15 text-amber-600 dark:text-amber-400',
+        };
+    }
+  }, [activity.activity_type]);
+
+  const Icon = config.icon;
+
   return (
-    <article className="flex gap-3 rounded-2xl border border-[var(--border)] bg-[var(--surface-raised)] p-4 sm:p-5">
-      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[var(--accent-primary)]/10 text-[var(--accent-primary)]">
-        <Icon className="h-5 w-5" />
-      </div>
-      <div className="min-w-0 flex-1">
-        <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
-          <button
-            type="button"
-            onClick={() => onOpenManager(activity.user_id)}
-            className="font-semibold text-[var(--text-primary)] hover:text-[var(--accent-primary)]"
-          >
-            {displayName(activity)}
-          </button>
-          <span className="text-sm text-[var(--text-muted)]">@{activity.username}</span>
-          <time className="ml-auto text-xs text-[var(--text-muted)]" dateTime={activity.updated_at}>
+    <article
+      id={`activity-${activity.activity_id}`}
+      className={`group relative overflow-hidden rounded-2xl border border-[var(--border)] border-l-4 ${config.borderAccent} bg-[var(--surface-raised)] shadow-sm transition hover:border-[var(--border-strong)] hover:shadow-md`}
+    >
+      {/* Clickable Header that toggles expand/collapse */}
+      <div
+        onClick={onToggleExpand}
+        className="flex items-start justify-between gap-3 p-4 sm:p-5 cursor-pointer select-none transition-colors hover:bg-[var(--surface)]/50"
+        role="button"
+        tabIndex={0}
+        aria-expanded={isExpanded}
+        aria-label={`${isExpanded ? 'Collapse' : 'Expand'} ${activity.title} by ${displayName(activity)}`}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            onToggleExpand();
+          }
+        }}
+      >
+        <div className="flex items-center gap-3 min-w-0 flex-1">
+          <div className="relative shrink-0">
+            <FriendAvatar
+              user={{
+                username: activity.username,
+                display_name: activity.display_name,
+                avatar_url: activity.avatar_url,
+              }}
+            />
+            <span
+              className={`absolute -bottom-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full ${config.iconBg} ring-2 ring-[var(--surface-raised)]`}
+              title={config.label}
+            >
+              <Icon className="h-2.5 w-2.5" />
+            </span>
+          </div>
+
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2 flex-wrap">
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onOpenManager(activity.user_id);
+                }}
+                className="font-bold text-[var(--text-primary)] hover:text-[var(--accent-primary)] hover:underline truncate cursor-pointer text-left"
+              >
+                {displayName(activity)}
+              </button>
+              <span className="text-xs text-[var(--text-muted)] truncate">@{activity.username}</span>
+            </div>
+            <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+              <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider ${config.badgeBg}`}>
+                {config.label}
+              </span>
+              {activity.gameweek_number && (
+                <span className="text-xs text-[var(--text-muted)] font-medium">
+                  GW {activity.gameweek_number}
+                </span>
+              )}
+              {/* Compact Preview Title when collapsed */}
+              <span className="text-xs text-[var(--text-primary)] font-medium truncate max-w-[200px] sm:max-w-xs">
+                · {activity.title}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2.5 shrink-0">
+          <time className="text-xs text-[var(--text-muted)] font-medium whitespace-nowrap" dateTime={activity.updated_at}>
             {formatRelativeTime(activity.updated_at)}
           </time>
+          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[var(--surface-muted)] text-[var(--text-muted)] transition-colors group-hover:bg-[var(--surface)] group-hover:text-[var(--text-primary)]">
+            {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+          </div>
         </div>
-        <p className="mt-1 font-medium text-[var(--text-primary)]">{activity.title}</p>
+      </div>
+
+      {/* Main Content Payload by Activity Type (Visible only when isExpanded) */}
+      {isExpanded && (
+        <div className="px-4 pb-4 sm:px-5 sm:pb-5 pt-3.5 border-t border-[var(--border)]">
+        {/* TRANSFER TYPE */}
         {activity.activity_type === 'transfer' && (
-          <div className="mt-2 flex flex-wrap gap-2 text-sm">
-            {activity.players_in?.map((player) => (
-              <span key={`in-${player}`} className="rounded-full bg-emerald-500/10 px-2.5 py-1 text-emerald-700 dark:text-emerald-300">
-                Bought {player}
-              </span>
-            ))}
-            {activity.players_out?.map((player) => (
-              <span key={`out-${player}`} className="rounded-full bg-rose-500/10 px-2.5 py-1 text-rose-700 dark:text-rose-300">
-                Sold {player}
-              </span>
-            ))}
+          <div className="space-y-2">
+            <p className="text-sm font-semibold text-[var(--text-primary)]">{activity.title}</p>
+            {((activity.players_out && activity.players_out.length > 0) || (activity.players_in && activity.players_in.length > 0)) && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+                {/* Players Out */}
+                {activity.players_out && activity.players_out.length > 0 && (
+                  <div className="rounded-xl border border-rose-500/20 bg-rose-500/5 dark:bg-rose-950/20 p-2.5">
+                    <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-rose-600 dark:text-rose-400">
+                      <ArrowDown className="h-3 w-3" />
+                      <span>Transferred Out</span>
+                    </div>
+                    <div className="mt-1.5 flex flex-wrap gap-1.5">
+                      {activity.players_out.map((player) => (
+                        <span
+                          key={`out-${player}`}
+                          className="inline-flex items-center rounded-lg bg-rose-500/15 px-2 py-1 text-xs font-semibold text-rose-700 dark:text-rose-300"
+                        >
+                          {player}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Players In */}
+                {activity.players_in && activity.players_in.length > 0 && (
+                  <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 dark:bg-emerald-950/20 p-2.5">
+                    <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
+                      <ArrowUp className="h-3 w-3" />
+                      <span>Transferred In</span>
+                    </div>
+                    <div className="mt-1.5 flex flex-wrap gap-1.5">
+                      {activity.players_in.map((player) => (
+                        <span
+                          key={`in-${player}`}
+                          className="inline-flex items-center rounded-lg bg-emerald-500/15 px-2 py-1 text-xs font-semibold text-emerald-700 dark:text-emerald-300"
+                        >
+                          {player}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         )}
-        {activity.activity_type === 'lineup' && (
-          <ul className="mt-2 space-y-1 text-sm text-[var(--text-muted)]">
-            {activity.lineup_changes?.length ? activity.lineup_changes.map((change) => (
-              <li key={change.slot}>
-                <span className="font-medium text-[var(--text-primary)]">{change.slot}:</span>{' '}
-                {change.from ?? 'Empty'} <span aria-label="changed to">→</span> {change.to ?? 'Empty'}
-              </li>
-            )) : (
-              <li>Detailed player changes are not available for this older lineup update.</li>
+
+        {/* CHIP TYPE */}
+        {activity.activity_type === 'chip' && (
+          <div className="flex items-center justify-between gap-3 rounded-xl border border-purple-500/20 bg-purple-500/5 dark:bg-purple-950/20 p-3">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-purple-500/15 text-purple-600 dark:text-purple-400">
+                <Sparkles className="h-5 w-5" />
+              </div>
+              <div className="min-w-0">
+                <p className="font-bold text-sm text-[var(--text-primary)] truncate">{activity.title}</p>
+                <p className="text-xs text-[var(--text-muted)]">Active for {activity.season_name} · GW {activity.gameweek_number}</p>
+              </div>
+            </div>
+            {activity.chip && (
+              <span className="shrink-0 rounded-lg bg-purple-500/20 px-2.5 py-1 text-xs font-extrabold uppercase tracking-wide text-purple-700 dark:text-purple-300">
+                {activity.chip}
+              </span>
             )}
-          </ul>
+          </div>
         )}
+
+        {/* LINEUP TYPE */}
+        {activity.activity_type === 'lineup' && (
+          <div className="space-y-2">
+            <p className="text-sm font-semibold text-[var(--text-primary)]">{activity.title}</p>
+            {activity.lineup_changes?.length ? (
+              <div className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-2.5">
+                <div className="space-y-1.5">
+                  {activity.lineup_changes.map((change) => (
+                    <div key={change.slot} className="flex items-center justify-between text-xs gap-2">
+                      <span className="font-semibold uppercase tracking-wider text-[var(--text-muted)] shrink-0 w-24">
+                        {change.slot}
+                      </span>
+                      <div className="flex items-center gap-2 min-w-0 flex-1 justify-end">
+                        <span className="text-[var(--text-muted)] truncate">{change.from ?? 'Empty'}</span>
+                        <ArrowRight className="h-3 w-3 shrink-0 text-[var(--accent-primary)]" />
+                        <span className="font-bold text-[var(--text-primary)] truncate">{change.to ?? 'Empty'}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <p className="text-xs text-[var(--text-muted)] italic">Detailed player changes are not available for this lineup update.</p>
+            )}
+          </div>
+        )}
+
+        {/* GAMEWEEK SCORE TYPE */}
         {activity.activity_type === 'gameweek_score' && (
-          <p className="mt-1 text-sm text-[var(--text-muted)]">
-            {activity.gameweek_points === null ? 'Score updated' : `${formatPoints(activity.gameweek_points)} points`}
-            {activity.gameweek_rank ? ` · Global gameweek rank #${activity.gameweek_rank.toLocaleString()}` : ''}
-            {rankChange !== null && rankChange !== 0
-              ? ` · ${Math.abs(rankChange).toLocaleString()} places ${rankChange > 0 ? 'up' : 'down'}`
-              : ''}
-          </p>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-xl border border-amber-500/20 bg-amber-500/5 dark:bg-amber-950/20 p-3">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-500/15 text-amber-600 dark:text-amber-400">
+                <Trophy className="h-5 w-5" />
+              </div>
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wider text-amber-700 dark:text-amber-400">
+                  {activity.season_name} · Gameweek {activity.gameweek_number}
+                </p>
+                <div className="flex items-baseline gap-2 mt-0.5">
+                  <span className="text-xl font-extrabold text-[var(--text-primary)]">
+                    {activity.gameweek_points !== null ? formatPoints(activity.gameweek_points) : '--'}
+                  </span>
+                  <span className="text-xs font-medium text-[var(--text-muted)]">points</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 sm:justify-end flex-wrap">
+              {activity.gameweek_rank && (
+                <div className="rounded-lg bg-[var(--surface)] px-2.5 py-1 text-xs border border-[var(--border)]">
+                  <span className="text-[var(--text-muted)]">GW Rank: </span>
+                  <span className="font-bold text-[var(--text-primary)]">#{activity.gameweek_rank.toLocaleString()}</span>
+                </div>
+              )}
+              {rankChange !== null && rankChange !== 0 && (
+                <div
+                  className={`flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-bold ${
+                    rankChange > 0
+                      ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400'
+                      : 'bg-rose-500/15 text-rose-700 dark:text-rose-400'
+                  }`}
+                >
+                  {rankChange > 0 ? (
+                    <>
+                      <TrendingUp className="h-3 w-3" />
+                      <span>+{rankChange.toLocaleString()}</span>
+                    </>
+                  ) : (
+                    <>
+                      <TrendingDown className="h-3 w-3" />
+                      <span>{rankChange.toLocaleString()}</span>
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
         )}
-        {activity.activity_type !== 'gameweek_score' && activity.gameweek_number && (
-          <p className="mt-1 text-sm text-[var(--text-muted)]">{activity.season_name} · Gameweek {activity.gameweek_number}</p>
-        )}
+
+        {/* Footer: Manager Profile Quick Action Link */}
+        <div className="mt-3.5 pt-2.5 flex items-center justify-between text-xs text-[var(--text-muted)] border-t border-[var(--border)]">
+          <span className="truncate">{activity.season_name}</span>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onOpenManager(activity.user_id);
+            }}
+            className="flex items-center gap-1 font-semibold text-[var(--accent-primary)] hover:underline cursor-pointer group-hover:translate-x-0.5 transition-transform"
+          >
+            <span>View Manager</span>
+            <ChevronRight className="h-3.5 w-3.5" />
+          </button>
+        </div>
       </div>
+      )}
     </article>
   );
 }
@@ -126,20 +365,60 @@ function ActivityCard({
 
 
 export default function FriendsPageClient() {
+  const searchParams = useSearchParams();
+  const targetActivityId = searchParams.get('activityId');
+
   const [search, setSearch] = useState('');
   const [results, setResults] = useState<FriendProfile[]>([]);
   const [following, setFollowing] = useState<FriendProfile[]>([]);
   const [activities, setActivities] = useState<FriendActivity[]>([]);
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [searching, setSearching] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [isRecentSectionOpen, setIsRecentSectionOpen] = useState(true);
+  const [isOlderSectionOpen, setIsOlderSectionOpen] = useState(true);
+
   const [workingUserId, setWorkingUserId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [selectedManager, setSelectedManager] = useState<FriendProfile | null>(null);
 
+  const scrolledRef = useRef(false);
+
+  const toggleExpand = (activityId: string) => {
+    setExpandedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(activityId)) {
+        next.delete(activityId);
+      } else {
+        next.add(activityId);
+      }
+      return next;
+    });
+  };
+
   const followingIds = useMemo(() => new Set(following.map((user) => user.id)), [following]);
   const normalizedSearch = search.trim();
+
+  const [feedTimestamp, setFeedTimestamp] = useState<number | null>(null);
+
+  const { recentActivities, olderActivities } = useMemo(() => {
+    const referenceTime = feedTimestamp ?? 0;
+    const recent: FriendActivity[] = [];
+    const older: FriendActivity[] = [];
+
+    for (const activity of activities) {
+      const timestamp = new Date(activity.updated_at).getTime();
+      if (referenceTime - timestamp <= THREE_DAYS_MS) {
+        recent.push(activity);
+      } else {
+        older.push(activity);
+      }
+    }
+
+    return { recentActivities: recent, olderActivities: older };
+  }, [activities, feedTimestamp]);
 
   useEffect(() => {
     let cancelled = false;
@@ -161,8 +440,31 @@ export default function FriendsPageClient() {
         if (!feedResponse.ok) throw new Error(feedData.error || 'Unable to load friend activity.');
         if (cancelled) return;
         setFollowing(followingData.following ?? []);
-        setActivities(feedData.activities ?? []);
+        const loadedActivities = feedData.activities ?? [];
+        setActivities(loadedActivities);
+        setFeedTimestamp(Date.now());
         setNextCursor(feedData.nextCursor ?? null);
+
+        if (targetActivityId && !scrolledRef.current) {
+          const target = loadedActivities.find((a) => a.activity_id === targetActivityId);
+          if (target) {
+            setExpandedIds(new Set([targetActivityId]));
+            const now = Date.now();
+            const isOlder = now - new Date(target.updated_at).getTime() > THREE_DAYS_MS;
+            if (isOlder) {
+              setIsOlderSectionOpen(true);
+            } else {
+              setIsRecentSectionOpen(true);
+            }
+            scrolledRef.current = true;
+            setTimeout(() => {
+              const el = document.getElementById(`activity-${targetActivityId}`);
+              if (el) {
+                el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+              }
+            }, 100);
+          }
+        }
       } catch (loadError: unknown) {
         if (!cancelled) {
           setError(loadError instanceof Error ? loadError.message : 'Unable to load friends.');
@@ -174,7 +476,7 @@ export default function FriendsPageClient() {
 
     void loadInitialData();
     return () => { cancelled = true; };
-  }, []);
+  }, [targetActivityId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -235,6 +537,7 @@ export default function FriendsPageClient() {
     };
     if (!response.ok) throw new Error(data.error || 'Unable to refresh friend activity.');
     setActivities(data.activities ?? []);
+    setFeedTimestamp(Date.now());
     setNextCursor(data.nextCursor ?? null);
   }
 
@@ -311,14 +614,91 @@ export default function FriendsPageClient() {
               <LoaderCircle className="mr-2 h-5 w-5 animate-spin" /> Loading friend activity…
             </div>
           ) : activities.length ? (
-            <div className="space-y-3">
-              {activities.map((activity) => (
-                <ActivityCard
-                  key={activity.activity_id}
-                  activity={activity}
-                  onOpenManager={openManager}
-                />
-              ))}
+            <div className="space-y-6">
+              {/* RECENT ACTIVITY (LAST 3 DAYS) */}
+              {recentActivities.length > 0 && (
+                <div className="space-y-3">
+                  <button
+                    type="button"
+                    onClick={() => setIsRecentSectionOpen((prev) => !prev)}
+                    className="flex w-full items-center justify-between border-b border-[var(--border)] pb-2 text-left cursor-pointer group transition-colors hover:border-[var(--accent-primary)]/50"
+                    aria-expanded={isRecentSectionOpen}
+                  >
+                    <div className="flex items-center gap-2">
+                      <Flame className="h-4 w-4 text-[var(--accent-primary)] animate-pulse" />
+                      <h3 className="text-sm font-bold uppercase tracking-wider text-[var(--text-primary)] group-hover:text-[var(--accent-primary)] transition-colors">
+                        Recent Activity
+                      </h3>
+                      <span className="rounded-full bg-[var(--accent-primary)]/15 px-2 py-0.5 text-[10px] font-bold text-[var(--accent-primary)]">
+                        Last 3 days
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2 text-xs text-[var(--text-muted)] font-medium">
+                      <span>{recentActivities.length} update{recentActivities.length === 1 ? '' : 's'}</span>
+                      <div className="flex h-5 w-5 items-center justify-center rounded-md bg-[var(--surface-muted)] text-[var(--text-muted)] group-hover:bg-[var(--surface)] group-hover:text-[var(--text-primary)] transition-colors">
+                        {isRecentSectionOpen ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+                      </div>
+                    </div>
+                  </button>
+
+                  {isRecentSectionOpen && (
+                    <div className="space-y-3">
+                      {recentActivities.map((activity) => (
+                        <ActivityCard
+                          key={activity.activity_id}
+                          activity={activity}
+                          isExpanded={expandedIds.has(activity.activity_id)}
+                          onToggleExpand={() => toggleExpand(activity.activity_id)}
+                          onOpenManager={openManager}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* OLDER ACTIVITY (OLDER THAN 3 DAYS) */}
+              {olderActivities.length > 0 && (
+                <div className="space-y-3">
+                  <button
+                    type="button"
+                    onClick={() => setIsOlderSectionOpen((prev) => !prev)}
+                    className="flex w-full items-center justify-between border-b border-[var(--border)] pb-2 pt-2 text-left cursor-pointer group transition-colors hover:border-[var(--border-strong)]"
+                    aria-expanded={isOlderSectionOpen}
+                  >
+                    <div className="flex items-center gap-2">
+                      <History className="h-4 w-4 text-[var(--text-muted)]" />
+                      <h3 className="text-sm font-bold uppercase tracking-wider text-[var(--text-muted)] group-hover:text-[var(--text-primary)] transition-colors">
+                        Earlier Activity
+                      </h3>
+                      <span className="rounded-full bg-[var(--surface-muted)] px-2 py-0.5 text-[10px] font-semibold text-[var(--text-muted)]">
+                        Older than 3 days
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2 text-xs text-[var(--text-muted)] font-medium">
+                      <span>{olderActivities.length} update{olderActivities.length === 1 ? '' : 's'}</span>
+                      <div className="flex h-5 w-5 items-center justify-center rounded-md bg-[var(--surface-muted)] text-[var(--text-muted)] group-hover:bg-[var(--surface)] group-hover:text-[var(--text-primary)] transition-colors">
+                        {isOlderSectionOpen ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+                      </div>
+                    </div>
+                  </button>
+
+                  {isOlderSectionOpen && (
+                    <div className="space-y-3">
+                      {olderActivities.map((activity) => (
+                        <ActivityCard
+                          key={activity.activity_id}
+                          activity={activity}
+                          isExpanded={expandedIds.has(activity.activity_id)}
+                          onToggleExpand={() => toggleExpand(activity.activity_id)}
+                          onOpenManager={openManager}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
               {nextCursor && (
                 <button
                   type="button"
