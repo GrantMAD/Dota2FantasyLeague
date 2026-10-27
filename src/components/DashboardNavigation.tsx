@@ -59,6 +59,7 @@ const navSections: NavigationSection[] = [
     links: [
       { href: '/leagues', label: 'Leagues', description: 'Create or follow league standings', icon: Trophy },
       { href: '/leaderboard', label: 'Leaderboard', description: 'Compare global manager ranks', icon: Medal },
+      { href: '/friends', label: 'Friends', description: 'Follow managers and view their progress', icon: Users },
       { href: '/gameweeks', label: 'Gameweeks', description: 'View schedules and deadlines', icon: Calendar },
     ],
   },

@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server';
 import { GET, PUT } from '../route';
+import { logAuditAction } from '@/lib/audit-logger';
 
 const mockVerifyAuth = jest.fn();
 const mockSupabaseServer = jest.fn();
@@ -36,6 +37,107 @@ describe('PUT /api/fantasy/lineup boundary validation', () => {
   beforeEach(() => {
     mockVerifyAuth.mockResolvedValue({ userId: 'manager-1', email: 'manager@example.test' });
     mockSupabaseServer.mockReset();
+    jest.mocked(logAuditAction).mockClear();
+  });
+
+  it('records old and new player assignments so the friends feed can explain lineup changes', async () => {
+    const previousLineup = {
+      carry_id: 1,
+      mid_id: 2,
+      offlane_id: 3,
+      support_id: 4,
+      hard_support_id: 5,
+      bench_1_id: null,
+      bench_2_id: null,
+      bench_3_id: null,
+      captain_player_id: 1,
+      vice_captain_player_id: 2,
+    };
+    const updatedLineup = {
+      id: 55,
+      fantasy_season_id: 9,
+      gameweek_id: 7,
+      ...previousLineup,
+      carry_id: 6,
+      captain_player_id: 6,
+    };
+    const queryFor = (table: string) => {
+      const query: Record<string, jest.Mock> = {};
+      const chain = () => query;
+      query.select = jest.fn(chain);
+      query.eq = jest.fn(chain);
+      query.in = jest.fn(chain);
+      query.limit = jest.fn(chain);
+      query.upsert = jest.fn(() => {
+        return query;
+      });
+      query.maybeSingle = jest.fn(async () => {
+        if (table === 'gameweeks') return { data: { season_id: 12, status: 'active', deadline: null }, error: null };
+        if (table === 'fantasy_seasons') return { data: { id: 9, season_id: 12 }, error: null };
+        if (table === 'fantasy_squads') return { data: { id: 88 }, error: null };
+        if (table === 'fantasy_lineups') return { data: previousLineup, error: null };
+        return { data: null, error: null };
+      });
+      query.single = jest.fn(async () => ({ data: updatedLineup, error: null }));
+      query.then = jest.fn((resolve: (value: unknown) => unknown) => {
+        if (table === 'fantasy_squad_members') {
+          return resolve({ data: [1, 2, 3, 4, 5, 6].map((player_id) => ({ player_id, removed_date: null })), error: null });
+        }
+        if (table === 'professional_players') {
+          return resolve({ data: [
+            { id: 2, primary_role: 'Mid' },
+            { id: 3, primary_role: 'Offlane' },
+            { id: 4, primary_role: 'Support' },
+            { id: 5, primary_role: 'Hard Support' },
+            { id: 6, primary_role: 'Carry' },
+          ], error: null });
+        }
+        return resolve({ data: [], error: null });
+      });
+      return query;
+    };
+    mockSupabaseServer.mockReturnValue({ from: queryFor });
+
+    const response = await PUT(request({ gameweekId: 7, lineup: [
+      { ...validLineup[0], playerId: 6 },
+      ...validLineup.slice(1),
+    ] }));
+
+    expect(response.status).toBe(200);
+    expect(logAuditAction).toHaveBeenCalledWith(expect.objectContaining({
+      tableName: 'fantasy_lineups',
+      recordId: 55,
+      oldValues: {
+        gameweek_id: 7,
+        slots: {
+          carry: 1,
+          mid: 2,
+          offlane: 3,
+          support: 4,
+          hard_support: 5,
+          bench_1: null,
+          bench_2: null,
+          bench_3: null,
+        },
+        captain_player_id: 1,
+        vice_captain_player_id: 2,
+      },
+      newValues: {
+        gameweek_id: 7,
+        slots: {
+          carry: 6,
+          mid: 2,
+          offlane: 3,
+          support: 4,
+          hard_support: 5,
+          bench_1: null,
+          bench_2: null,
+          bench_3: null,
+        },
+        captain_player_id: 6,
+        vice_captain_player_id: 2,
+      },
+    }));
   });
 
   describe('GET /api/fantasy/lineup season isolation', () => {

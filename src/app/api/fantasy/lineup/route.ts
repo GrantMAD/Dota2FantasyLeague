@@ -25,6 +25,16 @@ function getSlotId(row: Record<string, unknown>, slot: Slot): number | null {
   return typeof value === 'number' ? value : value ? Number(value) : null;
 }
 
+function getLineupAuditSnapshot(row: Record<string, unknown>) {
+  return {
+    slots: Object.fromEntries(slots.map((slot) => [slot, getSlotId(row, slot)])),
+    captain_player_id: Number(row.captain_player_id),
+    vice_captain_player_id: row.vice_captain_player_id === null || row.vice_captain_player_id === undefined
+      ? null
+      : Number(row.vice_captain_player_id),
+  };
+}
+
 async function getHandler(request: NextRequest) {
   try {
     const user = await verifyAuth(request);
@@ -221,9 +231,29 @@ async function putHandler(request: NextRequest) {
       updated_at: new Date().toISOString(),
     };
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: previousLineup, error: previousLineupError } = await (supabase.from('fantasy_lineups') as any)
+      .select('carry_id, mid_id, offlane_id, support_id, hard_support_id, bench_1_id, bench_2_id, bench_3_id, captain_player_id, vice_captain_player_id')
+      .eq('fantasy_season_id', season.id)
+      .eq('gameweek_id', gameweekId)
+      .maybeSingle();
+    if (previousLineupError) return NextResponse.json({ error: 'Failed to load the previous lineup.' }, { status: 500 });
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data, error } = await (supabase.from('fantasy_lineups') as any).upsert(row, { onConflict: 'fantasy_season_id,gameweek_id' }).select().single();
     if (error) return NextResponse.json({ error: 'Failed to save lineup.' }, { status: 500 });
-    await logAuditAction({ tableName: 'fantasy_lineups', recordId: data.id, action: 'LINEUP_CHANGE', changedBy: user.userId, newValues: { gameweek_id: gameweekId }, reason: 'User saved lineup' });
+    const oldSnapshot = previousLineup ? getLineupAuditSnapshot(previousLineup) : null;
+    const newSnapshot = getLineupAuditSnapshot(row);
+    if (JSON.stringify(oldSnapshot) !== JSON.stringify(newSnapshot)) {
+      await logAuditAction({
+        tableName: 'fantasy_lineups',
+        recordId: data.id,
+        action: 'LINEUP_CHANGE',
+        changedBy: user.userId,
+        oldValues: oldSnapshot ? { gameweek_id: gameweekId, ...oldSnapshot } : undefined,
+        newValues: { gameweek_id: gameweekId, ...newSnapshot },
+        reason: 'User saved lineup',
+      });
+    }
     return NextResponse.json({ message: 'Lineup saved successfully.', lineup: data });
   } catch (error: unknown) {
     const authError = error as AuthError;
