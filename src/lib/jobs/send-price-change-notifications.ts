@@ -17,7 +17,7 @@ interface PriceChangeRecord {
   professional_players: { name: string | null } | { name: string | null }[] | null;
 }
 
-interface ActiveGameweekRecord {
+interface ClosedGameweekRecord {
   id: number;
   season_id: number;
 }
@@ -59,24 +59,42 @@ class SendPriceChangeNotifications {
     const pushCandidates: PushNotificationCandidate[] = [];
 
     try {
-      // 1. Get the current active/upcoming gameweek ID (assuming prices update for upcoming)
+      // Price updates are written against the latest closed gameweek.
+      const { data: seasonData, error: seasonError } = await this.supabase
+        .from('seasons')
+        .select('id')
+        .order('id', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (seasonError) throw new Error(`Failed to fetch pricing season: ${seasonError.message}`);
+      const seasonId = Number((seasonData as { id: number } | null)?.id);
+      if (!Number.isInteger(seasonId)) {
+        throw new Error('No season is available for price notifications.');
+      }
+
       const { data: gameweekData, error: gwError } = await this.supabase
         .from('gameweeks')
         .select('id, season_id')
-        .in('status', ['upcoming', 'active'])
-        .order('start_date', { ascending: true })
+        .eq('season_id', seasonId)
+        .eq('status', 'closed')
+        .order('id', { ascending: false })
         .limit(1)
         .maybeSingle();
-      const gameweek = gameweekData as ActiveGameweekRecord | null;
+      const gameweek = gameweekData as ClosedGameweekRecord | null;
 
-      if (gwError || !gameweek) {
-        throw new Error(`Failed to fetch active gameweek: ${gwError?.message || 'None found'}`);
+      if (gwError) {
+        throw new Error(`Failed to fetch latest closed gameweek: ${gwError.message}`);
+      }
+      if (!gameweek) {
+        result.duration = Date.now() - startTime;
+        return result;
       }
 
-      // 2. Find players whose price changed significantly this gameweek
+      // Find players whose prices changed after the latest completed gameweek.
       const { data: priceChanges, error: priceError } = await this.supabase
         .from('player_prices')
         .select('player_id, price, price_change, professional_players(name)')
+        .eq('season_id', gameweek.season_id)
         .eq('gameweek_id', gameweek.id)
         .neq('price_change', 0);
 
