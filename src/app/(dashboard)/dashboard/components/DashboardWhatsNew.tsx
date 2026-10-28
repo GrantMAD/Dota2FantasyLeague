@@ -131,38 +131,15 @@ export function DashboardWhatsNew({ whatsNew }: DashboardWhatsNewProps) {
   const liveMatchesCount = gameweek?.matchStatuses?.in_progress ?? 0;
   const totalMatches = gameweek?.matchCount ?? 0;
 
-  // If there are no real squad updates yet, provide mock sample updates so user can preview how they look
-  const displayUpdates: WhatsNewUpdate[] =
-    updates && updates.length > 0
-      ? updates
-      : [
-          {
-            id: 991,
-            kind: 'price_change',
-            title: 'Ame (Xtreme Gaming)',
-            message: 'Price increased +$0.5M (Now $6.0M)',
-            createdAt: new Date().toISOString(),
-            href: '/players/509',
-          },
-          {
-            id: 992,
-            kind: 'availability',
-            title: 'Yatoro (Team Spirit)',
-            message: 'Swap required: Inactive on starting roster for GW2',
-            createdAt: new Date().toISOString(),
-            href: '/players/727',
-          },
-        ];
-
   // Interleave feed items: friend activity & squad alerts take priority
   const allFeedItems: FeedItem[] = [
     ...friendActivities.map((f) => ({ type: 'friend' as const, data: f })),
-    ...displayUpdates.map((u) => ({ type: 'update' as const, data: u })),
+    ...updates.map((u) => ({ type: 'update' as const, data: u })),
     ...(events || []).map((e) => ({ type: 'tournament' as const, data: e })),
   ];
 
   const tournamentCount = events?.length ?? 0;
-  const squadUpdateCount = displayUpdates.length;
+  const squadUpdateCount = updates.length;
   const friendActivityCount = friendActivities.length;
 
   const filteredItems = allFeedItems.filter((item) => {
@@ -434,6 +411,8 @@ export function DashboardWhatsNew({ whatsNew }: DashboardWhatsNewProps) {
                 <div className="py-8 text-center text-xs text-slate-400 dark:text-slate-500">
                   {filter === 'friends'
                     ? 'No recent friend activity. Follow managers on the Friends page to see their moves here!'
+                    : filter === 'squad'
+                      ? 'No squad alerts right now.'
                     : 'No items match this filter.'}
                 </div>
               ) : (
