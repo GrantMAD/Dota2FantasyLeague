@@ -17,6 +17,13 @@ type PlayerAnalytics = {
   form: number[];
   projectedPoints: number;
   bestPoints: number;
+  floor?: number;
+  ceiling?: number;
+  volatility?: string;
+  consistencyRate?: number;
+  role?: string | null;
+  roleAverage?: number | null;
+  roleDelta?: number | null;
 };
 
 type FantasyBreakdown = {
@@ -523,6 +530,60 @@ export default function PlayerDetailPage() {
             </div>
           ) : analytics ? (
             <div className="p-6">
+              {/* Floor, Projection & Ceiling Visual Range */}
+              <div className="mb-6 rounded-xl bg-[var(--surface-raised)] border border-[var(--border)] p-4">
+                <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+                  <div>
+                    <span className="text-xs text-[var(--text-muted)] font-bold uppercase tracking-wider">Outcome Range &amp; Volatility</span>
+                    <p className="text-xs text-[var(--text-secondary)] mt-0.5">Floor (10th percentile) vs Peak Ceiling (90th percentile)</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                      analytics.volatility === 'Low'
+                        ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30'
+                        : analytics.volatility === 'High'
+                          ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/30'
+                          : 'bg-cyan-500/10 text-cyan-700 dark:text-cyan-300 border border-cyan-500/30'
+                    }`}>
+                      {analytics.volatility ?? 'Medium'} Volatility
+                    </span>
+                    {analytics.consistencyRate !== undefined && (
+                      <span className="text-xs text-[var(--text-muted)] font-medium">
+                        {analytics.consistencyRate}% Consistent
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Range bar */}
+                <div className="relative pt-4 pb-2">
+                  <div className="h-3 w-full rounded-full bg-[var(--surface-muted)] relative overflow-hidden">
+                    <div
+                      className="absolute top-0 bottom-0 bg-gradient-to-r from-emerald-500 via-cyan-500 to-amber-500 rounded-full opacity-80"
+                      style={{
+                        left: `${Math.min(100, Math.max(0, (analytics.floor ?? 0) * 2))}%`,
+                        right: `${Math.min(100, Math.max(0, 100 - (analytics.ceiling ?? 30) * 2))}%`,
+                      }}
+                    />
+                  </div>
+                  <div className="flex justify-between items-center text-xs mt-2 font-mono">
+                    <div className="text-left">
+                      <span className="text-[10px] text-[var(--text-muted)] block uppercase font-sans">Floor</span>
+                      <span className="font-bold text-[var(--text-primary)]">{(analytics.floor ?? 0).toFixed(1)} pts</span>
+                    </div>
+                    <div className="text-center">
+                      <span className="text-[10px] text-cyan-600 dark:text-cyan-400 block uppercase font-sans font-bold">Projected</span>
+                      <span className="font-extrabold text-cyan-600 dark:text-cyan-300">{analytics.projectedPoints.toFixed(1)} pts</span>
+                    </div>
+                    <div className="text-right">
+                      <span className="text-[10px] text-[var(--text-muted)] block uppercase font-sans">Ceiling</span>
+                      <span className="font-bold text-amber-600 dark:text-amber-400">{(analytics.ceiling ?? 0).toFixed(1)} pts</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Form Bar Chart */}
               {analytics.form.length > 0 && (
                 <div className="mb-6">
                   <div className="flex items-center justify-between mb-2">
@@ -545,24 +606,33 @@ export default function PlayerDetailPage() {
                   </div>
                 </div>
               )}
+
+              {/* 4 Stat Metrics */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                 <div className="rounded-xl bg-[var(--surface-raised)] border border-[var(--border)] p-4 text-center">
                   <div className="text-xs text-[var(--text-muted)] font-semibold uppercase mb-1.5">Avg / Match</div>
                   <div className="text-xl font-bold text-[var(--text-primary)] font-mono">{analytics.averagePoints.toFixed(1)}</div>
+                  {analytics.roleDelta !== null && analytics.roleDelta !== undefined && (
+                    <div className={`text-[10px] font-semibold mt-1 ${
+                      analytics.roleDelta >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'
+                    }`}>
+                      {analytics.roleDelta >= 0 ? '+' : ''}{analytics.roleDelta.toFixed(1)} vs {analytics.role ?? 'role'} avg
+                    </div>
+                  )}
                 </div>
                 <div className="rounded-xl bg-[var(--surface-raised)] border border-[var(--border)] p-4 text-center">
                   <div className="text-xs text-[var(--text-muted)] font-semibold uppercase mb-1.5">Season Best</div>
-                  <div className="text-xl font-bold text-amber-400 font-mono">{analytics.bestPoints.toFixed(1)}</div>
+                  <div className="text-xl font-bold text-amber-600 dark:text-amber-400 font-mono">{analytics.bestPoints.toFixed(1)}</div>
                 </div>
-                <div className="rounded-xl bg-cyan-500/5 border border-cyan-500/25 p-4 text-center">
-                  <div className="text-xs text-cyan-400 font-semibold uppercase mb-1.5">Projected</div>
-                  <div className="text-xl font-bold text-cyan-300 font-mono">{analytics.projectedPoints.toFixed(1)}</div>
+                <div className="rounded-xl bg-cyan-500/10 border border-cyan-500/30 p-4 text-center">
+                  <div className="text-xs text-cyan-700 dark:text-cyan-300 font-semibold uppercase mb-1.5">Projected Next GW</div>
+                  <div className="text-xl font-bold text-cyan-700 dark:text-cyan-200 font-mono">{analytics.projectedPoints.toFixed(1)}</div>
                 </div>
                 <div className="rounded-xl bg-[var(--surface-raised)] border border-[var(--border)] p-4 text-center">
                   <div className="text-xs text-[var(--text-muted)] font-semibold uppercase mb-1.5">Price Δ</div>
                   <div className={`text-xl font-bold font-mono ${
-                    analytics.priceChange > 0 ? 'text-emerald-400' :
-                    analytics.priceChange < 0 ? 'text-rose-400' : 'text-[var(--text-secondary)]'
+                    analytics.priceChange > 0 ? 'text-emerald-600 dark:text-emerald-400' :
+                    analytics.priceChange < 0 ? 'text-rose-600 dark:text-rose-400' : 'text-[var(--text-secondary)]'
                   }`}>
                     {analytics.priceChange > 0 ? '+' : ''}{analytics.priceChange.toFixed(2)}M
                   </div>

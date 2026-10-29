@@ -49,6 +49,11 @@ type PlayerAnalytics = {
   form: number[];
   projectedPoints: number;
   bestPoints: number;
+  floor?: number;
+  ceiling?: number;
+  volatility?: string;
+  consistencyRate?: number;
+  roleDelta?: number | null;
 };
 
 function playerLabel(player: ComparisonPlayer): string {
@@ -496,39 +501,74 @@ function PlayerComparisonContent() {
                   ))}
                 </ComparisonRow>
                 {userIsPremium !== null && (
-                  <ComparisonRow label="Projected pts">
+                  <ComparisonRow label="Projected Next GW">
                     {players.map((player) => {
                       if (!userIsPremium) {
                         return (
                           <td key={player.id} className="p-4.5 text-sm">
-                            <span className="text-[var(--text-muted)]">&#128274; <span className="text-teal-600 dark:text-teal-400 text-xs font-semibold">Premium</span></span>
+                            <span className="text-[var(--text-muted)]">&#128274; <span className="text-cyan-700 dark:text-cyan-400 text-xs font-semibold">Premium</span></span>
                           </td>
                         );
                       }
                       const a = analyticsMap.get(player.id);
                       return (
-                        <td key={player.id} className="p-4.5 font-mono text-sm font-black text-teal-600 dark:text-teal-300">
+                        <td key={player.id} className="p-4.5 font-mono text-sm font-black text-cyan-700 dark:text-cyan-300">
                           {a ? a.projectedPoints.toFixed(1) : '-'}
+                          <span className="ml-1 font-sans text-xs font-normal text-[var(--text-muted)]">pts</span>
                         </td>
                       );
                     })}
                   </ComparisonRow>
                 )}
                 {userIsPremium !== null && (
-                  <ComparisonRow label="Season avg / match">
+                  <ComparisonRow label="Floor / Ceiling">
                     {players.map((player) => {
                       if (!userIsPremium) {
                         return (
                           <td key={player.id} className="p-4.5 text-sm">
-                            <span className="text-[var(--text-muted)]">&#128274; <span className="text-teal-600 dark:text-teal-400 text-xs font-semibold">Premium</span></span>
+                            <span className="text-[var(--text-muted)]">&#128274; <span className="text-cyan-700 dark:text-cyan-400 text-xs font-semibold">Premium</span></span>
                           </td>
                         );
                       }
                       const a = analyticsMap.get(player.id);
                       return (
-                        <td key={player.id} className="p-4.5 text-sm font-black font-mono text-[var(--text-primary)]">
-                          {a ? a.averagePoints.toFixed(1) : '-'}
-                          <span className="ml-1 text-xs font-normal text-[var(--text-muted)]">avg</span>
+                        <td key={player.id} className="p-4.5 text-sm font-mono">
+                          {a ? (
+                            <div className="space-y-0.5">
+                              <div className="text-xs font-bold text-[var(--text-primary)]">
+                                {(a.floor ?? 0).toFixed(1)} <span className="text-[var(--text-muted)] font-normal">to</span> {(a.ceiling ?? 0).toFixed(1)}
+                              </div>
+                              <div className="text-[10px] text-[var(--text-muted)] font-sans">
+                                {a.volatility ?? 'Med'} Volatility
+                              </div>
+                            </div>
+                          ) : '-'}
+                        </td>
+                      );
+                    })}
+                  </ComparisonRow>
+                )}
+                {userIsPremium !== null && (
+                  <ComparisonRow label="Position Benchmark">
+                    {players.map((player) => {
+                      if (!userIsPremium) {
+                        return (
+                          <td key={player.id} className="p-4.5 text-sm">
+                            <span className="text-[var(--text-muted)]">&#128274; <span className="text-cyan-700 dark:text-cyan-400 text-xs font-semibold">Premium</span></span>
+                          </td>
+                        );
+                      }
+                      const a = analyticsMap.get(player.id);
+                      const delta = a?.roleDelta;
+                      return (
+                        <td key={player.id} className="p-4.5 text-sm font-mono">
+                          {a && delta !== undefined && delta !== null ? (
+                            <span className={`font-bold ${delta >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
+                              {delta >= 0 ? '+' : ''}{delta.toFixed(1)} <span className="font-sans text-[10px] text-[var(--text-muted)]">vs role</span>
+                            </span>
+                          ) : (
+                            <span className="text-[var(--text-muted)]">—</span>
+                          )}
                         </td>
                       );
                     })}

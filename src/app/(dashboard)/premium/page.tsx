@@ -11,26 +11,53 @@ import {
   Sparkles,
   Target,
   WandSparkles,
+  Flame,
 } from 'lucide-react';
 import { PremiumWaitlistButton, PremiumWaitlistProvider } from './PremiumWaitlist';
 
 const features = [
-  { icon: BarChart3, title: 'Advanced Player Analytics', description: 'Role-adjusted form, consistency, volatility, and matchup context for every eligible player.' },
-  { icon: Target, title: 'Points Projections', description: 'Expected gameweek output based on fixtures, recent form, role, and historical performance.' },
-  { icon: LineChart, title: 'Transfer Recommendations', description: 'Ranked candidates, differentials, value signals, and price momentum before the deadline.' },
-  { icon: WandSparkles, title: 'Squad Optimiser', description: 'Find the strongest eight-player squad within your budget and role requirements.' },
-  { icon: BellRing, title: 'Price Movement Alerts', description: 'Track players likely to rise or fall as ownership and transfer activity changes.' },
-  { icon: BrainCircuit, title: 'AI Fantasy Assistant', description: 'Ask strategy questions and receive data-backed recommendations from live fantasy context.' },
+  {
+    icon: BarChart3,
+    title: 'Floor, Ceiling & Volatility Index',
+    description: '10th and 90th percentile outcome ranges and volatility ratings so you never get caught out by boom-or-bust trap picks.',
+  },
+  {
+    icon: Target,
+    title: 'Weighted Points Projections',
+    description: 'Dynamic projections factoring 3-gameweek form momentum, 5-week baselines, and position benchmarks.',
+  },
+  {
+    icon: Flame,
+    title: 'Differential Scout & Recommendations',
+    description: 'Uncover low-ownership (&lt;15%) hidden gems outperforming their price bracket to climb past your league rivals.',
+  },
+  {
+    icon: LineChart,
+    title: 'Position Benchmark (+/- vs Role)',
+    description: 'Accurately evaluate player value by measuring performance deltas against the average for their exact primary role.',
+  },
+  {
+    icon: WandSparkles,
+    title: 'Squad & Lineup Optimiser',
+    description: 'Intelligent starter and captain suggestion engine targeting highest expected gameweek points output.',
+  },
+  {
+    icon: BellRing,
+    title: 'Price Movement & Deadline Alerts',
+    description: 'Track players on the verge of price changes as ownership and transfer velocity peak before locks.',
+  },
 ];
 
 const comparison = [
   ['Squad building and transfers', true],
   ['Classic and H2H leagues', true],
-  ['Global leaderboard', true],
-  ['Basic player statistics', true],
-  ['Advanced analytics and projections', false],
-  ['Transfer recommendations', false],
-  ['Squad optimisation', false],
+  ['Global leaderboard & standings', true],
+  ['Basic match stats & box scores', true],
+  ['Floor, ceiling & volatility range', false],
+  ['Weighted Next GW projections', false],
+  ['Differential scout & AI transfers', false],
+  ['Role benchmark index (+/- vs position)', false],
+  ['Squad & lineup optimiser', false],
 ];
 
 export const metadata = {
@@ -62,7 +89,7 @@ export default function PremiumPage() {
                 Turn information <span className="bg-gradient-to-r from-amber-500 via-yellow-500 to-orange-500 bg-clip-text text-transparent">into an edge.</span>
               </h1>
               <p className="mt-5 max-w-2xl text-base leading-7 text-[var(--text-secondary)] sm:text-lg">
-                Premium will bring deeper analytics, smarter projections, and sharper transfer intelligence to managers who want to plan one move ahead.
+                Premium brings floor &amp; ceiling outcome analysis, position benchmarks, and differential scouting to managers who want to dominate their leagues.
               </p>
               <div className="mt-7 flex flex-wrap gap-3">
                 <PremiumWaitlistButton
@@ -77,7 +104,7 @@ export default function PremiumPage() {
                 </Link>
               </div>
               <p className="mt-4 text-xs text-[var(--text-muted)]">
-                Premium tools are planned, with no launch date announced. Core fantasy gameplay remains free.
+                Premium tools are in active development. Core fantasy gameplay remains free.
               </p>
             </div>
           </section>
@@ -149,7 +176,7 @@ export default function PremiumPage() {
             <article className="rounded-2xl border border-amber-500/30 bg-amber-500/5 p-6">
               <p className="text-xs font-bold uppercase tracking-[0.2em] text-amber-700 dark:text-amber-300">Planned</p>
               <h2 className="mt-2 text-xl font-bold text-[var(--text-primary)]">More ways to plan your season</h2>
-              <p className="mt-2 text-sm leading-6 text-[var(--text-secondary)]">Advanced analytics, projections, transfer recommendations, optimisation, alerts, and the fantasy assistant are planned Premium tools. No launch date has been announced.</p>
+              <p className="mt-2 text-sm leading-6 text-[var(--text-secondary)]">Floor/ceiling outcomes, weighted projections, differential scouting, role-relative deltas, and squad optimisations give managers a competitive edge.</p>
             </article>
           </section>
 

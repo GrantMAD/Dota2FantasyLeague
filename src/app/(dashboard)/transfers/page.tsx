@@ -23,6 +23,7 @@ import {
 import { fetchWithAuth } from '@/lib/fetch-with-auth';
 import { useToast } from '@/components/Toast';
 import { PriceSparkline } from '@/components/PriceSparkline';
+import { DifferentialScoutPanel } from '@/components/DifferentialScoutPanel';
 import { DataFreshnessBadge } from '@/components/DataFreshnessBadge';
 import { canOptimizeImage } from '@/lib/optimized-image';
 import type { FantasyPlayer as TransferPlayer } from '@/types/fantasy';
@@ -806,6 +807,8 @@ function TransfersPageContent() {
         </div>
       </section>
 
+      <DifferentialScoutPanel selectedPlayerInId={selectedPlayerIn} onSelectPlayerIn={(id) => setSelectedPlayerIn(id)} />
+
       {ownedPlayerIds.length >= SQUAD_MAX_SIZE && fantasySeasonId ? (
         <section className="mb-8 overflow-hidden rounded-2xl border border-indigo-500/25 bg-[var(--surface)] shadow-md shadow-indigo-500/5 transition-all">
           <div className="relative overflow-hidden bg-gradient-to-r from-indigo-500/10 via-purple-500/5 to-transparent p-5 sm:p-6">
@@ -1171,7 +1174,7 @@ function TransfersPageContent() {
             </div>
           ) : (selectedPlayerIn !== null || selectedPlayerOut !== null) && (
             // ── TRANSFER MODE PANEL ────────────────────────────────────────────
-            <div className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-5 shadow-lg lg:sticky lg:top-24">
+            <div id="trade-review-section" className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-5 shadow-lg lg:sticky lg:top-24">
               <div className="mb-4 flex items-center justify-between gap-3">
                 <h4 className="text-sm font-bold text-[var(--text-primary)]">Trade review</h4>
                 {selectedPlayerInDetails && selectedPlayerOutDetails && (
