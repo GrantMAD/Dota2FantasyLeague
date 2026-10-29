@@ -55,7 +55,7 @@ async function getHandler(request: NextRequest) {
     const playerIds = playerList.map((p) => p.id);
 
     // Fetch latest ownership info from player_prices
-    let ownershipMap = new Map<number, number>();
+    const ownershipMap = new Map<number, number>();
     if (playerIds.length > 0) {
       const { data: priceRecords } = await (supabase.from('player_prices') as any) // eslint-disable-line @typescript-eslint/no-explicit-any
         .select('player_id, ownership_percentage')

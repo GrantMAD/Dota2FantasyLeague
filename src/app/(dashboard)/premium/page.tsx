@@ -3,7 +3,6 @@ import {
   ArrowRight,
   BarChart3,
   BellRing,
-  BrainCircuit,
   Check,
   Crown,
   LineChart,
