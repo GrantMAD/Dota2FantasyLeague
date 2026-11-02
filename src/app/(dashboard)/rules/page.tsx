@@ -277,7 +277,7 @@ export default function RulesPage() {
             <p className="text-xs font-bold uppercase tracking-[0.2em] text-violet-700 dark:text-violet-400">Tactical Advantage</p>
             <h2 className="mt-1 text-2xl font-bold text-[var(--text-primary)]">Seasonal Chips & Boosters</h2>
             <p className="mt-2 text-sm text-[var(--text-secondary)]">
-              Each manager is allocated powerful single-use chips per season. Only one chip can be active in any given gameweek.
+              Each manager is allocated powerful single-use chips per season. Chip types are tracked independently, so different chips can be active in the same gameweek.
             </p>
           </div>
         </div>
@@ -321,7 +321,7 @@ export default function RulesPage() {
           <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface-raised)] p-4.5">
             <p className="text-xs font-semibold text-[var(--text-muted)]">Additional Transfer Cost</p>
             <p className="mt-1 text-xl font-black text-rose-600 dark:text-rose-400">-4 pts penalty</p>
-            <p className="mt-1 text-xs text-[var(--text-secondary)]">Deducted from your gameweek fantasy score.</p>
+            <p className="mt-1 text-xs text-[var(--text-secondary)]">Recorded on the upcoming lineup; not currently subtracted by gameweek score recalculation.</p>
           </div>
           <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface-raised)] p-4.5">
             <p className="text-xs font-semibold text-[var(--text-muted)]">Max Pro Club Quota</p>
