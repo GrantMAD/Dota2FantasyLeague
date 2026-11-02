@@ -1431,23 +1431,25 @@ function TransfersPageContent() {
                                   </span>
                                 )}
                               </div>
-                              <div>
-                                <div className="font-bold text-slate-900 dark:text-slate-100 group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors flex items-center gap-1.5">
-                                  {player.in_game_name || player.name}
+                              <div className="min-w-0 flex-1">
+                                <div className="flex min-w-0 items-center gap-1.5 font-bold text-slate-900 transition-colors group-hover:text-amber-600 dark:text-slate-100 dark:group-hover:text-amber-400">
+                                  <span className="min-w-0 truncate" title={player.in_game_name || player.name}>
+                                    {player.in_game_name || player.name}
+                                  </span>
                                   {isOwned && (
-                                    <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/20 text-emerald-400 text-[10px] font-semibold px-2 py-0.5 border border-emerald-500/30">
-                                      <CheckCircle2 className="w-3 h-3" />
+                                    <span className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full border border-emerald-500/30 bg-emerald-500/20 px-2 py-0.5 text-[10px] font-semibold text-emerald-400">
+                                      <CheckCircle2 className="h-3 w-3 shrink-0" />
                                       In Squad
                                     </span>
                                   )}
                                   {isSelected && (
-                                    <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/20 text-amber-300 text-[10px] font-semibold px-2 py-0.5 border border-amber-500/30">
-                                      <CheckCircle2 className="w-3 h-3" />
+                                    <span className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full border border-amber-500/30 bg-amber-500/20 px-2 py-0.5 text-[10px] font-semibold text-amber-300">
+                                      <CheckCircle2 className="h-3 w-3 shrink-0" />
                                       Selected
                                     </span>
                                   )}
                                 </div>
-                                <div className="text-xs text-slate-500 dark:text-slate-400">{player.professional_teams?.name || 'Free Agent'}</div>
+                                <div className="truncate text-xs text-slate-500 dark:text-slate-400">{player.professional_teams?.name || 'Free Agent'}</div>
                               </div>
                             </div>
                           </td>

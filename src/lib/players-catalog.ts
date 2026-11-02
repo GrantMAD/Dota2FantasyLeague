@@ -1,3 +1,5 @@
+import { getCanonicalSteamId, normalizePlayerIdentity } from './jobs/player-identity';
+
 type PriceRow = {
   player_id: number;
   price: number | null;
@@ -105,9 +107,19 @@ export async function getPlayersCatalogData(
 
   const playerRows = data ?? [];
   const playerIds = playerRows.map((player) => player.id);
+  const placeholderSteamIds = [...new Set(playerRows
+    .filter((player) => typeof player.name === 'string' && player.name.startsWith('Player ('))
+    .map((player) => {
+      const identity = normalizePlayerIdentity(player.data_provider_id);
+      return identity?.startsWith('steam-account:')
+        ? getCanonicalSteamId(String(player.data_provider_id))
+        : null;
+    })
+    .filter((id): id is string => id !== null))];
   const [
     { data: prices, error: pricesError },
     { data: scores, error: scoresError },
+    { data: identityPlayers, error: identityPlayersError },
   ] = await Promise.all([
     playerIds.length > 0
       ? (supabase.from('player_prices') as unknown as DynamicPlayerQuery<{ data: PriceRow[] | null; error: { message: string } | null }>)
@@ -123,12 +135,34 @@ export async function getPlayersCatalogData(
           .order('gameweek_id', { ascending: false })
           .limit(playerIds.length * 5)
       : Promise.resolve({ data: [], error: null }),
+    placeholderSteamIds.length > 0
+      ? supabase
+          .from('professional_players')
+          .select('name, in_game_name, data_provider_id')
+          .in('data_provider_id', placeholderSteamIds)
+      : Promise.resolve({ data: [], error: null }),
   ]);
-  if (pricesError || scoresError) {
+  if (pricesError || scoresError || identityPlayersError) {
     throw new PlayersCatalogError(
       'Failed to fetch player comparison data',
-      pricesError?.message ?? scoresError?.message ?? 'Unknown database error',
+      pricesError?.message ?? scoresError?.message ?? identityPlayersError?.message ?? 'Unknown database error',
     );
+  }
+
+  const namesByIdentity = new Map<string, { name: string; in_game_name: string | null }>();
+  for (const identityPlayer of identityPlayers ?? []) {
+    const identity = normalizePlayerIdentity(identityPlayer.data_provider_id);
+    if (
+      identity &&
+      identityPlayer.name &&
+      !identityPlayer.name.startsWith('Player (') &&
+      !namesByIdentity.has(identity)
+    ) {
+      namesByIdentity.set(identity, {
+        name: identityPlayer.name,
+        in_game_name: identityPlayer.in_game_name,
+      });
+    }
   }
 
   const latestPrices = new Map<number, number>();
@@ -161,6 +195,11 @@ export async function getPlayersCatalogData(
   }
 
   const enrichedData = playerRows.map((player) => {
+    const identity = normalizePlayerIdentity(player.data_provider_id);
+    const identityName = identity ? namesByIdentity.get(identity) : undefined;
+    const resolvedName = identityName && typeof player.name === 'string' && player.name.startsWith('Player (')
+      ? identityName
+      : null;
     const playerScores = [...(recentScoresByGameweek.get(player.id)?.entries() ?? [])]
       .sort(([gameweekA], [gameweekB]) => gameweekB - gameweekA)
       .slice(0, 5)
@@ -175,6 +214,7 @@ export async function getPlayersCatalogData(
 
     return {
       ...player,
+      ...(resolvedName ?? {}),
       current_price: currentPrice,
       price_change: latestPriceChanges.get(player.id) ?? null,
       price_history: priceHistory,

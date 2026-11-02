@@ -77,7 +77,7 @@ async function getHandler(request: NextRequest) {
         globalRank: null,
         targetPoints: null,
         targetRank: null,
-        bankBalance: 100,
+        bankBalance: 45,
         squadValue: 0,
         freeTransfers: 2,
         activeSquadCount: 0,

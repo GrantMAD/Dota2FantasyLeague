@@ -88,6 +88,18 @@ describe('GET /api/analytics - Finding 31: Dynamic gameweek resolution and role-
           }),
         };
       }
+      if (table === 'gameweeks') {
+        const query = {
+          select: jest.fn().mockReturnThis(),
+          eq: jest.fn().mockReturnThis(),
+          order: jest.fn().mockReturnThis(),
+          then: (resolve: (value: unknown) => void) => resolve({
+            data: [{ id: 7, gameweek_number: 7, status: 'active' }],
+            error: null,
+          }),
+        };
+        return query;
+      }
       if (table === 'fantasy_squads') {
         return {
           select: jest.fn().mockReturnThis(),
@@ -107,7 +119,14 @@ describe('GET /api/analytics - Finding 31: Dynamic gameweek resolution and role-
           not: jest.fn().mockReturnThis(),
           limit: jest.fn().mockReturnThis(),
           then: jest.fn((resolve: (value: unknown) => void) => resolve({
-            data: selectedColumns.includes('gameweek_id')
+            data: selectedColumns.startsWith('gameweek_id,')
+              ? [{ gameweek_id: 7, fantasy_points_breakdown: { total_points: 30 } }]
+              : selectedColumns.includes('professional_players')
+              ? [
+                  { player_id: 99, gameweek_id: 6, fantasy_points_breakdown: { total_points: 40 } },
+                  { player_id: 99, gameweek_id: 7, fantasy_points_breakdown: { total_points: 30 } },
+                ]
+              : selectedColumns.includes('gameweek_id')
               ? [
                   { player_id: 99, gameweek_id: 6, fantasy_points_breakdown: { total_points: 40 } },
                   { player_id: 99, gameweek_id: 7, fantasy_points_breakdown: { total_points: 30 } },
@@ -156,7 +175,7 @@ describe('GET /api/analytics - Finding 31: Dynamic gameweek resolution and role-
     expect(mockFrom.mock.calls.filter(([table]) => table === 'season_standings')).toHaveLength(1);
   });
 
-  it('dynamically resolves to latest closed gameweek and selects authentic Dream Team role distribution', async () => {
+  it('falls back from an unscored active gameweek to the latest scored gameweek and selects an authentic Dream Team', async () => {
     let queriedGameweekId: number | null = null;
 
     const mockFrom = jest.fn((table: string) => {
@@ -192,17 +211,19 @@ describe('GET /api/analytics - Finding 31: Dynamic gameweek resolution and role-
       }
 
       if (table === 'gameweeks') {
-        return {
+        const query = {
           select: jest.fn().mockReturnThis(),
           eq: jest.fn().mockReturnThis(),
-          in: jest.fn().mockReturnThis(),
           order: jest.fn().mockReturnThis(),
-          limit: jest.fn().mockReturnThis(),
-          maybeSingle: jest.fn().mockResolvedValue({
-            data: { id: 7 }, // Latest closed gameweek is GW 7 (NOT hardcoded 2!)
+          then: (resolve: (val: unknown) => void) => resolve({
+            data: [
+              { id: 8, gameweek_number: 8, status: 'active' },
+              { id: 7, gameweek_number: 7, status: 'closed' },
+            ],
             error: null,
           }),
         };
+        return query;
       }
 
       if (table === 'fantasy_squads') {
@@ -228,15 +249,50 @@ describe('GET /api/analytics - Finding 31: Dynamic gameweek resolution and role-
       }
 
       if (table === 'player_performances') {
+        let selectedColumns = '';
+        let selectedGameweekId: number | null = null;
         const query: Record<string, unknown> = {
-          select: jest.fn().mockReturnThis(),
-          eq: jest.fn((col: string, val: number) => {
-            if (col === 'gameweek_id') queriedGameweekId = val;
+          select: jest.fn((columns: string) => {
+            selectedColumns = columns;
             return query;
           }),
+          eq: jest.fn((col: string, val: number) => {
+            if (col === 'gameweek_id') {
+              selectedGameweekId = val;
+              queriedGameweekId = val;
+            }
+            return query;
+          }),
+          in: jest.fn().mockReturnThis(),
           not: jest.fn().mockReturnThis(),
           limit: jest.fn().mockReturnThis(),
           then: (resolve: (val: unknown) => void) => {
+            if (selectedColumns.startsWith('gameweek_id,')) {
+              resolve({
+                data: [{ gameweek_id: 7, fantasy_points_breakdown: { total_points: 50 } }],
+                error: null,
+              });
+              return;
+            }
+            if (selectedColumns.includes('professional_players')) {
+              queriedGameweekId = selectedGameweekId;
+              resolve({
+                data: [
+                  // 4 Top scoring carries
+                  { player_id: 1, fantasy_points_breakdown: { total_points: 50 }, professional_players: { id: 1, in_game_name: 'Carry 1', primary_role: 'Carry', team_id: 1, professional_teams: { name: 'Team Liquid' } } },
+                  { player_id: 2, fantasy_points_breakdown: { total_points: 48 }, professional_players: { id: 2, in_game_name: 'Carry 2', primary_role: 'Carry', team_id: 1, professional_teams: { name: 'Team Liquid' } } },
+                  { player_id: 3, fantasy_points_breakdown: { total_points: 46 }, professional_players: { id: 3, in_game_name: 'Carry 3', primary_role: 'Carry', team_id: 1, professional_teams: { name: 'Team Liquid' } } },
+                  { player_id: 4, fantasy_points_breakdown: { total_points: 44 }, professional_players: { id: 4, in_game_name: 'Carry 4', primary_role: 'Carry', team_id: 1, professional_teams: { name: 'Team Liquid' } } },
+                  { player_id: 5, fantasy_points_breakdown: { total_points: 42 }, professional_players: { id: 5, in_game_name: 'Carry 5', primary_role: 'Carry', team_id: 1, professional_teams: { name: 'Team Liquid' } } },
+                  { player_id: 6, fantasy_points_breakdown: { total_points: 30 }, professional_players: { id: 6, in_game_name: 'Mid 1', primary_role: 'Mid', team_id: 2, professional_teams: { name: 'Team Spirit' } } },
+                  { player_id: 7, fantasy_points_breakdown: { total_points: 25 }, professional_players: { id: 7, in_game_name: 'Offlane 1', primary_role: 'Offlane', team_id: 2, professional_teams: { name: 'Team Spirit' } } },
+                  { player_id: 8, fantasy_points_breakdown: { total_points: 20 }, professional_players: { id: 8, in_game_name: 'Support 1', primary_role: 'Support', team_id: 3, professional_teams: { name: 'Gaimin' } } },
+                  { player_id: 9, fantasy_points_breakdown: { total_points: 18 }, professional_players: { id: 9, in_game_name: 'Hard Support 1', primary_role: 'Hard Support', team_id: 3, professional_teams: { name: 'Gaimin' } } },
+                ],
+                error: null,
+              });
+              return;
+            }
             // Provide 6 Carries and 2 Supports, where all 6 Carries scored high.
             // Under old naive slice(0, 8), Dream Team would pick all 6 Carries with 0 Offlane, 0 Mid, 0 Hard Support.
             // Under the fix, it MUST pick 1 Carry, 1 Mid, 1 Offlane, 1 Support, 1 Hard Support, plus 3 bench!

@@ -10,6 +10,11 @@
 import { getSupabaseServerClient } from '@/lib/db/supabase-server';
 import type { Match, MatchPlayerStats } from '@/types/database';
 import { getRoleByHeroName } from '@/lib/constants/dota-heroes';
+import {
+  getCanonicalSteamId,
+  hasCanonicalSteamId,
+  normalizePlayerIdentity,
+} from './player-identity';
 import type { JobRunOptions } from './scheduler';
 
 interface FetchDetailsResult {
@@ -119,19 +124,35 @@ export async function fetchMatchDetails(options?: JobRunOptions): Promise<FetchD
 
               for (const player of team.players || []) {
                 const playerProviderId = String(player.playerId || '');
-                let dbPlayerId = playerMap.get(playerProviderId);
+                const playerIdentity = normalizePlayerIdentity(playerProviderId);
+                let dbPlayerId = (playerIdentity && playerMap.get(playerIdentity))
+                  || playerMap.get(playerProviderId);
 
                 if (!dbPlayerId && playerProviderId && playerProviderId !== '0' && playerProviderId !== 'unknown') {
                   // Check database in case player wasn't in initial in-memory chunk
-                  const { data: existingPlayer } = await supabase.from('professional_players')
-                    .select('id')
-                    .or(`data_provider_id.eq.${playerProviderId},slug.eq.${playerProviderId}`)
-                    .limit(1)
-                    .maybeSingle();
+                  const canonicalSteamId = getCanonicalSteamId(playerProviderId);
+                  const providerIds = [...new Set([playerProviderId, canonicalSteamId])];
+                  const { data: providerMatches } = await supabase.from('professional_players')
+                    .select('id, data_provider_id')
+                    .in('data_provider_id', providerIds)
+                    .limit(10);
 
-                  if (existingPlayer) {
-                    dbPlayerId = existingPlayer.id;
-                    playerMap.set(playerProviderId, existingPlayer.id);
+                  let matchedPlayers: Array<{ id: number; data_provider_id: string | null }> = providerMatches ?? [];
+                  if (matchedPlayers.length === 0) {
+                    const { data: slugMatches } = await supabase.from('professional_players')
+                      .select('id, data_provider_id')
+                      .in('slug', providerIds)
+                      .limit(10);
+                    matchedPlayers = slugMatches ?? [];
+                  }
+
+                  const matchedPlayer = matchedPlayers
+                    .sort((left, right) => Number(hasCanonicalSteamId(right.data_provider_id)) - Number(hasCanonicalSteamId(left.data_provider_id)))[0];
+
+                  if (matchedPlayer) {
+                    dbPlayerId = matchedPlayer.id;
+                    if (playerIdentity) playerMap.set(playerIdentity, matchedPlayer.id);
+                    playerMap.set(playerProviderId, matchedPlayer.id);
                   } else {
                     // Auto-register player if genuinely not in database
                     const playerName = (player.heroName && player.heroName !== 'Unknown')
@@ -153,6 +174,7 @@ export async function fetchMatchDetails(options?: JobRunOptions): Promise<FetchD
 
                     if (newPlayer) {
                       dbPlayerId = newPlayer.id;
+                      if (playerIdentity) playerMap.set(playerIdentity, newPlayer.id);
                       playerMap.set(playerProviderId, newPlayer.id);
                     }
                   }
@@ -330,10 +352,18 @@ async function getEntityLookupMaps(): Promise<{
   ]);
 
   const playerMap = new Map<string, number>();
-  for (const p of playersRes.data || []) {
-    if (p.data_provider_id) {
-      playerMap.set(String(p.data_provider_id), p.id);
-    }
+  const playerRows: Array<{ id: number; data_provider_id: string | null }> = playersRes.data || [];
+  const prioritizedPlayers = [
+    ...playerRows.filter((player) => hasCanonicalSteamId(player.data_provider_id)),
+    ...playerRows.filter((player) => !hasCanonicalSteamId(player.data_provider_id)),
+  ];
+  for (const player of prioritizedPlayers) {
+    if (!player.data_provider_id) continue;
+
+    const providerId = String(player.data_provider_id);
+    const identity = normalizePlayerIdentity(providerId);
+    if (identity && !playerMap.has(identity)) playerMap.set(identity, player.id);
+    playerMap.set(providerId, player.id);
   }
 
   const teamMap = new Map<string, number>();

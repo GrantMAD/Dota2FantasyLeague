@@ -90,7 +90,7 @@ export function QuickStatsBar({ quickStats }: { quickStats: QuickStats | null })
       >
         <Wallet className="h-3.5 w-3.5 text-emerald-400" />
         <span className="font-semibold text-emerald-400">
-          ${Number(quickStats?.bankBalance ?? 100).toFixed(1)}M
+          ${Number(quickStats?.bankBalance ?? 45).toFixed(1)}M
         </span>
       </Link>
       <Link

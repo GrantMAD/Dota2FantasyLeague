@@ -31,6 +31,7 @@ type LeaderboardEntry = {
 };
 
 type SelectedManager = {
+   fantasySeasonId: number;
    manager: string;
    username?: string;
    displayName?: string | null;
@@ -41,6 +42,34 @@ type SelectedManager = {
    rank: number | null;
    teamName?: string;
    country?: string | null;
+};
+
+type ManagerDetails = {
+   manager: {
+      username: string | null;
+      displayName: string | null;
+      avatarUrl: string | null;
+      bio: string | null;
+      country: string | null;
+      countryCode: string | null;
+      memberSince: string | null;
+      teamName: string;
+      totalPoints: number;
+      globalRank: number | null;
+      gameweekPoints: number;
+   };
+   squad: Array<{
+      id: number;
+      name: string;
+      role: string;
+      team: string | null;
+      profileImageUrl: string | null;
+   }>;
+   recentGameweeks: Array<{
+      gameweekNumber: number | null;
+      status: string | null;
+      points: number;
+   }>;
 };
 
 function getCountryFlag(countryCode?: string | null) {
@@ -70,6 +99,10 @@ export default function LeaderboardPageClient({ initialData }: LeaderboardPagePr
   const [page, setPage] = useState(1);
   const [countryFilter, setCountryFilter] = useState('');
   const [selectedUser, setSelectedUser] = useState<SelectedManager | null>(null);
+  const [managerDetails, setManagerDetails] = useState<ManagerDetails | null>(null);
+  const [managerDetailsLoading, setManagerDetailsLoading] = useState(false);
+  const [managerDetailsError, setManagerDetailsError] = useState<string | null>(null);
+  const managerRequestId = useRef(0);
   const initialPositionLoaded = useRef(false);
 
   const [countries, setCountries] = useState<{ code: string; name: string }[]>([
@@ -170,6 +203,56 @@ export default function LeaderboardPageClient({ initialData }: LeaderboardPagePr
       setError(message);
     }
   }, []);
+
+  const loadManagerDetails = useCallback(async (fantasySeasonId: number) => {
+    const requestId = ++managerRequestId.current;
+    setManagerDetails(null);
+    setManagerDetailsError(null);
+    setManagerDetailsLoading(true);
+    try {
+      const response = await fetchWithAuth(`/api/leaderboard/managers/${fantasySeasonId}`);
+      const payload = await response.json() as ManagerDetails | { error?: string };
+      if (!response.ok) {
+        throw new Error('error' in payload ? payload.error || 'Unable to load manager details.' : 'Unable to load manager details.');
+      }
+      if (requestId === managerRequestId.current) setManagerDetails(payload as ManagerDetails);
+    } catch (detailError) {
+      if (requestId === managerRequestId.current) {
+        setManagerDetailsError(detailError instanceof Error ? detailError.message : 'Unable to load manager details.');
+      }
+    } finally {
+      if (requestId === managerRequestId.current) setManagerDetailsLoading(false);
+    }
+  }, []);
+
+  const openManagerDetails = useCallback(async (entry: LeaderboardEntry) => {
+    const team = entry.fantasy_teams;
+    const profile = team?.profiles;
+    const managerName = profile?.display_name || profile?.username || 'Anonymous Manager';
+    const fantasySeasonId = team?.id ?? entry.id;
+    setSelectedUser({
+      fantasySeasonId,
+      manager: managerName,
+      username: profile?.username || managerName.toLowerCase().replace(/\s+/g, '_'),
+      displayName: profile?.display_name || null,
+      avatarUrl: profile?.avatar_url || null,
+      bio: profile?.bio || null,
+      points: entry.total_points || 0,
+      gwPoints: entry.gameweek_points || 0,
+      rank: entry.rank,
+      teamName: team?.name || 'Unknown Team',
+      country: profile?.country || null,
+    });
+    await loadManagerDetails(fantasySeasonId);
+  }, [loadManagerDetails]);
+
+  const closeManagerDetails = () => {
+    managerRequestId.current += 1;
+    setSelectedUser(null);
+    setManagerDetails(null);
+    setManagerDetailsError(null);
+    setManagerDetailsLoading(false);
+  };
 
   useEffect(() => {
     let refreshTimeout: number | undefined;
@@ -359,18 +442,16 @@ export default function LeaderboardPageClient({ initialData }: LeaderboardPagePr
                 return (
                   <article
                     key={`podium-${entry.id}`}
-                    onClick={() => setSelectedUser({
-                      manager: managerName,
-                      username: profile?.username || managerName.toLowerCase().replace(/\s+/g, '_'),
-                      displayName: profile?.display_name || null,
-                      avatarUrl: profile?.avatar_url || null,
-                      bio: profile?.bio || null,
-                      points: entry.total_points || 0,
-                      gwPoints: entry.gameweek_points || 0,
-                      rank: entry.rank,
-                      teamName: teamName,
-                      country: profile?.country || null,
-                    })}
+                    onClick={() => void openManagerDetails(entry)}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault();
+                        void openManagerDetails(entry);
+                      }
+                    }}
+                    role="button"
+                    tabIndex={0}
+                    aria-label={`View ${managerName}'s manager details`}
                     className="flex items-center gap-4 rounded-xl border cursor-pointer px-4 py-3 transition-all hover:scale-[1.01] hover:shadow-lg"
                     style={{
                       borderColor: `color-mix(in srgb, ${accent} 35%, var(--border))`,
@@ -540,18 +621,15 @@ export default function LeaderboardPageClient({ initialData }: LeaderboardPagePr
                            <tr
                               key={entry.id}
                               data-tour={isCurrentUser ? 'leaderboard-you-row' : undefined}
-                              onClick={() => setSelectedUser({
-                                 manager: managerName,
-                                 username: profile?.username || managerName.toLowerCase().replace(/\s+/g, '_'),
-                                 displayName: profile?.display_name || null,
-                                 avatarUrl: profile?.avatar_url || null,
-                                 bio: profile?.bio || null,
-                                 points: entry.total_points || 0,
-                                 gwPoints: entry.gameweek_points || 0,
-                                 rank: entry.rank,
-                                 teamName: team?.name || 'Unknown Team',
-                                 country: profile?.country || null,
-                              })}
+                              onClick={() => void openManagerDetails(entry)}
+                              onKeyDown={(event) => {
+                                 if (event.key === 'Enter' || event.key === ' ') {
+                                    event.preventDefault();
+                                    void openManagerDetails(entry);
+                                 }
+                              }}
+                              tabIndex={0}
+                              aria-label={`View ${managerName}'s manager details`}
                               style={isCurrentUser ? {
                                  backgroundColor: 'color-mix(in srgb, var(--accent-primary) 12%, var(--surface))',
                                  borderLeftColor: 'var(--accent-primary)',
@@ -671,14 +749,29 @@ export default function LeaderboardPageClient({ initialData }: LeaderboardPagePr
 
       {/* Manager Details Modal */}
       {selectedUser && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="relative max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-slate-700 bg-slate-900 shadow-2xl p-6 no-scrollbar">
-            {/* Header */}
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm animate-in fade-in duration-200"
+          onClick={closeManagerDetails}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="leaderboard-manager-title"
+            className="relative max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-slate-700 bg-slate-900 p-6 shadow-2xl no-scrollbar"
+            onClick={(event) => event.stopPropagation()}
+          >
             <div className="border-b border-slate-800 pb-5">
               <div className="flex items-center gap-4">
                 <div className="w-14 h-14 rounded-full bg-slate-800 border-2 border-amber-500/50 flex items-center justify-center overflow-hidden shrink-0 shadow-md">
-                  {selectedUser.avatarUrl ? (
-                    <Image src={selectedUser.avatarUrl} alt={selectedUser.manager} width={56} height={56} unoptimized={!canOptimizeImage(selectedUser.avatarUrl)} className="h-full w-full object-cover" />
+                  {(managerDetails?.manager.avatarUrl || selectedUser.avatarUrl) ? (
+                    <Image
+                      src={(managerDetails?.manager.avatarUrl || selectedUser.avatarUrl)!}
+                      alt={selectedUser.manager}
+                      width={56}
+                      height={56}
+                      unoptimized={!canOptimizeImage(managerDetails?.manager.avatarUrl || selectedUser.avatarUrl || '')}
+                      className="h-full w-full object-cover"
+                    />
                   ) : (
                     <span className="text-xl font-bold text-amber-400">
                       {(selectedUser.displayName || selectedUser.username || selectedUser.manager).substring(0, 2).toUpperCase()}
@@ -687,53 +780,127 @@ export default function LeaderboardPageClient({ initialData }: LeaderboardPagePr
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
-                    <h2 className="text-2xl font-bold text-white">{selectedUser.manager}</h2>
-                    {selectedUser.rank && (
+                    <h2 id="leaderboard-manager-title" className="text-2xl font-bold text-white">{selectedUser.manager}</h2>
+                    {(managerDetails?.manager.globalRank ?? selectedUser.rank) && (
                       <span className="rounded bg-amber-500/20 px-2 py-0.5 text-xs font-bold text-amber-400 border border-amber-500/40">
-                        Rank #{selectedUser.rank}
+                        Rank #{managerDetails?.manager.globalRank ?? selectedUser.rank}
                       </span>
                     )}
                   </div>
                   <p className="text-xs text-slate-400 mt-0.5">
                     @{selectedUser.username || selectedUser.manager.toLowerCase().replace(/\s+/g, '_')}
-                    {selectedUser.teamName && (
-                      <span className="text-slate-500 ml-1.5">• {selectedUser.teamName}</span>
+                    {(managerDetails?.manager.teamName || selectedUser.teamName) && (
+                      <span className="text-slate-500 ml-1.5">• {managerDetails?.manager.teamName || selectedUser.teamName}</span>
                     )}
                   </p>
+                  {(managerDetails?.manager.country || selectedUser.country) && (
+                    <p className="mt-1 text-xs text-slate-400">
+                      {managerDetails?.manager.country || selectedUser.country}
+                      {managerDetails?.manager.memberSince && (
+                        <span> · Member since {new Date(managerDetails.manager.memberSince).toLocaleDateString()}</span>
+                      )}
+                    </p>
+                  )}
                 </div>
               </div>
 
-              {selectedUser.bio && (
+              {(managerDetails?.manager.bio || selectedUser.bio) && (
                 <p className="leaderboard-manager-bio mt-4 text-sm text-slate-300 bg-slate-950/40 border border-slate-800/80 rounded-lg p-3 italic">
-                  &quot;{selectedUser.bio}&quot;
+                  &quot;{managerDetails?.manager.bio || selectedUser.bio}&quot;
                 </p>
               )}
             </div>
 
-            {/* Performance Stats Grid */}
             <div className="my-6">
               <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-3">Global Standing & Performance</h3>
               <div className="grid grid-cols-3 gap-3">
                 <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-4 text-center">
                   <div className="leaderboard-modal-label text-xs text-slate-400 uppercase tracking-wider">Total Points</div>
-                  <div className="leaderboard-total-points text-2xl font-mono font-bold text-amber-400 mt-1">{selectedUser.points} <span className="text-sm font-sans text-amber-300">pts</span></div>
+                  <div className="leaderboard-total-points text-2xl font-mono font-bold text-amber-400 mt-1">{managerDetails?.manager.totalPoints ?? selectedUser.points} <span className="text-sm font-sans text-amber-300">pts</span></div>
                 </div>
                 <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-4 text-center">
                   <div className="leaderboard-modal-label text-xs text-slate-400 uppercase tracking-wider">Gameweek</div>
-                  <div className="leaderboard-gameweek-points text-2xl font-mono font-bold text-slate-200 mt-1">{selectedUser.gwPoints ?? 0} <span className="leaderboard-points-label text-sm font-sans text-slate-400">pts</span></div>
+                  <div className="leaderboard-gameweek-points text-2xl font-mono font-bold text-slate-200 mt-1">{managerDetails?.manager.gameweekPoints ?? selectedUser.gwPoints ?? 0} <span className="leaderboard-points-label text-sm font-sans text-slate-400">pts</span></div>
                 </div>
                 <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-4 text-center">
                   <div className="leaderboard-modal-label text-xs text-slate-400 uppercase tracking-wider">Global Rank</div>
-                  <div className="leaderboard-global-rank text-2xl font-mono font-bold text-white mt-1">#{selectedUser.rank ?? '-'}</div>
+                  <div className="leaderboard-global-rank text-2xl font-mono font-bold text-white mt-1">#{managerDetails?.manager.globalRank ?? selectedUser.rank ?? '-'}</div>
                 </div>
               </div>
             </div>
 
-            {/* Modal Footer */}
+            {managerDetailsLoading && (
+              <p className="py-6 text-center text-sm text-slate-400" role="status">Loading squad and gameweek history…</p>
+            )}
+            {managerDetailsError && (
+              <div className="mb-5 rounded-lg border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-200" role="alert">
+                <p>{managerDetailsError}</p>
+                <button
+                  type="button"
+                  onClick={() => void loadManagerDetails(selectedUser.fantasySeasonId)}
+                  className="mt-3 rounded-md border border-red-400/40 px-3 py-1.5 font-semibold hover:bg-red-500/10"
+                >
+                  Retry
+                </button>
+              </div>
+            )}
+
+            {managerDetails && (
+              <div className="space-y-6">
+                <section>
+                  <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-slate-400">Current Squad ({managerDetails.squad.length})</h3>
+                  {managerDetails.squad.length === 0 ? (
+                    <p className="rounded-lg border border-slate-800 bg-slate-950/40 p-4 text-sm text-slate-400">No active squad players found.</p>
+                  ) : (
+                    <div className="grid gap-2 sm:grid-cols-2">
+                      {managerDetails.squad.map((player) => (
+                        <div key={player.id} className="flex min-w-0 items-center gap-3 rounded-lg border border-slate-800 bg-slate-950/40 p-3">
+                          {player.profileImageUrl ? (
+                            <Image
+                              src={player.profileImageUrl}
+                              alt=""
+                              width={36}
+                              height={36}
+                              unoptimized={!canOptimizeImage(player.profileImageUrl)}
+                              className="h-9 w-9 shrink-0 rounded-full object-cover"
+                            />
+                          ) : (
+                            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-800 text-xs font-bold text-slate-400">
+                              {player.name.slice(0, 1).toUpperCase()}
+                            </div>
+                          )}
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-semibold text-slate-100">{player.name}</p>
+                            <p className="truncate text-xs text-slate-400">{player.role}{player.team ? ` · ${player.team}` : ''}</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </section>
+
+                <section>
+                  <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-slate-400">Recent Gameweeks</h3>
+                  {managerDetails.recentGameweeks.length === 0 ? (
+                    <p className="rounded-lg border border-slate-800 bg-slate-950/40 p-4 text-sm text-slate-400">No gameweek results available.</p>
+                  ) : (
+                    <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                      {managerDetails.recentGameweeks.map((gameweek, index) => (
+                        <div key={`${gameweek.gameweekNumber ?? 'week'}-${index}`} className="rounded-lg border border-slate-800 bg-slate-950/40 p-3">
+                          <p className="text-xs text-slate-400">Gameweek {gameweek.gameweekNumber ?? '—'}</p>
+                          <p className="mt-1 font-mono text-lg font-bold text-amber-300">{gameweek.points} <span className="text-xs font-sans font-medium text-slate-400">pts</span></p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </section>
+              </div>
+            )}
+
             <div className="flex justify-end border-t border-slate-800 pt-4">
               <button
                 type="button"
-                onClick={() => setSelectedUser(null)}
+                onClick={closeManagerDetails}
                 className="rounded-lg bg-slate-800 px-5 py-2 text-sm font-semibold text-white hover:bg-slate-700 transition-colors"
               >
                 Close

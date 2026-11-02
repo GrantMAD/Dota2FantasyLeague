@@ -226,29 +226,49 @@ async function getHandler(request: NextRequest) {
       squadValue = activePlayerIds.reduce((sum, playerId) => sum + (latestByPlayer.get(playerId) ?? 0), 0);
     }
 
-    let targetGameweekId = recentGameweekId;
-    if (!targetGameweekId) {
-      // Find the latest closed or locked gameweek in the season
-      const { data: latestFinishedGw } = await supabase.from('gameweeks')
-        .select('id')
-        .eq('season_id', season.season_id)
-        .in('status', ['closed', 'locked'])
-        .order('gameweek_number', { ascending: false })
-        .limit(1)
-        .maybeSingle();
+    const { data: seasonGameweeks, error: gameweeksError } = await supabase.from('gameweeks')
+      .select('id, gameweek_number, status')
+      .eq('season_id', season.season_id)
+      .order('gameweek_number', { ascending: false });
+    if (gameweeksError) {
+      throw Object.assign(
+        new Error(`Unable to resolve analytics gameweek: ${gameweeksError.message}`),
+        { status: 500 },
+      );
+    }
 
-      if (latestFinishedGw) {
-        targetGameweekId = Number(latestFinishedGw.id);
-      } else {
-        // Fallback to active or latest gameweek in the season
-        const { data: fallbackGw } = await supabase.from('gameweeks')
-          .select('id')
-          .eq('season_id', season.season_id)
-          .order('gameweek_number', { ascending: false })
-          .limit(1)
-          .maybeSingle();
-        targetGameweekId = fallbackGw ? Number(fallbackGw.id) : null;
+    const orderedGameweeks = seasonGameweeks ?? [];
+    const activeGameweeks = orderedGameweeks.filter((gameweek) => gameweek.status === 'active');
+    const completedGameweeks = orderedGameweeks.filter(
+      (gameweek) => gameweek.status === 'closed' || gameweek.status === 'locked',
+    );
+    const otherGameweeks = orderedGameweeks.filter(
+      (gameweek) => gameweek.status !== 'active' && gameweek.status !== 'closed' && gameweek.status !== 'locked',
+    );
+    const gameweekPriority = [...activeGameweeks, ...completedGameweeks, ...otherGameweeks];
+    let targetGameweekId: number | null = null;
+
+    // Prefer the active gameweek when it has score breakdowns; otherwise use
+    // the latest scored gameweek instead of a future lineup.
+    if (gameweekPriority.length > 0) {
+      const { data: scoredPerformances, error: scoreCheckError } = await supabase
+        .from('player_performances')
+        .select('gameweek_id, fantasy_points_breakdown(total_points)')
+        .in('gameweek_id', gameweekPriority.map((gameweek) => gameweek.id));
+      if (scoreCheckError) {
+        throw Object.assign(
+          new Error(`Unable to check gameweek scores: ${scoreCheckError.message}`),
+          { status: 500 },
+        );
       }
+
+      const scoredGameweekIds = new Set(
+        (scoredPerformances ?? [])
+          .filter((performance) => firstRelation(performance.fantasy_points_breakdown) !== undefined)
+          .map((performance) => Number(performance.gameweek_id)),
+      );
+      const scoredGameweek = gameweekPriority.find((gameweek) => scoredGameweekIds.has(Number(gameweek.id)));
+      targetGameweekId = scoredGameweek ? Number(scoredGameweek.id) : null;
     }
 
     const market = [] as Array<{ playerName: string; team: string; role: string; ownership: number; price: number; roi: number; }>; 
@@ -396,7 +416,10 @@ async function getHandler(request: NextRequest) {
       valueForMoney: market.slice(0, 5),
     });
   } catch (error: unknown) {
-    const status = typeof error === 'object' && error !== null && 'status' in error ? Number((error as { status: number }).status) : 401;
+    console.error('Analytics route failed:', error);
+    const status = typeof error === 'object' && error !== null && 'status' in error
+      ? Number((error as { status: number }).status)
+      : 500;
     return NextResponse.json({ error: 'Unable to load analytics.' }, { status });
   }
 }

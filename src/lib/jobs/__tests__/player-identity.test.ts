@@ -18,6 +18,7 @@ describe('player identity normalization', () => {
   it('uses the canonical SteamID64 for account-ID-only provider records', () => {
     expect(getCanonicalSteamId('301750126')).toBe('76561198262015854');
     expect(getCanonicalSteamId('76561198262015854')).toBe('76561198262015854');
+    expect(getCanonicalSteamId('321580662')).toBe('76561198281846390');
   });
 
   it('does not conflate arbitrary provider identifiers', () => {
