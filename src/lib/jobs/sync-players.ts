@@ -14,6 +14,13 @@ import { hasConflict } from '@/lib/data-reconciliation/conflict-resolution';
 import { createVersionRecord, detectFieldChanges } from '@/lib/data-reconciliation/data-versioning';
 import { calculateCompletenessScore, calculateFreshnessScore, calculateReliabilityScore } from '@/lib/data-reconciliation/data-quality';
 import { shouldDeactivateMissingPlayers } from './player-sync-safety';
+import {
+  deduplicatePlayerRecords,
+  getCanonicalSteamId,
+  getPlayerIdentityKeys,
+  hasCanonicalSteamId,
+  normalizePlayerIdentity,
+} from './player-identity';
 
 interface SyncResult {
   created: number;
@@ -106,6 +113,13 @@ export async function syncPlayers(): Promise<SyncResult> {
         });
       }
       console.log(`[syncPlayers] Fetched ${players.length} players from provider`);
+      const uniquePlayers = deduplicatePlayerRecords(players);
+      if (uniquePlayers.length !== players.length) {
+        console.warn(
+          `[syncPlayers] Removed ${players.length - uniquePlayers.length} duplicate provider player records`
+        );
+        players = uniquePlayers;
+      }
       if (players.length === 0) {
         throw new Error('Player sync received an empty active-player feed; refusing to process or deactivate players');
       }
@@ -143,8 +157,9 @@ export async function syncPlayers(): Promise<SyncResult> {
       try {
         const activeProviderIds = new Set<string>();
         for (const p of players) {
-          if (p.steamId) activeProviderIds.add(String(p.steamId));
-          if (p.id) activeProviderIds.add(String(p.id));
+          for (const identity of getPlayerIdentityKeys(p.steamId, p.id)) {
+            activeProviderIds.add(identity);
+          }
         }
 
         const supabase = getSupabaseServerClient();
@@ -211,7 +226,8 @@ export async function syncPlayers(): Promise<SyncResult> {
             if (activeMatchPlayerDbIds.has(dbp.id)) continue;
 
             // If provider response does NOT contain this player's data_provider_id
-            if (!activeProviderIds.has(String(dbp.data_provider_id))) {
+            const playerIdentity = normalizePlayerIdentity(dbp.data_provider_id);
+            if (!playerIdentity || !activeProviderIds.has(playerIdentity)) {
               const { error: softDelErr } = await supabase
                 .from('professional_players')
                 .update({
@@ -289,8 +305,9 @@ async function processSyncBatch(
       chunk.map(async (player) => {
         try {
           // Check existing player by steamId or id (account_id)
-          const existing = existingPlayers.get(player.steamId) || 
-            (player.id ? existingPlayers.get(player.id) : undefined);
+          const existing = getPlayerIdentityKeys(player.steamId, player.id)
+            .map((identity) => existingPlayers.get(identity))
+            .find((candidate): candidate is ProfessionalPlayer => candidate !== undefined);
 
           // Resolve database team_id from provider team info
           let resolvedTeamId: number | null = null;
@@ -484,12 +501,12 @@ async function processSyncBatch(
             const newPlayerData: Record<string, unknown> = {
               name: player.name,
               in_game_name: player.name,
-              slug: player.steamId.toString(),
+              slug: getCanonicalSteamId(player.steamId || player.id),
               country: player.country,
               primary_role: finalRole,
               team_id: resolvedTeamId,
               profile_image_url: player.imageUrl,
-              data_provider_id: player.steamId.toString(),
+              data_provider_id: getCanonicalSteamId(player.steamId || player.id),
               last_synced_at: new Date().toISOString(),
               availability_status: 'available',
             };
@@ -599,12 +616,20 @@ async function getExistingPlayers(): Promise<Map<string, ProfessionalPlayer>> {
 
   // Map by data_provider_id and slug for deduplication
   const playerMap = new Map<string, ProfessionalPlayer>();
-  for (const player of data || []) {
-    if (player.data_provider_id) {
-      playerMap.set(player.data_provider_id, player);
-    }
-    if (player.slug && !playerMap.has(player.slug)) {
-      playerMap.set(player.slug, player);
+  const sortedPlayers = [...(data || [])].sort((left, right) => {
+    const leftCanonical = hasCanonicalSteamId(left.data_provider_id, left.slug) ? 1 : 0;
+    const rightCanonical = hasCanonicalSteamId(right.data_provider_id, right.slug) ? 1 : 0;
+    return rightCanonical - leftCanonical || left.id - right.id;
+  });
+  for (const player of sortedPlayers) {
+    for (const identity of getPlayerIdentityKeys(player.data_provider_id, player.slug)) {
+      if (playerMap.has(identity)) {
+        console.warn(
+          `[syncPlayers] Duplicate provider identity ${identity}; using player ${playerMap.get(identity)?.id} instead of ${player.id}`
+        );
+        continue;
+      }
+      playerMap.set(identity, player);
     }
   }
 
