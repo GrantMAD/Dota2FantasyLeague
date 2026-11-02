@@ -36,6 +36,16 @@ type SettingsTab = 'overview' | 'account' | 'profile' | 'notifications' | 'secur
 const inputClass =
   'w-full rounded-xl border border-[var(--border)] bg-[var(--surface-raised)] px-4 py-3 text-[var(--text-primary)] placeholder-[var(--text-muted)] outline-none transition focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/20';
 const countryOptions = getCountryOptions();
+const countryTimezoneDefaults: Record<string, string> = {
+  ZA: 'Africa/Johannesburg',
+  US: 'America/New_York',
+  CA: 'America/Toronto',
+  GB: 'Europe/London',
+  UK: 'Europe/London',
+  DE: 'Europe/Berlin',
+  PH: 'Asia/Manila',
+  SG: 'Asia/Singapore',
+};
 
 const tabs: Array<{
   key: SettingsTab;
@@ -647,7 +657,15 @@ function SettingsContent() {
                     <select
                       id="settings-account-country"
                       value={formData.countryCode}
-                      onChange={(event) => setFormData({ ...formData, countryCode: event.target.value })}
+                      onChange={(event) => {
+                        const countryCode = event.target.value;
+                        const timezone = countryTimezoneDefaults[countryCode.toUpperCase()];
+                        setFormData((current) => ({
+                          ...current,
+                          countryCode,
+                          ...(timezone ? { timezone } : {}),
+                        }));
+                      }}
                       className={inputClass}
                     >
                       {countryOptions.map(({ code, name }) => (
@@ -667,6 +685,8 @@ function SettingsContent() {
                       className={inputClass}
                     >
                       <option value="UTC">UTC</option>
+                      <option value="Africa/Johannesburg">South Africa Standard Time (SAST)</option>
+                      <option value="America/Toronto">Eastern Time (Canada)</option>
                       <option value="America/New_York">Eastern Time (ET)</option>
                       <option value="America/Chicago">Central Time (CT)</option>
                       <option value="America/Los_Angeles">Pacific Time (PT)</option>
