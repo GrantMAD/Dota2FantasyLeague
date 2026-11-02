@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Trophy,
@@ -36,7 +36,7 @@ interface DashboardClientProps {
 }
 
 /** Build stat card array from dashboardData */
-function buildStats(data: DashboardData, onOpenPointsBreakdown: () => void): DashboardStatCardData[] {
+function buildStats(data: DashboardData): DashboardStatCardData[] {
   return [
     {
       icon: <Users className="w-5 h-5 text-cyan-400" />,
@@ -65,7 +65,6 @@ function buildStats(data: DashboardData, onOpenPointsBreakdown: () => void): Das
       value: data.totalPoints || 0,
       trend: 'Overall',
       trendColor: 'text-slate-400',
-      // onOpenPointsBreakdown is passed through DashboardStatCards below
     },
     {
       icon: <BarChart3 className="w-5 h-5 text-teal-400" />,
@@ -82,7 +81,6 @@ function buildStats(data: DashboardData, onOpenPointsBreakdown: () => void): Das
       trendColor: 'text-amber-500',
     },
   ];
-  void onOpenPointsBreakdown; // suppress lint – passed via DashboardStatCards prop
 }
 
 export function DashboardClient({ initialData, initialWhatsNew }: DashboardClientProps) {
@@ -93,9 +91,6 @@ export function DashboardClient({ initialData, initialWhatsNew }: DashboardClien
   const [loading, setLoading] = useState(initialData === null);
   const [error, setError] = useState<string | null>(null);
   const [dashboardData, setDashboardData] = useState<DashboardData | null>(initialData);
-  const [stats, setStats] = useState<DashboardStatCardData[]>(() =>
-    initialData ? buildStats(initialData, () => setShowPointsBreakdown(true)) : []
-  );
 
   const [selectedPlayer, setSelectedPlayer] = useState<PlayerDetails | null>(null);
   const [selectedScoreBreakdown, setSelectedScoreBreakdown] = useState<ScoreBreakdown | null | undefined>(undefined);
@@ -107,6 +102,11 @@ export function DashboardClient({ initialData, initialWhatsNew }: DashboardClien
 
   const [liveMatches, setLiveMatches] = useState<MatchData[]>([]);
   const [liveMatchesLoading, setLiveMatchesLoading] = useState(true);
+
+  // Compute stat cards directly from dashboardData to avoid cascading renders / set-state-in-effect
+  const stats = useMemo(() => {
+    return dashboardData ? buildStats(dashboardData) : [];
+  }, [dashboardData]);
 
   const openPlayerDetails = async (starter: DashboardStarter) => {
     setSelectedScoreBreakdown(starter.score_breakdown ?? null);
@@ -122,13 +122,6 @@ export function DashboardClient({ initialData, initialWhatsNew }: DashboardClien
       setPlayerLoading(false);
     }
   };
-
-  // Rebuild stats whenever dashboardData changes (e.g. after goal update)
-  useEffect(() => {
-    if (dashboardData) {
-      setStats(buildStats(dashboardData, () => setShowPointsBreakdown(true)));
-    }
-  }, [dashboardData]);
 
   useEffect(() => {
     let cancelled = false;
@@ -167,7 +160,6 @@ export function DashboardClient({ initialData, initialWhatsNew }: DashboardClien
         const data = (await res.json()) as DashboardData;
         if (cancelled) return;
         setDashboardData(data);
-        setStats(buildStats(data, () => setShowPointsBreakdown(true)));
       } catch (err: unknown) {
         if (cancelled) return;
         const msg = err instanceof Error ? err.message : 'Error fetching dashboard stats';
