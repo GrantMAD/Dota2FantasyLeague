@@ -43,7 +43,9 @@ export function MatchFilters({
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         {/* Status segmented buttons */}
         <div role="group" aria-label="Filter matches by status" className="flex items-center gap-1.5 p-1 bg-[var(--surface-raised)] border border-[var(--border)] rounded-xl overflow-x-auto w-full sm:w-auto">
-          {tabs.map((tab) => {
+          {tabs
+            .filter((tab) => tab.id !== 'upcoming' || counts.upcoming > 0)
+            .map((tab) => {
             const isActive = activeTab === tab.id;
             return (
               <button

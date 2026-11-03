@@ -51,6 +51,13 @@ Professional data provider configuration:
 
 - `NEXT_PUBLIC_DATA_PROVIDER` defaults to `opendota`, which is also explicitly configured as the Vercel production primary.
 - STRATZ is the fallback when `ENABLE_PROVIDER_FALLBACK` is unset or not `false`; configure `STRATZ_API_KEY` to use that fallback.
+- Tournament discovery, match ingestion, and match detail retrieval use STRATZ directly, independent of the global primary/fallback setting, so provider-specific league and match IDs stay consistent. `STRATZ_API_KEY` is required while those jobs are enabled.
+- Match sync pages through STRATZ match records, live matches, and upcoming league-node fixtures. Scheduled fixture rows are reconciled to real match IDs by STRATZ series ID when match records appear; statuses are stored as `scheduled`, `in_progress`, and `completed`. Completed matches alone are sent through detail ingestion and fantasy scoring.
+- Matches outside all configured gameweek windows are intentionally not imported; they are counted in a per-tournament summary instead of being reported as job errors. Matches that fall in overlapping gameweeks remain errors so the schedule can be corrected.
+- Existing matches are updated by provider match ID; if provider IDs differ, a unique same-team match within 15 minutes of the existing scheduled time is updated instead. Ambiguous matches are skipped and reported rather than inserted as likely duplicates.
+- STRATZ league records without a usable ID, name, or start date are skipped with a warning and are not written to the tournaments table.
+- Tournament discovery and match sync are restricted to STRATZ professional, minor, major, international, and DPC league/qualifier tiers. Previously discovered non-professional tournament rows are left intact but excluded from match ingestion unless STRATZ reports them in an approved tier.
+- STRATZ GraphQL query and mapping behavior has focused mocked-response coverage. Run the enabled jobs with the configured API key to validate live API access in the target environment.
 - `/api/data/sync-status` reports the effective primary/fallback names and whether fallback is enabled; it never returns provider credentials.
 
 ## Project Structure

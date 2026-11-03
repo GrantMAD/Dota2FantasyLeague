@@ -4,10 +4,7 @@ import type { DataProvider } from '@/lib/data-providers/provider-interface';
 import { StratzProvider } from '@/lib/data-providers/stratz-provider';
 import { ResilientDataProvider } from '@/lib/data-providers/resilient-provider';
 
-function makeProvider(name: string): DataProvider & {
-  fetchPlayers: jest.Mock<Promise<never[]>, []>;
-  healthCheck: jest.Mock<Promise<boolean>, []>;
-} {
+function makeProvider(name: string): jest.Mocked<DataProvider> {
   return {
     name,
     version: 'test',

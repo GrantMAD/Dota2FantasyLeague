@@ -31,31 +31,37 @@ export async function discoverTournaments(): Promise<DiscoveryResult> {
   };
 
   try {
-    const { getDataProvider } = await import('../data-providers/provider-config');
-    const provider = await getDataProvider();
+    const { getMatchDataProvider } = await import('../data-providers/provider-config');
+    const provider = await getMatchDataProvider();
 
     console.log('[discoverTournaments] Starting tournament discovery');
 
     const jobExecutionId = await logJobExecution('discover-tournaments', 'started');
 
     try {
-      // Fetch active and upcoming tournaments
-      const tournaments = await provider.fetchTournaments({
-        status: 'upcoming',
-        limit: 100,
-      });
+      const tournaments = await provider.fetchTournaments({ limit: 100 });
+      const upcomingTournaments = tournaments.filter(
+        (tournament) => tournament.status === 'upcoming' || tournament.status === 'active'
+      );
 
-      console.log(`[discoverTournaments] Found ${tournaments.length} tournaments`);
+      console.log(`[discoverTournaments] Found ${upcomingTournaments.length} upcoming or active tournaments`);
 
       // Get existing tournaments — keyed by data_provider_id for reliable lookup
       const existingTournaments = await getExistingTournaments();
       const supabase = getSupabaseServerClient();
 
       // Process each tournament
-      for (const tournament of tournaments) {
+      for (const tournament of upcomingTournaments) {
         try {
           // Look up by the provider's own ID (stored as data_provider_id)
-          const existing = existingTournaments.get(String(tournament.id));
+          const providerId = String(tournament.id);
+          const existingLookup = findExistingTournament(existingTournaments, providerId, tournament);
+          if (existingLookup.ambiguous) {
+            throw new Error(
+              `Multiple existing tournaments match provider ID or name/year for ${tournament.name}; skipped to avoid updating or duplicating the wrong tournament`
+            );
+          }
+          const existing = existingLookup.tournament;
 
           if (existing) {
             // Update existing tournament
@@ -64,12 +70,14 @@ export async function discoverTournaments(): Promise<DiscoveryResult> {
               .update({
                 name: tournament.name,
                 status: 'eligible',
+                data_provider_id: providerId,
                 tier: tournament.tier || existing.tier,
                 last_synced_at: new Date().toISOString(),
               })
               .eq('id', existing.id);
 
             if (error) throw error;
+            addTournamentIndexEntry(existingTournaments.byProviderId, providerId, existing);
             result.updated++;
           } else {
             // Create new tournament
@@ -171,7 +179,43 @@ export async function discoverTournaments(): Promise<DiscoveryResult> {
   return result;
 }
 
-async function getExistingTournaments(): Promise<Map<string, Tournament>> {
+function tournamentIdentity(name: string, startDate: Date): string {
+  const normalizedName = name.toLowerCase().replace(/[^a-z0-9]+/g, '');
+  return `name:${normalizedName}:${startDate.getUTCFullYear()}`;
+}
+
+interface ExistingTournamentIndex {
+  byProviderId: Map<string, Tournament[]>;
+  byIdentity: Map<string, Tournament[]>;
+}
+
+function findExistingTournament(
+  existingTournaments: ExistingTournamentIndex,
+  providerId: string,
+  tournament: { name: string; startDate: Date }
+): { tournament: Tournament | null; ambiguous: boolean } {
+  const providerMatches = existingTournaments.byProviderId.get(providerId) ?? [];
+  if (providerMatches.length > 1) return { tournament: null, ambiguous: true };
+  if (providerMatches.length === 1) return { tournament: providerMatches[0], ambiguous: false };
+
+  const identityMatches = existingTournaments.byIdentity.get(
+    tournamentIdentity(tournament.name, tournament.startDate)
+  ) ?? [];
+  if (identityMatches.length > 1) return { tournament: null, ambiguous: true };
+  return { tournament: identityMatches[0] ?? null, ambiguous: false };
+}
+
+function addTournamentIndexEntry(
+  index: Map<string, Tournament[]>,
+  key: string,
+  tournament: Tournament
+): void {
+  const matches = index.get(key) ?? [];
+  if (!matches.some((match) => match.id === tournament.id)) matches.push(tournament);
+  index.set(key, matches);
+}
+
+async function getExistingTournaments(): Promise<ExistingTournamentIndex> {
   const supabase = getSupabaseServerClient();
 
   const { data, error } = await supabase
@@ -182,16 +226,20 @@ async function getExistingTournaments(): Promise<Map<string, Tournament>> {
     throw new Error(`Failed to fetch existing tournaments: ${error.message}`);
   }
 
-  const tournamentMap = new Map<string, Tournament>();
+  const tournamentMap: ExistingTournamentIndex = {
+    byProviderId: new Map(),
+    byIdentity: new Map(),
+  };
   for (const tournament of data || []) {
-    // Key by data_provider_id so the lookup in the main loop matches
-    // what the provider returns as tournament.id
     if (tournament.data_provider_id) {
-      tournamentMap.set(tournament.data_provider_id, tournament);
+      addTournamentIndexEntry(tournamentMap.byProviderId, tournament.data_provider_id, tournament);
     }
-    // Also key by slug as a fallback for manually created tournaments
-    if (tournament.slug) {
-      tournamentMap.set(tournament.slug, tournament);
+    if (tournament.name && tournament.start_date) {
+      addTournamentIndexEntry(
+        tournamentMap.byIdentity,
+        tournamentIdentity(tournament.name, new Date(tournament.start_date)),
+        tournament
+      );
     }
   }
 

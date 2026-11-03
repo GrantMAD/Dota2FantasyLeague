@@ -87,12 +87,16 @@ export default function MatchesPage({ initialData }: { initialData: InitialMatch
         setTournaments(Array.isArray(data.tournaments) ? data.tournaments : []);
         setTotal(Number.isFinite(data.pagination?.total) ? data.pagination.total : 0);
         setTotalPages(Number.isFinite(data.pagination?.totalPages) ? data.pagination.totalPages : 0);
-        setCounts({
+        const nextCounts = {
           all: Number.isFinite(data.counts?.all) ? data.counts.all : 0,
           live: Number.isFinite(data.counts?.live) ? data.counts.live : 0,
           upcoming: Number.isFinite(data.counts?.upcoming) ? data.counts.upcoming : 0,
           completed: Number.isFinite(data.counts?.completed) ? data.counts.completed : 0,
-        });
+        };
+        setCounts(nextCounts);
+        if (activeTab === 'upcoming' && nextCounts.upcoming === 0) {
+          setActiveTab('all');
+        }
       } catch (err: unknown) {
         if (!cancelled) setError(err instanceof Error ? err.message : 'Failed to load matches');
       } finally {

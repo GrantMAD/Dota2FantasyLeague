@@ -9,12 +9,28 @@
 
 import { getSupabaseServerClient } from '@/lib/db/supabase-server';
 import type { Match, Tournament } from '@/types/database';
-import { findGameweekForMatch } from './match-gameweek-routing';
+import {
+  resolveGameweekForMatch,
+  summarizeOutOfGameweekMatches,
+  type OutOfGameweekDiagnostics,
+} from './match-gameweek-routing';
+import {
+  filterTournamentsToProviderIds,
+  fetchAllTournamentMatches,
+  findExistingMatchByTeamsAndTime,
+  preserveMatchStatus,
+  requireStratzMatchProvider,
+  toDatabaseMatchStatus,
+} from './match-sync';
 
 interface FetchResult {
   fetched: number;
   updated: number;
   scheduled: number;
+  skippedOutsideGameweeks: number;
+  skippedOutsideGameweeksPast: number;
+  skippedOutsideGameweeksFuture: number;
+  skippedOutsideGameweeksFutureExamples: OutOfGameweekDiagnostics['futureExamples'];
   errors: string[];
   duration: number;
   startedAt: Date;
@@ -45,6 +61,10 @@ export async function fetchMatches(): Promise<FetchResult> {
     fetched: 0,
     updated: 0,
     scheduled: 0,
+    skippedOutsideGameweeks: 0,
+    skippedOutsideGameweeksPast: 0,
+    skippedOutsideGameweeksFuture: 0,
+    skippedOutsideGameweeksFutureExamples: [],
     errors: [],
     duration: 0,
     startedAt,
@@ -52,9 +72,10 @@ export async function fetchMatches(): Promise<FetchResult> {
   };
 
   try {
-    const { getDataProvider } = await import('../data-providers/provider-config');
-    const provider = await getDataProvider();
+    const { getMatchDataProvider } = await import('../data-providers/provider-config');
+    const provider = await getMatchDataProvider();
     const supabase = getSupabaseServerClient();
+    requireStratzMatchProvider(provider);
 
     console.log('[fetchMatches] Starting match fetch');
 
@@ -62,8 +83,19 @@ export async function fetchMatches(): Promise<FetchResult> {
 
     try {
       // 1. Get active/eligible tournaments from DB
-      const activeTournaments = await getActiveTournaments();
-      console.log(`[fetchMatches] Found ${activeTournaments.length} active tournaments`);
+      const professionalTournaments = await provider.fetchTournaments({ limit: 100 });
+      const professionalTournamentIds = new Set(
+        professionalTournaments.map((tournament) => String(tournament.id))
+      );
+      const eligibleTournaments = await getActiveTournaments();
+      const activeTournaments = filterTournamentsToProviderIds(
+        eligibleTournaments,
+        professionalTournamentIds
+      );
+      console.log(
+        `[fetchMatches] Found ${activeTournaments.length} eligible professional tournaments; ` +
+        `ignoring ${eligibleTournaments.length - activeTournaments.length} previously discovered tournaments outside professional STRATZ tiers`
+      );
 
       if (activeTournaments.length === 0) {
         console.log('[fetchMatches] No active or eligible tournaments found to sync');
@@ -114,25 +146,37 @@ export async function fetchMatches(): Promise<FetchResult> {
             continue;
           }
 
-          // Extract provider league id from slug if present (e.g. "20145-res-unchained" -> "20145")
-          const leagueExternalId = tournament.slug ? tournament.slug.split('-')[0] : tournament.id.toString();
+          const leagueExternalId = tournament.data_provider_id
+            || (tournament.slug ? tournament.slug.split('-')[0] : tournament.id.toString());
 
           // Fetch matches for this tournament
-          const matches = await provider.fetchMatches(leagueExternalId, {
-            status: 'scheduled',
-            limit: 100,
-          });
+          const matches = await fetchAllTournamentMatches(provider, leagueExternalId);
 
           console.log(
             `[fetchMatches] Tournament ${tournament.name} (${leagueExternalId}): ${matches.length} matches returned`
           );
 
+          const outOfGameweekDiagnostics = summarizeOutOfGameweekMatches(
+            matches.flatMap((match) => match.scheduledAt
+              ? [{ id: match.id, status: match.status, scheduledAt: match.scheduledAt }]
+              : []),
+            tournamentGameweeks,
+            tournament.name,
+            startedAt,
+            Math.max(0, 5 - result.skippedOutsideGameweeksFutureExamples.length),
+          );
+          result.skippedOutsideGameweeksPast += outOfGameweekDiagnostics.pastCount;
+          result.skippedOutsideGameweeksFuture += outOfGameweekDiagnostics.futureCount;
+          result.skippedOutsideGameweeksFutureExamples.push(...outOfGameweekDiagnostics.futureExamples);
+
           if (!matches || matches.length === 0) {
             continue;
           }
 
-          const { existingMatches, seriesByGameweek } = await getTournamentMatchState(supabase, tournament.id);
+          const { existingMatches, allMatches, seriesByGameweek } = await getTournamentMatchState(supabase, tournament.id);
           const routedMatchIds = new Set<string>();
+          const reconciledMatchIds = new Set<number>();
+          let skippedOutsideGameweeks = 0;
 
           // Process matches
           for (const match of matches) {
@@ -147,22 +191,40 @@ export async function fetchMatches(): Promise<FetchResult> {
                 continue;
               }
 
-              const targetGameweek = findGameweekForMatch(scheduledTime, tournamentGameweeks);
-              if (!targetGameweek) {
+              const gameweekResolution = resolveGameweekForMatch(scheduledTime, tournamentGameweeks);
+              if (gameweekResolution.status === 'outside') {
+                skippedOutsideGameweeks++;
+                result.skippedOutsideGameweeks++;
+                continue;
+              }
+              if (gameweekResolution.status === 'invalid-time') {
                 result.errors.push(
-                  `Skipped match ${match.id} for tournament ${tournament.id}: scheduled time ${scheduledTime} does not fall in exactly one configured gameweek`
+                  `Skipped match ${match.id} for tournament ${tournament.id}: provider supplied an invalid scheduled time`
                 );
                 continue;
               }
+              if (gameweekResolution.status === 'ambiguous') {
+                result.errors.push(
+                  `Skipped match ${match.id} for tournament ${tournament.id}: scheduled time ${scheduledTime} falls in overlapping configured gameweeks`
+                );
+                continue;
+              }
+              const targetGameweek = gameweekResolution.gameweek;
 
               const existingMatchesForId = existingMatches.get(match.id) ?? [];
-              if (existingMatchesForId.length > 1) {
+              const scheduledFixtureId = match.sourceSeriesId
+                ? `scheduled:${leagueExternalId}:${match.sourceSeriesId}`
+                : undefined;
+              const scheduledFixtureMatches = scheduledFixtureId
+                ? existingMatches.get(scheduledFixtureId) ?? []
+                : [];
+              if (existingMatchesForId.length > 1 || (existingMatchesForId.length === 0 && scheduledFixtureMatches.length > 1)) {
                 result.errors.push(
                   `Skipped match ${match.id} for tournament ${tournament.id}: multiple database rows already use this external match ID`
                 );
                 continue;
               }
-              const existing = existingMatchesForId[0];
+              let existing: Match | undefined = existingMatchesForId[0] ?? scheduledFixtureMatches[0];
 
               // Resolve Team A
               const teamAId = await resolveOrCreateTeam(match.team1Id, teamIdMap, teamNameMap, provider);
@@ -173,6 +235,23 @@ export async function fetchMatches(): Promise<FetchResult> {
               if (!teamAId || !teamBId) {
                 // Cannot insert match without both valid team references
                 continue;
+              }
+
+              if (!existing) {
+                const reconciliation = findExistingMatchByTeamsAndTime(
+                  allMatches,
+                  teamAId,
+                  teamBId,
+                  new Date(scheduledTime),
+                  reconciledMatchIds
+                );
+                if (reconciliation.ambiguous) {
+                  result.errors.push(
+                    `Skipped match ${match.id} for tournament ${tournament.id}: multiple existing matches have the same teams and a nearby scheduled time`
+                  );
+                  continue;
+                }
+                existing = reconciliation.match ?? undefined;
               }
 
               let seriesRecord = seriesByGameweek.get(targetGameweek.id);
@@ -195,7 +274,14 @@ export async function fetchMatches(): Promise<FetchResult> {
                 seriesByGameweek.set(targetGameweek.id, seriesRecord);
               }
 
-              const status = match.status === 'concluded' ? 'completed' : 'scheduled';
+              const incomingStatus = toDatabaseMatchStatus(match.status);
+              const status = existing
+                ? preserveMatchStatus(existing.status, incomingStatus)
+                : incomingStatus;
+              const matchTimes = {
+                ...(match.startedAt ? { start_time: match.startedAt.toISOString() } : {}),
+                ...(match.endedAt ? { end_time: match.endedAt.toISOString() } : {}),
+              };
 
               if (existing) {
                 const oldGameweekId = existing.gameweek_id;
@@ -214,12 +300,14 @@ export async function fetchMatches(): Promise<FetchResult> {
                 const { error: updateError } = await supabase
                   .from('matches')
                   .update({
+                    external_match_id: match.id.toString(),
                     series_id: seriesRecord.id,
                     gameweek_id: targetGameweek.id,
                     status,
                     team_a_id: teamAId,
                     team_b_id: teamBId,
                     scheduled_time: scheduledTime,
+                    ...matchTimes,
                     last_synced_at: new Date().toISOString(),
                   })
                   .eq('id', existing.id);
@@ -230,6 +318,20 @@ export async function fetchMatches(): Promise<FetchResult> {
                 existing.series_id = seriesRecord.id;
                 existing.gameweek_id = targetGameweek.id;
                 existing.scheduled_time = scheduledTime;
+                reconciledMatchIds.add(existing.id);
+                if (existing.external_match_id !== match.id.toString()) {
+                  const previousExternalId = existing.external_match_id;
+                  if (previousExternalId) {
+                    const previousRows = existingMatches.get(previousExternalId) ?? [];
+                    const remainingRows = previousRows.filter((row) => row.id !== existing.id);
+                    if (remainingRows.length > 0) existingMatches.set(previousExternalId, remainingRows);
+                    else existingMatches.delete(previousExternalId);
+                  }
+                  existing.external_match_id = match.id.toString();
+                  const currentRows = existingMatches.get(match.id) ?? [];
+                  if (!currentRows.some((row) => row.id === existing.id)) currentRows.push(existing);
+                  existingMatches.set(match.id, currentRows);
+                }
                 result.updated++;
               } else {
                 // Insert new match into database
@@ -242,6 +344,7 @@ export async function fetchMatches(): Promise<FetchResult> {
                     team_b_id: teamBId,
                     status,
                     scheduled_time: scheduledTime,
+                    ...matchTimes,
                     external_match_id: match.id.toString(),
                     last_synced_at: new Date().toISOString(),
                   })
@@ -254,6 +357,8 @@ export async function fetchMatches(): Promise<FetchResult> {
                 const matchesForId = existingMatches.get(match.id) ?? [];
                 matchesForId.push(insertedMatch as Match);
                 existingMatches.set(match.id, matchesForId);
+                allMatches.push(insertedMatch as Match);
+                reconciledMatchIds.add((insertedMatch as Match).id);
                 result.fetched++;
               }
               routedMatchIds.add(match.id);
@@ -262,6 +367,14 @@ export async function fetchMatches(): Promise<FetchResult> {
                 `Failed to process match ${match.id}: ${(error as Error).message}`
               );
             }
+          }
+
+          if (skippedOutsideGameweeks > 0) {
+            console.log(
+              `[fetchMatches] Skipped ${skippedOutsideGameweeks} matches outside configured gameweeks ` +
+              `for tournament ${tournament.name} (${outOfGameweekDiagnostics.pastCount} past, ` +
+              `${outOfGameweekDiagnostics.futureCount} future)`
+            );
           }
 
           // Concluded matches queue for detailed fantasy breakdown
@@ -300,6 +413,10 @@ export async function fetchMatches(): Promise<FetchResult> {
         fetched: result.fetched,
         updated: result.updated,
         scheduled: result.scheduled,
+        skippedOutsideGameweeks: result.skippedOutsideGameweeks,
+        skippedOutsideGameweeksPast: result.skippedOutsideGameweeksPast,
+        skippedOutsideGameweeksFuture: result.skippedOutsideGameweeksFuture,
+        skippedOutsideGameweeksFutureExamples: result.skippedOutsideGameweeksFutureExamples,
         errors: result.errors.length,
       }, jobExecutionId);
 
@@ -343,6 +460,7 @@ async function getTournamentMatchState(
   tournamentId: number,
 ): Promise<{
   existingMatches: Map<string, Match[]>;
+  allMatches: Match[];
   seriesByGameweek: Map<number, SeriesReference>;
 }> {
   const { data: rawSeriesRows, error: seriesError } = await supabase
@@ -364,8 +482,9 @@ async function getTournamentMatchState(
 
   const seriesIds = seriesRows.map((series) => series.id);
   const existingMatches = new Map<string, Match[]>();
+  const allMatches: Match[] = [];
   if (seriesIds.length === 0) {
-    return { existingMatches, seriesByGameweek };
+    return { existingMatches, allMatches, seriesByGameweek };
   }
 
   const { data: matchRows, error: matchesError } = await supabase
@@ -378,13 +497,15 @@ async function getTournamentMatchState(
   }
 
   for (const match of (matchRows ?? []) as Match[]) {
-    if (!match.external_match_id) continue;
-    const rows = existingMatches.get(match.external_match_id) ?? [];
-    rows.push(match);
-    existingMatches.set(match.external_match_id, rows);
+    allMatches.push(match);
+    if (match.external_match_id) {
+      const rows = existingMatches.get(match.external_match_id) ?? [];
+      rows.push(match);
+      existingMatches.set(match.external_match_id, rows);
+    }
   }
 
-  return { existingMatches, seriesByGameweek };
+  return { existingMatches, allMatches, seriesByGameweek };
 }
 
 async function checkMatchDetails(matchId: string): Promise<boolean> {

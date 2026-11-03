@@ -16,6 +16,7 @@ import {
   normalizePlayerIdentity,
 } from './player-identity';
 import type { JobRunOptions } from './scheduler';
+import { requireStratzMatchProvider } from './match-sync';
 
 interface FetchDetailsResult {
   fetched: number;
@@ -42,8 +43,9 @@ export async function fetchMatchDetails(options?: JobRunOptions): Promise<FetchD
   };
 
   try {
-    const { getDataProvider } = await import('../data-providers/provider-config');
-    const provider = await getDataProvider();
+    const { getMatchDataProvider } = await import('../data-providers/provider-config');
+    const provider = await getMatchDataProvider();
+    requireStratzMatchProvider(provider);
 
     console.log('[fetchMatchDetails] Starting match detail fetch');
 

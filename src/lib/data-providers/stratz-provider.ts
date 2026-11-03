@@ -100,29 +100,91 @@ interface StratzTeamDetailRecord {
 
 interface StratzLeagueRecord {
   id: number | string;
-  name: string;
+  name?: string | null;
+  displayName?: string | null;
   region?: string | null;
   prizePool?: number | null;
-  startDate: string;
-  endDate?: string | null;
-  status: string;
-  teams?: Array<{ id: number | string }> | null;
-  matches?: Array<{ id: number | string }> | null;
+  tier?: string | null;
+  startDateTime: number | string;
+  endDateTime?: number | string | null;
+  hasLiveMatches?: boolean | null;
+}
+
+const PROFESSIONAL_LEAGUE_TIERS = new Set([
+  'PROFESSIONAL',
+  'MINOR',
+  'MAJOR',
+  'INTERNATIONAL',
+  'DPC_QUALIFIER',
+  'DPC_LEAGUE_QUALIFIER',
+  'DPC_LEAGUE',
+  'DPC_LEAGUE_FINALS',
+]);
+
+export function mapStratzTournamentStatus(
+  hasLiveMatches: boolean,
+  startDateTime: number | string,
+  endDateTime: number | string | null | undefined,
+  now = Date.now()
+): 'upcoming' | 'active' | 'concluded' {
+  if (hasLiveMatches) return 'active';
+  const start = Number(startDateTime) * 1000;
+  const end = endDateTime == null ? Number.NaN : Number(endDateTime) * 1000;
+  if (Number.isFinite(end) && end > 0 && end < now) return 'concluded';
+  if (Number.isFinite(start) && start > now) return 'upcoming';
+  return 'active';
 }
 
 interface StratzMatchRecord {
   id: number | string;
   leagueId: number | string;
+  seriesId?: number | string | null;
   radiantTeamId: number | string;
   direTeamId: number | string;
-  startDateTime: string;
-  endDateTime?: string | null;
-  status: string;
-  series?: { radiantWins: number; direWins: number } | null;
+  startDateTime: number | string;
+  endDateTime?: number | string | null;
+  durationSeconds?: number | null;
+  didRadiantWin?: boolean | null;
+  series?: { teamOneWinCount: number; teamTwoWinCount: number } | null;
+}
+
+interface StratzLiveMatchRecord {
+  matchId: number | string;
+  leagueId: number | string;
+  radiantTeamId: number | string;
+  direTeamId: number | string;
+  completed: boolean;
+  createdDateTime: number | string;
+}
+
+interface StratzLeagueNode {
+  id: number | string;
+  nodeGroupId: number | string;
+  seriesId?: number | string | null;
+  scheduledTime?: number | string | null;
+  teamOneId?: number | string | null;
+  teamTwoId?: number | string | null;
+  hasStarted?: boolean | null;
+  isCompleted?: boolean | null;
+}
+
+export function mapStratzMatchStatus(
+  match: Pick<StratzMatchRecord, 'startDateTime' | 'endDateTime' | 'durationSeconds' | 'didRadiantWin'>,
+  isLive = false,
+  now = Date.now()
+): 'scheduled' | 'live' | 'concluded' {
+  if (isLive) return 'live';
+  if (
+    (match.endDateTime != null && Number(match.endDateTime) > 0) ||
+    (match.durationSeconds != null && match.durationSeconds > 0)
+  ) {
+    return 'concluded';
+  }
+  return Number(match.startDateTime) * 1000 > now ? 'scheduled' : 'live';
 }
 
 interface StratzMatchPlayerRecord {
-  id: number | string;
+  steamAccountId: number | string;
   heroId?: number | string | null;
   isRadiant: boolean;
   kills: number;
@@ -130,15 +192,11 @@ interface StratzMatchPlayerRecord {
   assists: number;
   goldPerMinute: number;
   experiencePerMinute: number;
-  lastHits: number;
-  denies: number;
+  numLastHits: number;
+  numDenies: number;
   heroDamage: number;
   towerDamage: number;
-  healing: number;
-  wardsPlaced: number;
-  wardsDestroyed: number;
-  firstBloodAchieved: boolean;
-  roshansKilled: number;
+  heroHealing: number;
   hero?: { displayName?: string | null; shortName?: string | null } | null;
 }
 
@@ -147,7 +205,7 @@ interface StratzDetailedMatchRecord {
   durationSeconds: number;
   radiantTeamId: number | string;
   direTeamId: number | string;
-  isRadiantVictory: boolean;
+  didRadiantWin: boolean;
   players: StratzMatchPlayerRecord[];
 }
 
@@ -490,50 +548,82 @@ export class StratzProvider extends DataProviderBase implements DataProvider {
 
   async fetchTournaments(filters?: DataProviderFilters & { status?: 'upcoming' | 'active' | 'concluded'; minTier?: string }): Promise<TournamentData[]> {
     try {
-      // STRATZ doesn't have a direct tournament list, so we fetch recently updated leagues
       const query = `
         query {
-          league(request: {
+          leagues(request: {
             skip: ${filters?.offset || 0}
             take: ${Math.min(filters?.limit || 100, 100)}
+            requireStartAndEndDates: true
+            tiers: [${[...PROFESSIONAL_LEAGUE_TIERS].join(', ')}]
           }) {
             id
             name
+            displayName
             region
             prizePool
-            startDate
-            endDate
-            status
-            teams {
-              id
-            }
-            matches {
-              id
-            }
+            tier
+            startDateTime
+            endDateTime
+            hasLiveMatches
           }
         }
       `;
 
-      const response = await this.graphqlRequest<{ league?: StratzLeagueRecord[] }>(query);
-      const leagues = response.data?.league;
+      const response = await this.graphqlRequest<{ leagues?: Array<StratzLeagueRecord | null> }>(query);
+      const leagues = response.data?.leagues;
       if (!Array.isArray(leagues)) {
-        throw new Error('STRATZ league response is missing or invalid');
+        throw new Error('STRATZ leagues response is missing or invalid');
       }
 
-      return leagues.map((l) => ({
-        id: String(l.id),
-        name: l.name,
-        region: l.region || undefined,
-        prizePool: l.prizePool ?? undefined,
-        currency: 'USD',
-        startDate: new Date(l.startDate),
-        endDate: l.endDate ? new Date(l.endDate) : undefined,
-        status: this.mapTournamentStatus(l.status),
-        teams: (l.teams || []).map((t) => String(t.id)),
-        matches: (l.matches || []).map((m) => String(m.id)),
-        tier: 'Major', // Simplified - STRATZ may have tier info
-        lastUpdated: new Date(),
-      }));
+      const validLeagues: Array<{ league: StratzLeagueRecord; name: string }> = [];
+      const skippedLeagues: Array<{ id: number | string | undefined; reason: string }> = [];
+      for (const league of leagues) {
+        const name = league?.displayName?.trim() || league?.name?.trim();
+        if (!league || !String(league.id ?? '').trim()) {
+          skippedLeagues.push({ id: league?.id, reason: 'missing ID' });
+          continue;
+        }
+        if (!name) {
+          skippedLeagues.push({ id: league.id, reason: 'missing name and displayName' });
+          continue;
+        }
+        if (!Number.isFinite(Number(league.startDateTime)) || Number(league.startDateTime) <= 0) {
+          skippedLeagues.push({ id: league.id, reason: 'missing start date' });
+          continue;
+        }
+        if (!PROFESSIONAL_LEAGUE_TIERS.has(league.tier ?? '')) {
+          skippedLeagues.push({ id: league.id, reason: `non-professional tier: ${league.tier ?? 'unset'}` });
+          continue;
+        }
+        validLeagues.push({ league, name });
+      }
+      if (skippedLeagues.length > 0) {
+        this.log('warn', `Skipped ${skippedLeagues.length} STRATZ leagues with incomplete data`, {
+          examples: skippedLeagues.slice(0, 10),
+        });
+      }
+
+      return validLeagues
+        .map(({ league, name }) => ({
+          id: String(league.id),
+          name,
+          region: league.region || undefined,
+          prizePool: league.prizePool ?? undefined,
+          currency: 'USD',
+          startDate: new Date(Number(league.startDateTime) * 1000),
+          endDate: league.endDateTime == null
+            ? undefined
+            : new Date(Number(league.endDateTime) * 1000),
+          status: mapStratzTournamentStatus(
+            league.hasLiveMatches ?? false,
+            league.startDateTime,
+            league.endDateTime
+          ),
+          teams: [],
+          tier: league.tier || undefined,
+          lastUpdated: new Date(),
+        }))
+        .filter((league) => filters?.status === undefined || league.status === filters.status);
     } catch (error) {
       throw this.createError(
         'STRATZ_TOURNAMENTS_FETCH_FAILED',
@@ -550,51 +640,159 @@ export class StratzProvider extends DataProviderBase implements DataProvider {
     filters?: DataProviderFilters & { status?: 'scheduled' | 'live' | 'concluded' }
   ): Promise<MatchData[]> {
     try {
+      const leagueId = Number(tournamentId);
+      if (!Number.isInteger(leagueId) || leagueId <= 0) {
+        throw new Error('A valid STRATZ league ID is required to fetch matches.');
+      }
+      const isFirstPage = (filters?.offset ?? 0) === 0;
+      const nodeGroupSelection = isFirstPage
+        ? `
+          nodeGroups {
+            id
+            nodes {
+              id
+              nodeGroupId
+              seriesId
+              scheduledTime
+              teamOneId
+              teamTwoId
+              hasStarted
+              isCompleted
+            }
+          }
+        `
+        : '';
+
       const query = `
         query {
-          match(request: {
-            ${tournamentId ? `leagueId: ${tournamentId}` : ''}
-            skip: ${filters?.offset || 0}
-            take: ${Math.min(filters?.limit || 100, 100)}
-          }) {
-            id
-            leagueId
-            radiantTeamId
-            direTeamId
-            startDateTime
-            endDateTime
-            status
-            series {
-              radiantWins
-              direWins
+          league(id: ${leagueId}) {
+            matches(request: {
+              skip: ${filters?.offset || 0}
+              take: ${Math.min(filters?.limit || 100, 100)}
+            }) {
+              id
+              leagueId
+              seriesId
+              radiantTeamId
+              direTeamId
+              startDateTime
+              endDateTime
+              durationSeconds
+              didRadiantWin
+              series {
+                teamOneWinCount
+                teamTwoWinCount
+              }
+            }
+            ${nodeGroupSelection}
+            liveMatches {
+              matchId
+              leagueId
+              radiantTeamId
+              direTeamId
+              completed
+              createdDateTime
             }
           }
         }
       `;
 
-      const response = await this.graphqlRequest<{ match?: StratzMatchRecord[] }>(query);
-      const matches = response.data?.match;
+      const response = await this.graphqlRequest<{
+        league?: {
+          matches?: StratzMatchRecord[];
+          nodeGroups?: Array<{ nodes?: StratzLeagueNode[] | null }> | null;
+          liveMatches?: StratzLiveMatchRecord[];
+        } | null;
+      }>(query);
+      const matches = response.data?.league?.matches;
       if (!Array.isArray(matches)) {
-        throw new Error('STRATZ match response is missing or invalid');
+        throw new Error('STRATZ league match response is missing or invalid');
       }
 
-      return matches.map((m) => ({
-        id: String(m.id),
-        tournamentId: String(m.leagueId),
-        team1Id: String(m.radiantTeamId),
-        team2Id: String(m.direTeamId),
-        scheduledAt: new Date(m.startDateTime),
-        startedAt: m.startDateTime ? new Date(m.startDateTime) : undefined,
-        endedAt: m.endDateTime ? new Date(m.endDateTime) : undefined,
-        status: this.mapMatchStatus(m.status),
-        seriesStatus: m.series
-          ? {
-              team1Wins: m.series.radiantWins,
-              team2Wins: m.series.direWins,
+      const liveMatches = response.data?.league?.liveMatches ?? [];
+      const liveMatchById = new Map(liveMatches.map((match) => [String(match.matchId), match]));
+      const mappedMatches: MatchData[] = matches.map((match) => {
+        const liveMatch = liveMatchById.get(String(match.id));
+        const status = mapStratzMatchStatus(match, liveMatch !== undefined && !liveMatch.completed);
+        const startTimestamp = Number(match.startDateTime);
+        const endTimestamp = match.endDateTime == null ? 0 : Number(match.endDateTime);
+        return {
+          id: String(match.id),
+          tournamentId: String(match.leagueId),
+          sourceSeriesId: match.seriesId == null ? undefined : String(match.seriesId),
+          team1Id: String(match.radiantTeamId),
+          team2Id: String(match.direTeamId),
+          scheduledAt: new Date(startTimestamp * 1000),
+          startedAt: status !== 'scheduled' ? new Date(startTimestamp * 1000) : undefined,
+          endedAt: status === 'concluded' && endTimestamp > 0
+            ? new Date(endTimestamp * 1000)
+            : undefined,
+          status,
+          seriesStatus: match.series
+            ? {
+                team1Wins: match.series.teamOneWinCount,
+                team2Wins: match.series.teamTwoWinCount,
+              }
+            : undefined,
+          lastUpdated: new Date(),
+        };
+      });
+      const mappedIds = new Set(mappedMatches.map((match) => match.id));
+      if (isFirstPage) {
+        for (const liveMatch of liveMatches) {
+          const matchId = String(liveMatch.matchId);
+          if (mappedIds.has(matchId)) continue;
+          const status = liveMatch.completed ? 'concluded' : 'live';
+          const startTimestamp = Number(liveMatch.createdDateTime);
+          mappedMatches.push({
+            id: matchId,
+            tournamentId: String(liveMatch.leagueId),
+            team1Id: String(liveMatch.radiantTeamId),
+            team2Id: String(liveMatch.direTeamId),
+            scheduledAt: new Date(startTimestamp * 1000),
+            startedAt: new Date(startTimestamp * 1000),
+            status,
+            lastUpdated: new Date(),
+          });
+        }
+      }
+
+      if (isFirstPage) {
+        const currentTime = Date.now();
+        const fixtureIds = new Set(mappedMatches.map((match) => match.id));
+        for (const nodeGroup of response.data?.league?.nodeGroups ?? []) {
+          for (const node of nodeGroup.nodes ?? []) {
+            const scheduledTimestamp = Number(node.scheduledTime);
+            if (
+              node.hasStarted ||
+              node.isCompleted ||
+              !Number.isFinite(scheduledTimestamp) ||
+              scheduledTimestamp * 1000 <= currentTime ||
+              node.teamOneId == null ||
+              node.teamTwoId == null
+            ) {
+              continue;
             }
-          : undefined,
-        lastUpdated: new Date(),
-      }));
+
+            const seriesId = node.seriesId == null ? undefined : String(node.seriesId);
+            const nodeId = `scheduled:${leagueId}:${seriesId ?? `${node.nodeGroupId}:${node.id}`}`;
+            if (fixtureIds.has(nodeId)) continue;
+            fixtureIds.add(nodeId);
+            mappedMatches.push({
+              id: nodeId,
+              tournamentId: String(leagueId),
+              sourceSeriesId: seriesId,
+              team1Id: String(node.teamOneId),
+              team2Id: String(node.teamTwoId),
+              scheduledAt: new Date(scheduledTimestamp * 1000),
+              status: 'scheduled',
+              lastUpdated: new Date(),
+            });
+          }
+        }
+      }
+
+      return mappedMatches.filter((match) => filters?.status === undefined || match.status === filters.status);
     } catch (error) {
       throw this.createError(
         'STRATZ_MATCHES_FETCH_FAILED',
@@ -608,16 +806,21 @@ export class StratzProvider extends DataProviderBase implements DataProvider {
 
   async fetchMatchDetails(matchId: string): Promise<MatchDetailsData> {
     try {
+      const numericMatchId = Number(matchId);
+      if (!Number.isSafeInteger(numericMatchId) || numericMatchId <= 0) {
+        throw new Error('A valid STRATZ match ID is required to fetch match details.');
+      }
+
       const query = `
         query {
-          match(request: { id: ${matchId} }) {
+          match(id: ${numericMatchId}) {
             id
             durationSeconds
             radiantTeamId
             direTeamId
-            isRadiantVictory
+            didRadiantWin
             players {
-              id
+              steamAccountId
               heroId
               isRadiant
               kills
@@ -625,15 +828,11 @@ export class StratzProvider extends DataProviderBase implements DataProvider {
               assists
               goldPerMinute
               experiencePerMinute
-              lastHits
-              denies
+              numLastHits
+              numDenies
               heroDamage
               towerDamage
-              healing
-              wardsPlaced
-              wardsDestroyed
-              firstBloodAchieved
-              roshansKilled
+              heroHealing
               hero {
                 displayName
                 shortName
@@ -643,8 +842,8 @@ export class StratzProvider extends DataProviderBase implements DataProvider {
         }
       `;
 
-      const response = await this.graphqlRequest<{ match?: StratzDetailedMatchRecord[] }>(query);
-      const m = response.data?.match?.[0];
+      const response = await this.graphqlRequest<{ match?: StratzDetailedMatchRecord | null }>(query);
+      const m = response.data?.match;
 
       if (!m) {
         throw this.createError(
@@ -662,12 +861,12 @@ export class StratzProvider extends DataProviderBase implements DataProvider {
       return {
         matchId: String(m.id),
         duration: m.durationSeconds,
-        winner: m.isRadiantVictory ? String(m.radiantTeamId) : String(m.direTeamId),
+        winner: m.didRadiantWin ? String(m.radiantTeamId) : String(m.direTeamId),
         teams: [
           {
             teamId: String(m.radiantTeamId),
             players: radiantPlayers.map((p) => ({
-              playerId: String(p.id),
+              playerId: String(p.steamAccountId),
               heroId: String(p.heroId),
               heroName: p.hero?.displayName || p.hero?.shortName || (p.heroId ? String(p.heroId) : 'Hero'),
               kills: p.kills,
@@ -675,21 +874,21 @@ export class StratzProvider extends DataProviderBase implements DataProvider {
               assists: p.assists,
               goldPerMinute: p.goldPerMinute,
               experiencePerMinute: p.experiencePerMinute,
-              lastHits: p.lastHits,
-              denies: p.denies,
+              lastHits: p.numLastHits,
+              denies: p.numDenies,
               heroDamage: p.heroDamage,
               towerDamage: p.towerDamage,
-              healing: p.healing,
-              wardsPlaced: p.wardsPlaced,
-              wardsDestroyed: p.wardsDestroyed,
-              firstBloodAchieved: p.firstBloodAchieved,
-              roshansKilled: p.roshansKilled,
+              healing: p.heroHealing,
+              wardsPlaced: 0,
+              wardsDestroyed: 0,
+              firstBloodAchieved: false,
+              roshansKilled: 0,
             })),
           },
           {
             teamId: String(m.direTeamId),
             players: direPlayers.map((p) => ({
-              playerId: String(p.id),
+              playerId: String(p.steamAccountId),
               heroId: String(p.heroId),
               heroName: p.hero?.displayName || p.hero?.shortName || (p.heroId ? String(p.heroId) : 'Hero'),
               kills: p.kills,
@@ -697,15 +896,15 @@ export class StratzProvider extends DataProviderBase implements DataProvider {
               assists: p.assists,
               goldPerMinute: p.goldPerMinute,
               experiencePerMinute: p.experiencePerMinute,
-              lastHits: p.lastHits,
-              denies: p.denies,
+              lastHits: p.numLastHits,
+              denies: p.numDenies,
               heroDamage: p.heroDamage,
               towerDamage: p.towerDamage,
-              healing: p.healing,
-              wardsPlaced: p.wardsPlaced,
-              wardsDestroyed: p.wardsDestroyed,
-              firstBloodAchieved: p.firstBloodAchieved,
-              roshansKilled: p.roshansKilled,
+              healing: p.heroHealing,
+              wardsPlaced: 0,
+              wardsDestroyed: 0,
+              firstBloodAchieved: false,
+              roshansKilled: 0,
             })),
           },
         ],
@@ -845,26 +1044,4 @@ export class StratzProvider extends DataProviderBase implements DataProvider {
     });
   }
 
-  private mapTournamentStatus(
-    status: string
-  ): 'upcoming' | 'active' | 'concluded' {
-    const statusMap: Record<string, 'upcoming' | 'active' | 'concluded'> = {
-      upcoming: 'upcoming',
-      live: 'active',
-      ended: 'concluded',
-      active: 'active',
-    };
-    return statusMap[status.toLowerCase()] || 'upcoming';
-  }
-
-  private mapMatchStatus(status: string): 'scheduled' | 'live' | 'concluded' {
-    const statusMap: Record<string, 'scheduled' | 'live' | 'concluded'> = {
-      scheduled: 'scheduled',
-      live: 'live',
-      concluded: 'concluded',
-      finished: 'concluded',
-      ended: 'concluded',
-    };
-    return statusMap[status.toLowerCase()] || 'scheduled';
-  }
 }

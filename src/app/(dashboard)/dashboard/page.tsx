@@ -2,6 +2,7 @@ import { cookies } from 'next/headers';
 import { supabaseServer } from '@/lib/supabase';
 import { getOrCreateFantasySeason } from '@/lib/fantasy-season';
 import { aggregatePlayerGameweekBreakdowns } from '@/lib/player-gameweek-breakdown';
+import { getGameweekMatchProgress } from '@/lib/dashboard/gameweek-match-progress';
 import type { DashboardData } from '@/types/fantasy';
 import type { WhatsNewData } from './components/DashboardWhatsNew';
 import { DashboardClient } from './components/DashboardClient';
@@ -360,11 +361,16 @@ async function fetchDashboardData(userId: string): Promise<DashboardData | null>
 async function fetchWhatsNew(userId: string): Promise<WhatsNewData | null> {
   try {
     const supabase = supabaseServer();
+    const fantasySeason = await getOrCreateFantasySeason(supabase, userId);
+    if (!fantasySeason?.season_id) {
+      return { gameweek: null, events: [], updates: [] };
+    }
 
     const [gameweeksRes, tournamentsRes, updatesRes] = await Promise.all([
       supabase
         .from('gameweeks')
         .select('id, gameweek_number, status, start_date, deadline')
+        .eq('season_id', fantasySeason.season_id)
         .in('status', ['active', 'upcoming'])
         .order('start_date', { ascending: true })
         .limit(1),
@@ -383,6 +389,18 @@ async function fetchWhatsNew(userId: string): Promise<WhatsNewData | null> {
     ]);
 
     const gw = gameweeksRes.data?.[0] ?? null;
+    let matchProgress = { total: 0, statuses: {} as Record<string, number> };
+    if (gw) {
+      const { data: matches, error: matchesError } = await supabase
+        .from('matches')
+        .select('status')
+        .eq('gameweek_id', gw.id);
+      if (matchesError) {
+        throw new Error(`Failed to fetch gameweek ${gw.id} match counts: ${matchesError.message}`);
+      }
+      matchProgress = getGameweekMatchProgress(matches ?? []);
+    }
+
     const now = Date.now();
     const gameweek: WhatsNewData['gameweek'] = gw
       ? {
@@ -393,8 +411,8 @@ async function fetchWhatsNew(userId: string): Promise<WhatsNewData | null> {
           isCurrent: gw.status === 'active',
           endsSoon: gw.deadline ? new Date(gw.deadline).getTime() - now < 24 * 60 * 60 * 1000 : false,
           deadline: gw.deadline ?? '',
-          matchCount: 0,
-          matchStatuses: {},
+          matchCount: matchProgress.total,
+          matchStatuses: matchProgress.statuses,
           href: `/gameweeks/${gw.id}`,
         }
       : null;

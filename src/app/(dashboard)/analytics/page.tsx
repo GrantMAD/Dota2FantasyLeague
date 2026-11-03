@@ -307,7 +307,7 @@ export default function AnalyticsDashboard() {
                 },
                 {
                   title: 'Squad Value',
-                  value: `$${(data.user.squadValue / 10).toFixed(1)}M`,
+                  value: `$${data.user.squadValue.toFixed(1)}M`,
                   detail: 'Current roster value',
                   href: '/squads',
                   color: 'var(--success)',

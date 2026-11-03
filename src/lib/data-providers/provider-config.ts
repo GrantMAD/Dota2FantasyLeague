@@ -101,6 +101,18 @@ export async function getDataProvider(): Promise<DataProvider> {
   return cachedProvider;
 }
 
+export async function getMatchDataProvider(): Promise<DataProvider> {
+  const apiKey = process.env.STRATZ_API_KEY;
+  if (!apiKey) {
+    throw new Error('STRATZ_API_KEY is required for match ingestion and match detail retrieval.');
+  }
+
+  return new StratzProvider({
+    apiKey,
+    apiUrl: process.env.STRATZ_API_URL || 'https://api.stratz.com/graphql',
+  });
+}
+
 /**
  * Manually set provider health status
  * Used after failed provider operations to trigger fallback on next call
@@ -140,8 +152,7 @@ export function getProviderConfigurationStatus(): {
 
 function buildProviderConfig(): ProviderConfig {
   const primaryProvider = (
-    // Default to OpenDota: free, no API key required, STRATZ schema has changed.
-    // Set NEXT_PUBLIC_DATA_PROVIDER=stratz to override.
+    // Keep OpenDota as the default; match ingestion uses STRATZ explicitly.
     process.env.NEXT_PUBLIC_DATA_PROVIDER || 'opendota'
   ).toLowerCase() as ProviderType;
 
