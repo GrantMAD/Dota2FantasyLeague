@@ -85,7 +85,7 @@ export function TournamentBracket({ matches, teams }: TournamentBracketProps) {
       const lowId = Math.min(aId, bId);
       const highId = Math.max(aId, bId);
       const key = `${lowId}-${highId}`;
-      const time = m.scheduled_at ? new Date(m.scheduled_at).getTime() : Date.now();
+      const time = m.scheduled_at ? new Date(m.scheduled_at).getTime() : 0;
 
       if (!cur) {
         cur = { key, teamAId: lowId, teamBId: highId, startTime: time, endTime: time, matches: [m] };

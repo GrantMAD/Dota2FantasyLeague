@@ -41,12 +41,9 @@ interface TeamStandingRow {
   winRate: number;
 }
 
-export function TournamentGroupStandings({ series, matches, teams }: TournamentGroupStandingsProps) {
+export function TournamentGroupStandings({ matches, teams }: TournamentGroupStandingsProps) {
   const standings = useMemo<TeamStandingRow[]>(() => {
     if (!teams || teams.length === 0) return [];
-
-    // Map teams by ID
-    const teamMap = new Map(teams.map((t) => [t.id, t]));
 
     // Initialize stats map for each team
     const statsMap = new Map<
