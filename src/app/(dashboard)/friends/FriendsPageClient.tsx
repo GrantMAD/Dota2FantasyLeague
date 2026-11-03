@@ -65,7 +65,7 @@ function ActivityCard({
   activity: FriendActivity;
   isExpanded: boolean;
   onToggleExpand: () => void;
-  onOpenManager: (userId: string) => void;
+  onOpenManager: (user: FriendProfile) => void;
 }) {
   const rankChange = activity.previous_gameweek_rank !== null && activity.gameweek_rank !== null
     ? activity.previous_gameweek_rank - activity.gameweek_rank
@@ -154,7 +154,12 @@ function ActivityCard({
                 type="button"
                 onClick={(e) => {
                   e.stopPropagation();
-                  onOpenManager(activity.user_id);
+                  onOpenManager({
+                    id: activity.user_id,
+                    username: activity.username,
+                    display_name: activity.display_name,
+                    avatar_url: activity.avatar_url,
+                  });
                 }}
                 className="font-bold text-[var(--text-primary)] hover:text-[var(--accent-primary)] hover:underline truncate cursor-pointer text-left"
               >
@@ -348,7 +353,12 @@ function ActivityCard({
             type="button"
             onClick={(e) => {
               e.stopPropagation();
-              onOpenManager(activity.user_id);
+              onOpenManager({
+                id: activity.user_id,
+                username: activity.username,
+                display_name: activity.display_name,
+                avatar_url: activity.avatar_url,
+              });
             }}
             className="flex items-center gap-1 font-semibold text-[var(--accent-primary)] hover:underline cursor-pointer group-hover:translate-x-0.5 transition-transform"
           >
@@ -383,6 +393,7 @@ export default function FriendsPageClient() {
   const [workingUserId, setWorkingUserId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [selectedManager, setSelectedManager] = useState<FriendProfile | null>(null);
+  const [followPromptManager, setFollowPromptManager] = useState<FriendProfile | null>(null);
 
   const scrolledRef = useRef(false);
 
@@ -545,6 +556,7 @@ export default function FriendsPageClient() {
     const currentlyFollowing = followingIds.has(user.id);
     setWorkingUserId(user.id);
     setError(null);
+    let updated = false;
     try {
       const response = await fetchWithAuth('/api/friends', {
         method: currentlyFollowing ? 'DELETE' : 'POST',
@@ -568,17 +580,37 @@ export default function FriendsPageClient() {
       setResults((current) => current.map((entry) => (
         entry.id === user.id ? { ...entry, is_following: !currentlyFollowing } : entry
       )));
-      await refreshFeed();
+      updated = true;
     } catch (updateError: unknown) {
       setError(updateError instanceof Error ? updateError.message : 'Unable to update your following list.');
     } finally {
       setWorkingUserId(null);
     }
+    if (updated) {
+      try {
+        await refreshFeed();
+      } catch (refreshError: unknown) {
+        setError(refreshError instanceof Error ? refreshError.message : 'Unable to refresh friend activity.');
+      }
+    }
+    return updated;
   }
 
-  function openManager(userId: string) {
-    const manager = following.find((user) => user.id === userId);
-    if (manager) setSelectedManager(manager);
+  function openManager(manager: FriendProfile) {
+    if (followingIds.has(manager.id)) {
+      setSelectedManager(following.find((user) => user.id === manager.id) ?? manager);
+      return;
+    }
+    setFollowPromptManager(manager);
+  }
+
+  async function followPromptManagerAndOpenProgress() {
+    if (!followPromptManager) return;
+    const followed = await toggleFollow(followPromptManager);
+    if (followed) {
+      setFollowPromptManager(null);
+      setSelectedManager(followPromptManager);
+    }
   }
 
   return (
@@ -755,26 +787,38 @@ export default function FriendsPageClient() {
                   const isFollowing = followingIds.has(user.id);
                   const isWorking = workingUserId === user.id;
                   return (
-                    <li key={user.id} className="flex items-center gap-3 py-3 first:pt-1">
-                      <FriendAvatar user={user} />
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-semibold text-[var(--text-primary)]">{displayName(user)}</p>
-                        <p className="truncate text-xs text-[var(--text-muted)]">@{user.username}</p>
+                    <li key={user.id} className="flex flex-col gap-2 py-3 first:pt-1">
+                      <div className="flex min-w-0 items-center gap-3">
+                        <FriendAvatar user={user} />
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-semibold text-[var(--text-primary)]">{displayName(user)}</p>
+                          <p className="truncate text-xs text-[var(--text-muted)]">@{user.username}</p>
+                        </div>
                       </div>
-                      <button
-                        type="button"
-                        onClick={() => void toggleFollow(user)}
-                        disabled={isWorking}
-                        aria-label={`${isFollowing ? 'Unfollow' : 'Follow'} ${displayName(user)}`}
-                        className={`flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-semibold transition disabled:opacity-60 ${isFollowing ? 'border border-[var(--border)] text-[var(--text-primary)] hover:border-rose-500/50 hover:text-rose-600 dark:hover:text-rose-400' : 'bg-[var(--accent-primary)] text-white hover:opacity-90'}`}
-                      >
-                        {isWorking
-                          ? <LoaderCircle className="h-3.5 w-3.5 animate-spin" />
-                          : isFollowing
-                            ? <UserMinus className="h-3.5 w-3.5" />
-                            : <UserPlus className="h-3.5 w-3.5" />}
-                        {isFollowing ? 'Unfollow' : 'Follow'}
-                      </button>
+                      <div className="flex justify-end gap-2">
+                        <button
+                          type="button"
+                          onClick={() => openManager(user)}
+                          aria-label={`View ${displayName(user)} progress`}
+                          className="whitespace-nowrap rounded-lg border border-[var(--accent-primary)]/50 bg-[var(--accent-primary)]/10 px-2.5 py-2 text-xs font-semibold text-[var(--accent-primary)] transition hover:bg-[var(--accent-primary)]/20"
+                        >
+                          View progress
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => void toggleFollow(user)}
+                          disabled={isWorking}
+                          aria-label={`${isFollowing ? 'Unfollow' : 'Follow'} ${displayName(user)}`}
+                          className={`flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-semibold transition disabled:opacity-60 ${isFollowing ? 'border border-[var(--border)] text-[var(--text-primary)] hover:border-rose-500/50 hover:text-rose-600 dark:hover:text-rose-400' : 'bg-[var(--accent-primary)] text-white hover:opacity-90'}`}
+                        >
+                          {isWorking
+                            ? <LoaderCircle className="h-3.5 w-3.5 animate-spin" />
+                            : isFollowing
+                              ? <UserMinus className="h-3.5 w-3.5" />
+                              : <UserPlus className="h-3.5 w-3.5" />}
+                          {isFollowing ? 'Unfollow' : 'Follow'}
+                        </button>
+                      </div>
                     </li>
                   );
                 })}
@@ -838,6 +882,59 @@ export default function FriendsPageClient() {
           </section>
         </aside>
       </div>
+      {followPromptManager && (
+        <div
+          role="presentation"
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/70 p-4 backdrop-blur-sm"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget && workingUserId !== followPromptManager.id) {
+              setFollowPromptManager(null);
+            }
+          }}
+        >
+          <section
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="follow-manager-prompt-title"
+            className="w-full max-w-md rounded-2xl border border-[var(--border)] bg-[var(--surface-raised)] p-6 shadow-2xl"
+          >
+            <div className="flex items-center gap-3">
+              <FriendAvatar user={followPromptManager} />
+              <div className="min-w-0">
+                <h2 id="follow-manager-prompt-title" className="truncate text-lg font-bold text-[var(--text-primary)]">
+                  Follow {displayName(followPromptManager)}?
+                </h2>
+                <p className="truncate text-sm text-[var(--text-muted)]">@{followPromptManager.username}</p>
+              </div>
+            </div>
+            <p className="mt-4 text-sm leading-6 text-[var(--text-muted)]">
+              Follow this manager to view their season points, global rank, and gameweek history.
+            </p>
+            {error ? (
+              <p role="alert" className="mt-3 text-sm text-rose-700 dark:text-rose-300">{error}</p>
+            ) : null}
+            <div className="mt-6 flex justify-end gap-3">
+              <button
+                type="button"
+                disabled={workingUserId === followPromptManager.id}
+                onClick={() => setFollowPromptManager(null)}
+                className="rounded-lg border border-[var(--border)] px-4 py-2 text-sm font-semibold text-[var(--text-primary)] disabled:opacity-60"
+              >
+                Not now
+              </button>
+              <button
+                type="button"
+                disabled={workingUserId === followPromptManager.id}
+                onClick={() => void followPromptManagerAndOpenProgress()}
+                className="inline-flex items-center gap-2 rounded-lg bg-[var(--accent-primary)] px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
+              >
+                {workingUserId === followPromptManager.id ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <UserPlus className="h-4 w-4" />}
+                Follow manager
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
       {selectedManager && (
         <FriendProgressModal
           user={selectedManager}
