@@ -6,6 +6,8 @@ import Link from 'next/link';
 import { Activity, CalendarDays, Check, CheckCircle2, ChevronLeft, Clock3, Gamepad2, ListFilter, Trophy, Users } from 'lucide-react';
 import { TeamLogo } from '../../matches/components/TeamLogo';
 import { MatchCard, MatchData } from '../../matches/components/MatchCard';
+import { TournamentBracket } from '../components/TournamentBracket';
+import { TournamentGroupStandings } from '../components/TournamentGroupStandings';
 
 interface TournamentTeam {
   id: number;
@@ -51,7 +53,7 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
   const [error, setError] = useState<string | null>(null);
 
   // Active view tab
-  const [activeTab, setActiveTab] = useState<'matches' | 'teams'>('matches');
+  const [activeTab, setActiveTab] = useState<'matches' | 'bracket' | 'standings' | 'teams'>('matches');
   const [matchFilter, setMatchFilter] = useState<'all' | 'live' | 'upcoming' | 'completed'>('all');
   const matchCounts = {
     all: matches.length,
@@ -118,7 +120,7 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
             className="flex items-center gap-1 text-xs font-medium text-amber-700 transition-colors hover:text-amber-600 dark:text-amber-300 dark:hover:text-amber-200"
           >
             <span>View Global Match Center</span>
-            <span>→</span>
+            <span>â†’</span>
           </Link>
         </div>
 
@@ -169,7 +171,7 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
     return (
       <div className="max-w-4xl mx-auto px-4 py-16 text-center">
         <div className="w-16 h-16 rounded-2xl bg-rose-950/40 border border-rose-800 flex items-center justify-center text-2xl mx-auto mb-4 text-rose-400">
-          ⚠️
+          âš ï¸
         </div>
         <h1 className="text-2xl font-bold text-white mb-2">Tournament Not Found</h1>
         <p className="text-slate-400 text-sm mb-6">{error || 'This tournament could not be loaded.'}</p>
@@ -177,7 +179,7 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
           href="/tournaments"
           className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold bg-amber-500 text-slate-950 hover:bg-amber-400 transition-colors"
         >
-          ← Return to Tournaments
+          â† Return to Tournaments
         </Link>
       </div>
     );
@@ -207,7 +209,7 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
           className="flex items-center gap-1 text-xs font-medium text-amber-700 transition-colors hover:text-amber-600 dark:text-amber-300 dark:hover:text-amber-200"
         >
           <span>View Global Match Center</span>
-          <span>→</span>
+          <span>â†’</span>
         </Link>
       </div>
 
@@ -283,7 +285,7 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
         <div className="relative mt-5 border-t border-[var(--border)] pt-4">
           <div className="mb-1.5 flex items-center justify-between text-xs">
             <span className="text-[var(--text-secondary)]">Tournament match progress</span>
-            <span className="font-semibold tabular-nums text-[var(--text-primary)]">{completedMatchesCount} / {matches.length} complete · {completionPercent}%</span>
+            <span className="font-semibold tabular-nums text-[var(--text-primary)]">{completedMatchesCount} / {matches.length} complete Â· {completionPercent}%</span>
           </div>
           <div className="h-2 overflow-hidden rounded-full bg-[var(--surface-muted)]">
             <div className="h-full rounded-full bg-gradient-to-r from-cyan-500 to-emerald-400 transition-[width]" style={{ width: `${completionPercent}%` }} />
@@ -320,6 +322,47 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
 
         <button
           type="button"
+          aria-pressed={activeTab === 'bracket'}
+          onClick={() => setActiveTab('bracket')}
+          className={`flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-bold transition-all ${
+            activeTab === 'bracket'
+              ? 'bg-amber-500 text-slate-950 shadow-md shadow-amber-500/20'
+              : 'text-[var(--text-secondary)] hover:bg-[var(--surface-raised)] hover:text-[var(--text-primary)]'
+          }`}
+        >
+          <Trophy className="h-4 w-4" />
+          <span>Series Results</span>
+          <span
+            className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono ${
+              activeTab === 'bracket' ? 'bg-slate-950/20 text-slate-950' : 'bg-[var(--surface)] text-[var(--text-muted)]'
+            }`}
+          >
+            {matches.length}
+          </span>
+        </button>
+
+        <button
+          type="button"
+          aria-pressed={activeTab === 'standings'}
+          onClick={() => setActiveTab('standings')}
+          className={`flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-bold transition-all ${
+            activeTab === 'standings'
+              ? 'bg-amber-500 text-slate-950 shadow-md shadow-amber-500/20'
+              : 'text-[var(--text-secondary)] hover:bg-[var(--surface-raised)] hover:text-[var(--text-primary)]'
+          }`}
+        >
+          <Activity className="h-4 w-4" />
+          <span>Group Standings</span>
+          <span
+            className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono ${
+              activeTab === 'standings' ? 'bg-slate-950/20 text-slate-950' : 'bg-[var(--surface)] text-[var(--text-muted)]'
+            }`}
+          >
+            {teams.length}
+          </span>
+        </button>
+        <button
+          type="button"
           aria-pressed={activeTab === 'teams'}
           onClick={() => setActiveTab('teams')}
           className={`flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-bold transition-all ${
@@ -339,6 +382,14 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
           </span>
         </button>
       </div>
+
+      {activeTab === 'bracket' && (
+        <TournamentBracket series={series} matches={matches} teams={teams} />
+      )}
+
+      {activeTab === 'standings' && (
+        <TournamentGroupStandings series={series} matches={matches} teams={teams} />
+      )}
 
       {activeTab === 'matches' && (
         <div className="space-y-5">
