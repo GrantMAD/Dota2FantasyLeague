@@ -17,6 +17,7 @@ import { NotificationDropdown } from './NotificationDropdown';
 import { QuickStatsBar } from './QuickStatsBar';
 import { DashboardNavigation } from './DashboardNavigation';
 import { useHeaderData } from '@/context/HeaderDataContext';
+import { isPremiumUser } from '@/lib/premium';
 
 const LazyCommandPalette = dynamic(
   () => import('./CommandPalette').then((module) => module.CommandPalette),
@@ -206,7 +207,7 @@ export const Header = memo(function Header() {
               </button>
 
               {/* Fantasy HUD Pills (Desktop) */}
-              <QuickStatsBar quickStats={quickStats} />
+              <QuickStatsBar quickStats={quickStats} isPremium={isPremiumUser(profile)} />
 
               {/* Vertical Divider */}
               <div className="hidden sm:block h-5 w-px bg-slate-700/80 mx-1" />

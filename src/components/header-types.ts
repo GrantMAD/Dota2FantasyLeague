@@ -3,6 +3,8 @@ export type HeaderProfile = {
   display_name: string | null;
   avatar_url: string | null;
   role?: string | null;
+  is_premium?: boolean;
+  subscription_tier?: string | null;
 };
 
 export const PROFILE_UPDATED_EVENT = 'fantasy:profile-updated';

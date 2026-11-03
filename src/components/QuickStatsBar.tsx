@@ -2,10 +2,16 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { ArrowLeftRight, Clock, Lock, Wallet } from 'lucide-react';
+import { ArrowLeftRight, Clock, Crown, Lock, Wallet } from 'lucide-react';
 import type { QuickStats } from './header-types';
 
-export function QuickStatsBar({ quickStats }: { quickStats: QuickStats | null }) {
+export function QuickStatsBar({
+  quickStats,
+  isPremium = false,
+}: {
+  quickStats: QuickStats | null;
+  isPremium?: boolean;
+}) {
   const [currentTime, setCurrentTime] = useState(0);
 
   useEffect(() => {
@@ -103,6 +109,26 @@ export function QuickStatsBar({ quickStats }: { quickStats: QuickStats | null })
           <span className="font-semibold text-white">{quickStats?.freeTransfers ?? 2}</span> FT
         </span>
       </Link>
+      {isPremium && (
+        <div className="group relative">
+          <span
+            tabIndex={0}
+            aria-label="Premium subscription"
+            aria-describedby="premium-subscription-tooltip"
+            className="inline-flex cursor-help items-center gap-1 rounded-full border border-amber-400/40 bg-amber-500/10 px-2.5 py-1 text-xs font-semibold text-amber-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-300"
+          >
+            <Crown aria-hidden="true" className="h-3.5 w-3.5" />
+            Premium
+          </span>
+          <span
+            id="premium-subscription-tooltip"
+            role="tooltip"
+            className="pointer-events-none absolute right-0 top-full z-70 mt-2 hidden w-56 rounded-lg border border-slate-700 bg-slate-900/95 p-2.5 text-xs leading-relaxed text-slate-300 shadow-2xl backdrop-blur-md group-hover:block group-focus-within:block"
+          >
+            Your account has an active Premium subscription.
+          </span>
+        </div>
+      )}
     </div>
   );
 }
