@@ -3,13 +3,14 @@
 import Link from 'next/link';
 import { TeamLogo } from './TeamLogo';
 import { MatchData } from './MatchCard';
+import type { MatchSquadPlayer } from '@/lib/match-squad-tracking';
 
 interface MatchRowProps {
   match: MatchData;
-  userSquadPlayerNames?: string[];
+  userSquadPlayers?: MatchSquadPlayer[];
 }
 
-export function MatchRow({ match, userSquadPlayerNames = [] }: MatchRowProps) {
+export function MatchRow({ match, userSquadPlayers = [] }: MatchRowProps) {
   const isRadiantWinner = match.winner_team_id === match.radiant_team_id;
   const isDireWinner = match.winner_team_id === match.dire_team_id;
   const isLive = match.status === 'live';
@@ -34,7 +35,11 @@ export function MatchRow({ match, userSquadPlayerNames = [] }: MatchRowProps) {
   return (
     <Link
       href={`/matches/${match.id}`}
-      className="group flex flex-col md:flex-row items-stretch md:items-center justify-between p-4 bg-slate-900/60 border border-slate-800/80 rounded-xl hover:bg-slate-800/60 hover:border-slate-700 transition-all gap-4"
+      className={`group flex flex-col md:flex-row items-stretch md:items-center justify-between p-4 rounded-xl transition-all gap-4 ${
+        userSquadPlayers.length > 0
+          ? 'border border-amber-400/70 bg-amber-500/10 shadow-[0_0_18px_rgba(245,158,11,0.1)] hover:border-amber-300'
+          : 'border border-slate-800/80 bg-slate-900/60 hover:bg-slate-800/60 hover:border-slate-700'
+      }`}
     >
       {/* Left: Tournament & Status */}
       <div className="flex items-center gap-3 min-w-[200px]">
@@ -122,12 +127,15 @@ export function MatchRow({ match, userSquadPlayerNames = [] }: MatchRowProps) {
 
       {/* Right: Fantasy squad badge & Action */}
       <div className="flex items-center justify-between md:justify-end gap-3 min-w-[160px]">
-        {userSquadPlayerNames.length > 0 && (
+        {userSquadPlayers.length > 0 && (
           <span
-            className="max-w-52 truncate rounded-lg border border-amber-500/35 bg-amber-500/10 px-2 py-1 text-[11px] font-semibold text-amber-800 dark:text-amber-300"
-            title={`Your fantasy starters in this match: ${userSquadPlayerNames.join(', ')}`}
+            className="max-w-64 truncate rounded-lg border border-amber-500/45 bg-amber-500/10 px-2 py-1 text-[11px] font-semibold text-amber-800 dark:text-amber-300"
+            title={`${userSquadPlayers.every((player) => player.confirmedAppearance) ? 'Your players confirmed in this match' : 'Your squad players on these teams; appearances unconfirmed'}: ${userSquadPlayers.map((player) => player.name).join(', ')}`}
           >
-            ⭐ {isLive ? 'Starters in action: ' : 'Fantasy: '}{userSquadPlayerNames.join(', ')}
+            ⭐ {userSquadPlayers.every((player) => player.confirmedAppearance)
+              ? 'Players appeared: '
+              : 'Team fixture: '}
+            {userSquadPlayers.map((player) => player.name).join(', ')}
           </span>
         )}
         {isCompleted && match.duration_seconds && (

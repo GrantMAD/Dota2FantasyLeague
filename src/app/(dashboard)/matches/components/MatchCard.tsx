@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { Star } from 'lucide-react';
 import { TeamLogo } from './TeamLogo';
+import type { MatchSquadPlayer } from '@/lib/match-squad-tracking';
 
 export interface MatchData {
   id: number;
@@ -12,6 +13,7 @@ export interface MatchData {
   radiant_team_id: number;
   dire_team_id: number;
   winner_team_id: number | null;
+  player_ids?: number[];
   match_number?: number;
   best_of?: number;
   series_number?: number;
@@ -39,10 +41,10 @@ export interface MatchData {
 
 interface MatchCardProps {
   match: MatchData;
-  userSquadPlayerNames?: string[]; // e.g. ['Yatoro', 'Nisha']
+  userSquadPlayers?: MatchSquadPlayer[];
 }
 
-export function MatchCard({ match, userSquadPlayerNames = [] }: MatchCardProps) {
+export function MatchCard({ match, userSquadPlayers = [] }: MatchCardProps) {
   const isRadiantWinner = match.winner_team_id === match.radiant_team_id;
   const isDireWinner = match.winner_team_id === match.dire_team_id;
   const isLive = match.status === 'live';
@@ -76,7 +78,9 @@ export function MatchCard({ match, userSquadPlayerNames = [] }: MatchCardProps) 
     <Link
       href={`/matches/${match.id}`}
       className={`group relative flex flex-col rounded-2xl border transition-all duration-300 overflow-hidden ${
-        isLive
+        userSquadPlayers.length > 0
+          ? 'border-amber-400/70 bg-amber-950/20 shadow-[0_0_24px_rgba(245,158,11,0.12)] hover:border-amber-300'
+          : isLive
           ? 'bg-slate-900/90 border-red-500/60 shadow-[0_0_25px_rgba(239,68,68,0.15)] hover:border-red-400'
           : 'bg-slate-900/60 border-slate-800/90 hover:border-slate-700 hover:bg-slate-800/50 hover:shadow-xl hover:-translate-y-1'
       }`}
@@ -218,21 +222,28 @@ export function MatchCard({ match, userSquadPlayerNames = [] }: MatchCardProps) 
       </div>
 
       {/* Fantasy League Impact Footer */}
-      {userSquadPlayerNames.length > 0 && (
-        <div className="mx-4 mb-3 rounded-xl border border-amber-500/35 bg-amber-500/10 px-3 py-2.5">
+      {userSquadPlayers.length > 0 && (
+        <div className="mx-4 mb-3 rounded-xl border border-amber-500/50 bg-amber-500/10 px-3 py-2.5">
           <div className="flex items-center gap-2 text-xs font-bold text-amber-800 dark:text-amber-300">
             <Star className="h-4 w-4 shrink-0 fill-current" aria-hidden="true" />
-            <span>{isLive ? 'Fantasy starters in action' : 'Your fantasy starters in this match'}</span>
+            <span>
+              {userSquadPlayers.every((player) => player.confirmedAppearance)
+                ? 'Your players confirmed in this match'
+                : 'Your squad team fixture · appearances unconfirmed'}
+            </span>
           </div>
           <div className="mt-2 flex flex-wrap gap-1.5">
-            {userSquadPlayerNames.map((playerName) => (
-              <span key={playerName} className="rounded-full border border-amber-500/30 bg-[var(--surface)] px-2 py-1 text-[10px] font-semibold text-[var(--text-primary)]">
-                {playerName}
+            {userSquadPlayers.map((player) => (
+              <span key={player.id} className="rounded-full border border-amber-500/30 bg-[var(--surface)] px-2 py-1 text-[10px] font-semibold text-[var(--text-primary)]">
+                {player.name}
               </span>
             ))}
           </div>
           <span className="sr-only">
-            {userSquadPlayerNames.length} of your fantasy lineup players are competing.
+            {userSquadPlayers.length} {userSquadPlayers.length === 1 ? 'squad player is' : 'squad players are'}
+            {userSquadPlayers.every((player) => player.confirmedAppearance)
+              ? ' confirmed to have appeared in this match.'
+              : ' on a team in this fixture; their appearance is not confirmed.'}
           </span>
         </div>
       )}

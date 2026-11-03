@@ -271,10 +271,12 @@ async function getHandler(request: NextRequest, context: RouteContext) {
             // Find squad members
             const { data: squadMembers } = await supabase
               .from('fantasy_squad_members')
-              .select('player_id')
+              .select('player_id, removed_date')
               .eq('fantasy_season_id', fantasySeason.id);
 
-            const ownedIds = (squadMembers ?? []).map((m: { player_id: number }) => m.player_id);
+            const ownedIds = (squadMembers ?? [])
+              .filter((member: { removed_date: string | null }) => !member.removed_date)
+              .map((member: { player_id: number }) => member.player_id);
 
             const lineupDetails: Array<{
               playerId: number;

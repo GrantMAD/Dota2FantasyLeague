@@ -75,6 +75,8 @@ function createSupabaseMock() {
                 error: null,
               };
             }
+          } else if (table === 'match_player_stats') {
+            result = { data: [{ match_id: 201, player_id: 501 }], error: null };
           } else if (table === 'professional_teams' && selected === 'id') {
             result = { data: [{ id: 10 }], error: null };
           } else if (table === 'professional_teams') {
@@ -143,6 +145,7 @@ describe('GET /api/matches server-side filtering and pagination', () => {
       { id: 6, name: 'International' },
       { id: 7, name: 'DreamLeague' },
     ]);
+    expect(body.matches[0].player_ids).toEqual([501]);
     expect(body.matches[0].radiant_team.tag).toBe('TL');
     expect(body.matches[0].dire_team.tag).toBe('TS');
   });

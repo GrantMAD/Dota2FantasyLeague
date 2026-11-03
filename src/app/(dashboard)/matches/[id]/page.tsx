@@ -312,7 +312,14 @@ function MatchDetailInner({ params }: { params: Promise<{ id: string }> }) {
                 const isOwned = userOwnedSet.has(stat.player_id);
 
                 return (
-                  <tr key={stat.id} className="transition-colors hover:bg-[var(--surface-raised)]/60">
+                  <tr
+                    key={stat.id}
+                    className={`transition-colors hover:bg-[var(--surface-raised)]/60 ${
+                      isOwned || lineupDetail
+                        ? 'border-l-4 border-amber-400 bg-amber-500/10'
+                        : 'border-l-4 border-transparent'
+                    }`}
+                  >
                     <td className="py-3 px-4 font-bold text-[var(--text-primary)]">
                       <div className="flex items-center gap-2 flex-wrap">
                         <Link href={`/players/${stat.player_id}`} className="transition-colors hover:text-amber-500">
@@ -334,8 +341,8 @@ function MatchDetailInner({ params }: { params: Promise<{ id: string }> }) {
                           </span>
                         )}
                         {isOwned && !lineupDetail && (
-                          <span className="rounded border border-emerald-500/25 bg-emerald-500/10 px-1.5 py-0.5 text-[9px] font-medium text-emerald-700 dark:text-emerald-300">
-                            OWNED
+                          <span className="rounded border border-amber-500/35 bg-amber-500/15 px-1.5 py-0.5 text-[9px] font-bold text-amber-800 dark:text-amber-300">
+                            YOUR PLAYER
                           </span>
                         )}
                       </div>

@@ -169,7 +169,7 @@ async function getHandler(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid match filters or pagination parameters.' }, { status: 400 });
     }
 
-    const cacheKey = `matches:v3:${searchParams.toString()}`;
+    const cacheKey = `matches:v4:${searchParams.toString()}`;
     const cached = getCached<{
       matches: unknown[];
       tournaments: unknown[];
@@ -268,6 +268,25 @@ async function getHandler(request: NextRequest) {
 
     const matchRows = (matchResult.data ?? []) as MatchRecord[];
     const total = matchResult.count ?? 0;
+    const matchIds = matchRows.map((match) => match.id);
+    const { data: matchPlayerStats, error: matchPlayerStatsError } = matchIds.length > 0
+      ? await (supabase
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          .from('match_player_stats') as any)
+          .select('match_id, player_id')
+          .in('match_id', matchIds)
+      : { data: [], error: null };
+    if (matchPlayerStatsError) {
+      return databaseError('fetch match player participation', matchPlayerStatsError);
+    }
+
+    const playerIdsByMatch = new Map<number, number[]>();
+    for (const stat of (matchPlayerStats ?? []) as Array<{ match_id: number; player_id: number }>) {
+      const playerIds = playerIdsByMatch.get(stat.match_id) ?? [];
+      playerIds.push(stat.player_id);
+      playerIdsByMatch.set(stat.match_id, playerIds);
+    }
+
     const teamIds = [...new Set(matchRows.flatMap((match) => [match.team_a_id, match.team_b_id]).filter((id): id is number => id !== null))];
     const seriesIds = [...new Set(matchRows.map((match) => match.series_id).filter((id): id is number => id !== null))];
 
@@ -317,6 +336,7 @@ async function getHandler(request: NextRequest) {
         };
         return {
           ...match,
+          player_ids: playerIdsByMatch.get(match.id) ?? [],
           status: match.status === 'in_progress' ? 'live' : match.status,
           match_number: match.match_number || 1,
           best_of: seriesInfo?.best_of || 3,

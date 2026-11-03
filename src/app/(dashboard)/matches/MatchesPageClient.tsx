@@ -1,24 +1,19 @@
 'use client';
 
 import { fetchWithAuth } from '@/lib/fetch-with-auth';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
 import { MatchCard, MatchData } from './components/MatchCard';
 import { MatchRow } from './components/MatchRow';
 import { MatchFilters } from './components/MatchFilters';
 import { DataFreshnessBadge } from '@/components/DataFreshnessBadge';
 import type { InitialMatchesData } from '@/lib/matches-initial-data';
+import { getSquadPlayersForMatch, type TrackedSquadPlayer } from '@/lib/match-squad-tracking';
 
-interface UserSquadPlayer {
+interface UserSquadPlayer extends TrackedSquadPlayer {
   id: number;
   name: string;
-  in_game_name?: string | null;
-  team_id?: number | null;
-}
-
-interface LineupEntry {
-  is_starter?: boolean;
-  professional_players?: UserSquadPlayer | null;
+  teamId: number | null;
 }
 
 interface TournamentOption {
@@ -37,6 +32,7 @@ export default function MatchesPage({ initialData }: { initialData: InitialMatch
   const [total, setTotal] = useState(initialData.pagination.total);
   const [totalPages, setTotalPages] = useState(initialData.pagination.totalPages);
   const [counts, setCounts] = useState(initialData.counts);
+  const [squadTrackingError, setSquadTrackingError] = useState<string | null>(null);
 
   // Filters state
   const [activeTab, setActiveTab] = useState<'all' | 'live' | 'upcoming' | 'completed'>('all');
@@ -109,42 +105,52 @@ export default function MatchesPage({ initialData }: { initialData: InitialMatch
     };
   }, [activeTab, debouncedSearch, initialData.matches.length, page, selectedTournamentId]);
 
-  useEffect(() => {
-    async function loadSquadPlayers() {
-      try {
-        const activeGameweekId = initialData.activeGameweekId;
-        if (!activeGameweekId) return;
-
-        const lineupRes = await fetchWithAuth(`/api/fantasy/lineup?gameweekId=${activeGameweekId}`);
-        if (!lineupRes.ok) return;
-        const lineupData = await lineupRes.json();
-        const lineup: LineupEntry[] = Array.isArray(lineupData.lineup) ? lineupData.lineup : [];
-        const players: UserSquadPlayer[] = lineup
-          .filter((slot) => slot.is_starter === true)
-          .map((slot) => slot.professional_players)
-          .filter((player): player is UserSquadPlayer => Boolean(player))
-          .map((player) => ({
-            id: player.id,
-            name: player.in_game_name || player.name,
-            team_id: player.team_id,
-          }));
-        setUserSquadPlayers(players);
-      } catch {
-        // Squad enrichment is non-blocking.
-      }
+  const loadSquadPlayers = useCallback(async () => {
+    try {
+      setSquadTrackingError(null);
+      const response = await fetchWithAuth('/api/fantasy/context');
+      const data = await response.json() as {
+        ownedPlayers?: Array<{
+          id: number;
+          name: string;
+          in_game_name?: string | null;
+          professional_teams?: { id: number } | { id: number }[] | null;
+        }>;
+        error?: string;
+      };
+      if (!response.ok) throw new Error(data.error || 'Unable to load your squad for match tracking.');
+      const players = (data.ownedPlayers ?? []).map((player) => {
+        const team = Array.isArray(player.professional_teams)
+          ? player.professional_teams[0]
+          : player.professional_teams;
+        return {
+          id: player.id,
+          name: player.in_game_name || player.name,
+          teamId: team?.id ?? null,
+        };
+      });
+      setUserSquadPlayers(players);
+    } catch (loadError) {
+      setSquadTrackingError(
+        loadError instanceof Error ? loadError.message : 'Unable to load your squad for match tracking.',
+      );
     }
-    void loadSquadPlayers();
-  }, [initialData.activeGameweekId]);
+  }, []);
 
-  // Helper to map squad players to a match
-  const getSquadPlayerNamesForMatch = (match: MatchData) => {
-    if (!userSquadPlayers.length) return [];
-    const radId = match.radiant_team_id;
-    const direId = match.dire_team_id;
-    return userSquadPlayers
-      .filter((p) => p.team_id === radId || p.team_id === direId)
-      .map((p) => p.name);
-  };
+  useEffect(() => {
+    const timeout = window.setTimeout(() => {
+      void loadSquadPlayers();
+    }, 0);
+    return () => window.clearTimeout(timeout);
+  }, [loadSquadPlayers]);
+
+  const getTrackedSquadPlayersForMatch = (match: MatchData) =>
+    getSquadPlayersForMatch(
+      match.radiant_team_id,
+      match.dire_team_id,
+      match.player_ids ?? [],
+      userSquadPlayers,
+    );
   const liveMatches = matches.filter((match) => match.status === 'live');
   const nonLiveMatches = matches.filter((match) => match.status !== 'live');
 
@@ -197,6 +203,19 @@ export default function MatchesPage({ initialData }: { initialData: InitialMatch
         onViewModeChange={setViewMode}
       />
 
+      {squadTrackingError && (
+        <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-800 dark:text-rose-200" role="alert">
+          <span>{squadTrackingError}</span>
+          <button
+            type="button"
+            onClick={() => void loadSquadPlayers()}
+            className="rounded-lg border border-rose-500/40 px-3 py-1.5 text-xs font-semibold hover:bg-rose-500/10"
+          >
+            Retry
+          </button>
+        </div>
+      )}
+
       {!loading && liveMatches.length > 0 && (
         <section aria-labelledby="live-matches-heading" className="mb-8 overflow-hidden rounded-2xl border border-rose-500/35 bg-[var(--surface)] shadow-[0_12px_36px_rgba(244,63,94,0.12)]">
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-rose-500/20 bg-rose-500/5 px-5 py-4">
@@ -210,9 +229,9 @@ export default function MatchesPage({ initialData }: { initialData: InitialMatch
                 <p className="text-xs text-[var(--text-secondary)]">{counts.live} match{counts.live === 1 ? '' : 'es'} currently in progress</p>
               </div>
             </div>
-            {userSquadPlayers.length > 0 && liveMatches.some((match) => getSquadPlayerNamesForMatch(match).length > 0) && (
+            {userSquadPlayers.length > 0 && liveMatches.some((match) => getTrackedSquadPlayersForMatch(match).length > 0) && (
               <span className="rounded-full border border-amber-500/40 bg-amber-500/10 px-3 py-1.5 text-xs font-bold text-amber-800 dark:text-amber-300">
-                Fantasy starters competing
+                Squad players in fixtures
               </span>
             )}
           </div>
@@ -221,7 +240,7 @@ export default function MatchesPage({ initialData }: { initialData: InitialMatch
               <MatchCard
                 key={`live-${match.id}`}
                 match={match}
-                userSquadPlayerNames={getSquadPlayerNamesForMatch(match)}
+                userSquadPlayers={getTrackedSquadPlayersForMatch(match)}
               />
             ))}
           </div>
@@ -288,7 +307,7 @@ export default function MatchesPage({ initialData }: { initialData: InitialMatch
             <MatchCard
               key={match.id}
               match={match}
-              userSquadPlayerNames={getSquadPlayerNamesForMatch(match)}
+              userSquadPlayers={getTrackedSquadPlayersForMatch(match)}
             />
           ))}
         </div>
@@ -299,7 +318,7 @@ export default function MatchesPage({ initialData }: { initialData: InitialMatch
             <MatchRow
               key={match.id}
               match={match}
-              userSquadPlayerNames={getSquadPlayerNamesForMatch(match)}
+              userSquadPlayers={getTrackedSquadPlayersForMatch(match)}
             />
           ))}
         </div>

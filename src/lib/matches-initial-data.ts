@@ -52,7 +52,7 @@ export interface InitialMatchesData {
 }
 
 export async function getInitialMatchesData(): Promise<InitialMatchesData> {
-  const cacheKey = 'matches:initial:v1';
+  const cacheKey = 'matches:initial:v2';
   const cached = getCached<InitialMatchesData>(cacheKey);
   if (cached) return cached;
 
@@ -88,6 +88,24 @@ export async function getInitialMatchesData(): Promise<InitialMatchesData> {
   }
 
   const matches = (matchRows ?? []) as MatchRecord[];
+  const matchIds = matches.map((match) => match.id);
+  const { data: matchPlayerStats, error: matchPlayerStatsError } = matchIds.length > 0
+    ? await (supabase
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        .from('match_player_stats') as any)
+        .select('match_id, player_id')
+        .in('match_id', matchIds)
+    : { data: [], error: null };
+  if (matchPlayerStatsError) {
+    throw new Error(`Failed to load Match Center player participation: ${matchPlayerStatsError.message}`);
+  }
+  const playerIdsByMatch = new Map<number, number[]>();
+  for (const stat of (matchPlayerStats ?? []) as Array<{ match_id: number; player_id: number }>) {
+    const playerIds = playerIdsByMatch.get(stat.match_id) ?? [];
+    playerIds.push(stat.player_id);
+    playerIdsByMatch.set(stat.match_id, playerIds);
+  }
+
   const teamIds = [...new Set(matches.flatMap((match) => [match.team_a_id, match.team_b_id]).filter((id): id is number => id !== null))];
   const seriesIds = [...new Set(matches.map((match) => match.series_id).filter((id): id is number => id !== null))];
   const [
@@ -126,6 +144,7 @@ export async function getInitialMatchesData(): Promise<InitialMatchesData> {
     };
     return {
       ...match,
+      player_ids: playerIdsByMatch.get(match.id) ?? [],
       status: match.status === 'in_progress' ? 'live' : match.status,
       match_number: match.match_number || 1,
       best_of: seriesInfo?.best_of || 3,
