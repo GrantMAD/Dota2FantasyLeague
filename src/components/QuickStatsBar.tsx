@@ -47,7 +47,7 @@ export function QuickStatsBar({
   }
 
   return (
-    <div className="hidden sm:flex items-center gap-2">
+    <div className="hidden items-center gap-2 2xl:flex">
       {gw && (
         <div className="relative group">
           <Link

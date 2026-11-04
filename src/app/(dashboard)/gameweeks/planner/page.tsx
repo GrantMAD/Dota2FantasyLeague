@@ -272,7 +272,7 @@ export default function SquadPlannerPage() {
       </header>
 
       <section className="mb-8 grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
-        <div className="rounded-2xl border border-cyan-500/30 bg-gradient-to-br from-cyan-500/10 via-[var(--surface-raised)] to-[var(--surface)] p-6 shadow-sm">
+        <div className="min-w-0 rounded-2xl border border-cyan-500/30 bg-gradient-to-br from-cyan-500/10 via-[var(--surface-raised)] to-[var(--surface)] p-6 shadow-sm">
           <p className="text-xs font-semibold uppercase tracking-wider text-cyan-700 dark:text-cyan-300">Planning for</p>
           {loading ? (
             <div className="mt-2 space-y-2 animate-pulse">
@@ -309,7 +309,7 @@ export default function SquadPlannerPage() {
           </div>
         </div>
 
-        <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-6 shadow-sm">
+        <div className="min-w-0 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-6 shadow-sm">
           <p className="text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]">Squad status</p>
           {loading ? (
             <div className="mt-3 space-y-2 animate-pulse">

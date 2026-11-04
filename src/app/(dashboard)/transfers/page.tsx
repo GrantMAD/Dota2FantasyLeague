@@ -1299,7 +1299,7 @@ function TransfersPageContent() {
           {/* Market table */}
           <div ref={tableContainerRef} data-tour="transfers-table" className="bg-slate-800/40 border border-slate-700 rounded-xl overflow-hidden shadow-sm">
             <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse">
+              <table className="w-full table-fixed text-left border-collapse xl:table-auto">
                 <thead>
                   <tr className="bg-slate-800/90 border-b border-slate-700">
                     <th
@@ -1309,7 +1309,7 @@ function TransfersPageContent() {
                         else { setSortBy('name'); setSortDesc(false); }
                         setPage(1);
                       }}
-                      className="px-4 py-3 text-xs font-semibold text-slate-100 uppercase tracking-wider cursor-pointer hover:text-amber-400 transition-colors select-none"
+                      className="w-[46%] px-3 py-3 text-xs font-semibold text-slate-100 uppercase tracking-wider cursor-pointer hover:text-amber-400 transition-colors select-none xl:w-auto xl:px-4"
                     >
                       <div className="flex items-center gap-1">
                         <span>Player</span>
@@ -1318,7 +1318,7 @@ function TransfersPageContent() {
                         )}
                       </div>
                     </th>
-                    <th scope="col" className="px-4 py-3 text-xs font-semibold text-slate-100 uppercase tracking-wider text-center">Role</th>
+                    <th scope="col" className="hidden px-4 py-3 text-xs font-semibold text-slate-100 uppercase tracking-wider text-center xl:table-cell">Role</th>
                     <th
                       scope="col"
                       onClick={() => {
@@ -1326,7 +1326,7 @@ function TransfersPageContent() {
                         else { setSortBy('price'); setSortDesc(true); }
                         setPage(1);
                       }}
-                      className="px-4 py-3 text-xs font-semibold text-slate-100 uppercase tracking-wider text-right cursor-pointer hover:text-amber-400 transition-colors select-none"
+                      className="w-[28%] px-3 py-3 text-xs font-semibold text-slate-100 uppercase tracking-wider text-right cursor-pointer hover:text-amber-400 transition-colors select-none xl:w-auto xl:px-4"
                     >
                       <div className="flex items-center justify-end gap-1">
                         <span>Price</span>
@@ -1342,7 +1342,7 @@ function TransfersPageContent() {
                         else { setSortBy('points'); setSortDesc(true); }
                         setPage(1);
                       }}
-                      className="px-4 py-3 text-xs font-semibold text-slate-100 uppercase tracking-wider text-right cursor-pointer hover:text-amber-400 transition-colors select-none"
+                      className="hidden px-4 py-3 text-xs font-semibold text-slate-100 uppercase tracking-wider text-right cursor-pointer hover:text-amber-400 transition-colors select-none xl:table-cell"
                     >
                       <div className="flex items-center justify-end gap-1">
                         <span>Form (Avg)</span>
@@ -1358,7 +1358,7 @@ function TransfersPageContent() {
                         else { setSortBy('ownership'); setSortDesc(true); }
                         setPage(1);
                       }}
-                      className="px-4 py-3 text-xs font-semibold text-slate-100 uppercase tracking-wider text-right cursor-pointer hover:text-amber-400 transition-colors select-none"
+                      className="hidden px-4 py-3 text-xs font-semibold text-slate-100 uppercase tracking-wider text-right cursor-pointer hover:text-amber-400 transition-colors select-none xl:table-cell"
                     >
                       <div className="flex items-center justify-end gap-1">
                         <span>Own %</span>
@@ -1367,29 +1367,29 @@ function TransfersPageContent() {
                         )}
                       </div>
                     </th>
-                    <th scope="col" className="px-4 py-3 text-xs font-semibold text-slate-100 uppercase tracking-wider text-right">Last GW</th>
-                    <th scope="col" className="px-4 py-3 text-xs font-semibold text-slate-100 uppercase tracking-wider text-center">Action</th>
+                    <th scope="col" className="hidden px-4 py-3 text-xs font-semibold text-slate-100 uppercase tracking-wider text-right xl:table-cell">Last GW</th>
+                    <th scope="col" className="w-[26%] px-3 py-3 text-xs font-semibold text-slate-100 uppercase tracking-wider text-center xl:w-auto xl:px-4">Action</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-700/50">
                   {loading ? (
                     [1, 2, 3, 4, 5, 6].map((row) => (
                       <tr key={`transfer-skeleton-${row}`} className="animate-pulse">
-                        <td className="px-4 py-3">
+                        <td className="px-3 py-3 xl:px-4">
                           <div className="flex items-center gap-3">
-                            <div className="h-10 w-10 shrink-0 rounded-full bg-slate-700" />
+                            <div className="h-9 w-9 shrink-0 rounded-full bg-slate-700 xl:h-10 xl:w-10" />
                             <div className="space-y-2">
                               <div className="h-4 w-32 max-w-[30vw] rounded bg-slate-700" />
                               <div className="h-3 w-20 rounded bg-slate-800" />
                             </div>
                           </div>
                         </td>
-                        <td className="px-4 py-3"><div className="mx-auto h-6 w-16 rounded-full bg-slate-700" /></td>
-                        <td className="px-4 py-3"><div className="ml-auto h-4 w-16 rounded bg-slate-700" /></td>
-                        <td className="px-4 py-3"><div className="ml-auto h-4 w-12 rounded bg-slate-700" /></td>
-                        <td className="px-4 py-3"><div className="ml-auto h-4 w-12 rounded bg-slate-700" /></td>
-                        <td className="px-4 py-3"><div className="ml-auto h-4 w-12 rounded bg-slate-700" /></td>
-                        <td className="px-4 py-3"><div className="mx-auto h-8 w-20 rounded-lg bg-slate-700" /></td>
+                        <td className="hidden px-4 py-3 xl:table-cell"><div className="mx-auto h-6 w-16 rounded-full bg-slate-700" /></td>
+                        <td className="px-3 py-3 xl:px-4"><div className="ml-auto h-4 w-16 rounded bg-slate-700" /></td>
+                        <td className="hidden px-4 py-3 xl:table-cell"><div className="ml-auto h-4 w-12 rounded bg-slate-700" /></td>
+                        <td className="hidden px-4 py-3 xl:table-cell"><div className="ml-auto h-4 w-12 rounded bg-slate-700" /></td>
+                        <td className="hidden px-4 py-3 xl:table-cell"><div className="ml-auto h-4 w-12 rounded bg-slate-700" /></td>
+                        <td className="px-3 py-3 xl:px-4"><div className="mx-auto h-8 w-8 rounded-lg bg-slate-700 xl:h-8 xl:w-20" /></td>
                       </tr>
                     ))
                   ) : displayedPlayers.length === 0 ? (
@@ -1418,9 +1418,9 @@ function TransfersPageContent() {
                                 : 'hover:bg-slate-800/60'
                           }`}
                         >
-                          <td className="px-4 py-3">
-                            <div className="flex items-center gap-3">
-                              <div className={`w-10 h-10 rounded-full border overflow-hidden shrink-0 flex items-center justify-center ${
+                          <td className="px-3 py-3 xl:px-4">
+                            <div className="flex items-center gap-2 xl:gap-3">
+                              <div className={`h-9 w-9 xl:h-10 xl:w-10 rounded-full border overflow-hidden shrink-0 flex items-center justify-center ${
                                 isOwned ? 'bg-slate-800 border-emerald-500/50' : 'bg-slate-700 border-slate-600'
                               }`}>
                                 {player.profile_image_url ? (
@@ -1450,10 +1450,20 @@ function TransfersPageContent() {
                                   )}
                                 </div>
                                 <div className="truncate text-xs text-slate-500 dark:text-slate-400">{player.professional_teams?.name || 'Free Agent'}</div>
+                                <span
+                                  className="transfer-role-badge mt-1 inline-block rounded border px-1.5 py-0.5 text-[9px] font-bold uppercase xl:hidden"
+                                  style={{
+                                    color: roleAccent,
+                                    borderColor: roleAccent,
+                                    backgroundColor: `color-mix(in srgb, ${roleAccent} 12%, transparent)`,
+                                  }}
+                                >
+                                  {player.primary_role || 'Flexible'}
+                                </span>
                               </div>
                             </div>
                           </td>
-                          <td className="px-4 py-3 text-center">
+                          <td className="hidden px-4 py-3 text-center xl:table-cell">
                             <span
                               className="transfer-role-badge inline-block rounded border px-2 py-1 text-[10px] font-bold uppercase"
                               style={{
@@ -1465,10 +1475,10 @@ function TransfersPageContent() {
                               {player.primary_role || 'Flexible'}
                             </span>
                           </td>
-                          <td className="px-4 py-3 text-right">
+                          <td className="px-3 py-3 text-right xl:px-4">
                             <div className="flex flex-col items-end gap-1">
-                              <span className="font-mono font-bold text-amber-400">${player.current_price}M</span>
-                              <div className="flex items-center gap-1.5">
+                              <span className="text-xs font-mono font-bold text-amber-400 xl:text-base">${player.current_price}M</span>
+                              <div className="hidden items-center gap-1.5 xl:flex">
                                 <PriceSparkline data={player.price_history} width={48} height={14} themeAware />
                                 {priceChange !== null && priceChange !== 0 ? (
                                   <span
@@ -1496,18 +1506,18 @@ function TransfersPageContent() {
                               </div>
                             </div>
                           </td>
-                          <td className="px-4 py-3 text-right">
+                          <td className="hidden px-4 py-3 text-right xl:table-cell">
                             <div className="transfer-form-average text-sm text-slate-800 dark:text-slate-200 font-mono">{player.recent_points ?? '-'}</div>
                           </td>
-                          <td className="px-4 py-3 text-right">
+                          <td className="hidden px-4 py-3 text-right xl:table-cell">
                             <div className="text-sm text-slate-700 dark:text-slate-300 font-mono">
                               {player.ownership_percentage != null ? `${Number(player.ownership_percentage).toFixed(1)}%` : '—'}
                             </div>
                           </td>
-                          <td className="px-4 py-3 text-right">
+                          <td className="hidden px-4 py-3 text-right xl:table-cell">
                             <div className="text-sm font-bold text-slate-900 dark:text-white font-mono">{player.gameweek_points ?? '-'}</div>
                           </td>
-                          <td className="px-4 py-3 text-center" onClick={(e) => e.stopPropagation()}>
+                          <td className="px-3 py-3 text-center xl:px-4" onClick={(e) => e.stopPropagation()}>
                             <button
                               type="button"
                               onClick={(e) => handlePlayerAction(player.id, player, e)}

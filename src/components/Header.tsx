@@ -152,8 +152,8 @@ export const Header = memo(function Header() {
       />
 
       <header className="dashboard-header sticky top-0 z-40 border-b border-slate-700/80 bg-slate-900/95 backdrop-blur-md">
-        <nav ref={userMenuRef} className="mx-auto px-4 sm:px-6">
-          <div className="flex justify-between items-center h-16 gap-4">
+        <nav ref={userMenuRef} className="mx-auto px-3 sm:px-6">
+          <div className="flex justify-between items-center h-16 gap-2 sm:gap-4">
             
             {/* Mobile Brand */}
             <Link href="/" className="flex items-center gap-2 font-bold text-xl md:hidden shrink-0">
