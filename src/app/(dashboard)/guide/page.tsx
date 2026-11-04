@@ -29,6 +29,7 @@ import {
   Clock,
   Sparkles,
 } from 'lucide-react';
+import { LearningResourcesNav } from '@/components/LearningResourcesNav';
 
 type TourDifficulty = 'Beginner' | 'Tactical' | 'Advanced';
 
@@ -504,27 +505,7 @@ export default function GuidePage() {
         )}
       </div>
 
-      {/* Footer Banner Directing to the Learn Hub */}
-      <div className="mt-12 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-6 sm:p-8 shadow-xs">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="space-y-1">
-            <h3 className="text-lg font-bold text-[var(--text-primary)] flex items-center gap-2">
-              <ScrollText className="h-5 w-5 text-amber-500" />
-              Continue learning from the Learn Hub
-            </h3>
-            <p className="text-sm text-[var(--text-secondary)]">
-              Keep the interactive guide open or jump to the complete scoring reference and quick rule summaries.
-            </p>
-          </div>
-          <Link
-            href="/learn"
-            className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-950 px-5 py-2.5 text-xs font-bold transition-all shadow-md shadow-amber-500/20"
-          >
-            Open Learn Hub
-            <ArrowUpRight className="h-4 w-4" />
-          </Link>
-        </div>
-      </div>
+      <LearningResourcesNav currentPage="guide" />
     </div>
   );
 }

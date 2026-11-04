@@ -6,15 +6,14 @@ import {
   Compass,
   Crown,
   Gauge,
-  HelpCircle,
   LineChart,
   ScrollText,
   Shield,
-  Sparkles,
   Users,
   ChevronRight,
   Trophy
 } from 'lucide-react';
+import { LearningResourcesNav } from '@/components/LearningResourcesNav';
 
 const quickRules = [
   { label: 'Squad size', value: '8 players', href: '/rules#squad', icon: Users, color: 'text-cyan-500 dark:text-cyan-400' },
@@ -321,24 +320,7 @@ export default function LearnPage() {
         </span>
       </Link>
 
-      {/* Help & Support Footer Bar */}
-      <div className="flex flex-col gap-3 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5.5 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-3.5">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-cyan-500/10 text-cyan-600 dark:text-cyan-400">
-            <Sparkles className="h-5 w-5" />
-          </div>
-          <div>
-            <p className="font-bold text-[var(--text-primary)]">Need a specific answer?</p>
-            <p className="text-sm text-[var(--text-secondary)]">Browse common questions and support guidance.</p>
-          </div>
-        </div>
-        <Link
-          href="/help"
-          className="inline-flex items-center gap-2 text-sm font-bold text-cyan-600 hover:text-cyan-500 dark:text-cyan-400 dark:hover:text-cyan-300"
-        >
-          Open Help Center <HelpCircle className="h-4 w-4" />
-        </Link>
-      </div>
+      <LearningResourcesNav currentPage="learn" />
     </div>
   );
 }

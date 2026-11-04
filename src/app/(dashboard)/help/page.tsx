@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { ChevronDown, HelpCircle, BookOpen, ShieldCheck, Mail, Sparkles, ExternalLink, Bug } from 'lucide-react';
+import { LearningResourcesNav } from '@/components/LearningResourcesNav';
 
 const FAQItem = ({ question, answer }: { question: string; answer: React.ReactNode }) => {
   const [isOpen, setIsOpen] = useState(false);
@@ -176,6 +177,7 @@ export default function HelpPage() {
           </div>
         </div>
       </div>
+      <LearningResourcesNav currentPage="help" />
     </div>
   );
 }
