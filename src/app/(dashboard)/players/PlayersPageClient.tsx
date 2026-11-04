@@ -702,7 +702,7 @@ export default function PlayersPageClient({
             <thead>
               <tr className="bg-[var(--surface-raised)] border-b border-[var(--border)] text-[var(--text-muted)] text-xs uppercase tracking-wider">
                 {compareMode && <th className="px-4 py-3.5 font-bold whitespace-nowrap">Compare</th>}
-                <th className="px-6 py-3.5 font-bold whitespace-nowrap">
+                <th className="px-4 py-3.5 font-bold whitespace-nowrap">
                   <button
                     type="button"
                     onClick={() => {
@@ -718,9 +718,9 @@ export default function PlayersPageClient({
                     )}
                   </button>
                 </th>
-                <th className="px-6 py-3.5 font-bold whitespace-nowrap">Team</th>
-                <th className="px-6 py-3.5 font-bold whitespace-nowrap">Role</th>
-                <th className="px-6 py-3.5 font-bold whitespace-nowrap text-right">
+                <th className="px-4 py-3.5 font-bold whitespace-nowrap">Team</th>
+                <th className="px-4 py-3.5 font-bold whitespace-nowrap">Role</th>
+                <th className="px-4 py-3.5 font-bold whitespace-nowrap text-right">
                   <button
                     type="button"
                     onClick={() => {
@@ -736,7 +736,7 @@ export default function PlayersPageClient({
                     )}
                   </button>
                 </th>
-                <th className="px-6 py-3.5 font-bold whitespace-nowrap text-right">
+                <th className="px-4 py-3.5 font-bold whitespace-nowrap text-right">
                   <button
                     type="button"
                     onClick={() => {
@@ -752,8 +752,8 @@ export default function PlayersPageClient({
                     )}
                   </button>
                 </th>
-                <th className="px-6 py-3.5 font-bold whitespace-nowrap text-center">Status</th>
-                <th className="px-6 py-3.5 font-bold whitespace-nowrap text-right">Action</th>
+                <th className="px-4 py-3.5 font-bold whitespace-nowrap text-center">Status</th>
+                <th className="py-3.5 pl-4 pr-8 text-right font-bold whitespace-nowrap">Action</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[var(--border)]">
@@ -761,7 +761,7 @@ export default function PlayersPageClient({
                 [1, 2, 3, 4, 5, 6].map((row) => (
                   <tr key={`player-skeleton-${row}`} className="animate-pulse">
                     {compareMode && <td className="px-4 py-4 text-center"><div className="mx-auto h-4 w-4 rounded bg-[var(--surface-raised)]" /></td>}
-                    <td className="px-6 py-4">
+                    <td className="px-4 py-4">
                       <div className="flex items-center gap-3">
                         <div className="h-10 w-10 shrink-0 rounded-full bg-[var(--surface-raised)]" />
                         <div className="space-y-2">
@@ -770,12 +770,12 @@ export default function PlayersPageClient({
                         </div>
                       </div>
                     </td>
-                    <td className="px-6 py-4"><div className="h-4 w-24 max-w-[20vw] rounded bg-[var(--surface-raised)]" /></td>
-                    <td className="px-6 py-4"><div className="h-6 w-16 rounded-full bg-[var(--surface-raised)]" /></td>
-                    <td className="px-6 py-4"><div className="ml-auto h-4 w-14 rounded bg-[var(--surface-raised)]" /></td>
-                    <td className="px-6 py-4"><div className="ml-auto h-5 w-20 rounded bg-[var(--surface-raised)]" /></td>
-                    <td className="px-6 py-4 text-center"><div className="mx-auto h-6 w-16 rounded-full bg-[var(--surface-raised)]" /></td>
-                    <td className="px-6 py-4"><div className="ml-auto h-8 w-20 rounded-lg bg-[var(--surface-raised)]" /></td>
+                    <td className="px-4 py-4"><div className="h-4 w-24 max-w-[20vw] rounded bg-[var(--surface-raised)]" /></td>
+                    <td className="px-4 py-4"><div className="h-6 w-16 rounded-full bg-[var(--surface-raised)]" /></td>
+                    <td className="px-4 py-4"><div className="ml-auto h-4 w-14 rounded bg-[var(--surface-raised)]" /></td>
+                    <td className="px-4 py-4"><div className="ml-auto h-5 w-20 rounded bg-[var(--surface-raised)]" /></td>
+                    <td className="px-4 py-4 text-center"><div className="mx-auto h-6 w-16 rounded-full bg-[var(--surface-raised)]" /></td>
+                    <td className="py-4 pl-4 pr-8"><div className="ml-auto h-8 w-20 rounded-lg bg-[var(--surface-raised)]" /></td>
                   </tr>
                 ))
               ) : error ? (
@@ -834,7 +834,7 @@ export default function PlayersPageClient({
                         />
                       </td>}
                       {/* Player name */}
-                      <td className="px-6 py-4 whitespace-nowrap">
+                      <td className="px-4 py-4 whitespace-nowrap">
                         <Link href={`/players/${player.id}`} className="group flex min-w-48 items-center gap-3">
                           <span className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full border border-[var(--border)] bg-[var(--surface-raised)]">
                             {player.profile_image_url && !brokenPlayerAvatars.has(player.id) ? (
@@ -874,7 +874,7 @@ export default function PlayersPageClient({
                       </td>
 
                       {/* Team */}
-                      <td className="px-6 py-4 whitespace-nowrap">
+                      <td className="px-4 py-4 whitespace-nowrap">
                         {player.professional_teams?.name ? (
                           <div className="flex items-center text-[var(--text-secondary)]">
                             {player.professional_teams.logo_url && !brokenLogos.has(player.id) ? (
@@ -906,19 +906,19 @@ export default function PlayersPageClient({
                       </td>
 
                       {/* Role */}
-                      <td className="px-6 py-4 whitespace-nowrap">
+                      <td className="px-4 py-4 whitespace-nowrap">
                         <span className={`px-2.5 py-1 text-xs font-bold rounded-full border ${getRoleBadgeClass(player.primary_role)}`}>
                           {player.primary_role || 'Unassigned'}
                         </span>
                       </td>
 
                       {/* Price */}
-                      <td className="px-6 py-4 whitespace-nowrap text-right font-black text-[var(--text-primary)] font-mono">
+                      <td className="px-4 py-4 whitespace-nowrap text-right font-black text-[var(--text-primary)] font-mono">
                         {formatPrice(player.current_price)}
                       </td>
 
                       {/* Ownership */}
-                      <td className="px-6 py-4 whitespace-nowrap text-right">
+                      <td className="px-4 py-4 whitespace-nowrap text-right">
                         {player.ownership_percentage != null ? (
                           <div className="inline-flex flex-col items-end gap-1">
                             <div className="flex items-center gap-1.5 font-mono text-sm font-bold text-[var(--text-primary)]">
@@ -954,7 +954,7 @@ export default function PlayersPageClient({
                       </td>
 
                       {/* Availability */}
-                      <td className="px-6 py-4 whitespace-nowrap text-center">
+                      <td className="px-4 py-4 whitespace-nowrap text-center">
                         <span
                           aria-label={`Availability: ${player.availability_status || 'Available'}`}
                           title={player.availability_status || 'Available'}
@@ -966,7 +966,7 @@ export default function PlayersPageClient({
                       </td>
 
                       {/* Action */}
-                      <td className="px-6 py-4 whitespace-nowrap text-right">
+                      <td className="py-4 pl-4 pr-8 whitespace-nowrap text-right">
                         <div className="inline-flex items-center gap-2">
                           {!isOwned && player.availability_status?.toLowerCase() === 'available' && (
                             <Link
