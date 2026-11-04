@@ -1,7 +1,10 @@
 'use client';
 
 import { fetchWithAuth } from '@/lib/fetch-with-auth';
-import { useState, useEffect, useCallback } from 'react';
+import { fetchFixtureDifficulty } from '@/lib/fetch-fixture-difficulty';
+import { FixtureDifficultyBadge } from '@/components/FixtureDifficultyBadge';
+import type { FixtureDifficultyResult } from '@/lib/fixture-difficulty';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import Image from 'next/image';
 import { canOptimizeImage } from '@/lib/optimized-image';
 import { CircleAlert, UserCheck, TrendingUp, TrendingDown, Minus, Clock, ShieldCheck, Lock, Sparkles, ChevronDown } from 'lucide-react';
@@ -14,6 +17,88 @@ interface LineupGameweekOption {
   status: string;
   deadline: string | null;
   isLocked: boolean;
+}
+
+interface LineupFixture {
+  id: number;
+  scheduled_time: string;
+  team_a_id: number | null;
+  team_b_id: number | null;
+  radiant_team?: { name: string } | null;
+  dire_team?: { name: string } | null;
+  tournaments?: { name: string } | null;
+}
+
+interface LineupMatchesResponse {
+  matches?: LineupFixture[];
+  pagination?: { totalPages?: number };
+  error?: string;
+}
+
+interface LineupFixtureDetailsProps {
+  player: LineupPlayer;
+  fixturesByTeam: Map<number, LineupFixture[]>;
+  difficultyByTeam: Map<number, FixtureDifficultyResult>;
+  loading: boolean;
+}
+
+function formatFixtureDate(value: string): string {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return 'Time to be confirmed';
+  return date.toLocaleString(undefined, {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  });
+}
+
+function LineupFixtureDetails({
+  player,
+  fixturesByTeam,
+  difficultyByTeam,
+  loading,
+}: LineupFixtureDetailsProps) {
+  const teamId = player.professional_teams?.id ?? player.team_id ?? null;
+  if (teamId === null) {
+    return <p className="mt-3 text-xs text-slate-400">No team schedule available.</p>;
+  }
+  if (loading) {
+    return <p role="status" className="mt-3 text-xs text-slate-400">Loading selected-gameweek fixtures…</p>;
+  }
+
+  const fixtures = fixturesByTeam.get(teamId) ?? [];
+  if (fixtures.length === 0) {
+    return <p className="mt-3 text-xs text-slate-400">No scheduled fixture for this team in this gameweek.</p>;
+  }
+
+  return (
+    <div className="mt-3 space-y-2 border-t border-slate-700/70 pt-3">
+      <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Selected gameweek fixtures</p>
+      {fixtures.map((fixture) => {
+        const isTeamA = fixture.team_a_id === teamId;
+        const opponentId = isTeamA ? fixture.team_b_id : fixture.team_a_id;
+        const opponentName = isTeamA
+          ? fixture.dire_team?.name || 'Opponent TBA'
+          : fixture.radiant_team?.name || 'Opponent TBA';
+        return (
+          <div key={fixture.id} className="flex flex-wrap items-center justify-between gap-2 text-xs">
+            <div className="min-w-0">
+              <p className="truncate font-medium text-slate-200">vs {opponentName}</p>
+              <p className="mt-0.5 text-slate-500">
+                {formatFixtureDate(fixture.scheduled_time)}
+                {fixture.tournaments?.name ? ` · ${fixture.tournaments.name}` : ''}
+              </p>
+            </div>
+            <FixtureDifficultyBadge
+              difficulty={opponentId === null ? undefined : difficultyByTeam.get(opponentId)}
+            />
+          </div>
+        );
+      })}
+    </div>
+  );
 }
 
 const SpinnerIcon = () => (
@@ -53,6 +138,13 @@ export default function LineupsPage() {
   const [hasUpcomingGw, setHasUpcomingGw] = useState(false);
   const [lineup, setLineup] = useState<LineupEntry[]>([]);
   const [ownedPlayers, setOwnedPlayers] = useState<LineupPlayer[]>([]);
+  const [fixturesByTeam, setFixturesByTeam] = useState<Map<number, LineupFixture[]>>(new Map());
+  const [fixtureDifficultyByTeam, setFixtureDifficultyByTeam] = useState<Map<number, FixtureDifficultyResult>>(new Map());
+  const [fixtureLoading, setFixtureLoading] = useState(false);
+  const [fixtureError, setFixtureError] = useState<string | null>(null);
+  const [fixtureDifficultyError, setFixtureDifficultyError] = useState<string | null>(null);
+  const [fixtureReloadCount, setFixtureReloadCount] = useState(0);
+  const fixtureRequestId = useRef(0);
   const [saving, setSaving] = useState(false);
   const [confirmDeadlineSave, setConfirmDeadlineSave] = useState(false);
 
@@ -65,6 +157,11 @@ export default function LineupsPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to load fantasy context');
 
+      setFixturesByTeam(new Map());
+      setFixtureDifficultyByTeam(new Map());
+      setFixtureLoading(false);
+      setFixtureError(null);
+      setFixtureDifficultyError(null);
       setFantasySeasonId(data.fantasySeasonId);
       setGameweekId(data.gameweek?.id ?? null);
       setLineupLocked(Boolean(data.gameweek?.isLocked));
@@ -95,10 +192,118 @@ export default function LineupsPage() {
     return () => window.clearTimeout(timeoutId);
   }, [loadFantasyContext]);
 
+  useEffect(() => {
+    const requestId = ++fixtureRequestId.current;
+    const teamIds = [...new Set(ownedPlayers
+      .map((player) => player.professional_teams?.id ?? player.team_id)
+      .filter((teamId): teamId is number => teamId != null))];
+
+    if (gameweekId === null || teamIds.length === 0) {
+      return;
+    }
+
+    const loadGameweekFixtures = async () => {
+      setFixtureLoading(true);
+      setFixtureError(null);
+      setFixtureDifficultyError(null);
+      setFixturesByTeam(new Map());
+      setFixtureDifficultyByTeam(new Map());
+      try {
+        const fetchPage = async (page: number): Promise<LineupMatchesResponse> => {
+          const params = new URLSearchParams({
+            teamIds: teamIds.join(','),
+            gameweekId: String(gameweekId),
+            status: 'scheduled',
+            order: 'asc',
+            page: String(page),
+            limit: '100',
+          });
+          const response = await fetchWithAuth(`/api/matches?${params}`);
+          const data = await response.json() as LineupMatchesResponse;
+          if (!response.ok) {
+            throw new Error(data.error || `Unable to load gameweek fixtures (${response.status})`);
+          }
+          return data;
+        };
+
+        const firstPage = await fetchPage(1);
+        const totalPages = Math.max(1, firstPage.pagination?.totalPages ?? 1);
+        const remainingPages = await Promise.allSettled(
+          Array.from({ length: totalPages - 1 }, (_, index) => fetchPage(index + 2)),
+        );
+        if (requestId !== fixtureRequestId.current) return;
+
+        const matches = [...(firstPage.matches ?? [])];
+        let hasPartialFailure = false;
+        for (const result of remainingPages) {
+          if (result.status === 'fulfilled') matches.push(...(result.value.matches ?? []));
+          else hasPartialFailure = true;
+        }
+
+        const teamIdSet = new Set(teamIds);
+        const fixtures = matches.filter((match) => {
+          const scheduledTime = new Date(match.scheduled_time).getTime();
+          return Number.isFinite(scheduledTime)
+            && scheduledTime >= Date.now()
+            && (teamIdSet.has(match.team_a_id ?? -1) || teamIdSet.has(match.team_b_id ?? -1));
+        }).sort((a, b) => new Date(a.scheduled_time).getTime() - new Date(b.scheduled_time).getTime());
+        const groupedFixtures = new Map(teamIds.map((teamId) => [teamId, [] as LineupFixture[]]));
+        for (const fixture of fixtures) {
+          for (const fixtureTeamId of [fixture.team_a_id, fixture.team_b_id]) {
+            if (fixtureTeamId === null) continue;
+            const teamFixtures = groupedFixtures.get(fixtureTeamId);
+            if (teamFixtures && !teamFixtures.some((item) => item.id === fixture.id)) {
+              teamFixtures.push(fixture);
+            }
+          }
+        }
+        setFixturesByTeam(groupedFixtures);
+        if (hasPartialFailure) {
+          setFixtureError('Some gameweek fixtures could not be loaded. Showing the fixtures that were available.');
+        }
+
+        const opponentIds = [...new Set(fixtures.flatMap((fixture) => {
+          const opponents: number[] = [];
+          if (fixture.team_a_id !== null && teamIdSet.has(fixture.team_a_id) && fixture.team_b_id !== null) {
+            opponents.push(fixture.team_b_id);
+          }
+          if (fixture.team_b_id !== null && teamIdSet.has(fixture.team_b_id) && fixture.team_a_id !== null) {
+            opponents.push(fixture.team_a_id);
+          }
+          return opponents;
+        }))];
+        try {
+          const ratings = await fetchFixtureDifficulty(opponentIds);
+          if (requestId === fixtureRequestId.current) setFixtureDifficultyByTeam(ratings);
+        } catch (difficultyError: unknown) {
+          if (requestId === fixtureRequestId.current) {
+            setFixtureDifficultyError(
+              difficultyError instanceof Error ? difficultyError.message : 'Unable to load fixture difficulty.',
+            );
+          }
+        }
+      } catch (loadError: unknown) {
+        if (requestId === fixtureRequestId.current) {
+          setFixtureError(loadError instanceof Error ? loadError.message : 'Unable to load gameweek fixtures.');
+        }
+      } finally {
+        if (requestId === fixtureRequestId.current) setFixtureLoading(false);
+      }
+    };
+
+    void loadGameweekFixtures();
+    return () => {
+      fixtureRequestId.current += 1;
+    };
+  }, [gameweekId, ownedPlayers, fixtureReloadCount]);
+
   const handleGameweekChange = (value: string) => {
     const selectedGameweekId = Number(value);
     if (Number.isInteger(selectedGameweekId) && selectedGameweekId > 0 && selectedGameweekId !== gameweekId) {
       setLoading(true);
+      setFixturesByTeam(new Map());
+      setFixtureDifficultyByTeam(new Map());
+      setFixtureLoading(true);
       void loadFantasyContext(selectedGameweekId);
     }
   };
@@ -410,6 +615,27 @@ export default function LineupsPage() {
             </button>
           </div>
         </div>
+      </div>
+
+      <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[var(--border)] bg-[var(--surface)] px-4 py-3 text-xs text-[var(--text-muted)]">
+        <span>
+          Fixture difficulty is a form estimate from opponent win rate in up to 10 recent completed matches, not a prediction; 1 is easiest and 5 hardest. At least 5 results are required.
+        </span>
+        {fixtureLoading && <span role="status">Loading selected-gameweek fixtures…</span>}
+        {!fixtureLoading && (fixtureError || fixtureDifficultyError) && (
+          <div className="flex items-center gap-2">
+            <span role="alert" className="text-amber-600 dark:text-amber-300">
+              {fixtureError || fixtureDifficultyError}
+            </span>
+            <button
+              type="button"
+              onClick={() => setFixtureReloadCount((current) => current + 1)}
+              className="shrink-0 rounded-lg border border-amber-500/40 px-2.5 py-1 font-semibold text-amber-700 hover:bg-amber-500/10 dark:text-amber-200"
+            >
+              Retry
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Chip Readiness Horizontal Bar */}
@@ -747,6 +973,14 @@ export default function LineupsPage() {
                               </div>
                             </div>
                           )}
+                          {selected?.professional_players && (
+                            <LineupFixtureDetails
+                              player={selected.professional_players}
+                              fixturesByTeam={fixturesByTeam}
+                              difficultyByTeam={fixtureDifficultyByTeam}
+                              loading={fixtureLoading}
+                            />
+                          )}
                         </div>
                       );
                     })}
@@ -831,6 +1065,14 @@ export default function LineupsPage() {
                                 </div>
                               </div>
                             </div>
+                          )}
+                          {selected?.professional_players && (
+                            <LineupFixtureDetails
+                              player={selected.professional_players}
+                              fixturesByTeam={fixturesByTeam}
+                              difficultyByTeam={fixtureDifficultyByTeam}
+                              loading={fixtureLoading}
+                            />
                           )}
                         </div>
                       );

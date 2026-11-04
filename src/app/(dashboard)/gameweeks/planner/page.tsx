@@ -6,6 +6,9 @@ import Image from 'next/image';
 import { canOptimizeImage } from '@/lib/optimized-image';
 import { ArrowLeft, CalendarClock, CalendarDays, CircleAlert, ShieldCheck } from 'lucide-react';
 import { fetchWithAuth } from '@/lib/fetch-with-auth';
+import { fetchFixtureDifficulty } from '@/lib/fetch-fixture-difficulty';
+import { FixtureDifficultyBadge } from '@/components/FixtureDifficultyBadge';
+import type { FixtureDifficultyResult } from '@/lib/fixture-difficulty';
 
 type PlannerPlayer = {
   id: number;
@@ -49,8 +52,8 @@ type PlannerMatch = {
   scheduled_time: string;
   team_a_id: number | null;
   team_b_id: number | null;
-  team_a?: { name: string } | null;
-  team_b?: { name: string } | null;
+  radiant_team?: { name: string } | null;
+  dire_team?: { name: string } | null;
   tournaments?: { name: string } | null;
 };
 
@@ -112,6 +115,9 @@ export default function SquadPlannerPage() {
   const [error, setError] = useState<string | null>(null);
   const [fixtureLoading, setFixtureLoading] = useState(false);
   const [fixtureError, setFixtureError] = useState<string | null>(null);
+  const [fixtureDifficultyByTeam, setFixtureDifficultyByTeam] = useState<Map<number, FixtureDifficultyResult>>(new Map());
+  const [fixtureDifficultyLoading, setFixtureDifficultyLoading] = useState(false);
+  const [fixtureDifficultyError, setFixtureDifficultyError] = useState<string | null>(null);
   const fixtureRequestId = useRef(0);
 
   const loadFixtures = useCallback(async (teamIds: number[]) => {
@@ -122,6 +128,10 @@ export default function SquadPlannerPage() {
     try {
       if (teamIds.length === 0) {
         setMatchesByTeam(new Map());
+        setFixtureDifficultyByTeam(new Map());
+        setFixtureError(null);
+        setFixtureDifficultyError(null);
+        setFixtureDifficultyLoading(false);
         return;
       }
 
@@ -176,8 +186,35 @@ export default function SquadPlannerPage() {
         }
       }
       setMatchesByTeam(fixturesByTeam);
+      setFixtureDifficultyByTeam(new Map());
       if (hasPartialFailure) {
         setFixtureError('Some fixture results could not be loaded. Showing the fixtures that were available.');
+      }
+
+      const ownedTeamIds = new Set(teamIds);
+      const opponentIds = [...new Set(upcoming.flatMap((match) => {
+        const opponents: number[] = [];
+        if (match.team_a_id !== null && ownedTeamIds.has(match.team_a_id) && match.team_b_id !== null) {
+          opponents.push(match.team_b_id);
+        }
+        if (match.team_b_id !== null && ownedTeamIds.has(match.team_b_id) && match.team_a_id !== null) {
+          opponents.push(match.team_a_id);
+        }
+        return opponents;
+      }))];
+      setFixtureDifficultyLoading(opponentIds.length > 0);
+      setFixtureDifficultyError(null);
+      try {
+        const ratings = await fetchFixtureDifficulty(opponentIds);
+        if (requestId === fixtureRequestId.current) setFixtureDifficultyByTeam(ratings);
+      } catch (difficultyError: unknown) {
+        if (requestId === fixtureRequestId.current) {
+          setFixtureDifficultyError(
+            difficultyError instanceof Error ? difficultyError.message : 'Unable to load fixture difficulty.',
+          );
+        }
+      } finally {
+        if (requestId === fixtureRequestId.current) setFixtureDifficultyLoading(false);
       }
     } catch (loadError: unknown) {
       if (requestId === fixtureRequestId.current) {
@@ -429,7 +466,9 @@ export default function SquadPlannerPage() {
         <section className="overflow-hidden rounded-2xl border border-slate-700 bg-slate-800/40">
           <div className="border-b border-slate-700 p-5">
             <h2 className="text-lg font-semibold text-white">Upcoming squad fixtures</h2>
-            <p className="mt-1 text-sm text-slate-400">Next scheduled matches for teams represented in your squad.</p>
+            <p className="mt-1 text-sm text-slate-400">
+              Difficulty is a form-based estimate from each opponent&apos;s recent completed-match win rate, not a match prediction; roster changes may affect results.
+            </p>
           </div>
           {fixtureError && (
             <div role="alert" className="flex flex-wrap items-center justify-between gap-3 border-b border-amber-500/20 bg-amber-950/20 p-4 text-sm text-amber-200">
@@ -449,6 +488,29 @@ export default function SquadPlannerPage() {
               </button>
             </div>
           )}
+          {fixtureDifficultyError && (
+            <div role="alert" className="flex flex-wrap items-center justify-between gap-3 border-b border-amber-500/20 bg-amber-950/20 p-4 text-sm text-amber-200">
+              <p>{fixtureDifficultyError}</p>
+              <button
+                type="button"
+                onClick={() => {
+                  const teamIds = [...new Set(ownedPlayers
+                    .map((player) => player.professional_teams?.id)
+                    .filter((teamId): teamId is number => teamId != null))];
+                  void loadFixtures(teamIds);
+                }}
+                disabled={fixtureLoading || fixtureDifficultyLoading}
+                className="shrink-0 rounded-lg border border-amber-400/40 px-3 py-2 font-semibold text-amber-100 transition-colors hover:bg-amber-400/10 disabled:cursor-wait disabled:opacity-60"
+              >
+                Retry difficulty
+              </button>
+            </div>
+          )}
+          {fixtureDifficultyLoading && (
+            <p role="status" className="border-b border-slate-700/70 px-4 py-3 text-xs text-slate-400">
+              Loading opponent form…
+            </p>
+          )}
           {fixtureLoading && (
             <div role="status" aria-label="Loading upcoming fixtures" className="p-4 space-y-4 animate-pulse">
               {[1, 2, 3].map((i) => (
@@ -467,11 +529,27 @@ export default function SquadPlannerPage() {
                 const involvedPlayers = ownedPlayers.filter((player) =>
                   player.professional_teams?.id === match.team_a_id
                   || player.professional_teams?.id === match.team_b_id);
+                const squadSides = [
+                  {
+                    teamId: match.team_a_id,
+                    opponentId: match.team_b_id,
+                    teamName: match.radiant_team?.name || 'Team TBA',
+                    opponentName: match.dire_team?.name || 'Team TBA',
+                  },
+                  {
+                    teamId: match.team_b_id,
+                    opponentId: match.team_a_id,
+                    teamName: match.dire_team?.name || 'Team TBA',
+                    opponentName: match.radiant_team?.name || 'Team TBA',
+                  },
+                ].filter((side) => side.teamId !== null && involvedPlayers.some(
+                  (player) => player.professional_teams?.id === side.teamId,
+                ));
                 return (
                   <li key={match.id} className="p-4 sm:p-5">
                     <p className="flex items-center gap-2 text-sm font-semibold text-white">
                       <CalendarDays className="h-4 w-4 shrink-0 text-cyan-400" />
-                      {match.team_a?.name || 'Team TBA'} <span className="text-slate-500">vs</span> {match.team_b?.name || 'Team TBA'}
+                      {match.radiant_team?.name || 'Team TBA'} <span className="text-slate-500">vs</span> {match.dire_team?.name || 'Team TBA'}
                     </p>
                     <p className="mt-2 text-sm text-cyan-200">{formatDate(match.scheduled_time)}</p>
                     {match.tournaments?.name && (
@@ -481,6 +559,18 @@ export default function SquadPlannerPage() {
                       <p className="mt-2 text-xs text-slate-400">
                         Your squad: {involvedPlayers.map(displayName).join(', ')}
                       </p>
+                    )}
+                    {squadSides.length > 0 && (
+                      <div className="mt-3 space-y-2">
+                        {squadSides.map((side) => (
+                          <div key={side.teamId} className="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-400">
+                            <span>{side.teamName} vs {side.opponentName}</span>
+                            <FixtureDifficultyBadge
+                              difficulty={side.opponentId === null ? undefined : fixtureDifficultyByTeam.get(side.opponentId)}
+                            />
+                          </div>
+                        ))}
+                      </div>
                     )}
                   </li>
                 );
