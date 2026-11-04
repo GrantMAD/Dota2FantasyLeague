@@ -155,7 +155,7 @@ export function PremiumWaitlistProvider({ children }: { children: ReactNode }) {
             aria-modal="true"
             aria-labelledby="premium-waitlist-title"
             tabIndex={-1}
-            className="relative w-full max-w-lg overflow-hidden rounded-3xl border border-amber-500/30 bg-[var(--surface)] p-6 text-[var(--text-primary)] shadow-2xl shadow-amber-950/20 sm:p-7"
+            className="relative max-h-[calc(100dvh-2rem)] w-full max-w-lg overflow-y-auto rounded-3xl border border-amber-500/30 bg-[var(--surface)] p-6 text-[var(--text-primary)] shadow-2xl shadow-amber-950/20 sm:p-7"
             onClick={(event) => event.stopPropagation()}
           >
             <div aria-hidden="true" className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-amber-400 via-yellow-400 to-orange-500" />

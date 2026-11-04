@@ -118,7 +118,7 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
         aria-modal="true"
         aria-labelledby="command-palette-title"
         tabIndex={-1}
-        className="w-full max-w-xl overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface)] text-[var(--text-primary)] shadow-2xl shadow-slate-950/30 ring-1 ring-white/10"
+        className="max-h-[calc(100dvh-6rem)] w-full max-w-xl overflow-y-auto rounded-2xl border border-[var(--border)] bg-[var(--surface)] text-[var(--text-primary)] shadow-2xl shadow-slate-950/30 ring-1 ring-white/10"
       >
         <h2 id="command-palette-title" className="sr-only">Command palette</h2>
         <div className="flex items-center border-b border-[var(--border)] bg-[var(--surface-raised)] px-4">

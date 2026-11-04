@@ -156,8 +156,8 @@ export default function GameweekDetailPage({
             {[1, 2, 3].map((item) => <div key={item} className="h-20 rounded-xl bg-slate-800/70" />)}
           </div>
         </div>
-        <div className="grid gap-8 lg:grid-cols-3">
-          <section className="space-y-4 lg:col-span-2">
+        <div className="grid min-w-0 grid-cols-1 gap-8 lg:grid-cols-3">
+          <section className="min-w-0 space-y-4 lg:col-span-2">
             <div className="h-7 w-48 rounded bg-slate-800" />
             {[1, 2, 3].map((item) => (
               <div key={item} className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5">
@@ -170,7 +170,7 @@ export default function GameweekDetailPage({
               </div>
             ))}
           </section>
-          <section className="space-y-4">
+          <section className="min-w-0 space-y-4">
             <div className="h-7 w-40 rounded bg-slate-800" />
             {[1, 2, 3, 4].map((item) => (
               <div key={item} className="flex items-center gap-3 rounded-xl border border-slate-800 bg-slate-900/60 p-4">
@@ -347,9 +347,9 @@ export default function GameweekDetailPage({
       )}
 
       {/* Main Content Layout: Fixtures + Top Performers */}
-      <div className="grid gap-8 lg:grid-cols-3">
+      <div className="grid min-w-0 grid-cols-1 gap-8 lg:grid-cols-3">
         {/* Matches / Fixtures List (2 columns wide) */}
-        <div className="lg:col-span-2 space-y-4">
+        <div className="min-w-0 space-y-4 lg:col-span-2">
           <div className="flex items-center justify-between pb-2 border-b border-slate-800">
             <h2 className="text-lg font-bold text-white flex items-center gap-2">
               <Swords className="w-5 h-5 text-amber-400" />

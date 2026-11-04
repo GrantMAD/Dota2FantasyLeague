@@ -379,7 +379,7 @@ export function DashboardGoalProgress({
           className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs"
         >
           <div
-            className="w-full max-w-md rounded-2xl border p-6 shadow-2xl transition-all"
+            className="max-h-[calc(100dvh-2rem)] w-full max-w-md overflow-y-auto rounded-2xl border p-6 shadow-2xl transition-all"
             style={{
               background: 'var(--surface)',
               borderColor: 'var(--border)',

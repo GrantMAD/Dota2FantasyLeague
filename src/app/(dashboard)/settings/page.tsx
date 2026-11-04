@@ -455,10 +455,10 @@ function SettingsContent() {
       )}
 
       {/* Main Settings Navigation & Content Layout */}
-      <div className="grid gap-6 lg:grid-cols-[250px_1fr]">
+      <div className="grid min-w-0 gap-6 lg:grid-cols-[250px_minmax(0,1fr)]">
         {/* Sleek Vertical Tab Navigation */}
         <nav
-          className="h-fit rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-2.5 shadow-sm space-y-1.5"
+          className="h-fit min-w-0 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-2.5 shadow-sm space-y-1.5"
           aria-label="Settings sections"
         >
           {tabs.map((tab) => {
@@ -502,7 +502,7 @@ function SettingsContent() {
         </nav>
 
         {/* Content Panel */}
-        <main className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-6 md:p-8 shadow-sm">
+        <main className="min-w-0 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-6 md:p-8 shadow-sm">
           {loading ? (
             <div className="space-y-6 animate-pulse">
               <div className="space-y-2">

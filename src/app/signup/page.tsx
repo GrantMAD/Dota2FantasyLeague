@@ -107,7 +107,7 @@ export default function SignupPage() {
         <div className="flex w-full max-w-5xl flex-col lg:flex-row lg:gap-0">
 
         {/* ── LEFT PANEL (brand story) ───────────────────────────────────── */}
-        <div className="flex flex-col justify-center py-10 pr-12 lg:w-[400px] lg:shrink-0 xl:w-[440px] xl:pr-16">
+        <div className="flex flex-col justify-center py-10 lg:w-[400px] lg:shrink-0 lg:pr-12 xl:w-[440px] xl:pr-16">
           <div className="w-full">
           {/* Logo */}
           <Link href="/" className="group mb-10 flex items-center gap-3 self-start">
@@ -175,7 +175,7 @@ export default function SignupPage() {
         </div>
 
         {/* ── RIGHT PANEL (form) ─────────────────────────────────────────── */}
-        <div className="flex flex-1 items-center justify-start border-l border-slate-800/60 pl-12 py-10 xl:pl-16">
+        <div className="flex flex-1 items-center justify-start border-slate-800/60 py-10 lg:border-l lg:pl-12 xl:pl-16">
           <div className="w-full max-w-md animate-fade-up-delay-1">
             {/* Heading above card */}
             <div className="mb-6 text-center lg:text-left">

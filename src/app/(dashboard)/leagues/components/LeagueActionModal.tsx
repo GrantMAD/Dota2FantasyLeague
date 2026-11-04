@@ -51,7 +51,7 @@ export function LeagueActionModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
-      <div className="relative w-full max-w-md rounded-3xl border border-[var(--border)] bg-[var(--surface)] shadow-2xl shadow-black/50">
+      <div className="relative max-h-[calc(100dvh-2rem)] w-full max-w-md overflow-y-auto rounded-3xl border border-[var(--border)] bg-[var(--surface)] shadow-2xl shadow-black/50">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-[var(--border)] p-6">
           <div>

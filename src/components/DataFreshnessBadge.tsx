@@ -162,7 +162,7 @@ export function DataFreshnessBadge({
             onMouseDown={(event) => {
               if (event.target === event.currentTarget) closeModal();
             }}
-            className="data-freshness-modal w-full max-w-lg rounded-2xl p-6 shadow-2xl text-left relative overflow-hidden"
+            className="data-freshness-modal max-h-[calc(100dvh-2rem)] w-full max-w-lg overflow-y-auto rounded-2xl p-6 text-left shadow-2xl relative"
           >
             {/* Header glow */}
             <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-teal-500 via-emerald-400 to-cyan-500"></div>

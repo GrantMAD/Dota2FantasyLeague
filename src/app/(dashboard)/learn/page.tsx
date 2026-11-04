@@ -281,13 +281,13 @@ export default function LearnPage() {
               <Link
                 key={action.title}
                 href={action.href}
-                className="group flex items-center gap-4 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 transition-all hover:border-emerald-500/40 hover:shadow-md"
+                className="group flex min-w-0 items-center gap-4 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 transition-all hover:border-emerald-500/40 hover:shadow-md"
               >
                 <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
                   <Icon className="h-5 w-5" />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
                     <h3 className="font-bold text-[var(--text-primary)]">{action.title}</h3>
                     <span className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-emerald-700 dark:text-emerald-300">
                       {action.tag}
@@ -295,7 +295,7 @@ export default function LearnPage() {
                   </div>
                   <p className="mt-1 text-sm text-[var(--text-secondary)]">{action.description}</p>
                 </div>
-                <span className="shrink-0 text-xs font-bold text-emerald-600 dark:text-emerald-400 opacity-0 transition-opacity group-hover:opacity-100">
+                <span className="hidden shrink-0 text-xs font-bold text-emerald-600 opacity-0 transition-opacity group-hover:opacity-100 sm:inline dark:text-emerald-400">
                   {action.label} →
                 </span>
               </Link>
@@ -342,4 +342,3 @@ export default function LearnPage() {
     </div>
   );
 }
-

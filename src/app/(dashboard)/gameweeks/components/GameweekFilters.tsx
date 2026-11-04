@@ -36,7 +36,7 @@ export function GameweekFilters({ activeTab, onTabChange, viewMode, onViewModeCh
         ))}
       </div>
 
-      <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         <div className="inline-flex items-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--surface-raised)] px-2 py-1.5 text-xs uppercase tracking-[0.18em] text-[var(--text-muted)]">
           <CalendarRange className="h-3.5 w-3.5" />
           Season View

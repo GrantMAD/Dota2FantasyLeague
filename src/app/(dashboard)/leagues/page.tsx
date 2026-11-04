@@ -268,7 +268,7 @@ export default function LeaguesPage() {
   return (
     <div data-tour="leagues-my-leagues" className="max-w-7xl mx-auto px-4 py-10">
       {/* ── Page Header ──────────────────────────────────────────── */}
-      <div className="mb-8 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+      <div className="mb-8 flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
         <div>
           <div className="flex flex-wrap items-center gap-3 mb-2">
             <div className="inline-flex items-center gap-2 rounded-full border border-amber-500/30 bg-amber-500/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.24em] text-amber-300">
@@ -285,7 +285,7 @@ export default function LeaguesPage() {
           </p>
         </div>
 
-        <div className="flex shrink-0 items-center gap-3">
+        <div className="flex min-w-0 flex-wrap items-center gap-2 xl:max-w-[55%] xl:justify-end">
           <button
             type="button"
             onClick={() => void loadLeagues(true)}
