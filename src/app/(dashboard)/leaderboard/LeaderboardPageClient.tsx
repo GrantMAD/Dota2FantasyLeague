@@ -182,7 +182,18 @@ export default function LeaderboardPageClient({ initialData }: LeaderboardPagePr
       setLoading(false);
       setRefreshing(false);
     }
-  }, [page, countryFilter, initialData]);
+  }, [
+    page,
+    countryFilter,
+    initialData,
+    setRefreshing,
+    setLoading,
+    setEntries,
+    setCurrentUserId,
+    setLastRecalculatedAt,
+    setTopGameweekScorer,
+    setError,
+  ]);
 
   const fetchCurrentUserPosition = useCallback(async () => {
     try {
@@ -216,7 +227,7 @@ export default function LeaderboardPageClient({ initialData }: LeaderboardPagePr
       const message = err instanceof Error ? err.message : 'Failed to load your leaderboard position';
       setError(message);
     }
-  }, []);
+  }, [setCurrentUserId, setEntries, setError]);
 
   const loadManagerDetails = useCallback(async (fantasySeasonId: number) => {
     const requestId = ++managerRequestId.current;

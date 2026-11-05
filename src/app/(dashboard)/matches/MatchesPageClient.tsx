@@ -172,7 +172,7 @@ export default function MatchesPage({ initialData }: { initialData: InitialMatch
         loadError instanceof Error ? loadError.message : 'Unable to load your squad for match tracking.',
       );
     }
-  }, []);
+  }, [setSquadTrackingError, setUserSquadPlayers]);
 
   useEffect(() => {
     const timeout = window.setTimeout(() => {
