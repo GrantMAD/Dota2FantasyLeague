@@ -2,22 +2,17 @@
 
 import { Suspense, useState, useEffect, useRef } from 'react';
 import Image from 'next/image';
-import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import {
   ArrowDown,
   ArrowLeftRight,
   ArrowUp,
   CheckCircle2,
-  ChevronDown,
-  ChevronUp,
   Minus,
-  Pin,
   Plus,
   Sparkles,
   TrendingDown,
   TrendingUp,
-  X,
   Zap,
 } from 'lucide-react';
 import { fetchWithAuth } from '@/lib/fetch-with-auth';
@@ -27,41 +22,19 @@ import { DifferentialScoutPanel } from '@/components/DifferentialScoutPanel';
 import { DataFreshnessBadge } from '@/components/DataFreshnessBadge';
 import { canOptimizeImage } from '@/lib/optimized-image';
 import type { FantasyPlayer as TransferPlayer } from '@/types/fantasy';
-
-// 5 starters + 3 bench = 8 player squad
-const SQUAD_MAX_SIZE = 8;
-const STARTER_ROLES = ['Carry', 'Mid', 'Offlane', 'Support', 'Hard Support'] as const;
-type StarterRole = typeof STARTER_ROLES[number];
-const ROLE_ACCENTS: Record<string, string> = {
-  Carry: 'var(--danger)',
-  Mid: 'var(--accent-secondary)',
-  Offlane: 'var(--accent-primary)',
-  Support: 'var(--success)',
-  'Hard Support': '#a78bfa',
-};
-
-interface TransferSuggestion {
-  player_out_id: number;
-  player_out_name: string;
-  player_out_role: string;
-  player_out_recent_points: number[];
-  player_out_price_change: number | null;
-  player_in_id: number;
-  player_in_name: string;
-  player_in_role: string;
-  player_in_current_price: number;
-  player_in_recent_points: number[];
-  player_in_price_change: number | null;
-  budget_after: number;
-  reasons: string[];
-}
-
-interface TransferSuggestionSummary {
-  status: string;
-  completed_gameweeks: number;
-  required_gameweeks: number;
-  priced_role_matched_candidates: number;
-}
+import { TransferMarketFilters } from './components/TransferMarketFilters';
+import { TransferSuggestionsPanel } from './components/TransferSuggestionsPanel';
+import { TransferPlayerDetailsModal } from './components/TransferPlayerDetailsModal';
+import {
+  ROLE_ACCENTS,
+  STARTER_ROLES,
+  SQUAD_MAX_SIZE,
+  type StarterRole,
+  type TransferOwnershipFilter,
+  type TransferSortBy,
+  type TransferSuggestion,
+  type TransferSuggestionSummary,
+} from './transfer-types';
 
 function TransfersPageContent() {
   const toast = useToast();
@@ -76,9 +49,9 @@ function TransfersPageContent() {
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [roleFilter, setRoleFilter] = useState('');
-  const [ownershipFilter, setOwnershipFilter] = useState<'all' | 'owned' | 'available'>('all');
+  const [ownershipFilter, setOwnershipFilter] = useState<TransferOwnershipFilter>('all');
   const [pinOwnedFirst, setPinOwnedFirst] = useState(true);
-  const [sortBy, setSortBy] = useState<'price' | 'name' | 'points' | 'ownership'>('price');
+  const [sortBy, setSortBy] = useState<TransferSortBy>('price');
   const [sortDesc, setSortDesc] = useState(true);
   const [fantasySeasonId, setFantasySeasonId] = useState<number | null>(null);
   const [budget, setBudget] = useState<number | null>(null);
@@ -667,343 +640,55 @@ function TransfersPageContent() {
         </div>
       )}
 
-      <section className="mb-5 rounded-2xl border border-[var(--border)] bg-[var(--surface)]/95 p-4 shadow-lg backdrop-blur">
-        <div className="grid gap-4 xl:grid-cols-[minmax(220px,1.2fr)_minmax(0,2fr)]">
-          <div>
-            <label htmlFor="transfer-market-search" className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)]">
-              Scout players
-            </label>
-            <input
-              id="transfer-market-search"
-              data-tour="transfers-search"
-              type="search"
-              placeholder="Search player or team..."
-              value={search}
-              onChange={(e) => {
-                setSearch(e.target.value);
-                setPage(1);
-              }}
-              className="w-full rounded-xl border border-[var(--border)] bg-[var(--surface-raised)] px-3 py-2.5 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-[var(--accent-primary)] focus:outline-none"
-            />
-          </div>
-          <div>
-            <div className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)]">Role</div>
-            <div className="flex flex-wrap gap-1.5">
-              {['', ...STARTER_ROLES].map((role) => (
-                <button
-                  key={role || 'all'}
-                  type="button"
-                  aria-pressed={roleFilter === role}
-                  onClick={() => {
-                    setRoleFilter(role);
-                    setPage(1);
-                  }}
-                  className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors ${
-                    roleFilter === role
-                      ? 'border-[var(--accent-primary)] bg-[var(--accent-primary)]/15 text-[var(--text-primary)]'
-                      : 'border-[var(--border)] bg-[var(--surface-raised)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
-                  }`}
-                  style={role && roleFilter === role ? { boxShadow: `inset 0 0 0 1px ${ROLE_ACCENTS[role]}` } : undefined}
-                >
-                  {role || 'All roles'}
-                </button>
-              ))}
-            </div>
-            {(roleFilter === 'Support' || roleFilter === 'Hard Support') && (
-              <p className="mt-1.5 text-xs text-[var(--text-muted)]">
-                Support and Hard Support players may share fantasy eligibility.
-              </p>
-            )}
-          </div>
-          <div className="flex flex-wrap items-center gap-2 xl:col-span-2">
-            <span className="mr-1 text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)]">Squad</span>
-            {([
-              { value: 'all', label: 'All players' },
-              { value: 'owned', label: 'My squad' },
-              { value: 'available', label: 'Available' },
-            ] as const).map((option) => (
-              <button
-                key={option.value}
-                type="button"
-                aria-pressed={ownershipFilter === option.value}
-                onClick={() => {
-                  setOwnershipFilter(option.value);
-                  setPage(1);
-                }}
-                className={`rounded-full border px-3 py-1.5 text-xs font-semibold ${
-                  ownershipFilter === option.value
-                    ? 'border-emerald-500/50 bg-emerald-500/15 text-emerald-700 dark:text-emerald-300'
-                    : 'border-[var(--border)] bg-[var(--surface-raised)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
-                }`}
-              >
-                {option.label}
-              </button>
-            ))}
-            <span className="mx-1 hidden h-6 w-px bg-[var(--border)] sm:block" />
-            <span className="mr-1 text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)]">Sort</span>
-            {(
-              [
-                { id: 'price', label: 'Price' },
-                { id: 'points', label: 'Points / Form' },
-                { id: 'ownership', label: 'Ownership' },
-                { id: 'name', label: 'Name' },
-              ] as const
-            ).map((option) => {
-              const isActive = sortBy === option.id;
-              return (
-                <button
-                  key={option.id}
-                  type="button"
-                  onClick={() => {
-                    if (isActive) setSortDesc((prev) => !prev);
-                    else {
-                      setSortBy(option.id);
-                      setSortDesc(option.id !== 'name');
-                    }
-                    setPage(1);
-                  }}
-                  className={`inline-flex items-center gap-1 rounded-full border px-3 py-1.5 text-xs font-semibold ${
-                    isActive
-                      ? 'border-amber-500/50 bg-amber-500/15 text-amber-700 dark:text-amber-300'
-                      : 'border-[var(--border)] bg-[var(--surface-raised)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
-                  }`}
-                  aria-pressed={isActive}
-                >
-                  {option.label}
-                  {isActive && (sortDesc ? <ArrowDown className="h-3 w-3" /> : <ArrowUp className="h-3 w-3" />)}
-                </button>
-              );
-            })}
-            <button
-              type="button"
-              onClick={() => setPinOwnedFirst((prev) => !prev)}
-              aria-pressed={pinOwnedFirst}
-              className={`ml-auto rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors ${
-                pinOwnedFirst
-                  ? 'border-amber-500/50 bg-amber-500/15 text-amber-700 dark:text-amber-300'
-                  : 'border-[var(--border)] bg-[var(--surface-raised)] text-[var(--text-secondary)]'
-              }`}
-            >
-              <span className="inline-flex items-center gap-1.5">
-                <Pin className="h-3.5 w-3.5" />
-                Pin squad {pinOwnedFirst ? 'on' : 'off'}
-              </span>
-            </button>
-            {(search || roleFilter || ownershipFilter !== 'all') && (
-              <button
-                type="button"
-                onClick={() => {
-                  setSearch('');
-                  setRoleFilter('');
-                  setOwnershipFilter('all');
-                  setPage(1);
-                }}
-                className="rounded-full px-2 py-1.5 text-xs font-semibold text-[var(--text-muted)] hover:text-[var(--text-primary)]"
-              >
-                Clear filters
-              </button>
-            )}
-          </div>
-        </div>
-      </section>
+      <TransferMarketFilters
+        search={search}
+        roleFilter={roleFilter}
+        ownershipFilter={ownershipFilter}
+        sortBy={sortBy}
+        sortDesc={sortDesc}
+        pinOwnedFirst={pinOwnedFirst}
+        onSearchChange={(value) => {
+          setSearch(value);
+          setPage(1);
+        }}
+        onRoleChange={(value) => {
+          setRoleFilter(value);
+          setPage(1);
+        }}
+        onOwnershipChange={(value) => {
+          setOwnershipFilter(value);
+          setPage(1);
+        }}
+        onSortChange={(value) => {
+          if (sortBy === value) setSortDesc((previous) => !previous);
+          else {
+            setSortBy(value);
+            setSortDesc(value !== 'name');
+          }
+          setPage(1);
+        }}
+        onTogglePinOwnedFirst={() => setPinOwnedFirst((previous) => !previous)}
+        onClear={() => {
+          setSearch('');
+          setRoleFilter('');
+          setOwnershipFilter('all');
+          setPage(1);
+        }}
+      />
 
       <DifferentialScoutPanel selectedPlayerInId={selectedPlayerIn} onSelectPlayerIn={(id) => setSelectedPlayerIn(id)} />
 
       {ownedPlayerIds.length >= SQUAD_MAX_SIZE && fantasySeasonId ? (
-        <section className="mb-8 overflow-hidden rounded-2xl border border-indigo-500/25 bg-[var(--surface)] shadow-md shadow-indigo-500/5 transition-all">
-          <div className="relative overflow-hidden bg-gradient-to-r from-indigo-500/10 via-purple-500/5 to-transparent p-5 sm:p-6">
-            <button
-              type="button"
-              onClick={() => setSuggestionsOpen((open) => !open)}
-              aria-expanded={suggestionsOpen}
-              className="flex w-full items-center justify-between gap-4 text-left transition hover:opacity-95"
-            >
-              <div className="flex min-w-0 items-center gap-3.5">
-                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 text-white shadow-md shadow-indigo-500/25">
-                  <Sparkles className="h-5 w-5" />
-                </div>
-                <div className="min-w-0">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <h2 className="text-base font-extrabold tracking-tight text-[var(--text-primary)]">
-                      Smart Transfer Suggestions
-                    </h2>
-                    <span className="rounded-full bg-indigo-500/15 px-2.5 py-0.5 text-[11px] font-bold text-indigo-700 dark:text-indigo-300">
-                      AI Assist
-                    </span>
-                  </div>
-                  <p className="mt-0.5 text-xs text-[var(--text-secondary)]">
-                    {transferSuggestionsLoading
-                      ? 'Analyzing recent performance, price swings, and squad limits…'
-                      : transferSuggestionsError
-                        ? 'Suggestions need attention'
-                        : transferSuggestions.length > 0
-                          ? `${transferSuggestions.length} role-matched recommended swap${transferSuggestions.length === 1 ? '' : 's'} available`
-                          : 'Algorithmic recommendations based on recent form and budget'}
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex shrink-0 items-center gap-2">
-                <span className="hidden text-xs font-semibold text-indigo-600 dark:text-indigo-400 sm:inline">
-                  {suggestionsOpen ? 'Collapse' : 'Expand Recommendations'}
-                </span>
-                <span className="flex h-8 w-8 items-center justify-center rounded-lg border border-indigo-500/20 bg-indigo-500/10 text-indigo-700 dark:text-indigo-300">
-                  {suggestionsOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-                </span>
-              </div>
-            </button>
-          </div>
-
-          {suggestionsOpen && (
-            <div className="border-t border-[var(--border)] p-5 sm:p-6">
-              <div className="mb-5 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                <p className="text-xs text-[var(--text-muted)] max-w-2xl leading-relaxed">
-                  Recommended swaps are calculated from the last three completed gameweeks, price trajectory, remaining budget, and team limit constraints.
-                </p>
-                {transferSuggestions.length > 0 && (
-                  <span className="shrink-0 text-xs font-medium text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5">
-                    <CheckCircle2 className="h-3.5 w-3.5" />
-                    Budget verified
-                  </span>
-                )}
-              </div>
-
-              {transferSuggestionsLoading ? (
-                <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                  {[1, 2, 3].map((i) => (
-                    <div key={i} className="animate-pulse rounded-xl border border-[var(--border)] bg-[var(--surface-raised)] p-5">
-                      <div className="mb-4 h-4 w-28 rounded bg-[var(--surface)]" />
-                      <div className="mb-3 h-8 w-full rounded bg-[var(--surface)]" />
-                      <div className="h-16 rounded bg-[var(--surface)]" />
-                    </div>
-                  ))}
-                </div>
-              ) : transferSuggestionsError ? (
-                <div role="alert" className="rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-600 dark:text-red-300">
-                  {transferSuggestionsError}
-                </div>
-              ) : transferSuggestions.length > 0 ? (
-                <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                  {transferSuggestions.map((suggestion) => (
-                    <article
-                      key={`${suggestion.player_out_id}-${suggestion.player_in_id}`}
-                      className="group flex flex-col justify-between rounded-xl border border-[var(--border)] bg-[var(--surface-raised)] p-5 shadow-xs transition hover:border-indigo-500/40 hover:shadow-md"
-                    >
-                      <div>
-                        {/* Role tag & Estimated bank */}
-                        <div className="mb-3 flex items-center justify-between gap-2">
-                          <span
-                            className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wider"
-                            style={{
-                              backgroundColor: `color-mix(in srgb, ${ROLE_ACCENTS[suggestion.player_in_role] || 'var(--accent-primary)'} 15%, transparent)`,
-                              color: ROLE_ACCENTS[suggestion.player_in_role] || 'var(--text-primary)',
-                              border: `1px solid color-mix(in srgb, ${ROLE_ACCENTS[suggestion.player_in_role] || 'var(--accent-primary)'} 30%, transparent)`,
-                            }}
-                          >
-                            {suggestion.player_in_role}
-                          </span>
-                          <span className="rounded-md bg-[var(--surface)] border border-[var(--border)] px-2 py-0.5 text-[11px] font-semibold text-[var(--text-secondary)]">
-                            Bank after: <span className="text-[var(--text-primary)] font-bold">${suggestion.budget_after.toFixed(1)}M</span>
-                          </span>
-                        </div>
-
-                        {/* Player swap comparison panel */}
-                        <div className="grid grid-cols-[1fr,auto,1fr] items-center gap-2 rounded-lg border border-[var(--border)] bg-[var(--surface)] p-3">
-                          {/* OUT Player */}
-                          <div className="min-w-0">
-                            <span className="block text-[10px] font-bold uppercase tracking-wider text-rose-500 dark:text-rose-400">
-                              SELL
-                            </span>
-                            <span className="block truncate text-sm font-bold text-[var(--text-primary)]" title={suggestion.player_out_name}>
-                              {suggestion.player_out_name}
-                            </span>
-                          </div>
-
-                          {/* Arrow Divider */}
-                          <div className="flex h-7 w-7 items-center justify-center rounded-full bg-indigo-500/10 text-indigo-600 dark:text-indigo-400">
-                            <ArrowLeftRight className="h-3.5 w-3.5" />
-                          </div>
-
-                          {/* IN Player */}
-                          <div className="min-w-0 text-right">
-                            <span className="block text-[10px] font-bold uppercase tracking-wider text-emerald-500 dark:text-emerald-400">
-                              BUY (${suggestion.player_in_current_price.toFixed(1)}M)
-                            </span>
-                            <span className="block truncate text-sm font-bold text-[var(--text-primary)]" title={suggestion.player_in_name}>
-                              {suggestion.player_in_name}
-                            </span>
-                          </div>
-                        </div>
-
-                        {/* Key rationale bullets */}
-                        <div className="mt-3.5 space-y-1.5">
-                          <span className="text-[11px] font-bold uppercase tracking-wider text-[var(--text-muted)]">
-                            Why this swap
-                          </span>
-                          <ul className="space-y-1 pl-1">
-                            {suggestion.reasons.map((reason, idx) => (
-                              <li key={idx} className="flex items-start gap-1.5 text-xs text-[var(--text-secondary)] leading-relaxed">
-                                <span className="text-indigo-500 mt-1 shrink-0">•</span>
-                                <span>{reason}</span>
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                      </div>
-
-                      {/* Action CTA */}
-                      <button
-                        type="button"
-                        disabled={actionLoading}
-                        onClick={() => void selectSuggestedTransfer(suggestion)}
-                        className="mt-4 flex w-full items-center justify-center gap-2 rounded-lg bg-indigo-600 text-white font-semibold text-xs py-2.5 px-3 shadow-xs hover:bg-indigo-500 active:scale-[0.99] transition disabled:opacity-50"
-                      >
-                        <Zap className="h-3.5 w-3.5" />
-                        <span>Load Swap into Transfer Staging</span>
-                      </button>
-                    </article>
-                  ))}
-                </div>
-              ) : (
-                <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-raised)] p-6 text-center">
-                  <Sparkles className="mx-auto h-8 w-8 text-indigo-400/60 mb-2" />
-                  <h3 className="text-sm font-bold text-[var(--text-primary)]">No Active Recommendations</h3>
-                  <div className="mt-1 space-y-1 text-xs text-[var(--text-secondary)] max-w-md mx-auto">
-                    {transferSuggestionsSummary &&
-                    transferSuggestionsSummary.status !== 'no_fantasy_season' &&
-                    transferSuggestionsSummary.status !== 'no_open_gameweek' &&
-                    transferSuggestionsSummary.status !== 'no_squad' &&
-                    transferSuggestionsSummary.completed_gameweeks < transferSuggestionsSummary.required_gameweeks ? (
-                      <p>
-                        More scoring history is needed: {transferSuggestionsSummary.completed_gameweeks} of
-                        {' '}{transferSuggestionsSummary.required_gameweeks} gameweeks are complete.
-                      </p>
-                    ) : null}
-                    {transferSuggestionsSummary &&
-                    transferSuggestionsSummary.status !== 'no_fantasy_season' &&
-                    transferSuggestionsSummary.status !== 'no_open_gameweek' &&
-                    transferSuggestionsSummary.status !== 'no_squad' &&
-                    transferSuggestionsSummary.priced_role_matched_candidates === 0 ? (
-                      <p>No available same-role replacements have a price recorded for the upcoming gameweek yet.</p>
-                    ) : null}
-                    {transferSuggestionsSummary?.status === 'no_squad' ? (
-                      <p>Build your squad before getting transfer suggestions.</p>
-                    ) : null}
-                    {transferSuggestionsSummary?.status === 'no_open_gameweek' ? (
-                      <p>Suggestions are unavailable because there is no gameweek currently open for transfers.</p>
-                    ) : null}
-                    {transferSuggestionsSummary?.status === 'no_fantasy_season' ? (
-                      <p>Join a fantasy season and build your squad to get transfer suggestions.</p>
-                    ) : null}
-                    {transferSuggestionsSummary?.status === 'no_recommendations' ? (
-                      <p>No swaps currently meet the budget, form, price-trend, and team-limit criteria.</p>
-                    ) : null}
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-        </section>
+        <TransferSuggestionsPanel
+          suggestions={transferSuggestions}
+          summary={transferSuggestionsSummary}
+          loading={transferSuggestionsLoading}
+          error={transferSuggestionsError}
+          actionLoading={actionLoading}
+          isOpen={suggestionsOpen}
+          onToggle={() => setSuggestionsOpen((open) => !open)}
+          onSelect={(suggestion) => void selectSuggestedTransfer(suggestion)}
+        />
       ) : null}
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
@@ -1614,229 +1299,17 @@ function TransfersPageContent() {
         </div>
       </div>
 
-      {/* Comprehensive Player Details Modal */}
       {modalPlayer && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          onClick={() => setModalPlayer(null)}
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm animate-in fade-in duration-200"
-        >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            className="relative max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-2xl border border-slate-700 bg-slate-900 shadow-2xl"
-          >
-            {/* Modal Header Banner */}
-            <div className="relative border-b border-slate-800 bg-linear-to-r from-slate-900 via-slate-800 to-slate-900 p-6">
-              <button
-                type="button"
-                onClick={() => setModalPlayer(null)}
-                className="absolute right-4 top-4 z-10 flex h-8 w-8 items-center justify-center rounded-lg border border-slate-700 bg-slate-800/90 text-slate-300 hover:bg-slate-700 hover:text-white hover:border-slate-600 transition-all shadow-sm"
-                aria-label="Close modal"
-                title="Close modal"
-              >
-                <X className="h-4 w-4" />
-              </button>
-
-              <div className="flex flex-col sm:flex-row items-center sm:items-start gap-5">
-                <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl bg-slate-800 border-2 border-slate-700 shadow-xl overflow-hidden shrink-0 flex items-center justify-center">
-                  {modalPlayer.profile_image_url ? (
-                    <Image src={modalPlayer.profile_image_url} alt={modalPlayer.in_game_name || modalPlayer.name} width={96} height={96} unoptimized={!canOptimizeImage(modalPlayer.profile_image_url)} className="w-full h-full object-cover" />
-                  ) : (
-                    <span className="player-avatar-initials text-3xl font-bold">
-                      {(modalPlayer.in_game_name || modalPlayer.name || 'P').substring(0, 2).toUpperCase()}
-                    </span>
-                  )}
-                </div>
-
-                <div className="flex-1 text-center sm:text-left">
-                  <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2 mb-1">
-                    <h2 className="text-2xl sm:text-3xl font-bold text-white">{modalPlayer.in_game_name || modalPlayer.name}</h2>
-                    <span className="bg-slate-700 text-slate-300 text-xs font-bold uppercase px-2 py-0.5 rounded">
-                      {modalPlayer.primary_role}
-                    </span>
-                    <span className="bg-emerald-500/20 text-emerald-400 text-xs font-semibold px-2 py-0.5 rounded border border-emerald-500/30 capitalize">
-                      {modalPlayer.availability_status || 'Available'}
-                    </span>
-                  </div>
-
-                  <p className="text-sm text-slate-400 mb-3">
-                    {modalPlayer.real_name || modalPlayer.name} · <strong className="text-amber-400">{modalPlayer.professional_teams?.name || 'Free Agent'}</strong> ({modalPlayer.professional_teams?.region || 'Global'})
-                  </p>
-
-                  <div className="flex flex-wrap items-center justify-center sm:justify-start gap-3">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        handlePlayerAction(modalPlayer.id);
-                        setModalPlayer(null);
-                      }}
-                      className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all shadow-md ${
-                        ownedPlayerIds.includes(modalPlayer.id)
-                          ? 'bg-red-600 hover:bg-red-500 text-white'
-                          : 'bg-amber-500 hover:bg-amber-400 text-slate-950'
-                      }`}
-                    >
-                      {ownedPlayerIds.includes(modalPlayer.id) ? 'Sell From Squad' : 'Select to Buy'}
-                    </button>
-                    <Link
-                      href={`/players/${modalPlayer.id}`}
-                      className="px-4 py-1.5 rounded-lg text-xs font-medium border border-slate-700 text-slate-300 hover:text-white hover:bg-slate-800 transition-colors"
-                    >
-                      Full Profile Page →
-                    </Link>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Quick Metrics Cards */}
-            <div className="p-6">
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
-                <div className="bg-slate-800/60 border border-slate-700/80 rounded-xl p-3 text-center flex flex-col justify-between items-center">
-                  <div>
-                    <div className="text-[11px] uppercase tracking-wider text-slate-400 mb-1">Market Price</div>
-                    <div className="text-xl font-mono font-bold text-amber-400">${modalPlayer.current_price}M</div>
-                  </div>
-                  <div className="mt-2 flex flex-col items-center">
-                    <PriceSparkline data={modalPlayer.price_history} width={72} height={20} strokeWidth={2} themeAware />
-                    <span className="text-[9px] text-slate-400 mt-0.5">Trend</span>
-                  </div>
-                </div>
-                <div className="bg-slate-800/60 border border-slate-700/80 rounded-xl p-3 text-center flex flex-col justify-between">
-                  <div>
-                    <div className="text-[11px] uppercase tracking-wider text-slate-400 mb-1">Ownership</div>
-                    <div className="text-xl font-bold text-white">
-                      {modalPlayer.ownership_percentage != null ? `${Number(modalPlayer.ownership_percentage).toFixed(1)}%` : '—'}
-                    </div>
-                  </div>
-                  {modalPlayer.ownership_percentage != null && (
-                    <div className="mt-1 flex flex-col items-center gap-1">
-                      <div className="h-1 w-16 overflow-hidden rounded-full bg-slate-700">
-                        <div
-                          className={`h-full rounded-full ${
-                            Number(modalPlayer.ownership_percentage) >= 35
-                              ? 'bg-emerald-400'
-                              : Number(modalPlayer.ownership_percentage) >= 15
-                                ? 'bg-cyan-400'
-                                : 'bg-amber-400'
-                          }`}
-                          style={{ width: `${Math.min(100, Math.max(4, Number(modalPlayer.ownership_percentage)))}%` }}
-                        />
-                      </div>
-                      <span className={`inline-flex rounded px-1.5 py-0.2 text-[8px] font-bold uppercase tracking-wider border ${
-                        Number(modalPlayer.ownership_percentage) >= 35
-                          ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/30'
-                          : Number(modalPlayer.ownership_percentage) >= 15
-                            ? 'text-cyan-400 bg-cyan-500/10 border-cyan-500/30'
-                            : 'text-amber-400 bg-amber-500/10 border-amber-500/30'
-                      }`}>
-                        {Number(modalPlayer.ownership_percentage) >= 35
-                          ? 'Meta'
-                          : Number(modalPlayer.ownership_percentage) >= 15
-                            ? 'Popular'
-                            : 'Differential'}
-                      </span>
-                    </div>
-                  )}
-                </div>
-                <div className="bg-slate-800/60 border border-slate-700/80 rounded-xl p-3 text-center">
-                  <div className="text-[11px] uppercase tracking-wider text-slate-400 mb-1">Season Points</div>
-                  <div className="text-xl font-bold text-white font-mono">{modalPlayer.total_season_points ?? modalPlayer.recent_points ?? 124.0}</div>
-                </div>
-                <div className="bg-slate-800/60 border border-slate-700/80 rounded-xl p-3 text-center">
-                  <div className="text-[11px] uppercase tracking-wider text-slate-400 mb-1">Latest Gameweek</div>
-                  <div className="text-xl font-bold text-emerald-400 font-mono">+{modalPlayer.last_gw_points ?? modalPlayer.gameweek_points ?? 14.5} pts</div>
-                </div>
-              </div>
-
-              {/* Match Performance Details */}
-              <div className="mb-6">
-                <h4 className="text-sm font-semibold text-white mb-3 flex items-center gap-2">
-                  <span>⚔️</span> Recent Match History & Scoring Breakdown
-                </h4>
-                {modalLoading ? (
-                  <div className="overflow-hidden rounded-xl border border-slate-800 animate-pulse" role="status" aria-label="Loading performance details">
-                    <div className="grid grid-cols-5 gap-3 bg-slate-950 px-3 py-2.5">
-                      {[1, 2, 3, 4, 5].map((header) => <div key={header} className="h-3 rounded bg-slate-800" />)}
-                    </div>
-                    <div className="divide-y divide-slate-800/80 bg-slate-900/50">
-                      {[1, 2, 3].map((row) => (
-                        <div key={row} className="grid grid-cols-5 gap-3 px-3 py-3">
-                          {[1, 2, 3, 4, 5].map((cell) => <div key={cell} className="h-4 rounded bg-slate-800" />)}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                ) : (!modalPlayer.performances || modalPlayer.performances.length === 0) ? (
-                  <div className="p-4 text-center text-xs text-slate-400 border border-slate-800 rounded-lg bg-slate-950/40">
-                    No individual match performances recorded yet for this season.
-                  </div>
-                ) : (
-                  <div className="overflow-hidden rounded-xl border border-slate-800">
-                    <table className="w-full text-left text-xs">
-                      <thead className="bg-slate-950 text-slate-400 uppercase tracking-wider">
-                        <tr>
-                          <th className="px-3 py-2.5">Gameweek</th>
-                          <th className="px-3 py-2.5">Opponent</th>
-                          <th className="px-3 py-2.5 text-center">K / D / A</th>
-                          <th className="px-3 py-2.5 text-center">GPM / XPM</th>
-                          <th className="px-3 py-2.5 text-right">Points</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-800/80 bg-slate-900/50 font-mono">
-                        {modalPlayer.performances.map((perf) => {
-                          const playerTeamId = modalPlayer.team_id ?? modalPlayer.professional_teams?.id;
-                          const teamA = perf.matches?.team_a;
-                          const teamB = perf.matches?.team_b;
-                          let oppName = 'Opponent';
-
-                          if (playerTeamId) {
-                            if (teamA?.id === playerTeamId) {
-                              oppName = teamB?.name || 'Opponent';
-                            } else if (teamB?.id === playerTeamId) {
-                              oppName = teamA?.name || 'Opponent';
-                            } else {
-                              oppName = teamB?.name || teamA?.name || 'Opponent';
-                            }
-                          } else {
-                            oppName = teamB?.name || teamA?.name || 'Opponent';
-                          }
-
-                          return (
-                            <tr key={perf.id} className="hover:bg-slate-800/40 transition-colors">
-                              <td className="px-3 py-2.5 text-slate-300 font-sans font-medium">GW {perf.gameweek_id}</td>
-                              <td className="px-3 py-2.5 text-white font-sans">
-                                vs {oppName}
-                              </td>
-                              <td className="px-3 py-2.5 text-center text-slate-300">
-                                {perf.kills}/{perf.deaths}/{perf.assists}
-                              </td>
-                              <td className="px-3 py-2.5 text-center text-slate-400">
-                                {perf.gold_per_minute} / {perf.experience_per_minute}
-                              </td>
-                              <td className="px-3 py-2.5 text-right font-bold text-amber-400">
-                                {perf.fantasy_points_breakdown?.total_points ?? 16.5} pts
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </div>
-
-              {/* Price & Transfer Status */}
-              <div className="rounded-xl border border-slate-800 bg-slate-950/50 p-4 flex items-center justify-between">
-                <div>
-                  <p className="text-xs text-slate-400">Player Availability Status</p>
-                  <p className="text-sm font-semibold text-white capitalize">{modalPlayer.availability_status || 'Active for selection'}</p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
+        <TransferPlayerDetailsModal
+          player={modalPlayer}
+          loading={modalLoading}
+          owned={ownedPlayerIds.includes(modalPlayer.id)}
+          onClose={() => setModalPlayer(null)}
+          onSelect={() => {
+            handlePlayerAction(modalPlayer.id);
+            setModalPlayer(null);
+          }}
+        />
       )}
     </div>
   );
