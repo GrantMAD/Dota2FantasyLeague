@@ -31,6 +31,8 @@ async function postHandler(request: NextRequest) {
       );
     }
     
+    const adminSupabase = supabaseServer();
+
     // Sign up user
     const { data: authData, error: signUpError } = await supabase.auth.signUp({
       email,
@@ -52,23 +54,50 @@ async function postHandler(request: NextRequest) {
     }
     
     // Create user profile
-    const { error: profileError } = await supabaseServer().from('users').insert([
-      {
-        id: authData.user.id,
-        username,
-        display_name: username,
-      },
-    ]);
+    let profileError: { code?: string; message: string } | null = null;
+    try {
+      const { error } = await adminSupabase.from('users').insert([
+        {
+          id: authData.user.id,
+          username,
+          display_name: username,
+        },
+      ]);
+      profileError = error;
+    } catch (error: unknown) {
+      profileError = {
+        message: error instanceof Error ? error.message : String(error),
+      };
+    }
     
     if (profileError) {
-      // Clean up auth user if profile creation fails
+      let cleanupSucceeded = false;
+      try {
+        const { error: cleanupError } = await adminSupabase.auth.admin.deleteUser(authData.user.id);
+        if (cleanupError) throw cleanupError;
+        cleanupSucceeded = true;
+      } catch (cleanupError: unknown) {
+        const cleanupErrorMessage = typeof cleanupError === 'object'
+          && cleanupError !== null
+          && 'message' in cleanupError
+          && typeof cleanupError.message === 'string'
+          ? cleanupError.message
+          : String(cleanupError);
+        console.error('Failed to clean up auth user after profile creation failed', {
+          userId: authData.user.id,
+          error: cleanupErrorMessage,
+        });
+      }
+
       const isDuplicateUsername = profileError.code === '23505';
       return NextResponse.json(
         {
-          error: isDuplicateUsername ? 'Username is already taken' : 'Profile creation failed',
+          error: cleanupSucceeded
+            ? isDuplicateUsername ? 'Username is already taken' : 'Profile creation failed'
+            : 'Profile creation failed and account cleanup failed. Please contact support.',
           details: profileError.message,
         },
-        { status: isDuplicateUsername ? 409 : 500 }
+        { status: cleanupSucceeded && isDuplicateUsername ? 409 : 500 }
       );
     }
     
