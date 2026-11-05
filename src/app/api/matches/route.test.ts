@@ -3,16 +3,9 @@ import { GET } from './route';
 import { getTeamDisplayTag } from '@/lib/team-tag';
 
 const mockSupabaseServer = jest.fn();
-const mockGetCached = jest.fn();
-const mockSetCached = jest.fn();
 
 jest.mock('@/lib/supabase', () => ({
   supabaseServer: (...args: unknown[]) => mockSupabaseServer(...args),
-}));
-
-jest.mock('@/lib/response-cache', () => ({
-  getCached: (...args: unknown[]) => mockGetCached(...args),
-  setCached: (...args: unknown[]) => mockSetCached(...args),
 }));
 
 jest.mock('@/lib/api-telemetry', () => ({
@@ -110,8 +103,6 @@ function createSupabaseMock() {
 describe('GET /api/matches server-side filtering and pagination', () => {
   beforeEach(() => {
     mockSupabaseServer.mockReset();
-    mockGetCached.mockReset().mockReturnValue(null);
-    mockSetCached.mockReset();
   });
 
   it('creates readable initials from the team name instead of reusing provider slugs', () => {
@@ -132,6 +123,7 @@ describe('GET /api/matches server-side filtering and pagination', () => {
     const pageOperations = pageQuery?.operations ?? [];
 
     expect(response.status).toBe(200);
+    expect(response.headers.get('Cache-Control')).toBe('public, s-maxage=30, stale-while-revalidate=30');
     expect(pageOperations).toContainEqual(['eq', 'status', 'scheduled']);
     expect(pageOperations).toContainEqual(['in', 'series_id', [90]]);
     expect(pageOperations).toContainEqual(['range', 20, 39]);

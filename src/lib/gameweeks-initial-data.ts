@@ -1,14 +1,9 @@
 import { supabaseServer } from '@/lib/supabase';
-import { getCached, setCached } from '@/lib/response-cache';
 import type { GameweekRow } from '@/types/fantasy';
 
 type GameweeksResponse = { gameweeks: GameweekRow[] };
 
 export async function getInitialGameweeks(): Promise<GameweeksResponse> {
-  const cacheKey = 'gameweeks:v2:';
-  const cached = getCached<GameweeksResponse>(cacheKey);
-  if (cached) return cached;
-
   const supabase = supabaseServer();
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data, error } = await (supabase.from('gameweeks') as any)
@@ -18,9 +13,7 @@ export async function getInitialGameweeks(): Promise<GameweeksResponse> {
 
   const gameweeks = data ?? [];
   if (!gameweeks.length) {
-    const emptyResponse = { gameweeks: [] };
-    setCached(cacheKey, emptyResponse, 60_000);
-    return emptyResponse;
+    return { gameweeks: [] };
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -169,6 +162,5 @@ export async function getInitialGameweeks(): Promise<GameweeksResponse> {
       user_score: null,
     })),
   };
-  setCached(cacheKey, response, 60_000);
   return response;
 }

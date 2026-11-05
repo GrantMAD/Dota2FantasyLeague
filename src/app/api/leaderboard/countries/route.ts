@@ -1,17 +1,12 @@
 import { NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase';
-import { getCached, setCached } from '@/lib/response-cache';
 import { withApiTelemetry } from '@/lib/api-telemetry';
 
 
+const PUBLIC_CACHE_HEADERS = { 'Cache-Control': 'public, s-maxage=3600, stale-while-revalidate=300' };
+
 async function getHandler() {
   try {
-    const cacheKey = 'leaderboard:countries';
-    const cached = getCached<{ countries: { code: string; name: string }[] }>(cacheKey);
-    if (cached) {
-      return NextResponse.json(cached);
-    }
-
     const supabase = supabaseServer();
     
     // Fetch distinct non-null countries from profiles
@@ -50,10 +45,9 @@ async function getHandler() {
       .sort((a, b) => a.name.localeCompare(b.name));
 
     const result = { countries };
-    // Cache for 1 hour since countries rarely change
-    setCached(cacheKey, result, 3600_000);
-    
-    return NextResponse.json(result);
+    return NextResponse.json(result, {
+      headers: PUBLIC_CACHE_HEADERS,
+    });
   } catch (error: unknown) {
     console.error('Error fetching countries:', error);
     return NextResponse.json(

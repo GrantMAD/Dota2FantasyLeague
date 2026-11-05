@@ -1,6 +1,5 @@
 import { supabaseServer } from '@/lib/supabase';
 import { getTeamDisplayTag } from '@/lib/team-tag';
-import { getCached, setCached } from '@/lib/response-cache';
 import type { MatchData } from '@/app/(dashboard)/matches/components/MatchCard';
 
 const PAGE_SIZE = 24;
@@ -52,10 +51,6 @@ export interface InitialMatchesData {
 }
 
 export async function getInitialMatchesData(): Promise<InitialMatchesData> {
-  const cacheKey = 'matches:initial:v2';
-  const cached = getCached<InitialMatchesData>(cacheKey);
-  if (cached) return cached;
-
   const supabase = supabaseServer();
   const countQuery = (status?: string) => {
     let query = supabase.from('matches').select('id', { count: 'exact', head: true });
@@ -172,6 +167,5 @@ export async function getInitialMatchesData(): Promise<InitialMatchesData> {
     },
     activeGameweekId: activeGameweek?.id ?? null,
   };
-  setCached(cacheKey, response, 60_000);
   return response;
 }

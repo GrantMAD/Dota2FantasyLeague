@@ -30,11 +30,6 @@ jest.mock('@/lib/supabase', () => ({
   supabaseServer: (...args: unknown[]) => mockSupabaseServer(...args),
 }));
 
-jest.mock('@/lib/response-cache', () => ({
-  getCached: () => null,
-  setCached: jest.fn(),
-}));
-
 jest.mock('@/lib/api-telemetry', () => ({
   withApiTelemetry: (_method: string, _route: string, handler: unknown) => handler,
 }));

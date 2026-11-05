@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase';
-import { getCached, setCached } from '@/lib/response-cache';
 import { withApiTelemetry } from '@/lib/api-telemetry';
 
 
@@ -39,6 +38,8 @@ interface TeamSummary {
   logo_url: string | null;
 }
 
+const PUBLIC_CACHE_HEADERS = { 'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=30' };
+
 /**
  * GET /api/tournaments
  * Returns tournaments, optionally filtered by seasonId and/or status.
@@ -49,9 +50,6 @@ async function getHandler(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const seasonId = searchParams.get('seasonId');
     const status = searchParams.get('status');
-    const cacheKey = `tournaments:${searchParams.toString()}`;
-    const cached = getCached<{ tournaments: unknown[] }>(cacheKey);
-    if (cached) return NextResponse.json(cached);
 
     const supabase = supabaseServer();
     let query = supabase.from('tournaments')
@@ -171,8 +169,9 @@ async function getHandler(request: NextRequest) {
     });
 
     const response = { tournaments: enrichedTournaments };
-    setCached(cacheKey, response, 60_000);
-    return NextResponse.json(response);
+    return NextResponse.json(response, {
+      headers: PUBLIC_CACHE_HEADERS,
+    });
   } catch {
     return NextResponse.json({ error: 'An unexpected error occurred.' }, { status: 500 });
   }

@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase';
-import { getCached, setCached } from '@/lib/response-cache';
 import { createErrorResponse, verifyAdminAuth } from '@/lib/auth-utils';
 import { withApiTelemetry } from '@/lib/api-telemetry';
-import { getPlayersCatalogData, PlayersCatalogError, type PlayersCatalogResponse } from '@/lib/players-catalog';
+import { getPlayersCatalogData, PlayersCatalogError } from '@/lib/players-catalog';
 
 /**
  * GET /api/players - Fetch all professional players
@@ -16,14 +15,10 @@ import { getPlayersCatalogData, PlayersCatalogError, type PlayersCatalogResponse
  */
 async function getHandler(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
-  const cacheKey = `players:${searchParams.toString()}`;
   const cacheHeaders = { 'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=30' };
-  const cached = getCached<PlayersCatalogResponse>(cacheKey);
-  if (cached !== null) return NextResponse.json(cached, { headers: cacheHeaders });
 
   try {
     const response = await getPlayersCatalogData(supabaseServer(), searchParams);
-    setCached(cacheKey, response, 60_000);
     return NextResponse.json(response, { headers: cacheHeaders });
   } catch (error) {
     if (error instanceof PlayersCatalogError) {

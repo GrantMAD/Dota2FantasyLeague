@@ -3,8 +3,6 @@ import { GET } from './route';
 
 const mockVerifyAuth = jest.fn();
 const mockSupabaseServer = jest.fn();
-const mockGetCached = jest.fn();
-const mockSetCached = jest.fn();
 let mockQueries: Array<{ table: string; filters: Array<[string, unknown]> }> = [];
 let mockCurrentUserEntry: Record<string, unknown> | null = null;
 let mockCurrentUserId: string | null = null;
@@ -15,11 +13,6 @@ jest.mock('@/lib/auth-utils', () => ({
 
 jest.mock('@/lib/supabase', () => ({
   supabaseServer: (...args: unknown[]) => mockSupabaseServer(...args),
-}));
-
-jest.mock('@/lib/response-cache', () => ({
-  getCached: (...args: unknown[]) => mockGetCached(...args),
-  setCached: (...args: unknown[]) => mockSetCached(...args),
 }));
 
 jest.mock('@/lib/api-telemetry', () => ({
@@ -112,7 +105,6 @@ describe('GET /api/leaderboard', () => {
     mockQueries = [];
     mockCurrentUserEntry = null;
     mockCurrentUserId = null;
-    mockGetCached.mockReturnValue(null);
     mockVerifyAuth.mockImplementation(async () => {
       if (!mockCurrentUserId) throw { status: 401 };
       return { userId: mockCurrentUserId };
@@ -199,6 +191,5 @@ describe('GET /api/leaderboard', () => {
       fantasy_teams: { user_id: 'manager-2', name: 'Bravo Squad' },
     });
     expect(mockQueries.map(({ table }) => table)).toEqual(['fantasy_seasons']);
-    expect(mockGetCached).not.toHaveBeenCalled();
   });
 });

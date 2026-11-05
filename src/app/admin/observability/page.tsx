@@ -18,7 +18,6 @@ interface ObservabilityData {
     skippedJobs: string[];
   };
   recentRuns: Array<{ job_name: string; status: string; started_at: string; error_message?: string }>;
-  cache: { entries: number };
 }
 
 export default function AdminObservabilityPage() {
@@ -58,8 +57,8 @@ export default function AdminObservabilityPage() {
           <div className="h-10 w-24 animate-pulse rounded bg-gray-700/50" />
         </div>
         <div className="h-16 animate-pulse rounded border border-gray-700 bg-gray-800/50 p-4" />
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-5">
-          {Array.from({ length: 5 }).map((_, index) => (
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
+          {Array.from({ length: 4 }).map((_, index) => (
             <div key={index} className="rounded-lg border border-gray-700 bg-gray-800/50 p-5">
               <div className="h-4 w-28 animate-pulse rounded bg-gray-700/60" />
               <div className="mt-3 h-7 w-20 animate-pulse rounded bg-gray-700/50" />
@@ -86,7 +85,6 @@ export default function AdminObservabilityPage() {
     ['Running Jobs', data.summary.runningJobs],
     ['Recent Failures', data.summary.recentFailures],
     ['Average Duration', `${data.summary.averageDurationMs} ms`],
-    ['Cached Responses', data.cache.entries],
   ];
   const healthPresentation = {
     healthy: {

@@ -1,16 +1,9 @@
 import { getInitialMatchesData } from './matches-initial-data';
 
 const mockSupabaseServer = jest.fn();
-const mockGetCached = jest.fn();
-const mockSetCached = jest.fn();
 
 jest.mock('@/lib/supabase', () => ({
   supabaseServer: (...args: unknown[]) => mockSupabaseServer(...args),
-}));
-
-jest.mock('@/lib/response-cache', () => ({
-  getCached: (...args: unknown[]) => mockGetCached(...args),
-  setCached: (...args: unknown[]) => mockSetCached(...args),
 }));
 
 function createQuery(table: string) {
@@ -80,7 +73,6 @@ function createQuery(table: string) {
 describe('getInitialMatchesData', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    mockGetCached.mockReturnValue(null);
     mockSupabaseServer.mockReturnValue({ from: (table: string) => createQuery(table) });
   });
 

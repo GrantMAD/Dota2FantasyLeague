@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase';
-import { getCached, setCached } from '@/lib/response-cache';
 import { verifyAuth, AuthError } from '@/lib/auth-utils';
 import { withApiTelemetry } from '@/lib/api-telemetry';
 
+const PUBLIC_CACHE_HEADERS = { 'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=30' };
+const PRIVATE_CACHE_HEADERS = { 'Cache-Control': 'private, no-store' };
 
 /**
  * GET /api/gameweeks
@@ -27,29 +28,28 @@ async function getHandler(request: NextRequest) {
     }
 
     if (searchParams.get('scoresOnly') === 'true') {
-      if (!userId) return NextResponse.json({ error: 'Authentication required.' }, { status: 401 });
+      if (!userId) {
+        return NextResponse.json(
+          { error: 'Authentication required.' },
+          { status: 401, headers: PRIVATE_CACHE_HEADERS },
+        );
+      }
       const idsParam = searchParams.get('gameweekIds') ?? '';
       const gameweekIds = idsParam.split(',').filter(Boolean).map(Number);
       if (
         gameweekIds.length > 100
         || gameweekIds.some((id) => !Number.isSafeInteger(id) || id <= 0)
       ) {
-        return NextResponse.json({ error: 'Invalid gameweek IDs.' }, { status: 400 });
+        return NextResponse.json(
+          { error: 'Invalid gameweek IDs.' },
+          { status: 400, headers: PRIVATE_CACHE_HEADERS },
+        );
       }
       const userScoreMap = await getUserScoreMap(supabaseServer(), userId, gameweekIds);
       return NextResponse.json(
         { user_scores: Object.fromEntries(userScoreMap) },
         { headers: { 'Cache-Control': 'private, no-store' } },
       );
-    }
-
-    const cacheKey = `gameweeks:v2:${searchParams.toString()}`;
-    const cached = getCached<{ gameweeks: Array<Record<string, unknown>> }>(cacheKey);
-    if (cached) {
-      const userScoreMap = userId
-        ? await getUserScoreMap(supabaseServer(), userId, cached.gameweeks.map((gameweek) => Number(gameweek.id)))
-        : new Map<number, number>();
-      return NextResponse.json(withUserScores(cached, userScoreMap));
     }
 
     const supabase = supabaseServer();
@@ -75,15 +75,16 @@ async function getHandler(request: NextRequest) {
     if (error) {
       return NextResponse.json(
         { error: 'Failed to fetch gameweeks.', details: error.message },
-        { status: 500 }
+        { status: 500, headers: PRIVATE_CACHE_HEADERS }
       );
     }
 
     const gameweeks = data ?? [];
     if (!gameweeks.length) {
       const response = { gameweeks: [] };
-      setCached(cacheKey, response, 60_000);
-      return NextResponse.json(response);
+      return NextResponse.json(response, {
+        headers: userId ? PRIVATE_CACHE_HEADERS : PUBLIC_CACHE_HEADERS,
+      });
     }
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -248,13 +249,17 @@ async function getHandler(request: NextRequest) {
       })),
     };
 
-    setCached(cacheKey, publicResponse, 60_000);
     const userScoreMap = userId
       ? await getUserScoreMap(supabase, userId, gameweekIds)
       : new Map<number, number>();
-    return NextResponse.json(withUserScores(publicResponse, userScoreMap));
+    return NextResponse.json(withUserScores(publicResponse, userScoreMap), {
+      headers: userId ? PRIVATE_CACHE_HEADERS : PUBLIC_CACHE_HEADERS,
+    });
   } catch {
-    return NextResponse.json({ error: 'An unexpected error occurred.' }, { status: 500 });
+    return NextResponse.json(
+      { error: 'An unexpected error occurred.' },
+      { status: 500, headers: PRIVATE_CACHE_HEADERS },
+    );
   }
 }
 

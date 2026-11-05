@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verifyAdminAuth } from '@/lib/auth-utils';
 import { getJobs } from '@/lib/jobs/scheduler';
 import { buildDurableJobHealth, type DurableJobRun } from '@/lib/jobs/durable-job-health';
-import { getCacheStats } from '@/lib/response-cache';
 import { supabaseServer } from '@/lib/supabase';
 import { withApiTelemetry } from '@/lib/api-telemetry';
 
@@ -61,7 +60,6 @@ async function getHandler(request: NextRequest) {
         averageDurationMs: durations.length ? Math.round(durations.reduce((sum, duration) => sum + duration, 0) / durations.length) : 0,
       },
       recentRuns: runs,
-      cache: getCacheStats(),
     });
   } catch (error: unknown) {
     const status = typeof error === 'object' && error !== null && 'status' in error ? Number((error as { status: number }).status) : 500;

@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase';
-import { getCached, setCached } from '@/lib/response-cache';
 import { withApiTelemetry } from '@/lib/api-telemetry';
 import { getTeamDisplayTag } from '@/lib/team-tag';
 
@@ -54,6 +53,7 @@ const MATCH_COLUMNS = `
 `;
 const MAX_PAGE_SIZE = 100;
 const VALID_STATUSES = new Set(['all', 'live', 'upcoming', 'scheduled', 'completed']);
+const PUBLIC_CACHE_HEADERS = { 'Cache-Control': 'public, s-maxage=30, stale-while-revalidate=30' };
 
 function databaseError(operation: string, error: { message: string }) {
   console.error(`[Matches API] ${operation} failed:`, error);
@@ -169,15 +169,6 @@ async function getHandler(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid match filters or pagination parameters.' }, { status: 400 });
     }
 
-    const cacheKey = `matches:v4:${searchParams.toString()}`;
-    const cached = getCached<{
-      matches: unknown[];
-      tournaments: unknown[];
-      pagination: unknown;
-      counts: unknown;
-    }>(cacheKey);
-    if (cached) return NextResponse.json(cached);
-
     const supabase = supabaseServer();
     let tournamentSeriesIds: number[] | null = null;
 
@@ -197,8 +188,7 @@ async function getHandler(request: NextRequest) {
           pagination: { page, limit, total: 0, totalPages: 0 },
           counts: { all: 0, live: 0, upcoming: 0, completed: 0 },
         };
-        setCached(cacheKey, response, 60_000);
-        return NextResponse.json(response);
+        return NextResponse.json(response, { headers: PUBLIC_CACHE_HEADERS });
       }
     }
 
@@ -232,8 +222,7 @@ async function getHandler(request: NextRequest) {
           pagination: { page, limit, total: 0, totalPages: 0 },
           counts: { all: 0, live: 0, upcoming: 0, completed: 0 },
         };
-        setCached(cacheKey, response, 60_000);
-        return NextResponse.json(response);
+        return NextResponse.json(response, { headers: PUBLIC_CACHE_HEADERS });
       }
     }
 
@@ -359,8 +348,7 @@ async function getHandler(request: NextRequest) {
       },
       counts,
     };
-    setCached(cacheKey, response, 60_000);
-    return NextResponse.json(response);
+    return NextResponse.json(response, { headers: PUBLIC_CACHE_HEADERS });
   } catch (error) {
     console.error('[Matches API] Unexpected error:', error);
     return NextResponse.json({ error: 'An unexpected error occurred.' }, { status: 500 });

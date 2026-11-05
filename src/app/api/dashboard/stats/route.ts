@@ -3,21 +3,13 @@ import { supabaseServer } from '@/lib/supabase';
 import { verifyAuth, applyRefreshedTokens, AuthError } from '@/lib/auth-utils';
 import { getOrCreateFantasySeason } from '@/lib/fantasy-season';
 import { aggregatePlayerGameweekBreakdowns } from '@/lib/player-gameweek-breakdown';
-import { getCached, setCached } from '@/lib/response-cache';
 import { withApiTelemetry } from '@/lib/api-telemetry';
 
-const DASHBOARD_STATS_CACHE_TTL_MS = 30_000;
+const PRIVATE_CACHE_HEADERS = { 'Cache-Control': 'private, no-store' };
 
 async function getHandler(request: NextRequest) {
   try {
     const user = await verifyAuth(request);
-    const cacheKey = `dashboard-stats:${user.userId}`;
-    const cachedData = getCached<unknown>(cacheKey);
-    if (cachedData !== null) {
-      const cachedResponse = NextResponse.json(cachedData);
-      applyRefreshedTokens(cachedResponse, user);
-      return cachedResponse;
-    }
 
     const supabase = supabaseServer();
 
@@ -86,8 +78,7 @@ async function getHandler(request: NextRequest) {
         viceCaptain: null,
         leagueStandings: leagues,
       };
-      setCached(cacheKey, emptyData, DASHBOARD_STATS_CACHE_TTL_MS);
-      const emptyResponse = NextResponse.json(emptyData);
+      const emptyResponse = NextResponse.json(emptyData, { headers: PRIVATE_CACHE_HEADERS });
       applyRefreshedTokens(emptyResponse, user);
       return emptyResponse;
     }
@@ -342,17 +333,22 @@ async function getHandler(request: NextRequest) {
       starters,
       leagueStandings: leagues || [],
     };
-    setCached(cacheKey, dashboardData, DASHBOARD_STATS_CACHE_TTL_MS);
-    const response = NextResponse.json(dashboardData);
+    const response = NextResponse.json(dashboardData, { headers: PRIVATE_CACHE_HEADERS });
     applyRefreshedTokens(response, user);
     return response;
 
   } catch (error: unknown) {
     const authError = error as AuthError;
     if (authError.status) {
-      return NextResponse.json({ error: authError.message }, { status: authError.status });
+      return NextResponse.json(
+        { error: authError.message },
+        { status: authError.status, headers: PRIVATE_CACHE_HEADERS },
+      );
     }
-    return NextResponse.json({ error: 'An unexpected error occurred.' }, { status: 500 });
+    return NextResponse.json(
+      { error: 'An unexpected error occurred.' },
+      { status: 500, headers: PRIVATE_CACHE_HEADERS },
+    );
   }
 }
 

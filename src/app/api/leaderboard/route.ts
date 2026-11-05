@@ -1,13 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase';
-import { getCached, setCached } from '@/lib/response-cache';
 import { withApiTelemetry } from '@/lib/api-telemetry';
 import { verifyAuth } from '@/lib/auth-utils';
 import {
   LeaderboardDataError,
   getCurrentUserLeaderboardEntry,
   getLeaderboardData,
-  type LeaderboardData,
 } from '@/lib/leaderboard-data';
 
 /**
@@ -43,13 +41,7 @@ async function getHandler(request: NextRequest) {
       return result;
     }
 
-    const cacheKey = `leaderboard:${searchParams.toString()}`;
-    const cached = getCached<LeaderboardData>(cacheKey);
-    let response = cached;
-    if (!response) {
-      response = await getLeaderboardData(supabase, { seasonId, gameweekId, country, page, limit });
-      setCached(cacheKey, response, 60_000);
-    }
+    const response = await getLeaderboardData(supabase, { seasonId, gameweekId, country, page, limit });
 
     let leaderboard = response.leaderboard;
     if (currentUserId && !leaderboard.some((entry) => entry.fantasy_teams.user_id === currentUserId)) {

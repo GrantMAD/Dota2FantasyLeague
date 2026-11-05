@@ -3,7 +3,6 @@ import { getJobs, getAllJobStatuses } from '@/lib/jobs/scheduler';
 import { getSupabaseServerClient } from '@/lib/db/supabase-server';
 import { getNextCronDate } from '@/lib/jobs/cron-utils';
 import { withApiTelemetry } from '@/lib/api-telemetry';
-import { getCached, setCached } from '@/lib/response-cache';
 
 // Mapping each page key to relevant jobs in priority order
 const PAGE_JOB_MAPPING: Record<string, string[]> = {
@@ -103,13 +102,6 @@ async function getHandler(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const page = searchParams.get('page') || 'matches';
-    const cacheKey = `freshness:${page}`;
-    const cached = getCached<FreshnessResponse>(cacheKey);
-    if (cached) {
-      return NextResponse.json(cached, {
-        headers: { 'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=30' },
-      });
-    }
 
     const targetJobNames = PAGE_JOB_MAPPING[page] || PAGE_JOB_MAPPING.matches;
 
@@ -191,9 +183,8 @@ async function getHandler(request: NextRequest) {
       serverTime: now.toISOString(),
       jobs: jobsDetailList,
     };
-    setCached(cacheKey, response, 60_000);
     return NextResponse.json(response, {
-      headers: { 'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=30' },
+      headers: { 'Cache-Control': 'private, no-store' },
     });
   } catch (error) {
     console.error('[Data Freshness] Error fetching status:', error);

@@ -2,16 +2,9 @@ import { NextRequest } from 'next/server';
 import { GET } from './route';
 
 const mockSupabaseServer = jest.fn();
-const mockGetCached = jest.fn();
-const mockSetCached = jest.fn();
 
 jest.mock('@/lib/supabase', () => ({
   supabaseServer: () => mockSupabaseServer(),
-}));
-
-jest.mock('@/lib/response-cache', () => ({
-  getCached: (...args: unknown[]) => mockGetCached(...args),
-  setCached: (...args: unknown[]) => mockSetCached(...args),
 }));
 
 jest.mock('@/lib/api-telemetry', () => ({
@@ -75,8 +68,6 @@ function createSupabaseClient() {
 describe('GET /api/tournaments', () => {
   beforeEach(() => {
     mockSupabaseServer.mockReset().mockReturnValue(createSupabaseClient());
-    mockGetCached.mockReset().mockReturnValue(null);
-    mockSetCached.mockReset();
   });
 
   it('returns tournament schedule progress and the next scheduled series', async () => {
@@ -84,6 +75,7 @@ describe('GET /api/tournaments', () => {
     const body = await response.json();
 
     expect(response.status).toBe(200);
+    expect(response.headers.get('Cache-Control')).toBe('public, s-maxage=60, stale-while-revalidate=30');
     expect(body.tournaments[0]).toMatchObject({
       series_count: 1,
       match_count: 2,
@@ -96,10 +88,5 @@ describe('GET /api/tournaments', () => {
         team_b: 'Dire',
       },
     });
-    expect(mockSetCached).toHaveBeenCalledWith(
-      'tournaments:',
-      expect.objectContaining({ tournaments: expect.any(Array) }),
-      60_000,
-    );
   });
 });
