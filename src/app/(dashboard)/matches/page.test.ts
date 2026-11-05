@@ -14,7 +14,7 @@ describe('MatchesPage', () => {
 
     const page = await MatchesPage();
 
-    expect(page.props.initialData).toEqual({
+    expect(page.props.children.props.initialData).toEqual({
       matches: [],
       tournaments: [],
       pagination: { page: 1, limit: 24, total: 0, totalPages: 0 },

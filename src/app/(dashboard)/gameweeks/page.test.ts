@@ -14,7 +14,7 @@ describe('GameweeksPage', () => {
 
     const page = await GameweeksPage();
 
-    expect(page.props.initialGameweeks).toEqual([]);
+    expect(page.props.children.props.initialGameweeks).toEqual([]);
     expect(logError).toHaveBeenCalledWith(
       '[Gameweeks] Failed to load prerendered data; the client will retry:',
       expect.any(Error),
