@@ -4,7 +4,7 @@ export interface NotificationPayload {
   message: string;
 }
 
-export async function deliverNotification(payload: NotificationPayload): Promise<'email' | 'webhook' | 'queued'> {
+export async function deliverNotification(payload: NotificationPayload): Promise<'email' | 'webhook'> {
   const webhookUrl = process.env.NOTIFICATION_WEBHOOK_URL;
   if (webhookUrl) {
     const response = await fetch(webhookUrl, {
@@ -26,5 +26,7 @@ export async function deliverNotification(payload: NotificationPayload): Promise
     return 'email';
   }
 
-  return 'queued';
+  throw new Error(
+    'Notification delivery is not configured. Set NOTIFICATION_WEBHOOK_URL or both RESEND_API_KEY and NOTIFICATION_FROM_EMAIL.'
+  );
 }
