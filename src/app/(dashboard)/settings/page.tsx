@@ -82,6 +82,7 @@ function SettingsContent() {
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [savingNotificationPreference, setSavingNotificationPreference] = useState(false);
   const [themeSaving, setThemeSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [messageIsError, setMessageIsError] = useState(false);
@@ -211,8 +212,6 @@ function SettingsContent() {
           display_name: formData.displayName,
           country_code: formData.countryCode,
           timezone: formData.timezone,
-          email_notifications: formData.emailNotifications,
-          push_notifications: formData.pushNotifications,
         }),
       });
 
@@ -287,29 +286,28 @@ function SettingsContent() {
   };
 
   const handleNotificationToggle = async (key: 'pushNotifications' | 'emailNotifications', nextVal: boolean) => {
-    const updated = {
-      ...formData,
-      [key]: nextVal,
-    };
-    setFormData(updated);
+    setFormData((current) => ({ ...current, [key]: nextVal }));
+    setSavingNotificationPreference(true);
 
-    const label = key === 'pushNotifications' ? 'Push alerts' : 'Email digests';
+    const isPushPreference = key === 'pushNotifications';
+    const label = isPushPreference ? 'Push alerts' : 'Email summaries';
     try {
       const res = await fetchWithAuth('/api/user/profile', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          email_notifications: updated.emailNotifications,
-          push_notifications: updated.pushNotifications,
+          [isPushPreference ? 'push_notifications' : 'email_notifications']: nextVal,
         }),
       });
 
       if (!res.ok) throw new Error('Failed to save notification preference');
       toast.info('Notification Preference', `${label} ${nextVal ? 'enabled' : 'disabled'}.`);
     } catch (error: unknown) {
-      setFormData(formData);
+      setFormData((current) => ({ ...current, [key]: formData[key] }));
       const errMsg = error instanceof Error ? error.message : 'Failed to save preference';
       toast.error('Save Failed', errMsg);
+    } finally {
+      setSavingNotificationPreference(false);
     }
   };
 
@@ -347,15 +345,15 @@ function SettingsContent() {
         type="button"
         onClick={onToggle}
         aria-pressed={unavailable ? undefined : enabled}
-        disabled={unavailable}
+        disabled={unavailable || savingNotificationPreference}
         aria-label={`${label}${unavailable ? ', not available yet' : ''}`}
         className={`relative h-7 w-12 shrink-0 rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-cyan-500/30 disabled:cursor-not-allowed disabled:opacity-40 ${
           !unavailable && enabled ? 'bg-cyan-500' : 'bg-slate-400 dark:bg-slate-700'
         }`}
       >
         <span
-          className={`absolute top-1 h-5 w-5 rounded-full bg-white shadow-md transition-transform duration-200 ease-in-out ${
-            !unavailable && enabled ? 'translate-x-6' : 'translate-x-1'
+          className={`absolute left-1 top-1 h-5 w-5 rounded-full bg-white shadow-md transition-transform duration-200 ease-in-out ${
+            !unavailable && enabled ? 'translate-x-5' : 'translate-x-0'
           }`}
         />
       </button>
@@ -933,21 +931,20 @@ function SettingsContent() {
               <div>
                 <h2 className="text-xl font-bold text-[var(--text-primary)]">Notification preferences</h2>
                 <p className="mt-1.5 text-sm leading-relaxed text-[var(--text-secondary)]">
-                  In-app notifications are delivered to your Notification Hub. External notification pipelines can be toggled below.
+                  Manage push delivery to registered mobile app devices. In-app Notification Center alerts are controlled separately.
                 </p>
               </div>
 
               <div className="space-y-3.5">
                 {renderToggle(
                   'Push notifications',
-                  'Receive real-time alerts on your mobile device or browser when fantasy rosters lock or market prices fluctuate.',
+                  'Choose whether supported fantasy alerts are sent to your registered iOS or Android app devices. Browser push is not supported.',
                   formData.pushNotifications,
-                  () => void handleNotificationToggle('pushNotifications', !formData.pushNotifications),
-                  true
+                  () => void handleNotificationToggle('pushNotifications', !formData.pushNotifications)
                 )}
                 {renderToggle(
                   'Email summaries',
-                  'Receive weekly gameweek recaps, transfer digest emails, and head-to-head match outcomes.',
+                  'Email summaries are not available yet. This preference does not trigger email delivery.',
                   formData.emailNotifications,
                   () => void handleNotificationToggle('emailNotifications', !formData.emailNotifications),
                   true
@@ -957,7 +954,7 @@ function SettingsContent() {
               <div className="flex items-start gap-3 rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4.5 text-sm leading-relaxed text-amber-800 dark:text-amber-200">
                 <AlertTriangle className="h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400 mt-0.5" />
                 <p>
-                  These delivery channels are currently disabled so they do not imply automated external delivery is active. All in-app alerts, price updates, and gameweek notifications continue to operate seamlessly within your Notification Center.
+                  Push alerts require a registered iOS or Android app device with notification permission granted. Browser push and email delivery are not currently available. In-app alerts continue to appear in your Notification Center.
                 </p>
               </div>
 
