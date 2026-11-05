@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase, supabaseServer } from '@/lib/supabase';
 import { withApiTelemetry } from '@/lib/api-telemetry';
+import { enforceAuthRateLimit } from '@/lib/auth-rate-limit';
 
 
 /**
@@ -12,6 +13,9 @@ import { withApiTelemetry } from '@/lib/api-telemetry';
  */
 async function postHandler(request: NextRequest) {
   try {
+    const rateLimitResponse = await enforceAuthRateLimit(request, 'signup');
+    if (rateLimitResponse) return rateLimitResponse;
+
     const body = await request.json();
     const email = typeof body.email === 'string' ? body.email.trim().toLowerCase() : '';
     const password = typeof body.password === 'string' ? body.password : '';

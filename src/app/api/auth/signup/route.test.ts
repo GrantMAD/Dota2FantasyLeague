@@ -5,6 +5,7 @@ const mockSignUp = jest.fn();
 const mockSupabaseServer = jest.fn();
 const mockDeleteUser = jest.fn();
 const mockInsert = jest.fn();
+const mockEnforceAuthRateLimit = jest.fn();
 
 jest.mock('@/lib/supabase', () => ({
   supabase: { auth: { signUp: (...args: unknown[]) => mockSignUp(...args) } },
@@ -13,6 +14,10 @@ jest.mock('@/lib/supabase', () => ({
 
 jest.mock('@/lib/api-telemetry', () => ({
   withApiTelemetry: (_method: string, _route: string, handler: unknown) => handler,
+}));
+
+jest.mock('@/lib/auth-rate-limit', () => ({
+  enforceAuthRateLimit: (...args: unknown[]) => mockEnforceAuthRateLimit(...args),
 }));
 
 function createRequest() {
@@ -30,6 +35,7 @@ function createRequest() {
 describe('POST /api/auth/signup', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockEnforceAuthRateLimit.mockResolvedValue(null);
     mockSignUp.mockResolvedValue({
       data: { user: { id: 'auth-user-1' } },
       error: null,
@@ -85,6 +91,21 @@ describe('POST /api/auth/signup', () => {
 
     expect(response.status).toBe(500);
     expect(mockSignUp).not.toHaveBeenCalled();
+  });
+
+  it('rejects rate-limited requests before creating an auth user', async () => {
+    mockEnforceAuthRateLimit.mockResolvedValue(
+      new Response(JSON.stringify({ error: 'Too many authentication attempts.' }), { status: 429 }),
+    );
+
+    const response = await POST(createRequest());
+
+    expect(response.status).toBe(429);
+    expect(mockSignUp).not.toHaveBeenCalled();
+    expect(mockEnforceAuthRateLimit).toHaveBeenCalledWith(
+      expect.any(NextRequest),
+      'signup',
+    );
   });
 
   it('reports and logs a cleanup failure instead of implying rollback succeeded', async () => {
