@@ -2,6 +2,7 @@
 
 import { fetchWithAuth } from '@/lib/fetch-with-auth';
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { MatchCard, MatchData } from './components/MatchCard';
 import { MatchRow } from './components/MatchRow';
@@ -9,6 +10,7 @@ import { MatchFilters } from './components/MatchFilters';
 import { DataFreshnessBadge } from '@/components/DataFreshnessBadge';
 import type { InitialMatchesData } from '@/lib/matches-initial-data';
 import { getSquadPlayersForMatch, type TrackedSquadPlayer } from '@/lib/match-squad-tracking';
+import { replaceUrlQueryParams } from '@/lib/url-query-state';
 
 interface UserSquadPlayer extends TrackedSquadPlayer {
   id: number;
@@ -24,23 +26,47 @@ interface TournamentOption {
 const PAGE_SIZE = 24;
 
 export default function MatchesPage({ initialData }: { initialData: InitialMatchesData }) {
+  const searchParams = useSearchParams();
+  const initialStatus = searchParams.get('status');
+  const initialPage = Number(searchParams.get('page'));
+  const initialSearch = searchParams.get('search') ?? '';
+  const initialTournament = searchParams.get('tournament');
+  const startsWithFilteredMatches = Boolean(
+    (initialStatus === 'live' || initialStatus === 'upcoming' || initialStatus === 'completed')
+    || (initialTournament && /^\d+$/.test(initialTournament))
+    || initialSearch.trim()
+    || (Number.isSafeInteger(initialPage) && initialPage > 1)
+  );
   const [matches, setMatches] = useState<MatchData[]>(initialData.matches);
   const [tournaments, setTournaments] = useState<TournamentOption[]>(initialData.tournaments);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(startsWithFilteredMatches);
   const [error, setError] = useState<string | null>(null);
-  const [page, setPage] = useState(1);
+  const [page, setPage] = useState(Number.isSafeInteger(initialPage) && initialPage > 0 ? Math.min(initialPage, 1000) : 1);
   const [total, setTotal] = useState(initialData.pagination.total);
   const [totalPages, setTotalPages] = useState(initialData.pagination.totalPages);
   const [counts, setCounts] = useState(initialData.counts);
   const [squadTrackingError, setSquadTrackingError] = useState<string | null>(null);
 
   // Filters state
-  const [activeTab, setActiveTab] = useState<'all' | 'live' | 'upcoming' | 'completed'>('all');
-  const [selectedTournamentId, setSelectedTournamentId] = useState<string>('');
-  const [searchQuery, setSearchQuery] = useState<string>('');
-  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [activeTab, setActiveTab] = useState<'all' | 'live' | 'upcoming' | 'completed'>(
+    initialStatus === 'live' || initialStatus === 'upcoming' || initialStatus === 'completed' ? initialStatus : 'all'
+  );
+  const [selectedTournamentId, setSelectedTournamentId] = useState<string>(
+    initialTournament && /^\d+$/.test(initialTournament) ? initialTournament : ''
+  );
+  const [searchQuery, setSearchQuery] = useState<string>(initialSearch);
+  const [debouncedSearch, setDebouncedSearch] = useState(initialSearch.trim());
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const lastRequestKey = useRef<string | null>(null);
+
+  useEffect(() => {
+    replaceUrlQueryParams({
+      status: activeTab === 'all' ? null : activeTab,
+      tournament: selectedTournamentId,
+      search: debouncedSearch,
+      page: page > 1 ? String(page) : null,
+    });
+  }, [activeTab, debouncedSearch, page, selectedTournamentId]);
 
   // Fantasy user squad state
   const [userSquadPlayers, setUserSquadPlayers] = useState<UserSquadPlayer[]>([]);
@@ -55,7 +81,14 @@ export default function MatchesPage({ initialData }: { initialData: InitialMatch
 
   useEffect(() => {
     const requestKey = `${page}|${activeTab}|${selectedTournamentId}|${debouncedSearch}`;
-    if (lastRequestKey.current === null && initialData.matches.length > 0) {
+    if (
+      lastRequestKey.current === null
+      && initialData.matches.length > 0
+      && page === 1
+      && activeTab === 'all'
+      && !selectedTournamentId
+      && !debouncedSearch
+    ) {
       lastRequestKey.current = requestKey;
       return;
     }

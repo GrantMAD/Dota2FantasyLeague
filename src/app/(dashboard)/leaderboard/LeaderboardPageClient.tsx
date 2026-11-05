@@ -2,11 +2,13 @@
 
 import { fetchWithAuth } from '@/lib/fetch-with-auth';
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 import { Crown, Medal, RefreshCw, Star } from 'lucide-react';
 import { DataFreshnessBadge } from '@/components/DataFreshnessBadge';
 import type { LeaderboardData } from '@/lib/leaderboard-data';
 import { canOptimizeImage } from '@/lib/optimized-image';
+import { replaceUrlQueryParams } from '@/lib/url-query-state';
 
 type LeaderboardEntry = {
    id: number;
@@ -84,9 +86,14 @@ type LeaderboardPageProps = {
 };
 
 export default function LeaderboardPageClient({ initialData }: LeaderboardPageProps) {
+  const searchParams = useSearchParams();
+  const initialPage = Number(searchParams.get('page'));
+  const initialCountry = searchParams.get('country')?.toUpperCase() ?? '';
+  const startsWithFilteredLeaderboard = (Number.isSafeInteger(initialPage) && initialPage > 1)
+    || /^[A-Z]{2}$/.test(initialCountry);
    const [entries, setEntries] = useState<LeaderboardEntry[]>(initialData?.leaderboard ?? []);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
-  const [loading, setLoading] = useState(initialData === null);
+  const [loading, setLoading] = useState(initialData === null || startsWithFilteredLeaderboard);
   const [error, setError] = useState<string | null>(null);
   const [lastRecalculatedAt, setLastRecalculatedAt] = useState<string | null>(initialData?.lastRecalculatedAt ?? null);
   const lastRecalculatedAtRef = useRef<string | null>(initialData?.lastRecalculatedAt ?? null);
@@ -96,8 +103,8 @@ export default function LeaderboardPageClient({ initialData }: LeaderboardPagePr
   } | null>(null);
   const [topGameweekScorer, setTopGameweekScorer] = useState<{ id: number; manager: string; points: number } | null>(initialData?.topGameweekScorer ?? null);
   const [refreshing, setRefreshing] = useState(false);
-  const [page, setPage] = useState(1);
-  const [countryFilter, setCountryFilter] = useState('');
+  const [page, setPage] = useState(Number.isSafeInteger(initialPage) && initialPage > 0 ? Math.min(initialPage, 1000) : 1);
+  const [countryFilter, setCountryFilter] = useState(/^[A-Z]{2}$/.test(initialCountry) ? initialCountry : '');
   const [selectedUser, setSelectedUser] = useState<SelectedManager | null>(null);
   const [managerDetails, setManagerDetails] = useState<ManagerDetails | null>(null);
   const [managerDetailsLoading, setManagerDetailsLoading] = useState(false);
@@ -108,6 +115,13 @@ export default function LeaderboardPageClient({ initialData }: LeaderboardPagePr
   const [countries, setCountries] = useState<{ code: string; name: string }[]>([
     { code: '', name: 'Global (All)' }
   ]);
+
+  useEffect(() => {
+    replaceUrlQueryParams({
+      country: countryFilter,
+      page: page > 1 ? String(page) : null,
+    });
+  }, [countryFilter, page]);
 
   useEffect(() => {
     async function fetchCountries() {

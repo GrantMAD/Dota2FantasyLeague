@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import {
   ArrowLeftRight,
   ArrowDown,
@@ -26,6 +26,7 @@ import { useToast } from '@/components/Toast';
 import { DataFreshnessBadge } from '@/components/DataFreshnessBadge';
 import { canOptimizeImage } from '@/lib/optimized-image';
 import type { PlayersCatalogResponse } from '@/lib/players-catalog';
+import { replaceUrlQueryParams } from '@/lib/url-query-state';
 
 interface ProfessionalTeam {
   id: number;
@@ -208,9 +209,24 @@ export default function PlayersPageClient({
   initialData: PlayersCatalogResponse | null;
 }) {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const initialSearch = searchParams.get('search') ?? '';
+  const initialRole = searchParams.get('role') ?? '';
+  const initialSort = searchParams.get('sort');
+  const initialTeamId = Number(searchParams.get('team'));
+  const initialPage = Number(searchParams.get('page'));
+  const hasNonDefaultCatalogQuery = Boolean(
+    initialSearch.trim()
+    || ROLES.some((role) => role.value === initialRole)
+    || (Number.isSafeInteger(initialTeamId) && initialTeamId > 0)
+    || initialSort === 'ownership'
+    || initialSort === 'name'
+    || searchParams.get('desc') === 'false'
+    || (Number.isSafeInteger(initialPage) && initialPage > 1)
+  );
   const [players, setPlayers] = useState<Player[]>(initialData?.data ?? []);
   const [total, setTotal] = useState(initialData?.total ?? 0);
-  const [loading, setLoading] = useState(initialData === null);
+  const [loading, setLoading] = useState(initialData === null || hasNonDefaultCatalogQuery);
   const initialDataPending = useRef(initialData !== null);
 
   // Team list for the dropdown
@@ -231,12 +247,14 @@ export default function PlayersPageClient({
   }, []);
 
   // Filters & Sorting
-  const [search, setSearch] = useState('');
-  const [debouncedSearch, setDebouncedSearch] = useState('');
-  const [roleFilter, setRoleFilter] = useState('');
-  const [teamIdFilter, setTeamIdFilter] = useState<number | null>(null);
-  const [sortBy, setSortBy] = useState<'price' | 'ownership' | 'name'>('price');
-  const [sortDesc, setSortDesc] = useState(true);
+  const [search, setSearch] = useState(initialSearch);
+  const [debouncedSearch, setDebouncedSearch] = useState(initialSearch.trim());
+  const [roleFilter, setRoleFilter] = useState(ROLES.some((role) => role.value === initialRole) ? initialRole : '');
+  const [teamIdFilter, setTeamIdFilter] = useState(Number.isSafeInteger(initialTeamId) && initialTeamId > 0 ? initialTeamId : null);
+  const [sortBy, setSortBy] = useState<'price' | 'ownership' | 'name'>(
+    initialSort === 'ownership' || initialSort === 'name' ? initialSort : 'price'
+  );
+  const [sortDesc, setSortDesc] = useState(searchParams.get('desc') !== 'false');
   const [pinOwnedFirst, setPinOwnedFirst] = useState(true);
   const [comparePlayerIds, setComparePlayerIds] = useState<number[]>([]);
   const [compareMode, setCompareMode] = useState(false);
@@ -246,7 +264,7 @@ export default function PlayersPageClient({
   const [ownedPlayersMap, setOwnedPlayersMap] = useState<Map<number, Player>>(new Map());
 
   // Pagination
-  const [page, setPage] = useState(1);
+  const [page, setPage] = useState(Number.isSafeInteger(initialPage) && initialPage > 0 ? Math.min(initialPage, 1000) : 1);
   const limit = 20;
 
   // Active filter count (for the clear-all badge)
@@ -257,6 +275,17 @@ export default function PlayersPageClient({
     const timer = setTimeout(() => setDebouncedSearch(search), 300);
     return () => clearTimeout(timer);
   }, [search]);
+
+  useEffect(() => {
+    replaceUrlQueryParams({
+      search: debouncedSearch,
+      role: roleFilter,
+      team: teamIdFilter ? String(teamIdFilter) : null,
+      sort: sortBy === 'price' ? null : sortBy,
+      desc: sortDesc ? null : 'false',
+      page: page > 1 ? String(page) : null,
+    });
+  }, [debouncedSearch, page, roleFilter, sortBy, sortDesc, teamIdFilter]);
 
   // ── Load teams and squad context in parallel ────────────────────────────────
   useEffect(() => {

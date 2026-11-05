@@ -1,7 +1,8 @@
 'use client';
 
 import { fetchWithAuth } from '@/lib/fetch-with-auth';
-import { useEffect, useRef, useState } from 'react';
+import { Suspense, useEffect, useRef, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import {
   AlertTriangle,
@@ -27,6 +28,7 @@ import {
   type NotificationCategory,
   type NotificationCategoryCacheEntry,
 } from './notification-view-model';
+import { replaceUrlQueryParams } from '@/lib/url-query-state';
 
 const categories: Array<{ key: NotificationCategory; label: string; countKey?: string }> = [
   { key: 'all', label: 'All' },
@@ -38,6 +40,19 @@ const categories: Array<{ key: NotificationCategory; label: string; countKey?: s
 ];
 
 export default function NotificationsPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen" aria-busy="true" />}>
+      <NotificationsPageContent />
+    </Suspense>
+  );
+}
+
+function NotificationsPageContent() {
+  const searchParams = useSearchParams();
+  const requestedCategory = searchParams.get('category');
+  const initialCategory = categories.some((category) => category.key === requestedCategory)
+    ? requestedCategory as NotificationCategory
+    : 'all';
   const toast = useToast();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -46,9 +61,13 @@ export default function NotificationsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [markingAllRead, setMarkingAllRead] = useState(false);
-  const [activeCategory, setActiveCategory] = useState<NotificationCategory>('all');
+  const [activeCategory, setActiveCategory] = useState<NotificationCategory>(initialCategory);
   const paginationController = useRef<AbortController | null>(null);
   const categoryCache = useRef(new Map<NotificationCategory, NotificationCategoryCacheEntry>());
+
+  useEffect(() => {
+    replaceUrlQueryParams({ category: activeCategory === 'all' ? null : activeCategory });
+  }, [activeCategory]);
 
   useEffect(() => {
     const controller = new AbortController();

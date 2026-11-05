@@ -1,6 +1,7 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { Suspense, useCallback, useEffect, useRef, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 import { canOptimizeImage } from '@/lib/optimized-image';
 import Link from 'next/link';
@@ -28,6 +29,7 @@ import { LeagueFilters } from './components/LeagueFilters';
 import { LeagueCard } from './components/LeagueCard';
 import { LeagueActionModal } from './components/LeagueActionModal';
 import { DataFreshnessBadge } from '@/components/DataFreshnessBadge';
+import { replaceUrlQueryParams } from '@/lib/url-query-state';
 
 type ActionMode = 'create' | 'join' | null;
 
@@ -84,8 +86,21 @@ function formatRelativeTime(value: string): string {
 }
 
 export default function LeaguesPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen" aria-busy="true" />}>
+      <LeaguesPageContent />
+    </Suspense>
+  );
+}
+
+function LeaguesPageContent() {
+  const searchParams = useSearchParams();
+  const initialTab = searchParams.get('tab');
   const toast = useToast();
-  const [tab, setTab] = useState<'classic' | 'h2h'>('classic');
+  const [tab, setTab] = useState<'classic' | 'h2h'>(initialTab === 'h2h' ? 'h2h' : 'classic');
+  useEffect(() => {
+    replaceUrlQueryParams({ tab: tab === 'classic' ? null : tab });
+  }, [tab]);
   const [leagues, setLeagues] = useState<LeagueRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);

@@ -3,9 +3,12 @@
 import { fetchWithAuth } from '@/lib/fetch-with-auth';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { KeyboardEvent } from 'react';
+import { useSearchParams } from 'next/navigation';
+import { Suspense } from 'react';
 import Link from 'next/link';
 import { useToast } from '@/components/Toast';
 import { getCaptainEfficiencyAssessment, getTrendRowsForRange, type TrendRange } from '@/lib/analytics-presentation';
+import { replaceUrlQueryParams } from '@/lib/url-query-state';
 import {
   ResponsiveContainer,
   LineChart,
@@ -81,6 +84,17 @@ const initialData: AnalyticsData = {
 };
 
 export default function AnalyticsDashboard() {
+  return (
+    <Suspense fallback={<div className="min-h-screen" aria-busy="true" />}>
+      <AnalyticsDashboardContent />
+    </Suspense>
+  );
+}
+
+function AnalyticsDashboardContent() {
+  const searchParams = useSearchParams();
+  const requestedTab = searchParams.get('tab');
+  const requestedRange = searchParams.get('range');
   const chartTheme = {
     gridStroke: 'var(--border)',
     axisStroke: 'var(--text-muted)',
@@ -100,13 +114,24 @@ export default function AnalyticsDashboard() {
   const [data, setData] = useState(initialData);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [tab, setTab] = useState<AnalyticsTab>('my');
-  const [trendRange, setTrendRange] = useState<TrendRange>('all');
+  const [tab, setTab] = useState<AnalyticsTab>(
+    requestedTab === 'market' || requestedTab === 'dream' ? requestedTab : 'my'
+  );
+  const [trendRange, setTrendRange] = useState<TrendRange>(
+    requestedRange === '3' || requestedRange === '6' ? requestedRange : 'all'
+  );
   const tabRefs = useRef<Record<AnalyticsTab, HTMLButtonElement | null>>({
     my: null,
     market: null,
     dream: null,
   });
+
+  useEffect(() => {
+    replaceUrlQueryParams({
+      tab: tab === 'my' ? null : tab,
+      range: trendRange === 'all' ? null : trendRange,
+    });
+  }, [tab, trendRange]);
 
   const fetchAnalytics = useCallback(async () => {
     setLoading(true);

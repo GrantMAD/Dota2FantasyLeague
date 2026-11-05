@@ -2,6 +2,7 @@
 
 import { fetchWithAuth } from '@/lib/fetch-with-auth';
 import { useEffect, useMemo, useState, useSyncExternalStore } from 'react';
+import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { ChevronDown } from 'lucide-react';
 import { ActiveGameweekHero } from './components/ActiveGameweekHero';
@@ -9,6 +10,7 @@ import { GameweekCard } from './components/GameweekCard';
 import { GameweekHistoryModal } from './components/GameweekHistoryModal';
 import { GameweekFilters } from './components/GameweekFilters';
 import { DataFreshnessBadge } from '@/components/DataFreshnessBadge';
+import { replaceUrlQueryParams } from '@/lib/url-query-state';
 
 import type { GameweekRow } from '@/types/fantasy';
 import {
@@ -24,10 +26,14 @@ export type GameweekTab = 'all' | 'planning' | 'past';
 const isWeekPast = (gw: GameweekRow) => gw.status === 'closed' || gw.status === 'locked';
 
 export default function GameweeksPage({ initialGameweeks }: { initialGameweeks: GameweekRow[] }) {
+  const searchParams = useSearchParams();
+  const initialTab = searchParams.get('tab');
   const [gameweeks, setGameweeks] = useState<GameweekRow[]>(initialGameweeks);
   const [loading, setLoading] = useState(initialGameweeks.length === 0);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<GameweekTab>('all');
+  const [activeTab, setActiveTab] = useState<GameweekTab>(
+    initialTab === 'planning' || initialTab === 'past' ? initialTab : 'all'
+  );
   const viewMode = useSyncExternalStore(
     subscribeToGameweekViewMode,
     getStoredGameweekViewMode,
@@ -37,6 +43,10 @@ export default function GameweeksPage({ initialGameweeks }: { initialGameweeks: 
   const [expandedGameweekIds, setExpandedGameweekIds] = useState<Set<number> | null>(
     () => new Set(initialGameweeks.filter((gameweek) => gameweek.status === 'active').map((gameweek) => gameweek.id)),
   );
+
+  useEffect(() => {
+    replaceUrlQueryParams({ tab: activeTab === 'all' ? null : activeTab });
+  }, [activeTab]);
 
   useEffect(() => {
     let cancelled = false;

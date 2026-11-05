@@ -1,23 +1,48 @@
 'use client';
 
 import { fetchWithAuth } from '@/lib/fetch-with-auth';
-import { useState, useEffect, useMemo } from 'react';
+import { Suspense, useState, useEffect, useMemo } from 'react';
+import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { Trophy } from 'lucide-react';
 import { TournamentCard, TournamentData } from './components/TournamentCard';
 import { TournamentFilters } from './components/TournamentFilters';
 import { TournamentHero } from './components/TournamentHero';
 import { DataFreshnessBadge } from '@/components/DataFreshnessBadge';
+import { replaceUrlQueryParams } from '@/lib/url-query-state';
 
 export default function TournamentsHubPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen" aria-busy="true" />}>
+      <TournamentsHubPageContent />
+    </Suspense>
+  );
+}
+
+function TournamentsHubPageContent() {
+  const searchParams = useSearchParams();
+  const initialStatus = searchParams.get('status');
+  const initialTier = searchParams.get('tier');
   const [tournaments, setTournaments] = useState<TournamentData[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   // Filter states
-  const [activeStatus, setActiveStatus] = useState<'all' | 'eligible' | 'archived'>('all');
-  const [selectedTier, setSelectedTier] = useState<string>('');
-  const [searchQuery, setSearchQuery] = useState<string>('');
+  const [activeStatus, setActiveStatus] = useState<'all' | 'eligible' | 'archived'>(
+    initialStatus === 'eligible' || initialStatus === 'archived' ? initialStatus : 'all'
+  );
+  const [selectedTier, setSelectedTier] = useState<string>(
+    initialTier === 'Tier 1' || initialTier === 'Tier 2' ? initialTier : ''
+  );
+  const [searchQuery, setSearchQuery] = useState<string>(searchParams.get('search') ?? '');
+
+  useEffect(() => {
+    replaceUrlQueryParams({
+      status: activeStatus === 'all' ? null : activeStatus,
+      tier: selectedTier,
+      search: searchQuery.trim(),
+    });
+  }, [activeStatus, searchQuery, selectedTier]);
 
   useEffect(() => {
     async function loadTournaments() {
@@ -190,4 +215,3 @@ export default function TournamentsHubPage() {
     </div>
   );
 }
-

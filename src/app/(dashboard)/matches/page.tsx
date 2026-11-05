@@ -1,4 +1,5 @@
 import React from 'react';
+import { Suspense } from 'react';
 import MatchesPageClient from './MatchesPageClient';
 import { getInitialMatchesData } from '@/lib/matches-initial-data';
 
@@ -18,5 +19,9 @@ export default async function MatchesPage() {
       activeGameweekId: null,
     };
   }
-  return <MatchesPageClient initialData={initialData} />;
+  return (
+    <Suspense fallback={<div className="min-h-screen" aria-busy="true" />}>
+      <MatchesPageClient initialData={initialData} />
+    </Suspense>
+  );
 }
