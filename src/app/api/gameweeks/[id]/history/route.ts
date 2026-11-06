@@ -38,6 +38,9 @@ interface PerformancePointsRow {
 interface SeasonRow {
   id: number;
   season_id: number;
+  wildcard_used_gameweek_id?: number | null;
+  triple_captain_gameweek_id?: number | null;
+  bench_boost_gameweek_id?: number | null;
 }
 
 interface AverageScoreRow {
@@ -73,13 +76,10 @@ async function getHandler(request: NextRequest, context: RouteContext) {
       .maybeSingle();
     if (gameweekError) throw new Error(`Failed to fetch gameweek: ${gameweekError.message}`);
     if (!gameweek) return NextResponse.json({ error: 'Gameweek not found.' }, { status: 404 });
-    if (gameweek.status !== 'closed' && gameweek.status !== 'locked') {
-      return NextResponse.json({ error: 'History is available after the gameweek closes.' }, { status: 409 });
-    }
 
     const { data: userSeasonsData, error: fantasySeasonError } = await supabase
       .from('fantasy_seasons')
-      .select('id, season_id')
+      .select('id, season_id, wildcard_used_gameweek_id, triple_captain_gameweek_id, bench_boost_gameweek_id')
       .eq('user_id', userId);
     if (fantasySeasonError) throw new Error(`Failed to fetch your fantasy season: ${fantasySeasonError.message}`);
     const userSeasons = (userSeasonsData ?? []) as SeasonRow[];
@@ -109,6 +109,21 @@ async function getHandler(request: NextRequest, context: RouteContext) {
     const lineup = userLineups.find((row) =>
       userSeasons.find((season) => season.id === row.fantasy_season_id)?.season_id === gameweek.season_id
     ) ?? userLineups[0] ?? null;
+
+    const matchedSeason = (lineup ? userSeasons.find((season) => season.id === lineup.fantasy_season_id) : null)
+      ?? userSeasons.find((season) => season.season_id === gameweek.season_id)
+      ?? userSeasons[0]
+      ?? null;
+
+    let activeChip: 'triple_captain' | 'bench_boost' | 'wildcard' | null = null;
+    if (matchedSeason?.triple_captain_gameweek_id === gameweekId) {
+      activeChip = 'triple_captain';
+    } else if (matchedSeason?.bench_boost_gameweek_id === gameweekId) {
+      activeChip = 'bench_boost';
+    } else if (matchedSeason?.wildcard_used_gameweek_id === gameweekId) {
+      activeChip = 'wildcard';
+    }
+
     const seasonIds = ((seasonRowsResult.data ?? []) as SeasonRow[]).map((season) => season.id);
     const seasonLineupsResult = seasonIds.length
       ? await supabase
@@ -131,13 +146,14 @@ async function getHandler(request: NextRequest, context: RouteContext) {
 
     if (!lineup) {
       return NextResponse.json({
-        gameweek: { id: gameweek.id, number: gameweek.gameweek_number },
+        gameweek: { id: gameweek.id, number: gameweek.gameweek_number, status: gameweek.status },
         managerScore: null,
         globalAverage,
         starters: [],
         bench: [],
         captainPlayerId: null,
         viceCaptainPlayerId: null,
+        activeChip,
       });
     }
 
@@ -181,30 +197,65 @@ async function getHandler(request: NextRequest, context: RouteContext) {
       );
     }
 
+    const captainPlayed = (pointsByPlayer.get(lineup.captain_player_id) ?? 0) > 0;
+
     const toPlayerSummary = (playerId: number, role: string) => {
       const player = playersById.get(playerId);
+      const isCaptain = playerId === lineup.captain_player_id;
+      const isViceCaptain = playerId === lineup.vice_captain_player_id;
+      const rawPoints = Math.round((pointsByPlayer.get(playerId) ?? 0) * 100) / 100;
+
+      let multiplier = 1;
+      if (isCaptain) {
+        multiplier = activeChip === 'triple_captain' ? 3 : 2;
+      } else if (isViceCaptain && !captainPlayed && (gameweek.status === 'closed' || gameweek.status === 'locked')) {
+        multiplier = activeChip === 'triple_captain' ? 3 : 2;
+      }
+
+      const effectivePoints = Math.round((rawPoints * multiplier) * 100) / 100;
+
       return {
         id: playerId,
         name: player?.in_game_name || player?.name || `Player #${playerId}`,
         role,
-        points: Math.round((pointsByPlayer.get(playerId) ?? 0) * 100) / 100,
+        points: effectivePoints,
+        rawPoints,
+        multiplier,
         profileImageUrl: player?.profile_image_url ?? null,
-        isCaptain: playerId === lineup.captain_player_id,
-        isViceCaptain: playerId === lineup.vice_captain_player_id,
+        isCaptain,
+        isViceCaptain,
       };
     };
 
+    const starters = STARTER_SLOTS.flatMap(([role, column]) => {
+      const playerId = lineup[column];
+      return playerId === null ? [] : [toPlayerSummary(playerId, role)];
+    });
+    const bench = benchIds.map((playerId, index) => toPlayerSummary(playerId, `Bench ${index + 1}`));
+
+    let managerScore: number | null = lineup.total_points === null ? null : Number(lineup.total_points);
+    if ((managerScore === null || managerScore === 0) && gameweek.status === 'active') {
+      const liveStarterPoints = starters.reduce((sum, p) => sum + p.points, 0);
+      const liveBenchPoints = activeChip === 'bench_boost' ? bench.reduce((sum, p) => sum + p.points, 0) : 0;
+      const liveTotal = Math.round((liveStarterPoints + liveBenchPoints) * 100) / 100;
+      if (liveTotal > 0) {
+        managerScore = liveTotal;
+      }
+    }
+
     return NextResponse.json({
-      gameweek: { id: gameweek.id, number: gameweek.gameweek_number },
-      managerScore: lineup.total_points === null ? null : Number(lineup.total_points),
+      gameweek: {
+        id: gameweek.id,
+        number: gameweek.gameweek_number,
+        status: gameweek.status,
+      },
+      managerScore,
       globalAverage,
-      starters: STARTER_SLOTS.flatMap(([role, column]) => {
-        const playerId = lineup[column];
-        return playerId === null ? [] : [toPlayerSummary(playerId, role)];
-      }),
-      bench: benchIds.map((playerId, index) => toPlayerSummary(playerId, `Bench ${index + 1}`)),
+      starters,
+      bench,
       captainPlayerId: lineup.captain_player_id,
       viceCaptainPlayerId: lineup.vice_captain_player_id,
+      activeChip,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unable to load gameweek history.';

@@ -17,6 +17,7 @@ import {
   ExternalLink,
 } from 'lucide-react';
 import { TeamLogo } from '@/app/(dashboard)/matches/components/TeamLogo';
+import { GameweekSquadLineup } from '@/app/(dashboard)/gameweeks/components/GameweekSquadLineup';
 
 interface ProfessionalTeam {
   id: number;
@@ -345,6 +346,14 @@ export default function GameweekDetailPage({
           )}
         </div>
       )}
+
+      {/* Inline Gameweek Squad Lineup & Performance */}
+      <GameweekSquadLineup
+        gameweekId={gameweek.id}
+        gameweekNumber={gameweek.gameweek_number}
+        gameweekStatus={gameweek.status}
+        deadline={gameweek.deadline}
+      />
 
       {/* Main Content Layout: Fixtures + Top Performers */}
       <div className="grid min-w-0 grid-cols-1 gap-8 lg:grid-cols-3">
