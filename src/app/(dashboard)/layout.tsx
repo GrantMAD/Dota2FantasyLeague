@@ -1,4 +1,5 @@
 import { Header } from '@/components/Header';
+import { PageTransition } from '@/components/PageTransition';
 
 export default function DashboardLayout({
   children,
@@ -8,7 +9,9 @@ export default function DashboardLayout({
   return (
     <>
       <Header />
-      <main className="dashboard-main flex-1">{children}</main>
+      <main className="dashboard-main flex-1">
+        <PageTransition>{children}</PageTransition>
+      </main>
     </>
   );
 }
