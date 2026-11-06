@@ -48,19 +48,17 @@ export function parseFormattedNumber(input: string | number): ParsedNumber | nul
 }
 
 export function useCountUp(target: string | number, duration = 1600): string | number {
-  const [displayValue, setDisplayValue] = useState<string | number>(() => {
-    const parsed = parseFormattedNumber(target);
+  const parsed = parseFormattedNumber(target);
+
+  const [animatedValue, setAnimatedValue] = useState<string | number>(() => {
     if (!parsed) return target;
     const initialNum = parsed.decimals > 0 ? (0).toFixed(parsed.decimals) : '0';
     return `${parsed.prefix}${initialNum}${parsed.suffix}`;
   });
 
   useEffect(() => {
-    const parsed = parseFormattedNumber(target);
-
-    // If non-numeric (e.g. "-" or "Unranked"), just display directly
+    // If non-numeric, no animation loop needed
     if (!parsed) {
-      setDisplayValue(target);
       return;
     }
 
@@ -69,7 +67,6 @@ export function useCountUp(target: string | number, duration = 1600): string | n
       typeof window !== 'undefined' &&
       window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches
     ) {
-      setDisplayValue(target);
       return;
     }
 
@@ -91,7 +88,7 @@ export function useCountUp(target: string | number, duration = 1600): string | n
       const formattedNumber =
         parsed.decimals > 0 ? currentVal.toFixed(parsed.decimals) : Math.round(currentVal).toString();
 
-      setDisplayValue(`${parsed.prefix}${formattedNumber}${parsed.suffix}`);
+      setAnimatedValue(`${parsed.prefix}${formattedNumber}${parsed.suffix}`);
 
       if (progress < 1) {
         animationFrameId = requestAnimationFrame(step);
@@ -99,7 +96,7 @@ export function useCountUp(target: string | number, duration = 1600): string | n
         // Ensure final exact formatted string or original value is reached
         const finalNumber =
           parsed.decimals > 0 ? endVal.toFixed(parsed.decimals) : endVal.toString();
-        setDisplayValue(`${parsed.prefix}${finalNumber}${parsed.suffix}`);
+        setAnimatedValue(`${parsed.prefix}${finalNumber}${parsed.suffix}`);
       }
     };
 
@@ -110,8 +107,17 @@ export function useCountUp(target: string | number, duration = 1600): string | n
         cancelAnimationFrame(animationFrameId);
       }
     };
-  }, [target, duration]);
+  }, [target, duration, parsed]);
 
-  return displayValue;
+  // If non-numeric or reduced motion, directly return the target value without waiting for state
+  if (!parsed) return target;
+  if (
+    typeof window !== 'undefined' &&
+    window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches
+  ) {
+    return target;
+  }
+
+  return animatedValue;
 }
 

@@ -1082,7 +1082,7 @@ function TransfersPageContent() {
                       <td colSpan={7} className="px-4 py-8 text-center text-slate-400">No players found matching your criteria.</td>
                     </tr>
                   ) : (
-                    displayedPlayers.map((player) => {
+                    displayedPlayers.map((player, index) => {
                       const isOwned = ownedPlayerIds.includes(player.id);
                       const isSelected = buildingSelections.has(player.id) || selectedPlayerIn === player.id;
                       const priceChange = typeof player.price_change === 'number' ? player.price_change : null;
@@ -1094,8 +1094,9 @@ function TransfersPageContent() {
                           style={{
                             borderLeftColor: roleAccent,
                             boxShadow: `inset 3px 0 8px -4px color-mix(in srgb, ${roleAccent} 75%, transparent)`,
+                            animationDelay: `${Math.min(index, 12) * 65}ms`,
                           }}
-                          className={`group cursor-pointer border-l-[3px] transition-colors ${
+                          className={`animate-stagger-item group cursor-pointer border-l-[3px] transition-colors ${
                             isSelected
                               ? 'bg-amber-500/10 ring-1 ring-inset ring-amber-400/60'
                               : isOwned

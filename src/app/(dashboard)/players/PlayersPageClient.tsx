@@ -262,6 +262,7 @@ export default function PlayersPageClient({
   // Squad context
   const [ownedPlayerIds, setOwnedPlayerIds] = useState<number[]>([]);
   const [ownedPlayersMap, setOwnedPlayersMap] = useState<Map<number, Player>>(new Map());
+  const [squadContextLoaded, setSquadContextLoaded] = useState(false);
 
   // Pagination
   const [page, setPage] = useState(Number.isSafeInteger(initialPage) && initialPage > 0 ? Math.min(initialPage, 1000) : 1);
@@ -315,10 +316,12 @@ export default function PlayersPageClient({
 
         if (squadResult.status === 'rejected') {
           console.warn('Unable to load player squad context:', squadResult.reason);
+          if (!cancelled) setSquadContextLoaded(true);
           return;
         }
         if (!squadResult.value.ok) {
           console.warn('Unable to load player squad context:', squadResult.value.status);
+          if (!cancelled) setSquadContextLoaded(true);
           return;
         }
 
@@ -330,16 +333,23 @@ export default function PlayersPageClient({
           const ownedRes = await fetchWithAuth(`/api/players?ids=${ownedIds.join(',')}`);
           if (!ownedRes.ok) {
             console.warn('Unable to load owned players for the directory:', ownedRes.status);
+            if (!cancelled) setSquadContextLoaded(true);
             return;
           }
           const ownedData = await ownedRes.json();
           const map = new Map<number, Player>();
           for (const player of (ownedData.data || [])) map.set(player.id, player);
-          if (!cancelled) setOwnedPlayersMap(map);
+          if (!cancelled) {
+            setOwnedPlayersMap(map);
+            setSquadContextLoaded(true);
+          }
+        } else {
+          if (!cancelled) setSquadContextLoaded(true);
         }
       } catch (error) {
         if (!cancelled) {
           console.warn('Unable to load player directory team and squad context:', error);
+          setSquadContextLoaded(true);
         }
       }
     }
@@ -786,7 +796,7 @@ export default function PlayersPageClient({
               </tr>
             </thead>
             <tbody className="divide-y divide-[var(--border)]">
-              {loading && displayedPlayers.length === 0 ? (
+              {(loading && displayedPlayers.length === 0) || !squadContextLoaded ? (
                 [1, 2, 3, 4, 5, 6].map((row) => (
                   <tr key={`player-skeleton-${row}`} className="animate-pulse">
                     {compareMode && <td className="px-4 py-4 text-center"><div className="mx-auto h-4 w-4 rounded bg-[var(--surface-raised)]" /></td>}
@@ -847,7 +857,10 @@ export default function PlayersPageClient({
                     <tr
                       key={player.id}
                       data-tour={index === 0 ? 'players-table-row' : undefined}
-                      className={`transition-colors ${
+                      style={{
+                        animationDelay: `${Math.min(index, 12) * 65}ms`,
+                      }}
+                      className={`animate-stagger-item transition-colors ${
                         isOwned
                           ? 'bg-emerald-500/10 hover:bg-emerald-500/15 border-l-3 border-l-emerald-500'
                           : 'hover:bg-[var(--surface-raised)]/60'
