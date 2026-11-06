@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 interface ParsedNumber {
   prefix: string;
@@ -48,7 +48,7 @@ export function parseFormattedNumber(input: string | number): ParsedNumber | nul
 }
 
 export function useCountUp(target: string | number, duration = 1600): string | number {
-  const parsed = parseFormattedNumber(target);
+  const parsed = useMemo(() => parseFormattedNumber(target), [target]);
 
   const [animatedValue, setAnimatedValue] = useState<string | number>(() => {
     if (!parsed) return target;
@@ -84,19 +84,16 @@ export function useCountUp(target: string | number, duration = 1600): string | n
       const progress = Math.min(elapsed / duration, 1);
       const eased = easeOutQuart(progress);
 
-      const currentVal = startVal + (endVal - startVal) * eased;
-      const formattedNumber =
-        parsed.decimals > 0 ? currentVal.toFixed(parsed.decimals) : Math.round(currentVal).toString();
-
-      setAnimatedValue(`${parsed.prefix}${formattedNumber}${parsed.suffix}`);
-
       if (progress < 1) {
+        const currentVal = startVal + (endVal - startVal) * eased;
+        const formattedNumber =
+          parsed.decimals > 0 ? currentVal.toFixed(parsed.decimals) : Math.round(currentVal).toString();
+
+        setAnimatedValue(`${parsed.prefix}${formattedNumber}${parsed.suffix}`);
         animationFrameId = requestAnimationFrame(step);
       } else {
-        // Ensure final exact formatted string or original value is reached
-        const finalNumber =
-          parsed.decimals > 0 ? endVal.toFixed(parsed.decimals) : endVal.toString();
-        setAnimatedValue(`${parsed.prefix}${finalNumber}${parsed.suffix}`);
+        // Ensure final exact value is reached
+        setAnimatedValue(target);
       }
     };
 
