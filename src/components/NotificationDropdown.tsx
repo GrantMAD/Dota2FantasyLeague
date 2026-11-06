@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Bell } from 'lucide-react';
+import { Bell, Check, CheckCheck, X } from 'lucide-react';
 import { fetchWithAuth } from '@/lib/fetch-with-auth';
 import { useHeaderData } from '@/context/HeaderDataContext';
 import type { HeaderNotification } from './header-types';
@@ -39,8 +39,15 @@ export function NotificationDropdown({
   onToggle: () => void;
   onClose: () => void;
 }) {
-  const { notifications, unreadCount, markNotificationRead } = useHeaderData();
+  const {
+    notifications,
+    unreadCount,
+    markNotificationRead,
+    markAllNotificationsRead,
+    dismissNotification,
+  } = useHeaderData();
   const [currentTime, setCurrentTime] = useState(0);
+  const [isMarkingAll, setIsMarkingAll] = useState(false);
 
   useEffect(() => {
     const initialUpdate = window.setTimeout(() => setCurrentTime(Date.now()), 0);
@@ -61,6 +68,40 @@ export function NotificationDropdown({
       } catch (error) {
         console.error('Failed to mark notification read:', error);
       }
+    }
+  };
+
+  const handleInlineMarkAsRead = async (e: React.MouseEvent, id: number) => {
+    e.preventDefault();
+    e.stopPropagation();
+    markNotificationRead(id);
+    try {
+      const response = await fetchWithAuth(`/api/notifications/${id}/read`, { method: 'PUT' });
+      if (!response.ok) throw new Error(`Mark notification read failed (${response.status}).`);
+    } catch (error) {
+      console.error('Failed to mark notification read:', error);
+    }
+  };
+
+  const handleDismiss = (e: React.MouseEvent, id: number) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dismissNotification(id);
+  };
+
+  const handleMarkAllRead = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (isMarkingAll || unreadCount === 0) return;
+    setIsMarkingAll(true);
+    markAllNotificationsRead();
+    try {
+      const response = await fetchWithAuth('/api/notifications', { method: 'PUT' });
+      if (!response.ok) throw new Error(`Mark all notifications read failed (${response.status}).`);
+    } catch (error) {
+      console.error('Failed to mark all notifications read:', error);
+    } finally {
+      setIsMarkingAll(false);
     }
   };
 
@@ -89,35 +130,92 @@ export function NotificationDropdown({
         )}
       </button>
       {isOpen && (
-        <div className="absolute right-0 top-12 z-50 w-80 rounded-lg border border-slate-700 bg-slate-900 p-2 shadow-xl">
-          <div className="flex items-center justify-between border-b border-slate-700 px-3 py-2">
-            <p className="text-sm font-semibold text-white">Notifications</p>
-            {unreadCount > 0 && <span className="text-xs text-cyan-400">{unreadCount} unread</span>}
+        <div className="absolute right-0 top-12 z-50 w-84 sm:w-96 rounded-xl border border-slate-700 bg-slate-900 p-2 shadow-2xl">
+          <div className="flex items-center justify-between border-b border-slate-800 px-3 py-2.5">
+            <div className="flex items-center gap-2">
+              <p className="text-sm font-bold text-white">Notifications</p>
+              {unreadCount > 0 && (
+                <span className="rounded-full bg-cyan-500/20 px-2 py-0.5 text-[11px] font-semibold text-cyan-300">
+                  {unreadCount} unread
+                </span>
+              )}
+            </div>
+            {unreadCount > 0 && (
+              <button
+                type="button"
+                onClick={handleMarkAllRead}
+                disabled={isMarkingAll}
+                className="flex items-center gap-1 text-xs font-medium text-slate-400 hover:text-cyan-300 transition-colors disabled:opacity-50"
+                title="Mark all as read"
+              >
+                <CheckCheck className="h-3.5 w-3.5" />
+                <span>Mark all read</span>
+              </button>
+            )}
           </div>
           {notifications.length === 0 ? (
-            <p className="px-3 py-6 text-center text-sm text-slate-400">You are all caught up.</p>
+            <p className="px-3 py-8 text-center text-sm text-slate-400">You are all caught up.</p>
           ) : (
-            <div className="max-h-80 overflow-y-auto">
+            <div className="max-h-96 overflow-y-auto divide-y divide-slate-800/60">
               {notifications.map((notification) => (
-                <Link
+                <div
                   key={notification.id}
-                  href={notificationHref(notification.type)}
-                  onClick={() => void handleNotificationClick(notification)}
-                  className={`block border-b border-slate-800 px-3 py-3 transition hover:bg-slate-800/60 last:border-b-0 ${notification.is_read ? 'opacity-70' : 'bg-slate-800/20'}`}
+                  className={`group relative flex items-start justify-between gap-3 px-3 py-3 transition hover:bg-slate-800/50 ${
+                    notification.is_read ? 'opacity-75' : 'bg-slate-800/25'
+                  }`}
                 >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex items-center gap-1.5 min-w-0">
-                      {!notification.is_read && <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-cyan-400" />}
-                      <p className="truncate text-sm font-medium text-white">{notification.title}</p>
+                  <Link
+                    href={notificationHref(notification.type)}
+                    onClick={() => void handleNotificationClick(notification)}
+                    className="min-w-0 flex-1"
+                  >
+                    <div className="flex items-center gap-1.5">
+                      {!notification.is_read && (
+                        <span className="h-2 w-2 shrink-0 rounded-full bg-cyan-400 ring-2 ring-cyan-500/30" />
+                      )}
+                      <p className={`truncate text-sm font-semibold ${notification.is_read ? 'text-slate-300' : 'text-white'}`}>
+                        {notification.title}
+                      </p>
                     </div>
-                    <span className="shrink-0 text-[11px] text-slate-500">{formatNotificationTime(notification.created_at)}</span>
+                    <p className="mt-1 line-clamp-2 text-xs text-slate-400 leading-relaxed">
+                      {notification.message}
+                    </p>
+                    <span className="mt-1.5 block text-[11px] text-slate-500">
+                      {formatNotificationTime(notification.created_at)}
+                    </span>
+                  </Link>
+
+                  <div className="flex shrink-0 items-center gap-1 pt-0.5">
+                    {!notification.is_read && (
+                      <button
+                        type="button"
+                        onClick={(e) => void handleInlineMarkAsRead(e, notification.id)}
+                        className="rounded p-1 text-slate-400 hover:bg-cyan-500/20 hover:text-cyan-300 transition-colors"
+                        title="Mark as read"
+                        aria-label="Mark as read"
+                      >
+                        <Check className="h-3.5 w-3.5" />
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={(e) => handleDismiss(e, notification.id)}
+                      className="rounded p-1 text-slate-500 hover:bg-slate-800 hover:text-slate-300 transition-colors opacity-70 group-hover:opacity-100"
+                      title="Dismiss from list"
+                      aria-label="Dismiss notification"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
                   </div>
-                  <p className="mt-1 line-clamp-2 text-xs text-slate-400">{notification.message}</p>
-                </Link>
+                </div>
               ))}
             </div>
           )}
-          <Link href="/notifications" onClick={onClose} className="mt-2 block rounded-md border border-slate-700 px-3 py-2 text-center text-sm font-medium text-cyan-400 hover:bg-slate-800 hover:text-cyan-300">
+          <Link
+            href="/notifications"
+            onClick={onClose}
+            className="mt-2 block rounded-lg border border-slate-700/80 bg-slate-800/40 px-3 py-2 text-center text-xs font-semibold text-cyan-300 hover:bg-slate-800 hover:text-cyan-200 transition-colors"
+          >
             View All Notifications
           </Link>
         </div>

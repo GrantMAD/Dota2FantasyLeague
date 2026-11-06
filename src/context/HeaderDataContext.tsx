@@ -29,6 +29,10 @@ interface HeaderDataContextValue {
   unreadCount: number;
   /** Call after the user marks a notification read to update local state. */
   markNotificationRead: (id: number) => void;
+  /** Mark all notifications as read in local state. */
+  markAllNotificationsRead: () => void;
+  /** Dismiss/remove a single notification from local state. */
+  dismissNotification: (id: number) => void;
   /** Force-refresh quick-stats (e.g. after a transfer). */
   refreshQuickStats: () => void;
 }
@@ -233,6 +237,23 @@ export function HeaderDataProvider({ children }: { children: ReactNode }) {
     setUnreadCount((count) => Math.max(0, count - 1));
   }, []);
 
+  const markAllNotificationsRead = useCallback(() => {
+    setNotifications((current) =>
+      current.map((n) => ({ ...n, is_read: true })),
+    );
+    setUnreadCount(0);
+  }, []);
+
+  const dismissNotification = useCallback((id: number) => {
+    setNotifications((current) => {
+      const target = current.find((n) => n.id === id);
+      if (target && !target.is_read) {
+        setUnreadCount((count) => Math.max(0, count - 1));
+      }
+      return current.filter((n) => n.id !== id);
+    });
+  }, []);
+
   return (
     <HeaderDataContext.Provider
       value={{
@@ -241,6 +262,8 @@ export function HeaderDataProvider({ children }: { children: ReactNode }) {
         notifications,
         unreadCount,
         markNotificationRead,
+        markAllNotificationsRead,
+        dismissNotification,
         refreshQuickStats: loadQuickStats,
       }}
     >
