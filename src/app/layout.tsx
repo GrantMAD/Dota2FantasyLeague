@@ -38,7 +38,21 @@ export default function RootLayout({ children }: { children: ReactNode }) {
       lang="en"
       data-theme="dark"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased dark`}
+      suppressHydrationWarning
     >
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              try {
+                if (localStorage.getItem('sidebar-collapsed') === 'true') {
+                  document.documentElement.dataset.sidebarCollapsed = 'true';
+                }
+              } catch (_) {}
+            `,
+          }}
+        />
+      </head>
       <body className="min-h-screen bg-linear-to-br from-slate-950 to-slate-900 text-white">
         <ThemeProvider>
           <SessionProvider>

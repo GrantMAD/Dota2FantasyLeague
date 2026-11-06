@@ -106,8 +106,24 @@ export function DashboardNavigation({
   const touchStartYRef = useRef(0);
 
   useEffect(() => {
+    try {
+      const stored = window.localStorage.getItem('sidebar-collapsed');
+      if (stored === 'true') {
+        setSidebarCollapsed(true);
+        document.documentElement.dataset.sidebarCollapsed = 'true';
+      }
+    } catch {
+      // Ignore storage access errors
+    }
+  }, []);
+
+  useEffect(() => {
     document.documentElement.dataset.sidebarCollapsed = String(sidebarCollapsed);
-    window.localStorage.setItem('sidebar-collapsed', String(sidebarCollapsed));
+    try {
+      window.localStorage.setItem('sidebar-collapsed', String(sidebarCollapsed));
+    } catch {
+      // Ignore storage access errors
+    }
   }, [sidebarCollapsed]);
 
   useEffect(() => {
