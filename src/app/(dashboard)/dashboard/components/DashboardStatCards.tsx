@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { ArrowRight, Info } from 'lucide-react';
+import { useCountUp } from '@/hooks/useCountUp';
 
 export interface DashboardStatCardData {
   icon: React.ReactNode;
@@ -7,6 +8,15 @@ export interface DashboardStatCardData {
   value: string | number;
   trend?: string;
   trendColor?: string;
+}
+
+function StatValue({ value }: { value: string | number }) {
+  const animatedValue = useCountUp(value);
+  return (
+    <p className="mb-1 text-2xl font-black font-mono tracking-tight" style={{ color: 'var(--text-primary)' }}>
+      {animatedValue}
+    </p>
+  );
 }
 
 interface DashboardStatCardsProps {
@@ -52,9 +62,7 @@ function StaticStatCard({ stat }: { stat: DashboardStatCardData }) {
         <p className="mb-1 text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>
           {stat.label}
         </p>
-        <p className="mb-1 text-2xl font-black font-mono tracking-tight" style={{ color: 'var(--text-primary)' }}>
-          {stat.value}
-        </p>
+        <StatValue value={stat.value} />
       </div>
       {stat.trend && (
         <p className={`text-xs font-medium mt-1 ${stat.trendColor || ''}`} style={{ color: !stat.trendColor ? 'var(--text-muted)' : undefined }}>
@@ -104,9 +112,7 @@ export function DashboardStatCards({ stats, onOpenPointsBreakdown }: DashboardSt
                 <p className="mb-1 text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>
                   {stat.label}
                 </p>
-                <p className="mb-1 text-2xl font-black font-mono tracking-tight" style={{ color: 'var(--text-primary)' }}>
-                  {stat.value}
-                </p>
+                <StatValue value={stat.value} />
               </div>
               {stat.trend && (
                 <p className="text-xs font-medium mt-1 flex items-center gap-1 text-amber-500">
@@ -168,9 +174,7 @@ export function DashboardStatCards({ stats, onOpenPointsBreakdown }: DashboardSt
               <p className="mb-1 text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>
                 {stat.label}
               </p>
-              <p className="mb-1 text-2xl font-black font-mono tracking-tight" style={{ color: 'var(--text-primary)' }}>
-                {stat.value}
-              </p>
+              <StatValue value={stat.value} />
             </div>
             {stat.trend && (
               <p className={`text-xs font-medium mt-1 truncate ${stat.trendColor || ''}`} style={{ color: !stat.trendColor ? 'var(--text-muted)' : undefined }}>

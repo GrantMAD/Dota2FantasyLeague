@@ -1,0 +1,117 @@
+'use client';
+
+import { useEffect, useState } from 'react';
+
+interface ParsedNumber {
+  prefix: string;
+  value: number;
+  decimals: number;
+  suffix: string;
+}
+
+export function parseFormattedNumber(input: string | number): ParsedNumber | null {
+  if (typeof input === 'number') {
+    if (Number.isNaN(input)) return null;
+    const isInteger = Number.isInteger(input);
+    const decimals = isInteger ? 0 : (input.toString().split('.')[1]?.length ?? 2);
+    return {
+      prefix: '',
+      value: input,
+      decimals,
+      suffix: '',
+    };
+  }
+
+  const str = String(input).trim();
+  if (!str) return null;
+
+  // Match optional prefix, numeric part (with optional decimals), and optional suffix
+  const match = str.match(/^([^\d\-+.]*?)([+-]?(?:\d+(?:\.\d+)?|\.\d+))(.*)$/);
+  if (!match) return null;
+
+  const prefix = match[1] || '';
+  const numStr = match[2];
+  const suffix = match[3] || '';
+
+  const value = parseFloat(numStr);
+  if (Number.isNaN(value)) return null;
+
+  const decimalPart = numStr.split('.')[1];
+  const decimals = decimalPart ? decimalPart.length : 0;
+
+  return {
+    prefix,
+    value,
+    decimals,
+    suffix,
+  };
+}
+
+export function useCountUp(target: string | number, duration = 1600): string | number {
+  const [displayValue, setDisplayValue] = useState<string | number>(() => {
+    const parsed = parseFormattedNumber(target);
+    if (!parsed) return target;
+    const initialNum = parsed.decimals > 0 ? (0).toFixed(parsed.decimals) : '0';
+    return `${parsed.prefix}${initialNum}${parsed.suffix}`;
+  });
+
+  useEffect(() => {
+    const parsed = parseFormattedNumber(target);
+
+    // If non-numeric (e.g. "-" or "Unranked"), just display directly
+    if (!parsed) {
+      setDisplayValue(target);
+      return;
+    }
+
+    // Respect prefers-reduced-motion
+    if (
+      typeof window !== 'undefined' &&
+      window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches
+    ) {
+      setDisplayValue(target);
+      return;
+    }
+
+    let animationFrameId: number;
+    let startTime: number | null = null;
+    const startVal = 0;
+    const endVal = parsed.value;
+
+    // Smoother ease-out quart curve
+    const easeOutQuart = (t: number) => 1 - Math.pow(1 - t, 4);
+
+    const step = (timestamp: number) => {
+      if (!startTime) startTime = timestamp;
+      const elapsed = timestamp - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+      const eased = easeOutQuart(progress);
+
+      const currentVal = startVal + (endVal - startVal) * eased;
+      const formattedNumber =
+        parsed.decimals > 0 ? currentVal.toFixed(parsed.decimals) : Math.round(currentVal).toString();
+
+      setDisplayValue(`${parsed.prefix}${formattedNumber}${parsed.suffix}`);
+
+      if (progress < 1) {
+        animationFrameId = requestAnimationFrame(step);
+      } else {
+        // Ensure final exact formatted string or original value is reached
+        const finalNumber =
+          parsed.decimals > 0 ? endVal.toFixed(parsed.decimals) : endVal.toString();
+        setDisplayValue(`${parsed.prefix}${finalNumber}${parsed.suffix}`);
+      }
+    };
+
+    animationFrameId = requestAnimationFrame(step);
+
+    return () => {
+      if (animationFrameId) {
+        cancelAnimationFrame(animationFrameId);
+      }
+    };
+  }, [target, duration]);
+
+  return displayValue;
+}
+
