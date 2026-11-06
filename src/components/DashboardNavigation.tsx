@@ -100,22 +100,17 @@ export function DashboardNavigation({
   quickStats?: unknown;
 }) {
   const pathname = usePathname();
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return false;
+    try {
+      return window.localStorage.getItem('sidebar-collapsed') === 'true';
+    } catch {
+      return false;
+    }
+  });
   const mobileDrawerRef = useRef<HTMLDivElement>(null);
   const touchStartXRef = useRef(0);
   const touchStartYRef = useRef(0);
-
-  useEffect(() => {
-    try {
-      const stored = window.localStorage.getItem('sidebar-collapsed');
-      if (stored === 'true') {
-        setSidebarCollapsed(true);
-        document.documentElement.dataset.sidebarCollapsed = 'true';
-      }
-    } catch {
-      // Ignore storage access errors
-    }
-  }, []);
 
   useEffect(() => {
     document.documentElement.dataset.sidebarCollapsed = String(sidebarCollapsed);
