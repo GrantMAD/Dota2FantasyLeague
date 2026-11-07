@@ -53,6 +53,8 @@ interface OpenDotaTeam {
   tag?: string | null;
   country?: string | null;
   created_at?: number | null;
+  last_match_time?: number | null;
+  rating?: number | null;
   logo_url?: string | null;
 }
 
@@ -280,8 +282,17 @@ export class OpenDotaProvider extends DataProviderBase implements DataProvider {
         );
       }
 
-      // Filter to genuine pro teams with non-empty names and valid IDs
-      const validTeams = teams.filter((team) => team.team_id && team.name && team.name.trim().length > 0);
+      // Filter to genuine pro teams with non-empty names and valid IDs.
+      // Exclude defunct teams that have had no competitive match activity in over 18 months (548 days),
+      // unless filters explicitly request all historical teams.
+      const eighteenMonthsAgoSeconds = Math.floor(Date.now() / 1000) - (548 * 24 * 60 * 60);
+      const validTeams = teams.filter((team) => {
+        if (!team.team_id || !team.name || team.name.trim().length === 0) return false;
+        if (filters?.activeOnly && team.last_match_time && team.last_match_time < eighteenMonthsAgoSeconds) {
+          return false;
+        }
+        return true;
+      });
 
       const offset = filters?.offset || 0;
       const limit = filters?.limit !== undefined ? filters.limit : validTeams.length;

@@ -346,12 +346,15 @@ export async function purgeInactiveData(): Promise<PurgeResult> {
             // 6. player_prices
             await supabase.from('player_prices').delete().in('player_id', chunk);
 
-            // 7. player_performances (ON DELETE CASCADE propagates to fantasy_points_breakdown)
+            // 7. fantasy_squad_members (any lingering historical transfer slots or squad records)
+            await supabase.from('fantasy_squad_members').delete().in('player_id', chunk);
+
+            // 8. player_performances (ON DELETE CASCADE propagates to fantasy_points_breakdown)
             // Safety net: safeToDeleteIds should have no performances, but if the
             // protectedIds query was still incomplete this prevents the FK violation.
             await supabase.from('player_performances').delete().in('player_id', chunk);
 
-            // 8. Finally delete the players
+            // 9. Finally delete the players
             const { error: delErr } = await supabase
               .from('professional_players')
               .delete()

@@ -366,6 +366,7 @@ async function fetchWhatsNew(userId: string): Promise<WhatsNewData | null> {
       return { gameweek: null, events: [], updates: [] };
     }
 
+    const today = new Date().toISOString().slice(0, 10);
     const [gameweeksRes, tournamentsRes, updatesRes] = await Promise.all([
       supabase
         .from('gameweeks')
@@ -376,16 +377,21 @@ async function fetchWhatsNew(userId: string): Promise<WhatsNewData | null> {
         .limit(1),
       supabase
         .from('tournaments')
-        .select('id, name, tier, start_date, series_count, match_count, best_of_formats, deadline, match_statuses')
-        .gte('start_date', new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString())
+        .select('id, name, tier, start_date, end_date')
+        .eq('season_id', fantasySeason.season_id)
+        .eq('eligible', true)
+        .neq('status', 'archived')
+        .lte('start_date', today)
+        .gte('end_date', today)
         .order('start_date', { ascending: false })
-        .limit(5),
-      supabase
-        .from('player_notifications')
-        .select('id, kind, title, message, created_at, player_id')
-        .eq('user_id', userId)
-        .order('created_at', { ascending: false })
         .limit(10),
+      supabase
+        .from('user_notifications')
+        .select('id, type, title, message, created_at, metadata')
+        .eq('user_id', userId)
+        .in('type', ['price_change', 'system'])
+        .order('created_at', { ascending: false })
+        .limit(20),
     ]);
 
     const gw = gameweeksRes.data?.[0] ?? null;
@@ -421,24 +427,23 @@ async function fetchWhatsNew(userId: string): Promise<WhatsNewData | null> {
       kind: 'tournament' as const,
       id: t.id,
       title: t.name,
-      startedAt: t.start_date,
+      startedAt: `${t.start_date}T00:00:00.000Z`,
       href: `/tournaments/${t.id}`,
       tier: t.tier ?? null,
-      seriesCount: t.series_count ?? undefined,
-      matchCount: t.match_count ?? undefined,
-      bestOfFormats: t.best_of_formats ?? undefined,
-      deadline: t.deadline ?? null,
-      matchStatuses: t.match_statuses ?? undefined,
     }));
 
-    const updates: WhatsNewData['updates'] = (updatesRes.data ?? []).map((n) => ({
-      id: n.id,
-      kind: n.kind as 'price_change' | 'availability',
-      title: n.title,
-      message: n.message,
-      createdAt: n.created_at,
-      href: `/players/${n.player_id}`,
-    }));
+    const updates: WhatsNewData['updates'] = (updatesRes.data ?? []).map((n) => {
+      const meta = n.metadata as Record<string, unknown> | null;
+      const playerId = meta?.player_id ? Number(meta.player_id) : 0;
+      return {
+        id: n.id,
+        kind: n.type === 'system' ? ('availability' as const) : ('price_change' as const),
+        title: n.title,
+        message: n.message,
+        createdAt: n.created_at,
+        href: playerId ? `/players/${playerId}` : '/players',
+      };
+    });
 
     return { gameweek, events, updates };
   } catch (err) {

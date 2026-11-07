@@ -66,7 +66,14 @@ type FeedFilter = 'all' | 'friends' | 'squad' | 'tournaments';
 type FeedItem =
   | { type: 'friend'; data: FriendActivity }
   | { type: 'update'; data: WhatsNewUpdate }
-  | { type: 'tournament'; data: WhatsNewEvent };
+  | { type: 'tournament'; data: WhatsNewEvent }
+  | {
+      type: 'overflow_notice';
+      category: 'price_change' | 'availability' | 'tournament' | 'friend';
+      count: number;
+      label: string;
+      targetFilter: FeedFilter;
+    };
 
 function formatRelativeTime(value: string) {
   const elapsedSeconds = Math.round((Date.now() - new Date(value).getTime()) / 1000);
@@ -131,16 +138,96 @@ export function DashboardWhatsNew({ whatsNew }: DashboardWhatsNewProps) {
   const liveMatchesCount = gameweek?.matchStatuses?.in_progress ?? 0;
   const totalMatches = gameweek?.matchCount ?? 0;
 
+  const tournamentCount = events?.length ?? 0;
+  const squadUpdateCount = updates.length;
+  const friendActivityCount = friendActivities.length;
+
   // Interleave feed items: friend activity & squad alerts take priority
-  const allFeedItems: FeedItem[] = [
+  const rawFeedItems: FeedItem[] = [
     ...friendActivities.map((f) => ({ type: 'friend' as const, data: f })),
     ...updates.map((u) => ({ type: 'update' as const, data: u })),
     ...(events || []).map((e) => ({ type: 'tournament' as const, data: e })),
   ];
 
-  const tournamentCount = events?.length ?? 0;
-  const squadUpdateCount = updates.length;
-  const friendActivityCount = friendActivities.length;
+  const totalRawCount = rawFeedItems.length;
+
+  // In the 'all' view, collapse identical categories when there are 5 or more items
+  // (e.g. 5+ price changes, 5+ tournaments, 5+ friend moves, 5+ availability alerts)
+  const allFeedItems: FeedItem[] = (() => {
+    if (filter !== 'all') {
+      return rawFeedItems;
+    }
+
+    const priceChanges: WhatsNewUpdate[] = [];
+    const availabilityUpdates: WhatsNewUpdate[] = [];
+    const tournamentEvents: WhatsNewEvent[] = [];
+    const friends: FriendActivity[] = [];
+
+    for (const item of rawFeedItems) {
+      if (item.type === 'friend') {
+        friends.push(item.data);
+      } else if (item.type === 'tournament') {
+        tournamentEvents.push(item.data);
+      } else if (item.type === 'update') {
+        if (item.data.kind === 'price_change') {
+          priceChanges.push(item.data);
+        } else {
+          availabilityUpdates.push(item.data);
+        }
+      }
+    }
+
+    const result: FeedItem[] = [];
+
+    // Helper: add up to cap or replace with 4 items + overflow note
+    const appendCategory = (
+      items: FeedItem[],
+      category: 'price_change' | 'availability' | 'tournament' | 'friend',
+      label: string,
+      targetFilter: FeedFilter,
+    ) => {
+      if (items.length >= 5) {
+        // Show first 4 and a notice card
+        result.push(...items.slice(0, 4));
+        result.push({
+          type: 'overflow_notice',
+          category,
+          count: items.length - 4,
+          label,
+          targetFilter,
+        });
+      } else {
+        result.push(...items);
+      }
+    };
+
+    appendCategory(
+      friends.map((f) => ({ type: 'friend' as const, data: f })),
+      'friend',
+      'friend activity updates',
+      'friends',
+    );
+    appendCategory(
+      availabilityUpdates.map((u) => ({ type: 'update' as const, data: u })),
+      'availability',
+      'squad availability alerts',
+      'squad',
+    );
+    appendCategory(
+      priceChanges.map((u) => ({ type: 'update' as const, data: u })),
+      'price_change',
+      'price change notifications',
+      'squad',
+    );
+    appendCategory(
+      tournamentEvents.map((e) => ({ type: 'tournament' as const, data: e })),
+      'tournament',
+      'active tournaments',
+      'tournaments',
+    );
+
+    return result;
+  })();
 
   const filteredItems = allFeedItems.filter((item) => {
     if (filter === 'friends') return item.type === 'friend';
@@ -319,7 +406,7 @@ export function DashboardWhatsNew({ whatsNew }: DashboardWhatsNewProps) {
                       color: filter === 'all' ? 'var(--background)' : 'var(--text-muted)',
                     }}
                   >
-                    {allFeedItems.length}
+                    {totalRawCount}
                   </span>
                 </button>
 
@@ -417,6 +504,91 @@ export function DashboardWhatsNew({ whatsNew }: DashboardWhatsNewProps) {
                 </div>
               ) : (
                 filteredItems.map((item) => {
+                  if (item.type === 'overflow_notice') {
+                    const notice = item;
+                    const noticeTheme =
+                      notice.category === 'price_change'
+                        ? {
+                            border: 'border-l-emerald-500/80',
+                            bgGradient: 'from-emerald-500/[0.06] to-transparent',
+                            hoverBg: 'hover:bg-emerald-500/[0.10]',
+                            badge: 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400',
+                            accent: 'text-emerald-600 dark:text-emerald-400',
+                            icon: TrendingUp,
+                          }
+                        : notice.category === 'availability'
+                          ? {
+                              border: 'border-l-rose-500/80',
+                              bgGradient: 'from-rose-500/[0.06] to-transparent',
+                              hoverBg: 'hover:bg-rose-500/[0.10]',
+                              badge: 'bg-rose-500/15 text-rose-600 dark:text-rose-400',
+                              accent: 'text-rose-600 dark:text-rose-400',
+                              icon: AlertTriangle,
+                            }
+                          : notice.category === 'tournament'
+                            ? {
+                                border: 'border-l-amber-500/80',
+                                bgGradient: 'from-amber-500/[0.06] to-transparent',
+                                hoverBg: 'hover:bg-amber-500/[0.10]',
+                                badge: 'bg-amber-500/15 text-amber-600 dark:text-amber-400',
+                                accent: 'text-amber-600 dark:text-amber-400',
+                                icon: Trophy,
+                              }
+                            : {
+                                border: 'border-l-teal-500/80',
+                                bgGradient: 'from-teal-500/[0.06] to-transparent',
+                                hoverBg: 'hover:bg-teal-500/[0.10]',
+                                badge: 'bg-teal-500/15 text-teal-600 dark:text-teal-400',
+                                accent: 'text-teal-600 dark:text-teal-400',
+                                icon: Users,
+                              };
+
+                    const Icon = noticeTheme.icon;
+
+                    return (
+                      <button
+                        key={`overflow-${notice.category}`}
+                        type="button"
+                        onClick={() => setFilter(notice.targetFilter)}
+                        className={`group relative flex w-full items-center justify-between gap-3 px-4 py-2.5 border-l-3 ${noticeTheme.border} bg-linear-to-r ${noticeTheme.bgGradient} ${noticeTheme.hoverBg} transition-all cursor-pointer text-left`}
+                      >
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div
+                            className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg ${noticeTheme.badge} transition-transform group-hover:scale-105`}
+                          >
+                            <Icon className="h-3.5 w-3.5" />
+                          </div>
+                          <div className="flex items-center gap-2 min-w-0 flex-wrap sm:flex-nowrap">
+                            <span className="text-xs text-slate-600 dark:text-slate-300">
+                              There are{' '}
+                              <strong className={`font-semibold ${noticeTheme.accent}`}>
+                                {notice.count} more {notice.label}
+                              </strong>
+                              .
+                            </span>
+                            <span className={`text-xs font-bold underline underline-offset-2 ${noticeTheme.accent} group-hover:opacity-80`}>
+                              Click here to view all
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-2 shrink-0">
+                          <span
+                            className="rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider"
+                            style={{
+                              background: 'var(--surface-raised)',
+                              color: 'var(--text-secondary)',
+                              border: '1px solid var(--border)',
+                            }}
+                          >
+                            Filter by {notice.targetFilter}
+                          </span>
+                          <ArrowRight className={`h-3.5 w-3.5 ${noticeTheme.accent} group-hover:translate-x-1 transition-transform`} />
+                        </div>
+                      </button>
+                    );
+                  }
+
                   if (item.type === 'friend') {
                     const activity = item.data;
                     const name = activity.display_name?.trim() || activity.username;

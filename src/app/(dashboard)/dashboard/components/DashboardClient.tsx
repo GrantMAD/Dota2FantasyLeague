@@ -380,7 +380,48 @@ export function DashboardClient({ initialData, initialWhatsNew }: DashboardClien
         ) : null}
 
         {/* What's New Feed — full-width row, shown prominently before the main grid */}
-        {whatsNew && <DashboardWhatsNew whatsNew={whatsNew} />}
+        {whatsNew ? (
+          <DashboardWhatsNew whatsNew={whatsNew} />
+        ) : !whatsNewError ? (
+          <section aria-label="What's New Updates" className="mb-8 space-y-3.5">
+            <div
+              className="rounded-2xl p-4 sm:p-5 animate-pulse"
+              style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
+            >
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-xl" style={{ background: 'var(--surface-muted)' }} />
+                  <div className="space-y-2">
+                    <div className="h-4 w-44 rounded" style={{ background: 'var(--surface-muted)' }} />
+                    <div className="h-3 w-64 rounded" style={{ background: 'var(--surface-muted)' }} />
+                  </div>
+                </div>
+                <div className="h-9 w-28 rounded-xl" style={{ background: 'var(--surface-muted)' }} />
+              </div>
+            </div>
+            <div
+              className="rounded-2xl p-4 sm:p-5 animate-pulse"
+              style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
+            >
+              <div className="flex items-center justify-between gap-3 mb-4">
+                <div className="flex items-center gap-2.5">
+                  <div className="h-7 w-7 rounded-lg" style={{ background: 'var(--surface-muted)' }} />
+                  <div className="h-4 w-28 rounded" style={{ background: 'var(--surface-muted)' }} />
+                </div>
+                <div className="h-6 w-36 rounded-lg" style={{ background: 'var(--surface-muted)' }} />
+              </div>
+              <div className="space-y-2.5">
+                {[0, 1].map((idx) => (
+                  <div
+                    key={idx}
+                    className="h-12 rounded-xl"
+                    style={{ background: 'var(--surface-muted)' }}
+                  />
+                ))}
+              </div>
+            </div>
+          </section>
+        ) : null}
         {whatsNewError && (
           <div role="status" className="mb-6 rounded-xl border border-rose-500/30 bg-rose-950/30 px-5 py-4 text-sm text-rose-200">
             What&apos;s New could not be loaded: {whatsNewError}

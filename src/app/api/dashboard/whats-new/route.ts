@@ -110,25 +110,36 @@ async function getHandler(request: NextRequest) {
 
       const seriesRows = series ?? [];
       const seriesByTournament = new Map<number, number[]>();
+      const seriesToTournament = new Map<number, number>();
       for (const row of seriesRows) {
         const tournamentSeriesIds = seriesByTournament.get(row.tournament_id) ?? [];
         tournamentSeriesIds.push(row.id);
         seriesByTournament.set(row.tournament_id, tournamentSeriesIds);
+        seriesToTournament.set(row.id, row.tournament_id);
       }
-      const matchCountResults = await Promise.all(activeTournaments.map(async (tournament) => {
-        const tournamentSeriesIds = seriesByTournament.get(tournament.id) ?? [];
-        if (tournamentSeriesIds.length === 0) return [tournament.id, 0] as const;
 
-        const { count, error: matchesError } = await supabase
+      const allSeriesIds = seriesRows.map((s) => s.id);
+      const matchCounts = new Map<number, number>();
+
+      if (allSeriesIds.length > 0) {
+        const { data: matchedRows, error: matchesError } = await supabase
           .from('matches')
-          .select('id', { count: 'exact', head: true })
-          .in('series_id', tournamentSeriesIds);
+          .select('id, series_id')
+          .in('series_id', allSeriesIds);
+
         if (matchesError) {
-          throw new Error(`Failed to count matches for tournament ${tournament.id}: ${matchesError.message}`);
+          throw new Error(`Failed to count matches for tournaments: ${matchesError.message}`);
         }
-        return [tournament.id, count ?? 0] as const;
-      }));
-      const matchCounts = new Map(matchCountResults);
+
+        for (const match of matchedRows ?? []) {
+          if (match.series_id) {
+            const tournamentId = seriesToTournament.get(match.series_id);
+            if (tournamentId) {
+              matchCounts.set(tournamentId, (matchCounts.get(tournamentId) ?? 0) + 1);
+            }
+          }
+        }
+      }
 
       events = activeTournaments.map((tournament) => {
         const tournamentSeries = seriesRows.filter((row) => row.tournament_id === tournament.id);
@@ -231,7 +242,7 @@ async function getHandler(request: NextRequest) {
             });
           }
 
-          if (updates.length === 5) break;
+          if (updates.length === 20) break;
         }
       }
     }
