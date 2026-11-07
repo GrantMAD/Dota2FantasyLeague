@@ -1,11 +1,11 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
 import { canOptimizeImage } from '@/lib/optimized-image';
-import { ShieldCheck, ArrowRightLeft } from 'lucide-react';
+import { ShieldCheck, ArrowRightLeft, X } from 'lucide-react';
 import { fetchWithAuth } from '@/lib/fetch-with-auth';
 
 type PlayerAnalytics = {
@@ -117,10 +117,17 @@ export default function PlayerDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedMatch, setSelectedMatch] = useState<MatchHistoryItem | null>(null);
+  const matchModalContentRef = useRef<HTMLDivElement | null>(null);
   const [ownedPlayerIds, setOwnedPlayerIds] = useState<number[]>([]);
   const [analytics, setAnalytics] = useState<PlayerAnalytics | null>(null);
   const [analyticsLoading, setAnalyticsLoading] = useState(false);
   const [isPremium, setIsPremium] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    if (selectedMatch && matchModalContentRef.current) {
+      matchModalContentRef.current.scrollTop = 0;
+    }
+  }, [selectedMatch]);
 
   useEffect(() => {
     async function fetchPlayer() {
@@ -700,10 +707,18 @@ export default function PlayerDetailPage() {
 
       {/* Match Details Modal */}
       {selectedMatch && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="player-match-modal relative max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-3xl border border-[var(--border)] bg-[var(--surface)] shadow-2xl p-6">
+        <div
+          className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/80 p-4 py-8 backdrop-blur-sm sm:items-center animate-modal-backdrop"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setSelectedMatch(null);
+          }}
+        >
+          <div
+            ref={matchModalContentRef}
+            className="player-match-modal animate-modal-content relative my-auto max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-3xl border border-[var(--border)] bg-[var(--surface)] p-6 shadow-2xl"
+          >
             {/* Header */}
-            <div className="border-b border-[var(--border)] pb-4">
+            <div className="flex items-start justify-between border-b border-[var(--border)] pb-4">
               <div>
                 <div className="flex items-center gap-2 mb-2">
                   <span className="rounded-full bg-amber-500/15 px-2.5 py-0.5 text-xs font-bold uppercase text-amber-400 border border-amber-500/30">
@@ -720,6 +735,14 @@ export default function PlayerDetailPage() {
                 <h2 className="text-2xl font-bold text-[var(--text-primary)]">{player.in_game_name} {selectedMatch.opponent}</h2>
                 <p className="text-xs text-[var(--text-muted)] mt-1 font-mono">Match Duration: {selectedMatch.duration} mins</p>
               </div>
+              <button
+                type="button"
+                onClick={() => setSelectedMatch(null)}
+                aria-label="Close match details"
+                className="rounded-lg p-2 text-[var(--text-muted)] hover:bg-[var(--surface-raised)] hover:text-[var(--text-primary)] transition-colors"
+              >
+                <X className="h-5 w-5" />
+              </button>
             </div>
 
             {/* Total Points Highlight */}

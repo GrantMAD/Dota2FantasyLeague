@@ -376,10 +376,10 @@ export function DashboardGoalProgress({
           role="dialog"
           aria-modal="true"
           aria-labelledby="goal-modal-title"
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-modal-backdrop"
         >
           <div
-            className="max-h-[calc(100dvh-2rem)] w-full max-w-md overflow-y-auto rounded-2xl border p-6 shadow-2xl transition-all"
+            className="animate-modal-content max-h-[calc(100dvh-2rem)] w-full max-w-md overflow-y-auto rounded-2xl border p-6 shadow-2xl transition-all"
             style={{
               background: 'var(--surface)',
               borderColor: 'var(--border)',

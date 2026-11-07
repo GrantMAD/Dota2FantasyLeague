@@ -88,7 +88,7 @@ export function FriendProgressModal({
 
   return (
     <div
-      className="fixed inset-0 z-[120] flex items-center justify-center bg-slate-950/75 p-4 backdrop-blur-sm"
+      className="fixed inset-0 z-[120] flex items-start justify-center overflow-y-auto bg-slate-950/75 p-4 py-8 backdrop-blur-sm sm:items-center animate-modal-backdrop"
       onMouseDown={(event) => {
         if (event.target === event.currentTarget) onClose();
       }}
@@ -97,7 +97,7 @@ export function FriendProgressModal({
         role="dialog"
         aria-modal="true"
         aria-labelledby="friend-progress-title"
-        className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-[var(--border)] bg-[var(--surface-raised)] p-5 shadow-2xl sm:p-7"
+        className="animate-modal-content my-auto max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-[var(--border)] bg-[var(--surface-raised)] p-5 shadow-2xl sm:p-7"
       >
         <header className="mb-5 flex items-start justify-between gap-4">
           <div className="flex items-center gap-3">

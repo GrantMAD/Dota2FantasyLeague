@@ -111,14 +111,14 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center bg-slate-950/55 px-4 pt-20 backdrop-blur-md animate-in fade-in duration-150">
+    <div className="fixed inset-0 z-50 flex items-start justify-center bg-slate-950/55 px-4 pt-20 backdrop-blur-md animate-modal-backdrop">
       <div
         ref={commandPaletteRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby="command-palette-title"
         tabIndex={-1}
-        className="max-h-[calc(100dvh-6rem)] w-full max-w-xl overflow-y-auto rounded-2xl border border-[var(--border)] bg-[var(--surface)] text-[var(--text-primary)] shadow-2xl shadow-slate-950/30 ring-1 ring-white/10"
+        className="animate-command-palette max-h-[calc(100dvh-6rem)] w-full max-w-xl overflow-y-auto rounded-2xl border border-[var(--border)] bg-[var(--surface)] text-[var(--text-primary)] shadow-2xl shadow-slate-950/30 ring-1 ring-white/10"
       >
         <h2 id="command-palette-title" className="sr-only">Command palette</h2>
         <div className="flex items-center border-b border-[var(--border)] bg-[var(--surface-raised)] px-4">

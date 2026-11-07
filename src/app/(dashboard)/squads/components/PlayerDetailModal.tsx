@@ -54,11 +54,11 @@ export function PlayerDetailModal({ player, loading, onClose, scoreBreakdown }: 
   if (loading) {
     return (
       <div
-        className="fixed inset-0 z-100 flex items-center justify-center bg-slate-950/75 p-4 backdrop-blur-sm"
+        className="fixed inset-0 z-100 flex items-start justify-center overflow-y-auto bg-slate-950/75 p-4 py-8 backdrop-blur-sm sm:items-center animate-modal-backdrop"
         role="status"
         aria-label="Loading player details"
       >
-        <div className="max-h-[90vh] w-full max-w-2xl overflow-hidden rounded-3xl border border-[var(--border)] bg-[var(--surface)] p-6 shadow-2xl animate-pulse">
+        <div className="animate-modal-content my-auto max-h-[90vh] w-full max-w-2xl overflow-hidden rounded-3xl border border-[var(--border)] bg-[var(--surface)] p-6 shadow-2xl animate-pulse">
           {/* Header Skeleton */}
           <div className="mb-6 flex items-start justify-between gap-4">
             <div className="flex items-center gap-4">
@@ -96,7 +96,7 @@ export function PlayerDetailModal({ player, loading, onClose, scoreBreakdown }: 
 
   return (
     <div
-      className="fixed inset-0 z-100 flex items-center justify-center bg-slate-950/75 p-4 backdrop-blur-sm"
+      className="fixed inset-0 z-100 flex items-start justify-center overflow-y-auto bg-slate-950/75 p-4 py-8 backdrop-blur-sm sm:items-center animate-modal-backdrop"
       onMouseDown={(event) => {
         if (event.target === event.currentTarget) onClose();
       }}
@@ -107,7 +107,7 @@ export function PlayerDetailModal({ player, loading, onClose, scoreBreakdown }: 
         aria-modal="true"
         aria-labelledby="squad-player-title"
         tabIndex={-1}
-        className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-3xl border border-[var(--border)] bg-[var(--surface)] p-6 text-[var(--text-primary)] shadow-2xl"
+        className="animate-modal-content my-auto max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-3xl border border-[var(--border)] bg-[var(--surface)] p-6 text-[var(--text-primary)] shadow-2xl"
       >
         {/* Header */}
         <div className="mb-6 flex items-start justify-between gap-4">
