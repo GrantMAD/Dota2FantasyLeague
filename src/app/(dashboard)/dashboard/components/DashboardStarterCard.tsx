@@ -1,5 +1,6 @@
 'use client';
 
+import { useState, useEffect, useRef } from 'react';
 import type { DashboardStarter } from '@/types/fantasy';
 
 const ROLE_COLOURS: Record<string, { bg: string; text: string; border: string; glow: string; gradient: string }> = {
@@ -21,9 +22,26 @@ const ROLE_LABELS: Record<string, string> = {
 interface DashboardStarterCardProps {
   player: DashboardStarter;
   onOpenPlayer: (player: DashboardStarter) => void;
+  index?: number;
 }
 
-export function DashboardStarterCard({ player, onOpenPlayer }: DashboardStarterCardProps) {
+export function DashboardStarterCard({ player, onOpenPlayer, index }: DashboardStarterCardProps) {
+  const prevPointsRef = useRef<number | null | undefined>(undefined);
+  const [isScorePulsing, setIsScorePulsing] = useState(false);
+
+  useEffect(() => {
+    if (
+      prevPointsRef.current !== undefined &&
+      prevPointsRef.current !== null &&
+      player.gw_points != null &&
+      player.gw_points !== prevPointsRef.current
+    ) {
+      setIsScorePulsing(true);
+      const timer = window.setTimeout(() => setIsScorePulsing(false), 1200);
+      return () => window.clearTimeout(timer);
+    }
+    prevPointsRef.current = player.gw_points;
+  }, [player.gw_points]);
   const displayName = player.in_game_name || player.name;
   const initials = displayName.substring(0, 2).toUpperCase();
   const role = ROLE_COLOURS[player.slot] ?? {
@@ -52,10 +70,11 @@ export function DashboardStarterCard({ player, onOpenPlayer }: DashboardStarterC
       type="button"
       onClick={() => onOpenPlayer(player)}
       aria-label={`View ${displayName} player details`}
-      className="relative flex w-full cursor-pointer flex-col overflow-hidden rounded-2xl text-left transition-all duration-300 hover:-translate-y-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
+      className="animate-stagger-item relative flex w-full cursor-pointer flex-col overflow-hidden rounded-2xl text-left transition-all duration-300 hover:-translate-y-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
       style={{
         background: 'var(--surface-raised)',
         border: `1px solid ${role.border}`,
+        animationDelay: typeof index === 'number' ? `${index * 70}ms` : undefined,
       }}
       onMouseEnter={(e) => {
         (e.currentTarget as HTMLButtonElement).style.boxShadow = `0 0 20px 4px ${role.glow}, 0 8px 24px rgba(0,0,0,0.22)`;
@@ -165,12 +184,19 @@ export function DashboardStarterCard({ player, onOpenPlayer }: DashboardStarterC
         >
           {/* GW Points row */}
           <div
-            className="flex items-center justify-between gap-2 px-2.5 py-2"
-            style={{ background: 'var(--surface-muted)' }}
+            className={`flex items-center justify-between gap-2 px-2.5 py-2 transition-colors ${
+              isScorePulsing ? 'animate-score-pulse' : ''
+            }`}
+            style={{ background: isScorePulsing ? undefined : 'var(--surface-muted)' }}
           >
             <span className="text-[9px] font-medium uppercase tracking-wide leading-none shrink-0" style={{ color: 'var(--text-muted)' }}>GW Pts</span>
             {player.gw_points != null ? (
-              <span className="font-mono text-sm font-black leading-none" style={{ color: 'var(--accent-primary)' }}>
+              <span
+                className={`font-mono text-sm font-black leading-none transition-colors ${
+                  isScorePulsing ? 'text-emerald-400' : ''
+                }`}
+                style={{ color: isScorePulsing ? undefined : 'var(--accent-primary)' }}
+              >
                 {player.is_captain ? (player.gw_points * 2).toFixed(1) : player.gw_points.toFixed(1)}
                 {player.is_captain && (
                   <span className="ml-0.5 text-[9px] font-bold opacity-60">×2</span>

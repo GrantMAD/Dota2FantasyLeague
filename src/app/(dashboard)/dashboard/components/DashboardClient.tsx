@@ -222,8 +222,13 @@ export function DashboardClient({ initialData, initialWhatsNew }: DashboardClien
           throw new Error('Live matches response did not contain a matches list.');
         }
         if (!cancelled) {
-          hasLiveMatches = data.matches.length > 0;
+          const liveNow = data.matches.length > 0;
+          hasLiveMatches = liveNow;
           setLiveMatches(data.matches);
+          // If live matches are in progress, also refresh dashboard stats to capture live starter points
+          if (liveNow) {
+            void fetchStats();
+          }
         }
       } catch (matchError) {
         if (!cancelled) {
@@ -491,10 +496,11 @@ export function DashboardClient({ initialData, initialWhatsNew }: DashboardClien
                         const getRank = (player: typeof a) => (player.is_captain ? 0 : player.is_vice_captain ? 1 : 2);
                         return getRank(a) - getRank(b);
                       })
-                      .map((player) => (
+                      .map((player, index) => (
                         <DashboardStarterCard
                           key={`${player.slot}-${player.id}`}
                           player={player}
+                          index={index}
                           onOpenPlayer={openPlayerDetails}
                         />
                       ))}
