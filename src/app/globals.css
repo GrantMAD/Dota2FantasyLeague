@@ -281,6 +281,110 @@ body {
   }
 }
 
+/* ─── Leaderboard Row Entrance & Rank Delta Animations ───────────────────── */
+
+@keyframes leaderboard-row-in {
+  from {
+    opacity: 0;
+    transform: translateX(-12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.animate-leaderboard-row {
+  animation: leaderboard-row-in 520ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  will-change: opacity, transform;
+}
+
+@keyframes rank-delta-up {
+  0% {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  60% {
+    transform: translateY(-3px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-rank-up {
+  animation: rank-delta-up 600ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes rank-delta-down {
+  0% {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  60% {
+    transform: translateY(3px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-rank-down {
+  animation: rank-delta-down 600ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes crown-shimmer {
+  0% {
+    transform: scale(1) rotate(0deg);
+    filter: drop-shadow(0 0 0 rgba(234, 179, 8, 0));
+  }
+  30% {
+    transform: scale(1.18) rotate(-6deg);
+    filter: drop-shadow(0 0 8px rgba(234, 179, 8, 0.8));
+  }
+  60% {
+    transform: scale(1.1) rotate(4deg);
+    filter: drop-shadow(0 0 12px rgba(234, 179, 8, 0.6));
+  }
+  100% {
+    transform: scale(1) rotate(0deg);
+    filter: drop-shadow(0 0 4px rgba(234, 179, 8, 0.3));
+  }
+}
+
+.animate-crown-shimmer {
+  animation: crown-shimmer 1400ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  will-change: transform, filter;
+}
+
+@keyframes goal-celebrate-glow {
+  0% {
+    box-shadow: 0 0 0 rgba(16, 185, 129, 0);
+  }
+  50% {
+    box-shadow: 0 0 14px rgba(16, 185, 129, 0.65), 0 0 4px rgba(52, 211, 153, 0.9);
+  }
+  100% {
+    box-shadow: 0 0 0 rgba(16, 185, 129, 0);
+  }
+}
+
+.animate-goal-glow {
+  animation: goal-celebrate-glow 1600ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-leaderboard-row,
+  .animate-rank-up,
+  .animate-rank-down,
+  .animate-crown-shimmer,
+  .animate-goal-glow {
+    animation: none !important;
+  }
+}
+
 /* ─── What's New panel ─────────────────────────────────────────────────────── */
 @keyframes wn-enter {
   from { opacity: 0; transform: translateY(10px); }

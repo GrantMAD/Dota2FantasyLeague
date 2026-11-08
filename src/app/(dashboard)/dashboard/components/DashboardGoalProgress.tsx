@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Target, Trophy, Edit3, X, Flame, Award } from 'lucide-react';
 import { fetchWithAuth } from '@/lib/fetch-with-auth';
 import { useToast } from '@/components/Toast';
@@ -26,6 +26,15 @@ export function DashboardGoalProgress({
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    // Trigger animation from zero on mount
+    const timer = window.setTimeout(() => {
+      setMounted(true);
+    }, 120);
+    return () => window.clearTimeout(timer);
+  }, []);
 
   // Form states in modal
   const [pointsInput, setPointsInput] = useState<string>(targetPoints ? String(targetPoints) : '');
@@ -106,8 +115,8 @@ export function DashboardGoalProgress({
   const rankCompletion = isRankAchieved
     ? 100
     : targetRank && globalRank
-    ? Math.min(95, Math.max(10, Math.round((targetRank / globalRank) * 100)))
-    : 10;
+      ? Math.min(95, Math.max(10, Math.round((targetRank / globalRank) * 100)))
+      : 10;
 
   return (
     <>
@@ -245,13 +254,13 @@ export function DashboardGoalProgress({
 
                     {/* Progress Bar Container */}
                     <div
-                      className="w-full h-2 rounded-full overflow-hidden"
+                      className={`w-full h-2 rounded-full overflow-hidden ${pointsCompletion >= 100 && mounted ? 'animate-goal-glow' : ''}`}
                       style={{ background: 'var(--surface-muted)' }}
                     >
                       <div
-                        className="h-full rounded-full transition-all duration-700 ease-out"
+                        className="h-full rounded-full transition-all duration-1000 ease-out"
                         style={{
-                          width: `${pointsCompletion}%`,
+                          width: `${mounted ? pointsCompletion : 0}%`,
                           background:
                             pointsCompletion >= 100
                               ? 'linear-gradient(90deg, #10b981, #059669)'
@@ -336,13 +345,13 @@ export function DashboardGoalProgress({
 
                     {/* Progress Bar Container for Rank */}
                     <div
-                      className="w-full h-2 rounded-full overflow-hidden"
+                      className={`w-full h-2 rounded-full overflow-hidden ${isRankAchieved && mounted ? 'animate-goal-glow' : ''}`}
                       style={{ background: 'var(--surface-muted)' }}
                     >
                       <div
-                        className="h-full rounded-full transition-all duration-700 ease-out"
+                        className="h-full rounded-full transition-all duration-1000 ease-out"
                         style={{
-                          width: `${isRankAchieved ? 100 : rankCompletion}%`,
+                          width: `${mounted ? (isRankAchieved ? 100 : rankCompletion) : 0}%`,
                           background: isRankAchieved
                             ? 'linear-gradient(90deg, #10b981, #059669)'
                             : 'linear-gradient(90deg, #06b6d4, #3b82f6)',

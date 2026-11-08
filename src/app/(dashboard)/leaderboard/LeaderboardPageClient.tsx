@@ -325,21 +325,21 @@ export default function LeaderboardPageClient({ initialData }: LeaderboardPagePr
   const renderRankChange = (current: number, previous: number | null) => {
     if (!previous || current === previous) {
        const label = previous === current ? 'No rank change' : 'No previous rank available';
-       return <span role="img" aria-label={label} title={label} className="text-slate-500 font-bold text-lg">-</span>;
+       return <span role="img" aria-label={label} title={label} className="text-slate-500 font-bold text-lg select-none">-</span>;
     }
     const diff = previous - current;
     if (diff > 0) {
        return (
-          <div role="img" className="flex flex-col items-center justify-center" aria-label={`Up ${diff} places`} title={`Up ${diff} places`}>
+          <div role="img" className="animate-rank-up flex flex-col items-center justify-center" aria-label={`Up ${diff} places`} title={`Up ${diff} places`}>
              <svg className="w-4 h-4 text-emerald-500" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M14.707 12.707a1 1 0 01-1.414 0L10 9.414l-3.293 3.293a1 1 0 01-1.414-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 010 1.414z" clipRule="evenodd"></path></svg>
-             <span className="text-emerald-500 text-[10px] font-bold">{diff}</span>
+             <span className="text-emerald-500 text-[10px] font-bold font-mono">+{diff}</span>
           </div>
        );
     }
     return (
-       <div role="img" className="flex flex-col items-center justify-center" aria-label={`Down ${Math.abs(diff)} places`} title={`Down ${Math.abs(diff)} places`}>
-          <svg className="w-4 h-4 text-red-500" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd"></path></svg>
-          <span className="text-red-500 text-[10px] font-bold">{Math.abs(diff)}</span>
+       <div role="img" className="animate-rank-down flex flex-col items-center justify-center" aria-label={`Down ${Math.abs(diff)} places`} title={`Down ${Math.abs(diff)} places`}>
+          <svg className="w-4 h-4 text-rose-500" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd"></path></svg>
+          <span className="text-rose-500 text-[10px] font-bold font-mono">-{Math.abs(diff)}</span>
        </div>
     );
   };
@@ -490,11 +490,11 @@ export default function LeaderboardPageClient({ initialData }: LeaderboardPagePr
                   >
                     {/* Rank badge */}
                     <div
-                      className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-black ${isFirst ? 'animate-bounce' : ''}`}
+                      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-black transition-transform"
                       style={{ color: isFirst ? '#451a03' : 'var(--text-primary)', backgroundColor: accent }}
                       aria-label={`Leaderboard podium place ${podiumPlace}; global rank ${entry.rank}`}
                     >
-                      {isFirst ? <Crown className="h-4 w-4" aria-hidden="true" /> : podiumPlace}
+                      {isFirst ? <Crown className="h-4 w-4 animate-crown-shimmer" aria-hidden="true" /> : podiumPlace}
                     </div>
 
                     {/* Avatar */}
@@ -633,7 +633,7 @@ export default function LeaderboardPageClient({ initialData }: LeaderboardPagePr
                         </td>
                      </tr>
                   ) : (
-                     entries.map((entry) => {
+                     entries.map((entry, index) => {
                         const team = entry.fantasy_teams;
                         const profile = team?.profiles;
                         const isTop3 = entry.rank <= 3;
@@ -641,6 +641,7 @@ export default function LeaderboardPageClient({ initialData }: LeaderboardPagePr
                         const managerName = profile?.display_name || profile?.username || 'Anonymous Manager';
                         const isCurrentUser = Boolean(currentUserId && team?.user_id === currentUserId);
                         const countryFlag = getCountryFlag(profile?.country_code);
+                        const rowAnimDelay = index < 20 ? `${index * 50}ms` : undefined;
                         
                         return (
                            <tr
@@ -655,14 +656,17 @@ export default function LeaderboardPageClient({ initialData }: LeaderboardPagePr
                               }}
                               tabIndex={0}
                               aria-label={`View ${managerName}'s manager details`}
-                              style={isCurrentUser ? {
-                                 backgroundColor: 'color-mix(in srgb, var(--accent-primary) 12%, var(--surface))',
-                                 borderLeftColor: 'var(--accent-primary)',
-                              } : isTopGameweekScorer ? {
-                                 backgroundColor: 'color-mix(in srgb, #f59e0b 10%, var(--surface))',
-                                 borderLeftColor: '#f59e0b',
-                              } : undefined}
-                              className={`transition-colors group cursor-pointer ${
+                              style={{
+                                 ...(isCurrentUser ? {
+                                    backgroundColor: 'color-mix(in srgb, var(--accent-primary) 12%, var(--surface))',
+                                    borderLeftColor: 'var(--accent-primary)',
+                                 } : isTopGameweekScorer ? {
+                                    backgroundColor: 'color-mix(in srgb, #f59e0b 10%, var(--surface))',
+                                    borderLeftColor: '#f59e0b',
+                                 } : {}),
+                                 ...(rowAnimDelay ? { animationDelay: rowAnimDelay } : {}),
+                              }}
+                              className={`transition-colors group cursor-pointer animate-leaderboard-row ${
                                  isTopGameweekScorer
                                     ? 'border-l-4 hover:bg-[var(--surface-raised)]'
                                     : isCurrentUser
@@ -672,7 +676,7 @@ export default function LeaderboardPageClient({ initialData }: LeaderboardPagePr
                               title="Click to view manager profile"
                            >
                               <td className="px-6 py-4 text-center">
-                                 <span className={`inline-flex items-center justify-center w-8 h-8 rounded-full font-bold ${
+                                 <span className={`inline-flex items-center justify-center w-8 h-8 rounded-full font-bold transition-transform group-hover:scale-105 ${
                                     entry.rank === 1 ? 'bg-yellow-500 text-yellow-950 shadow-[0_0_15px_rgba(234,179,8,0.5)]' :
                                     entry.rank === 2 ? 'bg-slate-300 text-slate-800 shadow-[0_0_10px_rgba(203,213,225,0.4)]' :
                                     entry.rank === 3 ? 'bg-amber-700 text-amber-100 shadow-[0_0_10px_rgba(180,83,9,0.4)]' :
