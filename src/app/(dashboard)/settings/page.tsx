@@ -74,6 +74,7 @@ function SettingsContent() {
     username: '',
     email: '',
     displayName: '',
+    bio: '',
     avatarUrl: null as string | null,
     countryCode: '',
     timezone: 'UTC',
@@ -104,6 +105,7 @@ function SettingsContent() {
           avatar_url?: string | null;
           username?: string;
           email?: string;
+          bio?: string | null;
           country_code?: string | null;
           timezone?: string | null;
           email_notifications?: boolean | null;
@@ -117,6 +119,7 @@ function SettingsContent() {
         username: profile.username || '',
         email: profile.email || '',
         displayName: profile.display_name || profile.username || '',
+        bio: profile.bio || '',
         avatarUrl: profile.avatar_url || null,
         countryCode: profile.country_code || 'US',
         timezone: profile.timezone || 'UTC',
@@ -147,6 +150,7 @@ function SettingsContent() {
             avatar_url?: string | null;
             username?: string;
             email?: string;
+            bio?: string | null;
             country_code?: string | null;
             timezone?: string | null;
             email_notifications?: boolean | null;
@@ -161,6 +165,7 @@ function SettingsContent() {
             username: profile.username || '',
             email: profile.email || '',
             displayName: profile.display_name || profile.username || '',
+            bio: profile.bio || '',
             avatarUrl: profile.avatar_url || null,
             countryCode: profile.country_code || 'US',
             timezone: profile.timezone || 'UTC',
@@ -210,6 +215,7 @@ function SettingsContent() {
         body: JSON.stringify({
           username: formData.username,
           display_name: formData.displayName,
+          bio: formData.bio,
           country_code: formData.countryCode,
           timezone: formData.timezone,
         }),
@@ -221,6 +227,7 @@ function SettingsContent() {
           email?: string;
           display_name?: string | null;
           avatar_url?: string | null;
+          bio?: string | null;
         };
         error?: string;
       };
@@ -229,6 +236,8 @@ function SettingsContent() {
         ...current,
         username: data.profile?.username || current.username,
         email: data.profile?.email || current.email,
+        displayName: data.profile?.display_name || current.displayName,
+        bio: data.profile?.bio ?? current.bio,
       }));
       window.dispatchEvent(
         new CustomEvent(PROFILE_UPDATED_EVENT, {
@@ -529,7 +538,11 @@ function SettingsContent() {
                 {[
                   {
                     label: 'Profile identity',
-                    status: formData.displayName ? 'Configured' : 'Needs attention',
+                    status: formData.displayName
+                      ? formData.bio
+                        ? 'Display name & bio set'
+                        : 'Display name configured'
+                      : 'Needs attention',
                     complete: Boolean(formData.displayName),
                     tabTarget: 'profile' as SettingsTab,
                   },
@@ -779,6 +792,30 @@ function SettingsContent() {
                   />
                   <p className="mt-1.5 text-xs text-[var(--text-muted)]">
                     This is the name rivals see on match rosters, leaderboards, and private leagues.
+                  </p>
+                </div>
+
+                {/* Manager Bio Input */}
+                <div>
+                  <div className="mb-2 flex items-center justify-between">
+                    <label htmlFor="settings-bio" className="block text-sm font-semibold text-[var(--text-primary)]">
+                      Manager bio
+                    </label>
+                    <span className="text-xs text-[var(--text-muted)]">
+                      {formData.bio.length} / 250
+                    </span>
+                  </div>
+                  <textarea
+                    id="settings-bio"
+                    rows={3}
+                    maxLength={250}
+                    value={formData.bio}
+                    onChange={(event) => setFormData({ ...formData, bio: event.target.value })}
+                    className={`${inputClass} resize-none leading-relaxed`}
+                    placeholder="Tell your league rivals about your Dota history, favourite heroes, or fantasy tactics..."
+                  />
+                  <p className="mt-1.5 text-xs text-[var(--text-muted)]">
+                    Displayed on your public profile to tell your league rivals who they are competing against.
                   </p>
                 </div>
 

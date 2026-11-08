@@ -174,17 +174,15 @@ export default function ProfilePage() {
       ) : profile ? (
         <section className={`overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface)] shadow-2xl transition-all duration-300 ${bannerTheme.glowClass}`}>
         {/* Dynamic Dota Hero Theme Banner */}
-        <div className={`relative h-36 md:h-44 bg-linear-to-r ${bannerTheme.gradientClass} transition-all duration-500`}>
-          <div className="pointer-events-none absolute inset-0 bg-linear-to-b from-slate-950/10 via-slate-950/10 to-slate-950/75" />
-          <div className="absolute right-4 top-3 z-10 flex items-center gap-2">
-            <span className="rounded-full border border-white/30 bg-slate-950/75 px-2.5 py-1 text-[11px] font-semibold text-white shadow-sm backdrop-blur-md">
-              Hero Theme: {bannerTheme.name} ({bannerTheme.dotaRole})
-            </span>
-          </div>
+        <div
+          className="relative h-48 md:h-56 transition-all duration-500"
+          style={{ background: bannerTheme.gradientStyle }}
+        >
+          <div className="pointer-events-none absolute inset-0 bg-linear-to-b from-transparent via-black/10 to-black/50" />
         </div>
 
         <div className="relative z-10 px-5 pb-6 md:px-8">
-          <div className="-mt-12 flex flex-col gap-4 sm:flex-row sm:items-end md:gap-6">
+          <div className="-mt-14 flex flex-col gap-4 sm:flex-row sm:items-center md:gap-6">
             <div className="relative z-20 flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-full border-4 border-[var(--surface)] bg-[var(--surface-raised)] shadow-2xl ring-2 ring-[var(--border)] md:h-28 md:w-28">
               {profile.avatar_url ? (
                 <Image src={profile.avatar_url} alt={profile.username} width={112} height={112} unoptimized={!canOptimizeImage(profile.avatar_url)} className="h-full w-full object-cover" />
@@ -192,16 +190,25 @@ export default function ProfilePage() {
                 <span className="text-4xl font-black text-cyan-700 dark:text-cyan-300">{initials}</span>
               )}
             </div>
-            <div className="pb-1">
+            <div className="pt-2 sm:pt-0">
               <div className="flex flex-wrap items-center gap-2">
-                <h2 className="text-2xl font-bold text-[var(--text-primary)]">{profile.display_name || profile.username}</h2>
-                <span className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-emerald-800 dark:text-emerald-300">Active manager</span>
+                <h2 className="profile-banner-title text-2xl font-bold" style={{ color: '#ffffff' }}>
+                  {profile.display_name || profile.username}
+                </h2>
+                <span
+                  className="profile-banner-badge rounded-full border border-white/40 bg-white/15 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em]"
+                  style={{ color: '#ffffff', borderColor: 'rgba(255,255,255,0.4)', backgroundColor: 'rgba(255,255,255,0.15)' }}
+                >
+                  Active manager
+                </span>
               </div>
-              <p className="mt-1 text-sm text-[var(--text-secondary)]">@{profile.username} · Member since {memberSince}</p>
-              <div className="mt-3 inline-flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2">
-                <span className="text-xs font-bold uppercase tracking-[0.12em] text-amber-800 dark:text-amber-300">{seasonRankTier}</span>
-                <span className="h-4 w-px bg-amber-500/30" aria-hidden="true" />
-                <span className="text-sm font-bold text-[var(--text-primary)]">{totalPoints.toLocaleString()} season points</span>
+              <p className="profile-banner-meta mt-1 text-sm font-medium" style={{ color: 'rgba(255, 255, 255, 0.92)' }}>
+                @{profile.username} · Member since {memberSince}
+              </p>
+              <div className="mt-3 inline-flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl border border-white/20 bg-black/30 px-3 py-2 backdrop-blur-sm">
+                <span className="text-xs font-bold uppercase tracking-[0.12em]" style={{ color: '#fcd34d' }}>{seasonRankTier}</span>
+                <span className="h-4 w-px bg-white/30" aria-hidden="true" />
+                <span className="profile-banner-points text-sm font-bold" style={{ color: '#ffffff' }}>{totalPoints.toLocaleString()} season points</span>
               </div>
             </div>
           </div>

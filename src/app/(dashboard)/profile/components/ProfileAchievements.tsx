@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import { Award, Lock, CheckCircle2, Sparkles } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Award, Lock, CheckCircle2, Sparkles, ChevronDown } from 'lucide-react';
 import type { Achievement } from './achievementsData';
 
 interface ProfileAchievementsProps {
@@ -37,6 +37,15 @@ const TIER_STYLES = {
 
 export function ProfileAchievements({ achievements }: ProfileAchievementsProps) {
   const [filter, setFilter] = useState<'all' | 'unlocked' | 'in-progress'>('all');
+  const [mounted, setMounted] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(true);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setMounted(true);
+    }, 100);
+    return () => window.clearTimeout(timer);
+  }, []);
 
   const unlockedCount = achievements.filter((a) => a.unlocked).length;
   const totalCount = achievements.length;
@@ -49,17 +58,29 @@ export function ProfileAchievements({ achievements }: ProfileAchievementsProps) 
   });
 
   return (
-    <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 shadow-xl sm:p-6">
-      <div className="flex flex-col gap-4 border-b border-[var(--border)] pb-5 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <div className="flex items-center gap-2">
-            <Award className="h-5 w-5 text-amber-600 dark:text-amber-400" />
-            <h2 className="text-lg font-bold text-[var(--text-primary)]">Achievements & Badges</h2>
+    <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 shadow-xl sm:p-6 transition-all">
+      <div className={`flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between ${isExpanded ? 'border-b border-[var(--border)] pb-5' : ''}`}>
+        <button
+          type="button"
+          onClick={() => setIsExpanded((prev) => !prev)}
+          className="group flex flex-1 items-start justify-between text-left cursor-pointer sm:items-center sm:justify-start sm:gap-4"
+          aria-expanded={isExpanded}
+          aria-controls="achievements-content"
+        >
+          <div>
+            <div className="flex items-center gap-2">
+              <Award className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+              <h2 className="text-lg font-bold text-[var(--text-primary)] group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors">Achievements & Badges</h2>
+            </div>
+            <p className="mt-1 text-sm text-[var(--text-secondary)]">
+              Manager milestones earned throughout competitive fantasy seasons.
+            </p>
           </div>
-          <p className="mt-1 text-sm text-[var(--text-secondary)]">
-            Manager milestones earned throughout competitive fantasy seasons.
-          </p>
-        </div>
+
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-[var(--border)] bg-[var(--surface-raised)] text-[var(--text-secondary)] transition group-hover:border-amber-500/40 group-hover:text-[var(--text-primary)] sm:ml-auto">
+            <ChevronDown className={`h-4 w-4 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} />
+          </div>
+        </button>
 
         <div className="flex items-center gap-3 rounded-xl border border-[var(--border)] bg-[var(--surface-raised)] px-4 py-2.5">
           <div className="text-right">
@@ -74,7 +95,9 @@ export function ProfileAchievements({ achievements }: ProfileAchievementsProps) 
         </div>
       </div>
 
-      <div role="group" aria-label="Filter achievements" className="mt-4 flex flex-wrap gap-2 text-xs font-semibold">
+      {isExpanded && (
+        <div id="achievements-content">
+          <div role="group" aria-label="Filter achievements" className="mt-4 flex flex-wrap gap-2 text-xs font-semibold">
         {(['all', 'unlocked', 'in-progress'] as const).map((tabKey) => {
           const isActive = filter === tabKey;
           const label = tabKey === 'all' ? `All (${totalCount})` : tabKey === 'unlocked' ? `Unlocked (${unlockedCount})` : `In Progress (${totalCount - unlockedCount})`;
@@ -84,7 +107,7 @@ export function ProfileAchievements({ achievements }: ProfileAchievementsProps) 
               type="button"
               onClick={() => setFilter(tabKey)}
               aria-pressed={isActive}
-              className={`rounded-lg px-3 py-1.5 transition ${
+              className={`rounded-lg px-3 py-1.5 transition cursor-pointer ${
                 isActive
                   ? 'border border-cyan-500/40 bg-cyan-500/10 text-cyan-800 dark:text-cyan-300'
                   : 'border border-[var(--border)] bg-[var(--surface-raised)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
@@ -97,14 +120,16 @@ export function ProfileAchievements({ achievements }: ProfileAchievementsProps) 
       </div>
 
       <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        {filteredAchievements.map((badge) => {
+        {filteredAchievements.map((badge, index) => {
           const style = TIER_STYLES[badge.tier];
           const progressPercent = Math.min(100, Math.max(0, badge.progressPercent));
+          const animDelay = index < 12 ? `${index * 40}ms` : undefined;
 
           return (
             <div
-              key={badge.id}
-              className={`relative flex flex-col justify-between overflow-hidden rounded-xl border bg-[var(--surface-raised)] p-4 transition hover:-translate-y-0.5 ${
+              key={`${filter}-${badge.id}`}
+              style={animDelay ? { animationDelay: animDelay } : undefined}
+              className={`animate-badge-pop relative flex flex-col justify-between overflow-hidden rounded-xl border bg-[var(--surface-raised)] p-4 transition hover:-translate-y-0.5 ${
                 badge.unlocked
                   ? style.border
                   : 'border-[var(--border)]'
@@ -113,7 +138,11 @@ export function ProfileAchievements({ achievements }: ProfileAchievementsProps) 
               <div>
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex items-center gap-3">
-                    <span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-[var(--border)] text-xl ${badge.unlocked ? style.icon : 'bg-[var(--surface)] text-[var(--text-muted)] grayscale'}`}>
+                    <span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-[var(--border)] text-xl transition-all ${
+                      badge.unlocked
+                        ? `${style.icon} animate-badge-glow`
+                        : 'bg-[var(--surface)] text-[var(--text-muted)] grayscale'
+                    }`}>
                       {badge.icon}
                     </span>
                     <div>
@@ -159,8 +188,8 @@ export function ProfileAchievements({ achievements }: ProfileAchievementsProps) 
                   aria-valuemax={100}
                 >
                   <div
-                    className={`h-full rounded-full transition-all duration-500 ${badge.unlocked ? 'bg-emerald-500' : style.progress}`}
-                    style={{ width: `${progressPercent}%` }}
+                    className={`h-full rounded-full transition-all duration-900 ease-out ${badge.unlocked ? 'bg-emerald-500' : style.progress}`}
+                    style={{ width: `${mounted ? progressPercent : 0}%` }}
                   />
                 </div>
               </div>
@@ -168,11 +197,13 @@ export function ProfileAchievements({ achievements }: ProfileAchievementsProps) 
           );
         })}
       </div>
-      {filteredAchievements.length === 0 && (
-        <p className="mt-5 rounded-xl border border-[var(--border)] bg-[var(--surface-raised)] p-5 text-center text-sm text-[var(--text-secondary)]">
-          No achievements have been unlocked yet. Keep playing to earn your first badge.
-        </p>
-      )}
-    </section>
-  );
+        {filteredAchievements.length === 0 && (
+          <p className="mt-5 rounded-xl border border-[var(--border)] bg-[var(--surface-raised)] p-5 text-center text-sm text-[var(--text-secondary)]">
+            No achievements have been unlocked yet. Keep playing to earn your first badge.
+          </p>
+        )}
+      </div>
+    )}
+  </section>
+);
 }

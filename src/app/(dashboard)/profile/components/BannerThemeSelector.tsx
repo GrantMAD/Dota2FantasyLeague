@@ -70,7 +70,8 @@ export function BannerThemeSelector({ currentTheme, onSelectTheme }: BannerTheme
                   >
                     <div className="flex items-center gap-3 min-w-0">
                       <div
-                        className={`h-7 w-7 shrink-0 rounded-md bg-linear-to-r ${theme.gradientClass} border border-white/20 shadow-xs`}
+                        className="h-7 w-7 shrink-0 rounded-md border border-white/20 shadow-xs"
+                        style={{ background: theme.gradientStyle }}
                       />
                       <div className="min-w-0">
                         <div className="flex items-center gap-1.5">

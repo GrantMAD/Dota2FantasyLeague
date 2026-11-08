@@ -375,12 +375,49 @@ body {
   animation: goal-celebrate-glow 1600ms cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
+@keyframes badge-pop-in {
+  from {
+    opacity: 0;
+    transform: scale(0.92) translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.animate-badge-pop {
+  animation: badge-pop-in 380ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  will-change: opacity, transform;
+}
+
+@keyframes badge-icon-glow {
+  0% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
+  }
+  40% {
+    transform: scale(1.08);
+    box-shadow: 0 0 16px 2px rgba(16, 185, 129, 0.5);
+  }
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
+  }
+}
+
+.animate-badge-glow {
+  animation: badge-icon-glow 1400ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .animate-leaderboard-row,
   .animate-rank-up,
   .animate-rank-down,
   .animate-crown-shimmer,
-  .animate-goal-glow {
+  .animate-goal-glow,
+  .animate-badge-pop,
+  .animate-badge-glow {
     animation: none !important;
   }
 }
@@ -963,6 +1000,32 @@ body {
 }
 
 [data-theme='light'] .text-white { color: var(--text-primary) !important; }
+
+/* Profile Hero Banner Text Overrides — must always remain crisp white in both light and dark mode */
+.profile-banner-title,
+[data-theme='light'] .profile-banner-title {
+  color: #ffffff !important;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+}
+
+.profile-banner-meta,
+[data-theme='light'] .profile-banner-meta {
+  color: rgba(255, 255, 255, 0.92) !important;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+}
+
+.profile-banner-badge,
+[data-theme='light'] .profile-banner-badge {
+  color: #ffffff !important;
+  border-color: rgba(255, 255, 255, 0.45) !important;
+  background-color: rgba(255, 255, 255, 0.15) !important;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+}
+
+.profile-banner-points,
+[data-theme='light'] .profile-banner-points {
+  color: #ffffff !important;
+}
 
 [data-theme='light'] .text-slate-300,
 [data-theme='light'] .text-gray-300 { color: var(--text-secondary) !important; }

@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { GET } from './route';
+import { GET, PUT } from './route';
 
 const mockVerifyAuth = jest.fn();
 const mockSupabaseServer = jest.fn();
@@ -77,5 +77,67 @@ describe('GET /api/user/profile', () => {
         subscription_tier: 'premium',
       },
     });
+  });
+});
+
+describe('PUT /api/user/profile', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockVerifyAuth.mockResolvedValue({
+      userId: 'manager-1',
+      email: 'manager@example.test',
+      role: 'user',
+    });
+  });
+
+  it('updates profile bio and returns updated profile data', async () => {
+    const userQuery = {
+      update: jest.fn().mockReturnThis(),
+      eq: jest.fn().mockReturnThis(),
+      select: jest.fn().mockReturnThis(),
+      maybeSingle: jest.fn().mockResolvedValue({
+        data: {
+          id: 'manager-1',
+          username: 'manager',
+          display_name: 'Manager One',
+          avatar_url: null,
+          bio: 'Veteran position 5 drafter and fantasy enthusiast.',
+          country_code: 'US',
+          timezone: 'America/New_York',
+          theme_preference: 'dark',
+          banner_theme: 'radiant-dawn',
+          email_notifications: true,
+          push_notifications: true,
+          created_at: '2026-01-01T00:00:00.000Z',
+          updated_at: '2026-01-02T00:00:00.000Z',
+        },
+        error: null,
+      }),
+    };
+
+    mockSupabaseServer.mockReturnValue({
+      from: () => userQuery,
+    });
+
+    const request = new NextRequest('http://localhost:3000/api/user/profile', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        display_name: 'Manager One',
+        bio: 'Veteran position 5 drafter and fantasy enthusiast.',
+      }),
+    });
+
+    const response = await PUT(request);
+
+    expect(userQuery.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        display_name: 'Manager One',
+        bio: 'Veteran position 5 drafter and fantasy enthusiast.',
+      }),
+    );
+    expect(response.status).toBe(200);
+    const body = await response.json();
+    expect(body.profile.bio).toBe('Veteran position 5 drafter and fantasy enthusiast.');
   });
 });

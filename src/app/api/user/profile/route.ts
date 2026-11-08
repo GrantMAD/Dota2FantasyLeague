@@ -116,6 +116,11 @@ async function putHandler(request: NextRequest) {
       payload.display_name = displayName || null;
     }
 
+    if (typeof body.bio === 'string') {
+      const bio = body.bio.trim();
+      payload.bio = bio || null;
+    }
+
     if (typeof body.avatar_url === 'string') {
       const avatarUrl = body.avatar_url.trim();
       payload.avatar_url = avatarUrl || null;
