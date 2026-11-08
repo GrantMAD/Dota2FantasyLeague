@@ -28,6 +28,8 @@ import { canOptimizeImage } from '@/lib/optimized-image';
 import type { PlayersCatalogResponse } from '@/lib/players-catalog';
 import { replaceUrlQueryParams } from '@/lib/url-query-state';
 
+import { formatPlayerPrice } from '@/lib/format-price';
+
 interface ProfessionalTeam {
   id: number;
   name: string;
@@ -66,7 +68,7 @@ const getRoleBadgeClass = (role: string) => {
   }
 };
 
-const formatPrice = (price: number) => `$${Number(price ?? 0).toFixed(1)}M`;
+const formatPrice = (price: number) => formatPlayerPrice(price);
 
 const getOwnershipClassification = (ownership: number | null | undefined) => {
   if (ownership == null) return { label: 'Unranked', color: 'text-slate-400', bg: 'bg-slate-800/80', border: 'border-slate-700/60' };

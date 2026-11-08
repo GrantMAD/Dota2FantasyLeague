@@ -1,4 +1,5 @@
 'use client';
+import { formatPlayerPrice } from '@/lib/format-price';
 
 import { useState, useEffect, useRef } from 'react';
 import type { DashboardStarter } from '@/types/fantasy';
@@ -217,7 +218,7 @@ export function DashboardStarterCard({ player, onOpenPlayer, index }: DashboardS
           >
             <span className="text-[9px] font-medium uppercase tracking-wide leading-none shrink-0" style={{ color: 'var(--text-muted)' }}>Price</span>
             <span className="font-mono text-sm font-bold leading-none" style={{ color: 'var(--success)' }}>
-              ${Number(player.current_price || 0).toFixed(1)}M
+              {formatPlayerPrice(player.current_price)}
             </span>
           </div>
         </div>

@@ -1,4 +1,5 @@
 'use client';
+import { formatPlayerPrice } from '@/lib/format-price';
 
 import { fetchWithAuth } from '@/lib/fetch-with-auth';
 import { fetchFixtureDifficulty } from '@/lib/fetch-fixture-difficulty';
@@ -894,7 +895,7 @@ export default function LineupsPage() {
                             <option value="">Select player ({displayRole})</option>
                             {eligiblePlayers.map((player) => {
                               const trendSymbol = player.form_trend === 'up' ? '▲' : player.form_trend === 'down' ? '▼' : '▬';
-                              const priceStr = player.current_price != null ? `$${Number(player.current_price).toFixed(1)}M` : '';
+                              const priceStr = player.current_price != null ? formatPlayerPrice(player.current_price) : '';
                               const gwPtsStr = player.last_gw_points != null ? `${formatPoints(player.last_gw_points)} pts` : '';
                               const extras = [player.primary_role, priceStr, gwPtsStr ? `Latest GW: ${gwPtsStr} ${trendSymbol}` : ''].filter(Boolean).join(' · ');
                               return (
@@ -945,7 +946,7 @@ export default function LineupsPage() {
                                       </span>
                                     )}
                                   </div>
-                                  <p className="truncate text-xs text-slate-400">{selected.professional_players.professional_teams?.name || 'Free Agent'} · <span className="text-amber-400/90 font-medium">${Number(selected.professional_players.current_price || 0).toFixed(1)}M</span></p>
+                                  <p className="truncate text-xs text-slate-400">{selected.professional_players.professional_teams?.name || 'Free Agent'} · <span className="text-amber-400/90 font-medium">{formatPlayerPrice(selected.professional_players.current_price)}</span></p>
                                 </div>
                               </div>
                               <div className="flex items-center gap-3 shrink-0 text-right">
@@ -1024,7 +1025,7 @@ export default function LineupsPage() {
                             <option value="">Select player</option>
                             {ownedPlayers.map((player) => {
                               const trendSymbol = player.form_trend === 'up' ? '▲' : player.form_trend === 'down' ? '▼' : '▬';
-                              const priceStr = player.current_price != null ? `$${Number(player.current_price).toFixed(1)}M` : '';
+                              const priceStr = player.current_price != null ? formatPlayerPrice(player.current_price) : '';
                               const gwPtsStr = player.last_gw_points != null ? `${formatPoints(player.last_gw_points)} pts` : '';
                               const extras = [player.primary_role, priceStr, gwPtsStr ? `GW: ${gwPtsStr} ${trendSymbol}` : ''].filter(Boolean).join(' · ');
                               return (
@@ -1046,7 +1047,7 @@ export default function LineupsPage() {
                                 </div>
                                 <div className="min-w-0">
                                   <p className="truncate text-xs font-bold" style={{ color: "var(--text-primary)" }}>{selected.professional_players.in_game_name || selected.professional_players.name}</p>
-                                  <p className="truncate text-[11px] text-slate-400">${Number(selected.professional_players.current_price || 0).toFixed(1)}M</p>
+                                  <p className="truncate text-[11px] text-slate-400">{formatPlayerPrice(selected.professional_players.current_price)}</p>
                                 </div>
                               </div>
                               <div className="text-right shrink-0">

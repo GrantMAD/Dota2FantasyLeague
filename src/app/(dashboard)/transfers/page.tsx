@@ -1,5 +1,7 @@
 'use client';
 
+import { formatPlayerPrice } from '@/lib/format-price';
+
 import { Suspense, useState, useEffect, useRef } from 'react';
 import Image from 'next/image';
 import { useSearchParams } from 'next/navigation';
@@ -913,7 +915,7 @@ function TransfersPageContent() {
                       <div className="mt-3 flex justify-between gap-2 text-xs">
                         <span className="text-[var(--text-muted)]">Market price</span>
                         <span className="font-mono font-semibold text-[var(--text-primary)]">
-                          {typeof incomingPlayerPrice === 'number' ? `$${incomingPlayerPrice.toFixed(1)}M` : 'Unavailable'}
+                          {typeof incomingPlayerPrice === 'number' ? formatPlayerPrice(incomingPlayerPrice) : 'Unavailable'}
                         </span>
                       </div>
                       <div className="mt-1 flex justify-between gap-2 text-xs">
@@ -1163,7 +1165,7 @@ function TransfersPageContent() {
                           </td>
                           <td className="px-3 py-3 text-right xl:px-4">
                             <div className="flex flex-col items-end gap-1">
-                              <span className="text-xs font-mono font-bold text-amber-400 xl:text-base">${player.current_price}M</span>
+                              <span className="text-xs font-mono font-bold text-amber-400 xl:text-base">{formatPlayerPrice(player.current_price)}</span>
                               <div className="hidden items-center gap-1.5 xl:flex">
                                 <PriceSparkline data={player.price_history} width={48} height={14} themeAware />
                                 {priceChange !== null && priceChange !== 0 ? (

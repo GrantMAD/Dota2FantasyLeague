@@ -6,6 +6,7 @@ import type { KeyboardEvent } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Suspense } from 'react';
 import Link from 'next/link';
+import { useCountUp } from '@/hooks/useCountUp';
 import { useToast } from '@/components/Toast';
 import { getCaptainEfficiencyAssessment, getTrendRowsForRange, type TrendRange } from '@/lib/analytics-presentation';
 import { replaceUrlQueryParams } from '@/lib/url-query-state';
@@ -82,6 +83,15 @@ const initialData: AnalyticsData = {
   dreamTeam: [],
   valueForMoney: [],
 };
+
+function AnalyticsKpiValue({ value }: { value: string | number }) {
+  const animatedValue = useCountUp(value, 2000);
+  return (
+    <p className="mt-3 text-3xl font-black text-[var(--text-primary)]">
+      {animatedValue}
+    </p>
+  );
+}
 
 export default function AnalyticsDashboard() {
   return (
@@ -346,7 +356,7 @@ function AnalyticsDashboardContent() {
                 >
                   <span className="absolute inset-x-0 top-0 h-1" style={{ backgroundColor: stat.color }} />
                   <p className="text-xs uppercase tracking-[0.22em] text-[var(--text-muted)]">{stat.title}</p>
-                  <p className="mt-3 text-3xl font-black text-[var(--text-primary)]">{stat.value}</p>
+                  <AnalyticsKpiValue value={stat.value} />
                   <p className="mt-2 text-xs text-[var(--text-secondary)]">{stat.detail}</p>
                   <span className="mt-3 inline-block text-xs font-semibold text-[var(--text-muted)] transition group-hover:text-[var(--text-primary)]">View details →</span>
                 </Link>
@@ -354,7 +364,7 @@ function AnalyticsDashboardContent() {
               <div className="relative overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 shadow-md">
                 <span className="absolute inset-x-0 top-0 h-1 bg-amber-500" />
                 <p className="text-xs uppercase tracking-[0.22em] text-[var(--text-muted)]">Free Transfers</p>
-                <p className="mt-3 text-3xl font-black text-[var(--text-primary)]">{data.user.freeTransfers}</p>
+                <AnalyticsKpiValue value={data.user.freeTransfers} />
                 <p className="mt-2 text-xs text-[var(--text-secondary)]">Remaining this week</p>
               </div>
             </div>
@@ -367,9 +377,10 @@ function AnalyticsDashboardContent() {
                 </div>
               </div>
 
-              {tab === 'my' && (
-                <div className="space-y-8">
-                  <div className="analytics-chart-panel rounded-2xl border border-slate-800 bg-slate-950/70 p-5">
+              <div key={tab} className="animate-tab-panel">
+                {tab === 'my' && (
+                  <div className="space-y-8">
+                    <div className="analytics-chart-panel rounded-2xl border border-slate-800 bg-slate-950/70 p-5">
                     <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                       <div>
                         <h3 className="analytics-chart-heading text-lg font-bold text-white">Gameweek Trajectory</h3>
@@ -787,7 +798,8 @@ function AnalyticsDashboardContent() {
                 </div>
               )}
             </div>
-            </>
+          </div>
+          </>
           )}
         </div>
       </div>

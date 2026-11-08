@@ -1,4 +1,5 @@
 'use client';
+import { formatPlayerPrice } from '@/lib/format-price';
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
@@ -397,7 +398,7 @@ export function DashboardTransferRush({
                       className="block text-[10px]"
                       style={{ color: 'var(--text-muted)' }}
                     >
-                      ${Number(player.currentPrice).toFixed(1)}M
+                      {formatPlayerPrice(player.currentPrice)}
                     </span>
                   </div>
                 </Link>
@@ -487,7 +488,7 @@ export function DashboardTransferRush({
                       className="block text-[10px]"
                       style={{ color: 'var(--text-muted)' }}
                     >
-                      ${Number(player.currentPrice).toFixed(1)}M
+                      {formatPlayerPrice(player.currentPrice)}
                     </span>
                   </div>
                 </Link>

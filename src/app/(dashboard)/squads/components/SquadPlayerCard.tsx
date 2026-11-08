@@ -1,4 +1,5 @@
 'use client';
+import { formatPlayerPrice } from '@/lib/format-price';
 
 import Image from 'next/image';
 import Link from 'next/link';
@@ -173,7 +174,7 @@ export function SquadPlayerCard({
             </div>
           )}
           <div className="font-mono text-xs font-bold text-amber-400">
-            ${player.current_price?.toFixed(1) || '0.0'}M
+            {formatPlayerPrice(player.current_price)}
           </div>
         </div>
       </div>
@@ -274,7 +275,7 @@ export function SquadPlayerCard({
 
         <div>
           <span className="block text-[10px] uppercase tracking-wider text-slate-400">Cost</span>
-          <span className="font-mono text-base font-black text-amber-400">${player.current_price?.toFixed(1) || '0.0'}M</span>
+          <span className="font-mono text-base font-black text-amber-400">{formatPlayerPrice(player.current_price)}</span>
         </div>
 
         <button

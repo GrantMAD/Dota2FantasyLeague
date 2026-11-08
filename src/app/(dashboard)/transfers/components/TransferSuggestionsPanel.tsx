@@ -1,4 +1,5 @@
 'use client';
+import { formatPlayerPrice } from '@/lib/format-price';
 
 import { ArrowLeftRight, CheckCircle2, ChevronDown, ChevronUp, Sparkles, Zap } from 'lucide-react';
 import { ROLE_ACCENTS, type TransferSuggestion, type TransferSuggestionSummary } from '../transfer-types';
@@ -56,7 +57,7 @@ function SuggestedSwapCard({
           </div>
           <div className="min-w-0 text-right">
             <span className="block text-[10px] font-bold uppercase tracking-wider text-emerald-500 dark:text-emerald-400">
-              BUY (${suggestion.player_in_current_price.toFixed(1)}M)
+              BUY ({formatPlayerPrice(suggestion.player_in_current_price)})
             </span>
             <span className="block truncate text-sm font-bold text-[var(--text-primary)]" title={suggestion.player_in_name}>
               {suggestion.player_in_name}

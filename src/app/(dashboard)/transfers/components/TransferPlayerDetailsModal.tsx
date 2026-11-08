@@ -1,4 +1,5 @@
 'use client';
+import { formatPlayerPrice } from '@/lib/format-price';
 
 import Image from 'next/image';
 import Link from 'next/link';
@@ -109,7 +110,7 @@ export function TransferPlayerDetailsModal({
             <div className="flex flex-col items-center justify-between rounded-xl border border-slate-700/80 bg-slate-800/60 p-3 text-center">
               <div>
                 <div className="mb-1 text-[11px] uppercase tracking-wider text-slate-400">Market Price</div>
-                <div className="font-mono text-xl font-bold text-amber-400">${player.current_price}M</div>
+                <div className="font-mono text-xl font-bold text-amber-400">{formatPlayerPrice(player.current_price)}</div>
               </div>
               <div className="mt-2 flex flex-col items-center">
                 <PriceSparkline data={player.price_history} width={72} height={20} strokeWidth={2} themeAware />

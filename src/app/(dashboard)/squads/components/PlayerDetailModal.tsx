@@ -1,4 +1,5 @@
 'use client';
+import { formatPlayerPrice } from '@/lib/format-price';
 
 import Image from 'next/image';
 import Link from 'next/link';
@@ -157,7 +158,7 @@ export function PlayerDetailModal({ player, loading, onClose, scoreBreakdown }: 
           <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface-raised)] p-3.5">
             <span className="text-[10px] uppercase tracking-wider text-[var(--text-muted)]">Current Price</span>
             <p className="mt-1 font-mono text-lg font-black text-amber-700 dark:text-amber-400">
-              ${Number(player.current_price || 0).toFixed(1)}M
+              {formatPlayerPrice(player.current_price)}
             </p>
           </div>
           <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface-raised)] p-3.5">

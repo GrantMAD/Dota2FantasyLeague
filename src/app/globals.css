@@ -410,6 +410,22 @@ body {
   animation: badge-icon-glow 1400ms cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
+@keyframes tab-panel-in {
+  from {
+    opacity: 0;
+    transform: translateX(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.animate-tab-panel {
+  animation: tab-panel-in 180ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  will-change: opacity, transform;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .animate-leaderboard-row,
   .animate-rank-up,
@@ -417,7 +433,8 @@ body {
   .animate-crown-shimmer,
   .animate-goal-glow,
   .animate-badge-pop,
-  .animate-badge-glow {
+  .animate-badge-glow,
+  .animate-tab-panel {
     animation: none !important;
   }
 }

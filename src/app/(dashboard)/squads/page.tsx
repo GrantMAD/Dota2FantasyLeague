@@ -1,5 +1,7 @@
 'use client';
 
+import { formatPlayerPrice } from '@/lib/format-price';
+
 import { useState, useEffect, useMemo } from 'react';
 import Image from 'next/image';
 import {
@@ -879,7 +881,7 @@ export default function SquadsPage() {
                           </span>
                         </div>
                         <span className="font-mono text-xs font-semibold text-amber-500 dark:text-amber-400">
-                          ${Number(player.current_price || 0).toFixed(1)}M
+                          {formatPlayerPrice(player.current_price)}
                         </span>
                       </button>
                     ))}
@@ -1037,7 +1039,7 @@ export default function SquadsPage() {
 
                       <div className="flex shrink-0 flex-col items-end gap-1 text-right">
                         <span className="font-mono text-sm font-bold text-amber-500 dark:text-amber-400">
-                          ${Number(player.current_price || 0).toFixed(1)}M
+                          {formatPlayerPrice(player.current_price)}
                         </span>
                         <span className="rounded-full px-2 py-0.5 text-[10px] font-semibold" style={{
                           background: 'color-mix(in srgb, var(--surface-muted) 80%, transparent)',
@@ -1126,7 +1128,7 @@ export default function SquadsPage() {
               <div className="rounded-xl border p-3" style={{ background: "var(--surface-raised)", borderColor: "var(--border)" }}>
                 <p className="text-xs text-slate-500">Price</p>
                 <p className="mt-1 font-mono font-bold text-amber-400">
-                  ${Number(selectedPlayer.current_price || 0).toFixed(1)}M
+                  {formatPlayerPrice(selectedPlayer.current_price)}
                 </p>
               </div>
               <div className="rounded-xl border p-3" style={{ background: "var(--surface-raised)", borderColor: "var(--border)" }}>
@@ -1312,7 +1314,7 @@ function PitchPlayerSlot({
 
       <div className="text-right">
         <span className="block font-mono text-xs font-bold text-amber-500 dark:text-amber-400">
-          ${Number(player.current_price || 0).toFixed(1)}M
+          {formatPlayerPrice(player.current_price)}
         </span>
       </div>
     </button>

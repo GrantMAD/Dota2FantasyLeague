@@ -1,4 +1,5 @@
 'use client';
+import { formatPlayerPrice } from '@/lib/format-price';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
@@ -443,7 +444,7 @@ export default function SquadPlannerPage() {
                       <span>{slotLabel(lineupEntry?.slot ?? '') || 'Not in lineup'}</span>
                       {lineupEntry?.is_captain && <span className="text-amber-300">Captain</span>}
                       {lineupEntry?.is_vice_captain && <span className="text-amber-200">Vice-captain</span>}
-                      <span>{player.current_price ? `$${Number(player.current_price).toFixed(1)}M` : 'Price unavailable'}</span>
+                      <span>{player.current_price ? formatPlayerPrice(player.current_price) : 'Price unavailable'}</span>
                     </div>
                     {!available && player.availability_reason && (
                       <p className="mt-2 text-xs text-amber-200/80">{player.availability_reason}</p>

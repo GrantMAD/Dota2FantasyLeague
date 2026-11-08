@@ -8,6 +8,7 @@ import Image from 'next/image';
 import { canOptimizeImage } from '@/lib/optimized-image';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { ArrowLeft, ArrowLeftRight, CalendarDays, X } from 'lucide-react';
+import { formatPlayerPrice } from '@/lib/format-price';
 
 type ComparisonPlayer = {
   id: number;
@@ -61,7 +62,7 @@ function playerLabel(player: ComparisonPlayer): string {
 }
 
 function formatPrice(value: number | null | undefined): string {
-  return value == null ? 'N/A' : `$${Number(value).toFixed(1)}M`;
+  return value == null ? 'N/A' : formatPlayerPrice(value);
 }
 
 function formatPoints(value: number | null | undefined): string {

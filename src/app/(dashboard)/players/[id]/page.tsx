@@ -1,5 +1,7 @@
 'use client';
 
+import { formatPlayerPrice } from '@/lib/format-price';
+
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
@@ -416,7 +418,7 @@ export default function PlayerDetailPage() {
                <div className="flex flex-col gap-3 pb-2 md:text-right">
                   <div>
                      <div className="text-xs text-[var(--text-muted)] uppercase tracking-wider mb-1 font-semibold">Current Price</div>
-                     <div className="text-3xl font-mono font-black text-amber-400">${player.current_price || '0.0'}M</div>
+                     <div className="text-3xl font-mono font-black text-amber-400">{formatPlayerPrice(player.current_price)}</div>
                   </div>
                   {ownedPlayerIds.includes(player.id) ? (
                      <Link
