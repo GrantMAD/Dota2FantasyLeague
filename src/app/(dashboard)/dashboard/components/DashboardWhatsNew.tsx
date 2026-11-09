@@ -759,6 +759,9 @@ export function DashboardWhatsNew({ whatsNew }: DashboardWhatsNewProps) {
                     <Link
                       key={`u-${update.id}`}
                       href={update.href}
+                      onClick={() => {
+                        void fetchWithAuth(`/api/notifications/${update.id}/read`, { method: 'PATCH' }).catch(() => {});
+                      }}
                       className={`group relative flex items-center justify-between gap-3 px-4 py-2.5 border-l-3 ${updateTheme.border} bg-linear-to-r ${updateTheme.bgGradient} ${updateTheme.hoverBg} transition-all`}
                     >
                       <div className="flex items-center gap-3 min-w-0">

@@ -389,6 +389,7 @@ async function fetchWhatsNew(userId: string): Promise<WhatsNewData | null> {
         .from('user_notifications')
         .select('id, type, title, message, created_at, metadata')
         .eq('user_id', userId)
+        .eq('is_read', false)
         .in('type', ['price_change', 'system', 'h2h_result', 'league_result', 'player_removed', 'player_unavailable'])
         .order('created_at', { ascending: false })
         .limit(20),

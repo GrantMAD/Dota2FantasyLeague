@@ -189,6 +189,7 @@ async function getHandler(request: NextRequest) {
     }
 
     const updates: AnnouncementUpdate[] = [];
+    const ownedPlayerIds = new Set<number>();
     if (squadResult.data) {
       const { data: members, error: membersError } = await supabase
         .from('fantasy_squad_members')
@@ -198,22 +199,22 @@ async function getHandler(request: NextRequest) {
       if (membersError) {
         throw new Error(`Failed to fetch active squad members: ${membersError.message}`);
       }
-      const ownedPlayerIds = new Set((members ?? []).map((member) => Number(member.player_id)));
-      if (ownedPlayerIds.size > 0) {
-        const updateWindowStart = events[0]?.startedAt
-          ?? new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString();
-        const { data: notifications, error: notificationsError } = await supabase
-          .from('user_notifications')
-          .select('id, type, title, message, created_at, metadata')
-          .eq('user_id', userId)
-          .eq('is_read', false)
-          .in('type', ['price_change', 'system', 'h2h_result', 'league_result', 'player_removed'])
-          .gte('created_at', updateWindowStart)
-          .order('created_at', { ascending: false })
-          .limit(20);
-        if (notificationsError) {
-          throw new Error(`Failed to fetch player updates: ${notificationsError.message}`);
-        }
+      for (const m of members ?? []) {
+        ownedPlayerIds.add(Number(m.player_id));
+      }
+    }
+
+    const { data: notifications, error: notificationsError } = await supabase
+      .from('user_notifications')
+      .select('id, type, title, message, created_at, metadata')
+      .eq('user_id', userId)
+      .eq('is_read', false)
+      .in('type', ['price_change', 'system', 'h2h_result', 'league_result', 'player_removed', 'player_unavailable'])
+      .order('created_at', { ascending: false })
+      .limit(20);
+    if (notificationsError) {
+      throw new Error(`Failed to fetch player updates: ${notificationsError.message}`);
+    }
 
         for (const notification of (notifications ?? []) as NotificationRow[]) {
           const leagueId = Number(notification.metadata?.league_id);
@@ -271,8 +272,6 @@ async function getHandler(request: NextRequest) {
 
           if (updates.length === 20) break;
         }
-      }
-    }
 
     return NextResponse.json({ events, gameweek, updates });
   } catch (error: unknown) {
