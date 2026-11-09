@@ -32,8 +32,9 @@ export type SearchResultItem = {
   id: string | number;
   title: string;
   subtitle: string;
-  category: 'Players' | 'Leagues' | 'Navigation' | 'Pages';
+  category: 'Players' | 'Leagues' | 'Navigation' | 'Pages' | 'Managers' | 'Fantasy Teams' | 'Tournaments';
   href: string;
   badge?: string;
   role?: string;
+  avatarUrl?: string | null;
 };

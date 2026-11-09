@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import Link from 'next/link';
 import { Bell, Check, CheckCheck, X } from 'lucide-react';
 import { fetchWithAuth } from '@/lib/fetch-with-auth';
@@ -48,6 +48,18 @@ export function NotificationDropdown({
   } = useHeaderData();
   const [currentTime, setCurrentTime] = useState(0);
   const [isMarkingAll, setIsMarkingAll] = useState(false);
+  const [bellRinging, setBellRinging] = useState(false);
+  const prevUnreadRef = useRef(unreadCount);
+
+  // Ring the bell when unread count increases (new notification arrived)
+  useEffect(() => {
+    if (unreadCount > prevUnreadRef.current) {
+      setBellRinging(true);
+      const t = window.setTimeout(() => setBellRinging(false), 700);
+      return () => window.clearTimeout(t);
+    }
+    prevUnreadRef.current = unreadCount;
+  }, [unreadCount]);
 
   useEffect(() => {
     const initialUpdate = window.setTimeout(() => setCurrentTime(Date.now()), 0);
@@ -122,20 +134,20 @@ export function NotificationDropdown({
         aria-label="Open notifications"
         aria-expanded={isOpen}
         onClick={onToggle}
-        className="relative rounded-full p-2 text-slate-400 hover:bg-slate-800 hover:text-white transition-colors"
+        className="relative rounded-full p-2 text-slate-500 hover:bg-slate-200 hover:text-slate-800 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-white transition-colors"
       >
-        <Bell className="h-5 w-5" />
+        <Bell className={`h-5 w-5 ${bellRinging ? 'animate-bell-ring' : ''}`} />
         {unreadCount > 0 && (
-          <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-cyan-400 ring-2 ring-slate-900" />
+          <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-cyan-500 ring-2 ring-white dark:ring-slate-900" />
         )}
       </button>
       {isOpen && (
-        <div className="animate-dropdown-in absolute right-0 top-12 z-50 w-84 sm:w-96 rounded-xl border border-slate-700 bg-slate-900 p-2 shadow-2xl">
-          <div className="flex items-center justify-between border-b border-slate-800 px-3 py-2.5">
+        <div className="animate-dropdown-in absolute right-0 top-12 z-50 w-84 sm:w-96 rounded-xl border border-slate-200 bg-white p-2 shadow-2xl dark:border-slate-700 dark:bg-slate-900">
+          <div className="flex items-center justify-between border-b border-slate-100 px-3 py-2.5 dark:border-slate-800">
             <div className="flex items-center gap-2">
-              <p className="text-sm font-bold text-white">Notifications</p>
+              <p className="text-sm font-bold text-slate-900 dark:text-white">Notifications</p>
               {unreadCount > 0 && (
-                <span className="rounded-full bg-cyan-500/20 px-2 py-0.5 text-[11px] font-semibold text-cyan-300">
+                <span className="rounded-full bg-cyan-500/15 px-2 py-0.5 text-[11px] font-semibold text-cyan-700 dark:bg-cyan-500/20 dark:text-cyan-300">
                   {unreadCount} unread
                 </span>
               )}
@@ -145,7 +157,7 @@ export function NotificationDropdown({
                 type="button"
                 onClick={handleMarkAllRead}
                 disabled={isMarkingAll}
-                className="flex items-center gap-1 text-xs font-medium text-slate-400 hover:text-cyan-300 transition-colors disabled:opacity-50"
+                className="flex items-center gap-1 text-xs font-medium text-slate-500 hover:text-cyan-600 dark:text-slate-400 dark:hover:text-cyan-300 transition-colors disabled:opacity-50"
                 title="Mark all as read"
               >
                 <CheckCheck className="h-3.5 w-3.5" />
@@ -154,14 +166,14 @@ export function NotificationDropdown({
             )}
           </div>
           {notifications.length === 0 ? (
-            <p className="px-3 py-8 text-center text-sm text-slate-400">You are all caught up.</p>
+            <p className="px-3 py-8 text-center text-sm text-slate-500 dark:text-slate-400">You are all caught up.</p>
           ) : (
-            <div className="max-h-96 overflow-y-auto divide-y divide-slate-800/60">
+            <div className="max-h-96 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800/60">
               {notifications.map((notification) => (
                 <div
                   key={notification.id}
-                  className={`group relative flex items-start justify-between gap-3 px-3 py-3 transition hover:bg-slate-800/50 ${
-                    notification.is_read ? 'opacity-75' : 'bg-slate-800/25'
+                  className={`group relative flex items-start justify-between gap-3 px-3 py-3 transition hover:bg-slate-50 dark:hover:bg-slate-800/50 ${
+                    notification.is_read ? 'opacity-75' : 'bg-slate-50/60 dark:bg-slate-800/25'
                   }`}
                 >
                   <Link
@@ -171,16 +183,16 @@ export function NotificationDropdown({
                   >
                     <div className="flex items-center gap-1.5">
                       {!notification.is_read && (
-                        <span className="h-2 w-2 shrink-0 rounded-full bg-cyan-400 ring-2 ring-cyan-500/30" />
+                        <span className="h-2 w-2 shrink-0 rounded-full bg-cyan-500 ring-2 ring-cyan-500/30 dark:bg-cyan-400" />
                       )}
-                      <p className={`truncate text-sm font-semibold ${notification.is_read ? 'text-slate-300' : 'text-white'}`}>
+                      <p className={`truncate text-sm font-semibold ${notification.is_read ? 'text-slate-500 dark:text-slate-300' : 'text-slate-900 dark:text-white'}`}>
                         {notification.title}
                       </p>
                     </div>
-                    <p className="mt-1 line-clamp-2 text-xs text-slate-400 leading-relaxed">
+                    <p className="mt-1 line-clamp-2 text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
                       {notification.message}
                     </p>
-                    <span className="mt-1.5 block text-[11px] text-slate-500">
+                    <span className="mt-1.5 block text-[11px] text-slate-400 dark:text-slate-500">
                       {formatNotificationTime(notification.created_at)}
                     </span>
                   </Link>
@@ -190,7 +202,7 @@ export function NotificationDropdown({
                       <button
                         type="button"
                         onClick={(e) => void handleInlineMarkAsRead(e, notification.id)}
-                        className="rounded p-1 text-slate-400 hover:bg-cyan-500/20 hover:text-cyan-300 transition-colors"
+                        className="rounded p-1 text-slate-400 hover:bg-cyan-500/20 hover:text-cyan-600 dark:hover:text-cyan-300 transition-colors"
                         title="Mark as read"
                         aria-label="Mark as read"
                       >
@@ -200,7 +212,7 @@ export function NotificationDropdown({
                     <button
                       type="button"
                       onClick={(e) => handleDismiss(e, notification.id)}
-                      className="rounded p-1 text-slate-500 hover:bg-slate-800 hover:text-slate-300 transition-colors opacity-70 group-hover:opacity-100"
+                      className="rounded p-1 text-slate-400 hover:bg-slate-200 hover:text-slate-700 dark:hover:bg-slate-800 dark:text-slate-500 dark:hover:text-slate-300 transition-colors opacity-70 group-hover:opacity-100"
                       title="Dismiss from list"
                       aria-label="Dismiss notification"
                     >
@@ -214,7 +226,7 @@ export function NotificationDropdown({
           <Link
             href="/notifications"
             onClick={onClose}
-            className="mt-2 block rounded-lg border border-slate-700/80 bg-slate-800/40 px-3 py-2 text-center text-xs font-semibold text-cyan-300 hover:bg-slate-800 hover:text-cyan-200 transition-colors"
+            className="mt-2 block rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-center text-xs font-semibold text-cyan-600 hover:bg-slate-100 hover:text-cyan-700 dark:border-slate-700/80 dark:bg-slate-800/40 dark:text-cyan-300 dark:hover:bg-slate-800 dark:hover:text-cyan-200 transition-colors"
           >
             View All Notifications
           </Link>

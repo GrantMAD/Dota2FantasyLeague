@@ -16,13 +16,19 @@ async function getHandler(request: NextRequest) {
 
     if (searchTerm.length < 2) {
       return NextResponse.json(
-        { players: [], leagues: [] },
+        { players: [], leagues: [], managers: [], fantasyTeams: [], tournaments: [] },
         { headers: { 'Cache-Control': 'private, no-store' } },
       );
     }
 
     const supabase = supabaseServer();
-    const [{ data: players, error: playersError }, { data: memberships, error: membershipsError }] = await Promise.all([
+    const [
+      { data: players, error: playersError },
+      { data: memberships, error: membershipsError },
+      { data: managers, error: managersError },
+      { data: fantasyTeams, error: fantasyTeamsError },
+      { data: tournaments, error: tournamentsError },
+    ] = await Promise.all([
       supabase
         .from('professional_players')
         .select('id, name, in_game_name, primary_role, current_price, professional_teams(name)')
@@ -33,11 +39,32 @@ async function getHandler(request: NextRequest) {
         .from('league_participants')
         .select('league_id')
         .eq('user_id', user.userId),
+      supabase
+        .from('users')
+        .select('id, username, display_name, avatar_url')
+        .or(`username.ilike.%${searchTerm}%,display_name.ilike.%${searchTerm}%`)
+        .neq('role', 'admin')
+        .order('username', { ascending: true })
+        .limit(4),
+      supabase
+        .from('fantasy_squads')
+        .select('id, name, fantasy_seasons!inner(user_id, users!inner(username, display_name))')
+        .ilike('name', `%${searchTerm}%`)
+        .order('name', { ascending: true })
+        .limit(4),
+      supabase
+        .from('tournaments')
+        .select('id, name, slug, status, tier')
+        .ilike('name', `%${searchTerm}%`)
+        .order('name', { ascending: true })
+        .limit(4),
     ]);
 
-    if (playersError || membershipsError) {
-      console.error('Command palette search failed:', playersError?.message ?? membershipsError?.message);
-      return NextResponse.json({ error: 'Unable to search players and leagues.' }, { status: 500 });
+    if (playersError || membershipsError || managersError || fantasyTeamsError || tournamentsError) {
+      const msg = playersError?.message ?? membershipsError?.message ?? managersError?.message
+        ?? fantasyTeamsError?.message ?? tournamentsError?.message;
+      console.error('Command palette search failed:', msg);
+      return NextResponse.json({ error: 'Unable to search players, managers, teams, leagues, and tournaments.' }, { status: 500 });
     }
 
     const leagueIds = (memberships ?? [])
@@ -63,7 +90,13 @@ async function getHandler(request: NextRequest) {
     }
 
     return NextResponse.json(
-      { players: players ?? [], leagues: leagues ?? [] },
+      {
+        players: players ?? [],
+        leagues: leagues ?? [],
+        managers: managers ?? [],
+        fantasyTeams: fantasyTeams ?? [],
+        tournaments: tournaments ?? [],
+      },
       { headers: { 'Cache-Control': 'private, no-store' } },
     );
   } catch (error: unknown) {
@@ -71,7 +104,7 @@ async function getHandler(request: NextRequest) {
       ? Number((error as { status: number }).status)
       : 500;
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Unable to search players and leagues.' },
+      { error: error instanceof Error ? error.message : 'Unable to search players, managers, teams, leagues, and tournaments.' },
       { status },
     );
   }

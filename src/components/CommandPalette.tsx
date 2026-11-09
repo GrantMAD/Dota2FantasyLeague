@@ -2,7 +2,8 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Compass, Search, Sparkles, Trophy, X } from 'lucide-react';
+import Image from 'next/image';
+import { Compass, Search, Shield, Sparkles, Swords, Trophy, User, X } from 'lucide-react';
 import { fetchWithAuth } from '@/lib/fetch-with-auth';
 import { useAccessibleDialog } from './use-accessible-dialog';
 import type { SearchResultItem } from './header-types';
@@ -81,9 +82,30 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
             privacy_level: string;
             current_participants: number;
           }>;
+          managers?: Array<{
+            id: string;
+            username: string;
+            display_name: string | null;
+            avatar_url: string | null;
+          }>;
+          fantasyTeams?: Array<{
+            id: number;
+            name: string;
+            fantasy_seasons: { users: { username: string; display_name: string | null } };
+          }>;
+          tournaments?: Array<{
+            id: number;
+            name: string;
+            slug: string;
+            status: string;
+            tier: string | null;
+          }>;
         };
         const players = Array.isArray(json.players) ? json.players : [];
         const leagues = Array.isArray(json.leagues) ? json.leagues : [];
+        const managers = Array.isArray(json.managers) ? json.managers : [];
+        const fantasyTeams = Array.isArray(json.fantasyTeams) ? json.fantasyTeams : [];
+        const tournaments = Array.isArray(json.tournaments) ? json.tournaments : [];
         if (disposed) return;
         const results: SearchResultItem[] = [
           ...players.map((player): SearchResultItem => ({
@@ -102,6 +124,29 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
             category: 'Leagues',
             href: `/leagues?leagueId=${league.id}`,
             badge: league.privacy_level === 'private' ? 'Private' : 'Public',
+          })),
+          ...managers.map((manager): SearchResultItem => ({
+            id: manager.id,
+            title: manager.display_name || manager.username,
+            subtitle: `@${manager.username}`,
+            category: 'Managers',
+            href: `/leaderboard`,
+            avatarUrl: manager.avatar_url,
+          })),
+          ...fantasyTeams.map((team): SearchResultItem => ({
+            id: `team-${team.id}`,
+            title: team.name,
+            subtitle: `Owned by ${team.fantasy_seasons?.users?.display_name || team.fantasy_seasons?.users?.username || 'Unknown'}`,
+            category: 'Fantasy Teams',
+            href: `/leaderboard`,
+          })),
+          ...tournaments.map((tournament): SearchResultItem => ({
+            id: `tournament-${tournament.id}`,
+            title: tournament.name,
+            subtitle: tournament.tier ? `${tournament.tier} • ${tournament.status}` : tournament.status,
+            category: 'Tournaments',
+            href: `/tournaments/${tournament.id}`,
+            badge: tournament.status === 'active' ? 'Live' : tournament.status === 'upcoming' ? 'Upcoming' : undefined,
           })),
         ];
         setDynamicResults(results);
@@ -163,7 +208,7 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
           <input
             ref={searchInputRef}
             type="text"
-            aria-label="Search players, leagues, pages, and rules"
+            aria-label="Search players, managers, fantasy teams, leagues, and tournaments"
             role="combobox"
             aria-autocomplete="list"
             aria-expanded={filteredSearchResults.length > 0}
@@ -208,7 +253,7 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
 
         <div className="max-h-80 space-y-1 overflow-y-auto p-2">
           {isSearching && (
-            <div role="status" aria-label="Searching players and leagues" className="space-y-1.5 p-1">
+            <div role="status" aria-label="Searching players, managers, teams, leagues, and tournaments" className="space-y-1.5 p-1">
               {[1, 2, 3].map((item) => (
                 <div key={item} className="flex items-center gap-3 rounded-lg p-2.5">
                 <div className="h-8 w-8 shrink-0 animate-pulse rounded-md bg-[var(--surface-muted)]" />
@@ -227,7 +272,7 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
           )}
           {searchQuery.trim().length === 1 && (
             <div className="p-5 text-center text-sm text-[var(--text-secondary)]">
-              Type at least 2 characters to search players and leagues.
+              Type at least 2 characters to search players, managers, teams, leagues, and tournaments.
             </div>
           )}
           {filteredSearchResults.length === 0 && !isSearching && !searchError && searchQuery.trim().length >= 2 && (
@@ -253,9 +298,32 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
                 style={{ animationDelay: `${Math.min(index, 8) * 20}ms` }}
               >
                 <div className="flex items-center gap-3">
-                  <div className={`rounded-lg p-2 ${item.category === 'Players' ? getRoleColor(item.role) : 'bg-[var(--surface-raised)] text-[var(--text-muted)]'}`}>
-                    {item.category === 'Players' ? <Sparkles className="h-4 w-4" /> : item.category === 'Leagues' ? <Trophy className="h-4 w-4" /> : <Compass className="h-4 w-4" />}
-                  </div>
+                  {item.category === 'Managers' && item.avatarUrl ? (
+                    <Image
+                      src={item.avatarUrl}
+                      alt=""
+                      aria-hidden="true"
+                      width={32}
+                      height={32}
+                      className="h-8 w-8 shrink-0 rounded-lg object-cover"
+                    />
+                  ) : (
+                    <div className={`rounded-lg p-2 ${
+                      item.category === 'Players' ? getRoleColor(item.role) :
+                      item.category === 'Leagues' ? 'border border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300' :
+                      item.category === 'Managers' ? 'border border-cyan-500/30 bg-cyan-500/10 text-cyan-700 dark:text-cyan-300' :
+                      item.category === 'Fantasy Teams' ? 'border border-violet-500/30 bg-violet-500/10 text-violet-700 dark:text-violet-300' :
+                      item.category === 'Tournaments' ? 'border border-rose-500/30 bg-rose-500/10 text-rose-700 dark:text-rose-300' :
+                      'bg-[var(--surface-raised)] text-[var(--text-muted)]'
+                    }`}>
+                      {item.category === 'Players' ? <Sparkles className="h-4 w-4" /> :
+                       item.category === 'Leagues' ? <Trophy className="h-4 w-4" /> :
+                       item.category === 'Managers' ? <User className="h-4 w-4" /> :
+                       item.category === 'Fantasy Teams' ? <Shield className="h-4 w-4" /> :
+                       item.category === 'Tournaments' ? <Swords className="h-4 w-4" /> :
+                       <Compass className="h-4 w-4" />}
+                    </div>
+                  )}
                   <div className="min-w-0">
                     <p className="truncate text-sm font-semibold text-[var(--text-primary)] transition-colors group-hover:text-cyan-700 dark:group-hover:text-cyan-300">{item.title}</p>
                     <p className="truncate text-xs text-[var(--text-secondary)]">{item.subtitle}</p>

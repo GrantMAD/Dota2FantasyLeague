@@ -70,6 +70,9 @@ describe('GET /api/command-search', () => {
       if (table === 'professional_players') return createQuery(playerRows);
       if (table === 'league_participants') return createQuery([{ league_id: 42 }]);
       if (table === 'leagues') return createQuery(leagueRows, membershipPrivacyFilter);
+      if (table === 'users') return createQuery([]);
+      if (table === 'fantasy_squads') return createQuery([]);
+      if (table === 'tournaments') return createQuery([]);
       throw new Error(`Unexpected table: ${table}`);
     });
     mockSupabaseServer.mockReturnValue({ from: mockFrom });
@@ -78,7 +81,13 @@ describe('GET /api/command-search', () => {
 
     expect(response.status).toBe(200);
     expect(response.headers.get('Cache-Control')).toBe('private, no-store');
-    expect(await response.json()).toEqual({ players: playerRows, leagues: leagueRows });
+    expect(await response.json()).toEqual({
+      players: playerRows,
+      leagues: leagueRows,
+      managers: [],
+      fantasyTeams: [],
+      tournaments: [],
+    });
     expect(membershipPrivacyFilter).toHaveBeenCalledWith('privacy_level.neq.private,id.in.(42)');
   });
 
@@ -88,7 +97,7 @@ describe('GET /api/command-search', () => {
     const response = await GET(new NextRequest('http://localhost:3000/api/command-search?query=x'));
 
     expect(response.status).toBe(200);
-    expect(await response.json()).toEqual({ players: [], leagues: [] });
+    expect(await response.json()).toEqual({ players: [], leagues: [], managers: [], fantasyTeams: [], tournaments: [] });
     expect(mockSupabaseServer).not.toHaveBeenCalled();
   });
 
@@ -98,6 +107,9 @@ describe('GET /api/command-search', () => {
       if (table === 'professional_players') return createQuery([]);
       if (table === 'league_participants') return createQuery([]);
       if (table === 'leagues') return createQuery([], undefined, privacyFilter);
+      if (table === 'users') return createQuery([]);
+      if (table === 'fantasy_squads') return createQuery([]);
+      if (table === 'tournaments') return createQuery([]);
       throw new Error(`Unexpected table: ${table}`);
     });
     mockSupabaseServer.mockReturnValue({ from: mockFrom });
@@ -107,5 +119,65 @@ describe('GET /api/command-search', () => {
     expect(response.status).toBe(200);
     expect(privacyFilter).toHaveBeenCalledWith('privacy_level', 'private');
     expect(mockFrom).toHaveBeenCalledWith('leagues');
+  });
+
+  it('returns manager results matching the search term', async () => {
+    const managerRows = [{ id: 'user-1', username: 'alice', display_name: 'Alice W', avatar_url: null }];
+    const mockFrom = jest.fn((table: string) => {
+      if (table === 'professional_players') return createQuery([]);
+      if (table === 'league_participants') return createQuery([]);
+      if (table === 'leagues') return createQuery([]);
+      if (table === 'users') return createQuery(managerRows);
+      if (table === 'fantasy_squads') return createQuery([]);
+      if (table === 'tournaments') return createQuery([]);
+      throw new Error(`Unexpected table: ${table}`);
+    });
+    mockSupabaseServer.mockReturnValue({ from: mockFrom });
+
+    const response = await GET(new NextRequest('http://localhost:3000/api/command-search?query=alice'));
+
+    expect(response.status).toBe(200);
+    const body = await response.json();
+    expect(body.managers).toEqual(managerRows);
+  });
+
+  it('returns fantasy team results matching the search term', async () => {
+    const teamRows = [{ id: 7, name: 'Team Valor', fantasy_seasons: { users: { username: 'bob', display_name: 'Bob' } } }];
+    const mockFrom = jest.fn((table: string) => {
+      if (table === 'professional_players') return createQuery([]);
+      if (table === 'league_participants') return createQuery([]);
+      if (table === 'leagues') return createQuery([]);
+      if (table === 'users') return createQuery([]);
+      if (table === 'fantasy_squads') return createQuery(teamRows);
+      if (table === 'tournaments') return createQuery([]);
+      throw new Error(`Unexpected table: ${table}`);
+    });
+    mockSupabaseServer.mockReturnValue({ from: mockFrom });
+
+    const response = await GET(new NextRequest('http://localhost:3000/api/command-search?query=valor'));
+
+    expect(response.status).toBe(200);
+    const body = await response.json();
+    expect(body.fantasyTeams).toEqual(teamRows);
+  });
+
+  it('returns tournament results matching the search term', async () => {
+    const tournamentRows = [{ id: 3, name: 'The International', slug: 'ti', status: 'upcoming', tier: 'S' }];
+    const mockFrom = jest.fn((table: string) => {
+      if (table === 'professional_players') return createQuery([]);
+      if (table === 'league_participants') return createQuery([]);
+      if (table === 'leagues') return createQuery([]);
+      if (table === 'users') return createQuery([]);
+      if (table === 'fantasy_squads') return createQuery([]);
+      if (table === 'tournaments') return createQuery(tournamentRows);
+      throw new Error(`Unexpected table: ${table}`);
+    });
+    mockSupabaseServer.mockReturnValue({ from: mockFrom });
+
+    const response = await GET(new NextRequest('http://localhost:3000/api/command-search?query=international'));
+
+    expect(response.status).toBe(200);
+    const body = await response.json();
+    expect(body.tournaments).toEqual(tournamentRows);
   });
 });
