@@ -36,14 +36,14 @@ function CountdownDisplay({ seconds }: { seconds: number }) {
   const formatted = formatCountdown(seconds);
 
   return (
-    <span aria-label={formatted} className="inline-flex font-mono tabular-nums" aria-live="off">
+    <span aria-label={formatted} className="inline-flex items-baseline font-mono leading-none tabular-nums" aria-live="off">
       {Array.from(formatted).map((character, index) => (
         /\d/.test(character) ? (
-          <span key={`${index}-${character}`} className="inline-block overflow-hidden leading-none">
+          <span key={`${index}-${character}`} className="inline-block overflow-hidden align-baseline leading-none">
             <span className="inline-block animate-countdown-digit">{character}</span>
           </span>
         ) : (
-          <span key={`${index}-${character}`} aria-hidden="true">{character}</span>
+          <span key={`${index}-${character}`} className="inline-block align-baseline leading-none" aria-hidden="true">{character}</span>
         )
       ))}
     </span>
