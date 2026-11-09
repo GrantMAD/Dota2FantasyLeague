@@ -7,8 +7,6 @@ export type HeaderProfile = {
   subscription_tier?: string | null;
 };
 
-export const PROFILE_UPDATED_EVENT = 'fantasy:profile-updated';
-
 export type HeaderNotification = {
   id: number;
   type: string;
@@ -34,7 +32,7 @@ export type SearchResultItem = {
   id: string | number;
   title: string;
   subtitle: string;
-  category: 'Players' | 'Navigation' | 'Pages';
+  category: 'Players' | 'Leagues' | 'Navigation' | 'Pages';
   href: string;
   badge?: string;
   role?: string;

@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { GET } from './route';
+import { clearAnalyticsCache, GET } from './route';
 
 const mockVerifyAuth = jest.fn();
 const mockSupabaseServer = jest.fn();
@@ -19,7 +19,53 @@ jest.mock('@/lib/api-telemetry', () => ({
 describe('GET /api/analytics - Finding 31: Dynamic gameweek resolution and role-based Dream Team', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    clearAnalyticsCache();
     mockVerifyAuth.mockResolvedValue({ userId: 'manager-42', email: 'manager42@example.test' });
+  });
+
+  it('caches successful analytics responses per user for 30 seconds', async () => {
+    const mockFrom = jest.fn(() => ({
+      select: jest.fn().mockReturnThis(),
+      eq: jest.fn().mockReturnThis(),
+      maybeSingle: jest.fn().mockResolvedValue({ data: null, error: null }),
+    }));
+    mockSupabaseServer.mockReturnValue({ from: mockFrom });
+
+    const firstResponse = await GET(new NextRequest('http://localhost:3000/api/analytics'));
+    const secondResponse = await GET(new NextRequest('http://localhost:3000/api/analytics'));
+
+    expect(firstResponse.headers.get('X-Analytics-Cache')).toBe('MISS');
+    expect(secondResponse.headers.get('X-Analytics-Cache')).toBe('HIT');
+    expect(firstResponse.headers.get('Cache-Control')).toBe('private, no-store');
+    expect(mockFrom).toHaveBeenCalledTimes(1);
+
+    mockVerifyAuth.mockResolvedValue({ userId: 'another-manager', email: 'another@example.test' });
+    const otherUserResponse = await GET(new NextRequest('http://localhost:3000/api/analytics'));
+
+    expect(otherUserResponse.headers.get('X-Analytics-Cache')).toBe('MISS');
+    expect(mockFrom).toHaveBeenCalledTimes(2);
+  });
+
+  it('expires cached analytics after 30 seconds', async () => {
+    jest.useFakeTimers();
+    try {
+      const mockFrom = jest.fn(() => ({
+        select: jest.fn().mockReturnThis(),
+        eq: jest.fn().mockReturnThis(),
+        maybeSingle: jest.fn().mockResolvedValue({ data: null, error: null }),
+      }));
+      mockSupabaseServer.mockReturnValue({ from: mockFrom });
+
+      const firstResponse = await GET(new NextRequest('http://localhost:3000/api/analytics'));
+      jest.advanceTimersByTime(30_001);
+      const secondResponse = await GET(new NextRequest('http://localhost:3000/api/analytics'));
+
+      expect(firstResponse.headers.get('X-Analytics-Cache')).toBe('MISS');
+      expect(secondResponse.headers.get('X-Analytics-Cache')).toBe('MISS');
+      expect(mockFrom).toHaveBeenCalledTimes(2);
+    } finally {
+      jest.useRealTimers();
+    }
   });
 
   it('loads global gameweek averages from the database aggregate instead of downloading every lineup', async () => {

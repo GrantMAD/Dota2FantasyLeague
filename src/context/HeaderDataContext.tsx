@@ -12,7 +12,6 @@ import { fetchWithAuth } from '@/lib/fetch-with-auth';
 import { supabase } from '@/lib/supabase';
 import { useToast } from '@/components/Toast';
 import {
-  PROFILE_UPDATED_EVENT,
   type HeaderNotification,
   type HeaderProfile,
   type QuickStats,
@@ -27,6 +26,8 @@ interface HeaderDataContextValue {
   quickStats: QuickStats | null;
   notifications: HeaderNotification[];
   unreadCount: number;
+  /** Apply a successful profile update to the shared header state. */
+  updateProfile: (update: Partial<HeaderProfile>) => void;
   /** Call after the user marks a notification read to update local state. */
   markNotificationRead: (id: number) => void;
   /** Mark all notifications as read in local state. */
@@ -74,21 +75,7 @@ export function HeaderDataProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const initialLoad = window.setTimeout(() => void loadProfile(), 0);
-
-    function handleProfileUpdated(event: Event) {
-      const update = (event as CustomEvent<Partial<HeaderProfile>>).detail;
-      if (!update) {
-        void loadProfile();
-        return;
-      }
-      setProfile((current) => (current ? { ...current, ...update } : current));
-    }
-
-    window.addEventListener(PROFILE_UPDATED_EVENT, handleProfileUpdated);
-    return () => {
-      window.clearTimeout(initialLoad);
-      window.removeEventListener(PROFILE_UPDATED_EVENT, handleProfileUpdated);
-    };
+    return () => window.clearTimeout(initialLoad);
   }, [loadProfile]);
 
   // ── Quick Stats ───────────────────────────────────────────────────────────
@@ -230,6 +217,14 @@ export function HeaderDataProvider({ children }: { children: ReactNode }) {
   }, [loadNotifications, showNotificationToast]);
 
   // ── Helpers exposed to consumers ─────────────────────────────────────────
+  const updateProfile = useCallback((update: Partial<HeaderProfile>) => {
+    if (!profile) {
+      void loadProfile();
+      return;
+    }
+    setProfile((current) => current ? { ...current, ...update } : current);
+  }, [loadProfile, profile]);
+
   const markNotificationRead = useCallback((id: number) => {
     setNotifications((current) =>
       current.map((n) => (n.id === id ? { ...n, is_read: true } : n)),
@@ -261,6 +256,7 @@ export function HeaderDataProvider({ children }: { children: ReactNode }) {
         quickStats,
         notifications,
         unreadCount,
+        updateProfile,
         markNotificationRead,
         markAllNotificationsRead,
         dismissNotification,

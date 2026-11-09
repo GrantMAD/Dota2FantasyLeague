@@ -3,6 +3,37 @@ import { verifyAuth } from '@/lib/auth-utils';
 import { supabaseServer } from '@/lib/supabase';
 import { withApiTelemetry } from '@/lib/api-telemetry';
 
+const ANALYTICS_CACHE_TTL_MS = 30_000;
+const MAX_ANALYTICS_CACHE_ENTRIES = 500;
+const PRIVATE_CACHE_HEADERS = { 'Cache-Control': 'private, no-store' };
+const analyticsCache = new Map<string, { expiresAt: number; payload: unknown }>();
+
+function getCachedAnalytics(userId: string): unknown | undefined {
+  const cached = analyticsCache.get(userId);
+  if (!cached) return undefined;
+  if (cached.expiresAt <= Date.now()) {
+    analyticsCache.delete(userId);
+    return undefined;
+  }
+  return cached.payload;
+}
+
+function cacheAnalytics(userId: string, payload: unknown): void {
+  const now = Date.now();
+  for (const [cachedUserId, cached] of analyticsCache) {
+    if (cached.expiresAt <= now) analyticsCache.delete(cachedUserId);
+  }
+  if (!analyticsCache.has(userId) && analyticsCache.size >= MAX_ANALYTICS_CACHE_ENTRIES) {
+    const oldestUserId = analyticsCache.keys().next().value;
+    if (oldestUserId !== undefined) analyticsCache.delete(oldestUserId);
+  }
+  analyticsCache.delete(userId);
+  analyticsCache.set(userId, { expiresAt: now + ANALYTICS_CACHE_TTL_MS, payload });
+}
+
+export function clearAnalyticsCache(): void {
+  analyticsCache.clear();
+}
 
 interface FantasyBreakdownRow {
   total_points: number | null;
@@ -31,6 +62,13 @@ function firstRelation<T>(value: T | T[] | null | undefined): T | undefined {
 async function getHandler(request: NextRequest) {
   try {
     const user = await verifyAuth(request);
+    const cachedAnalytics = getCachedAnalytics(user.userId);
+    if (cachedAnalytics !== undefined) {
+      return NextResponse.json(cachedAnalytics, {
+        headers: { ...PRIVATE_CACHE_HEADERS, 'X-Analytics-Cache': 'HIT' },
+      });
+    }
+
     const supabase = supabaseServer();
 
     const { data: season } = await supabase.from('fantasy_seasons')
@@ -39,7 +77,7 @@ async function getHandler(request: NextRequest) {
       .maybeSingle();
 
     if (!season) {
-      return NextResponse.json({
+      const emptyAnalytics = {
         user: {
           totalPoints: 0,
           globalRank: null,
@@ -53,6 +91,10 @@ async function getHandler(request: NextRequest) {
         market: [],
         dreamTeam: [],
         valueForMoney: [],
+      };
+      cacheAnalytics(user.userId, emptyAnalytics);
+      return NextResponse.json(emptyAnalytics, {
+        headers: { ...PRIVATE_CACHE_HEADERS, 'X-Analytics-Cache': 'MISS' },
       });
     }
 
@@ -400,7 +442,7 @@ async function getHandler(request: NextRequest) {
       });
     }
 
-    return NextResponse.json({
+    const analytics = {
       user: {
         totalPoints: Number(season.total_points ?? 0),
         globalRank: season.global_rank ?? null,
@@ -414,13 +456,20 @@ async function getHandler(request: NextRequest) {
       market: market.slice(0, 6),
       dreamTeam,
       valueForMoney: market.slice(0, 5),
+    };
+    cacheAnalytics(user.userId, analytics);
+    return NextResponse.json(analytics, {
+      headers: { ...PRIVATE_CACHE_HEADERS, 'X-Analytics-Cache': 'MISS' },
     });
   } catch (error: unknown) {
     console.error('Analytics route failed:', error);
     const status = typeof error === 'object' && error !== null && 'status' in error
       ? Number((error as { status: number }).status)
       : 500;
-    return NextResponse.json({ error: 'Unable to load analytics.' }, { status });
+    return NextResponse.json(
+      { error: 'Unable to load analytics.' },
+      { status, headers: PRIVATE_CACHE_HEADERS },
+    );
   }
 }
 

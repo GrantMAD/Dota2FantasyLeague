@@ -2,7 +2,8 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Compass, Search, Sparkles, X } from 'lucide-react';
+import { Compass, Search, Sparkles, Trophy, X } from 'lucide-react';
+import { fetchWithAuth } from '@/lib/fetch-with-auth';
 import { useAccessibleDialog } from './use-accessible-dialog';
 import type { SearchResultItem } from './header-types';
 
@@ -24,8 +25,9 @@ const staticNavigationItems: SearchResultItem[] = [
 export function CommandPalette({ onClose }: { onClose: () => void }) {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState('');
-  const [playerResults, setPlayerResults] = useState<SearchResultItem[]>([]);
-  const [isSearchingPlayers, setIsSearchingPlayers] = useState(false);
+  const [dynamicResults, setDynamicResults] = useState<SearchResultItem[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [searchError, setSearchError] = useState<string | null>(null);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const commandPaletteRef = useAccessibleDialog<HTMLDivElement>({
@@ -34,6 +36,14 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
     initialFocusRef: searchInputRef,
   });
 
+  function updateSearchQuery(value: string) {
+    setSearchQuery(value);
+    setSelectedIndex(0);
+    setDynamicResults([]);
+    setSearchError(null);
+    setIsSearching(value.trim().length >= 2);
+  }
+
   useEffect(() => {
     const timer = window.setTimeout(() => searchInputRef.current?.focus(), 50);
     return () => window.clearTimeout(timer);
@@ -41,26 +51,42 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
 
   useEffect(() => {
     const trimmed = searchQuery.trim();
-    if (!trimmed) return;
+    if (trimmed.length < 2) return;
 
     let disposed = false;
+    const controller = new AbortController();
     const timer = window.setTimeout(async () => {
-      setIsSearchingPlayers(true);
       try {
-        const response = await fetch(`/api/players?search=${encodeURIComponent(trimmed)}&limit=5`);
-        if (!response.ok) throw new Error(`Player search failed (${response.status}).`);
-        const json = await response.json();
-        const players = Array.isArray(json.data) ? json.data : [];
-        if (disposed) return;
-        setPlayerResults(
-          players.map((player: {
+        const response = await fetchWithAuth(
+          `/api/command-search?query=${encodeURIComponent(trimmed)}`,
+          { signal: controller.signal },
+        );
+        if (!response.ok) {
+          const body = await response.json().catch(() => ({}));
+          throw new Error(body.error || `Search failed (${response.status}).`);
+        }
+        const json = await response.json() as {
+          players?: Array<{
             id: number;
             name: string;
             in_game_name?: string | null;
             primary_role?: string | null;
             current_price?: number | null;
             professional_teams?: { name: string } | null;
-          }) => ({
+          }>;
+          leagues?: Array<{
+            id: number;
+            name: string;
+            league_type: string;
+            privacy_level: string;
+            current_participants: number;
+          }>;
+        };
+        const players = Array.isArray(json.players) ? json.players : [];
+        const leagues = Array.isArray(json.leagues) ? json.leagues : [];
+        if (disposed) return;
+        const results: SearchResultItem[] = [
+          ...players.map((player): SearchResultItem => ({
             id: player.id,
             title: player.in_game_name || player.name,
             subtitle: `${player.professional_teams?.name || 'Free Agent'} • ${player.primary_role || 'Player'}`,
@@ -69,20 +95,31 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
             badge: player.current_price ? `$${Number(player.current_price).toFixed(1)}M` : undefined,
             role: player.primary_role || undefined,
           })),
-        );
+          ...leagues.map((league): SearchResultItem => ({
+            id: league.id,
+            title: league.name,
+            subtitle: `${league.league_type === 'head_to_head' || league.league_type === 'h2h' ? 'Head-to-Head' : 'Classic'} • ${league.current_participants} managers`,
+            category: 'Leagues',
+            href: `/leagues?leagueId=${league.id}`,
+            badge: league.privacy_level === 'private' ? 'Private' : 'Public',
+          })),
+        ];
+        setDynamicResults(results);
       } catch (error) {
-        if (!disposed) {
+        if (!disposed && !(error instanceof DOMException && error.name === 'AbortError')) {
           console.error('Unable to search players from the command palette:', error);
-          setPlayerResults([]);
+          setDynamicResults([]);
+          setSearchError('Search is temporarily unavailable. Please try again.');
         }
       } finally {
-        if (!disposed) setIsSearchingPlayers(false);
+        if (!disposed) setIsSearching(false);
       }
     }, 250);
 
     return () => {
       disposed = true;
       clearTimeout(timer);
+      controller.abort();
     };
   }, [searchQuery]);
 
@@ -92,8 +129,8 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
     const matchedPages = staticNavigationItems.filter(
       (item) => item.title.toLowerCase().includes(query) || item.subtitle.toLowerCase().includes(query),
     );
-    return [...playerResults, ...matchedPages];
-  }, [searchQuery, playerResults]);
+    return [...dynamicResults, ...matchedPages];
+  }, [searchQuery, dynamicResults]);
   const activeIndex = Math.min(selectedIndex, Math.max(0, filteredSearchResults.length - 1));
 
   function navigateToResult(item: SearchResultItem) {
@@ -126,7 +163,7 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
           <input
             ref={searchInputRef}
             type="text"
-            aria-label="Search players, pages, and rules"
+            aria-label="Search players, leagues, pages, and rules"
             role="combobox"
             aria-autocomplete="list"
             aria-expanded={filteredSearchResults.length > 0}
@@ -134,9 +171,7 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
             aria-activedescendant={filteredSearchResults.length > 0 ? `command-palette-result-${activeIndex}` : undefined}
             value={searchQuery}
             onChange={(event) => {
-              setSearchQuery(event.target.value);
-              setSelectedIndex(0);
-              if (!event.target.value.trim()) setIsSearchingPlayers(false);
+              updateSearchQuery(event.target.value);
             }}
             onKeyDown={(event) => {
               if (event.key === 'ArrowDown' && filteredSearchResults.length > 0) {
@@ -159,7 +194,7 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
             <button
               type="button"
               aria-label="Clear search"
-              onClick={() => setSearchQuery('')}
+              onClick={() => updateSearchQuery('')}
               className="rounded-lg p-1.5 text-[var(--text-muted)] transition hover:bg-[var(--surface-muted)] hover:text-[var(--text-primary)]"
             >
               <X className="h-4 w-4" />
@@ -172,8 +207,8 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
         </div>
 
         <div className="max-h-80 space-y-1 overflow-y-auto p-2">
-          {isSearchingPlayers && (
-            <div role="status" aria-label="Searching players" className="space-y-1.5 p-1">
+          {isSearching && (
+            <div role="status" aria-label="Searching players and leagues" className="space-y-1.5 p-1">
               {[1, 2, 3].map((item) => (
                 <div key={item} className="flex items-center gap-3 rounded-lg p-2.5">
                 <div className="h-8 w-8 shrink-0 animate-pulse rounded-md bg-[var(--surface-muted)]" />
@@ -185,7 +220,17 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
               ))}
             </div>
           )}
-          {filteredSearchResults.length === 0 && !isSearchingPlayers && (
+          {searchError && !isSearching && (
+            <div role="alert" className="p-5 text-center text-sm text-rose-700 dark:text-rose-300">
+              {searchError}
+            </div>
+          )}
+          {searchQuery.trim().length === 1 && (
+            <div className="p-5 text-center text-sm text-[var(--text-secondary)]">
+              Type at least 2 characters to search players and leagues.
+            </div>
+          )}
+          {filteredSearchResults.length === 0 && !isSearching && !searchError && searchQuery.trim().length >= 2 && (
             <div className="p-8 text-center text-sm text-[var(--text-secondary)]">
               No results found for &ldquo;<span className="text-[var(--text-primary)]">{searchQuery}</span>&rdquo;
             </div>
@@ -209,7 +254,7 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
               >
                 <div className="flex items-center gap-3">
                   <div className={`rounded-lg p-2 ${item.category === 'Players' ? getRoleColor(item.role) : 'bg-[var(--surface-raised)] text-[var(--text-muted)]'}`}>
-                    {item.category === 'Players' ? <Sparkles className="h-4 w-4" /> : <Compass className="h-4 w-4" />}
+                    {item.category === 'Players' ? <Sparkles className="h-4 w-4" /> : item.category === 'Leagues' ? <Trophy className="h-4 w-4" /> : <Compass className="h-4 w-4" />}
                   </div>
                   <div className="min-w-0">
                     <p className="truncate text-sm font-semibold text-[var(--text-primary)] transition-colors group-hover:text-cyan-700 dark:group-hover:text-cyan-300">{item.title}</p>

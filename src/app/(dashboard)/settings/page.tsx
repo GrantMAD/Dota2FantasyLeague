@@ -8,7 +8,7 @@ import { canOptimizeImage } from '@/lib/optimized-image';
 import { useSearchParams } from 'next/navigation';
 import { useTheme, type Theme } from '@/components/theme/ThemeProvider';
 import { useToast } from '@/components/Toast';
-import { PROFILE_UPDATED_EVENT } from '@/components/header-types';
+import { useHeaderData } from '@/context/HeaderDataContext';
 import { getCountryOptions } from '@/lib/country-options';
 import {
   LayoutDashboard,
@@ -62,6 +62,7 @@ const tabs: Array<{
 
 function SettingsContent() {
   const toast = useToast();
+  const { updateProfile } = useHeaderData();
   const { theme, setTheme } = useTheme();
   const searchParams = useSearchParams();
   const requestedSection = searchParams.get('section');
@@ -239,15 +240,7 @@ function SettingsContent() {
         displayName: data.profile?.display_name || current.displayName,
         bio: data.profile?.bio ?? current.bio,
       }));
-      window.dispatchEvent(
-        new CustomEvent(PROFILE_UPDATED_EVENT, {
-          detail: {
-            username: data.profile.username,
-            display_name: data.profile.display_name,
-            avatar_url: data.profile.avatar_url,
-          },
-        })
-      );
+      updateProfile(data.profile);
       setMessage('Settings saved successfully');
       toast.success('Settings Saved', 'Your changes have been applied.');
     } catch (error: unknown) {
@@ -280,11 +273,7 @@ function SettingsContent() {
       if (!response.ok || !data.avatar_url) throw new Error(data.error || 'Unable to upload profile image');
 
       setFormData((current) => ({ ...current, avatarUrl: data.avatar_url ?? null }));
-      window.dispatchEvent(
-        new CustomEvent(PROFILE_UPDATED_EVENT, {
-          detail: { avatar_url: data.avatar_url },
-        })
-      );
+      updateProfile({ avatar_url: data.avatar_url });
       toast.success('Profile Image Updated', 'Your new profile image is now in use.');
     } catch (error: unknown) {
       const errMsg = error instanceof Error ? error.message : 'Unable to upload profile image';

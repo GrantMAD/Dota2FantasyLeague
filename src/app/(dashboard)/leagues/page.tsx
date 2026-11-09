@@ -124,8 +124,10 @@ function LeaguesPageContent() {
   const [activityLoading, setActivityLoading] = useState(false);
   const [activityError, setActivityError] = useState<string | null>(null);
   const activityRequestId = useRef(0);
+  const openedRequestedLeagueId = useRef<number | null>(null);
+  const requestedLeagueId = Number(searchParams.get('leagueId'));
 
-  const loadLeagueActivity = async (leagueId: number) => {
+  const loadLeagueActivity = useCallback(async (leagueId: number) => {
     const requestId = ++activityRequestId.current;
     setActivityLoading(true);
     setActivityError(null);
@@ -145,12 +147,12 @@ function LeaguesPageContent() {
     } finally {
       if (activityRequestId.current === requestId) setActivityLoading(false);
     }
-  };
+  }, []);
 
-  const openLeague = (league: LeagueRecord) => {
+  const openLeague = useCallback((league: LeagueRecord) => {
     setSelectedLeague(league);
     void loadLeagueActivity(league.id);
-  };
+  }, [loadLeagueActivity]);
 
   const loadLeagues = useCallback(async (isBackgroundRefresh = false) => {
     try {
@@ -167,8 +169,17 @@ function LeaguesPageContent() {
         data?: LeagueRecord[];
         lastRecalculatedAt?: string | null;
       };
-      setLeagues(p.leagues || p.data || []);
+      const loadedLeagues = p.leagues || p.data || [];
+      setLeagues(loadedLeagues);
       setLastRecalculatedAt(p.lastRecalculatedAt ?? null);
+      if (Number.isSafeInteger(requestedLeagueId) && requestedLeagueId > 0
+        && openedRequestedLeagueId.current !== requestedLeagueId) {
+        const requestedLeague = loadedLeagues.find((league) => league.id === requestedLeagueId);
+        if (requestedLeague) {
+          openedRequestedLeagueId.current = requestedLeagueId;
+          openLeague(requestedLeague);
+        }
+      }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Failed to load leagues';
       setPageError(msg);
@@ -178,7 +189,7 @@ function LeaguesPageContent() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [toast]);
+  }, [openLeague, requestedLeagueId, toast]);
 
   useEffect(() => {
     const initialLoad = window.setTimeout(() => void loadLeagues(), 0);
