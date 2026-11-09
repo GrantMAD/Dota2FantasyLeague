@@ -404,7 +404,7 @@ function NotificationsPageContent() {
         rowTone: 'border-l-emerald-500',
       };
     }
-    if (['league_activity', 'league_result', 'league_invite', 'h2h_result'].includes(type)) {
+    if (['league_activity', 'league_result', 'league_invite', 'h2h_result'].includes(type) || Boolean(notification.metadata?.league_id)) {
       return {
         Icon: Trophy,
         label: 'League',
@@ -433,12 +433,17 @@ function NotificationsPageContent() {
 
   const getActionForNotification = (notification: Notification) => {
     const { type, metadata } = notification;
+    const leagueId = Number(metadata?.league_id);
+    if (Number.isSafeInteger(leagueId) && leagueId > 0) {
+      return { href: `/leagues?leagueId=${leagueId}`, label: 'Open League' };
+    }
+
     const playerId = Number(metadata?.player_id);
     const gameweekId = Number(metadata?.gameweek_id);
+    if (type === 'player_removed') return { href: '/transfers', label: 'Replace Player' };
     if (['player_unavailable', 'system'].includes(type) && Number.isInteger(playerId) && playerId > 0) {
       return { href: `/players/${playerId}`, label: 'View Player' };
     }
-    if (type === 'player_removed') return { href: '/transfers', label: 'Replace Player' };
     if (['gameweek_result', 'score_posted'].includes(type) && Number.isInteger(gameweekId) && gameweekId > 0) {
       return { href: `/gameweeks/${gameweekId}`, label: 'View Gameweek' };
     }

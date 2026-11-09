@@ -21,7 +21,7 @@ interface AnnouncementEvent {
 
 interface AnnouncementUpdate {
   id: number;
-  kind: 'price_change' | 'availability';
+  kind: 'price_change' | 'availability' | 'league';
   title: string;
   message: string;
   createdAt: string;
@@ -207,7 +207,7 @@ async function getHandler(request: NextRequest) {
           .select('id, type, title, message, created_at, metadata')
           .eq('user_id', userId)
           .eq('is_read', false)
-          .in('type', ['price_change', 'system'])
+          .in('type', ['price_change', 'system', 'h2h_result', 'league_result', 'player_removed'])
           .gte('created_at', updateWindowStart)
           .order('created_at', { ascending: false })
           .limit(20);
@@ -216,7 +216,34 @@ async function getHandler(request: NextRequest) {
         }
 
         for (const notification of (notifications ?? []) as NotificationRow[]) {
+          const leagueId = Number(notification.metadata?.league_id);
+          if (Number.isSafeInteger(leagueId) && leagueId > 0) {
+            updates.push({
+              id: notification.id,
+              kind: 'league',
+              title: notification.title,
+              message: notification.message,
+              createdAt: notification.created_at,
+              href: `/leagues?leagueId=${leagueId}`,
+            });
+            if (updates.length === 20) break;
+            continue;
+          }
+
           const playerId = Number(notification.metadata?.player_id);
+          if (notification.type === 'player_removed') {
+            updates.push({
+              id: notification.id,
+              kind: 'availability',
+              title: notification.title,
+              message: notification.message,
+              createdAt: notification.created_at,
+              href: '/transfers',
+            });
+            if (updates.length === 20) break;
+            continue;
+          }
+
           if (!Number.isInteger(playerId) || !ownedPlayerIds.has(playerId)) continue;
 
           if (notification.type === 'price_change') {

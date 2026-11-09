@@ -44,7 +44,7 @@ export interface WhatsNewGameweek {
 
 export interface WhatsNewUpdate {
   id: number;
-  kind: 'price_change' | 'availability';
+  kind: 'price_change' | 'availability' | 'league';
   title: string;
   message: string;
   createdAt: string;
@@ -160,6 +160,7 @@ export function DashboardWhatsNew({ whatsNew }: DashboardWhatsNewProps) {
 
     const priceChanges: WhatsNewUpdate[] = [];
     const availabilityUpdates: WhatsNewUpdate[] = [];
+    const leagueUpdates: WhatsNewUpdate[] = [];
     const tournamentEvents: WhatsNewEvent[] = [];
     const friends: FriendActivity[] = [];
 
@@ -171,6 +172,8 @@ export function DashboardWhatsNew({ whatsNew }: DashboardWhatsNewProps) {
       } else if (item.type === 'update') {
         if (item.data.kind === 'price_change') {
           priceChanges.push(item.data);
+        } else if (item.data.kind === 'league') {
+          leagueUpdates.push(item.data);
         } else {
           availabilityUpdates.push(item.data);
         }
@@ -219,6 +222,7 @@ export function DashboardWhatsNew({ whatsNew }: DashboardWhatsNewProps) {
       'price change notifications',
       'squad',
     );
+    result.push(...leagueUpdates.map((u) => ({ type: 'update' as const, data: u })));
     appendCategory(
       tournamentEvents.map((e) => ({ type: 'tournament' as const, data: e })),
       'tournament',
@@ -718,18 +722,29 @@ export function DashboardWhatsNew({ whatsNew }: DashboardWhatsNewProps) {
                     );
                   }
 
-                  // Player Updates (Price Change or Availability/Swap alert)
+                  // Updates (Price Change, Squad Availability Alert, or League Result)
                   const update = item.data;
                   const isAvailability = update.kind === 'availability';
-                  const Icon = isAvailability ? AlertTriangle : TrendingUp;
+                  const isLeague = update.kind === 'league';
+                  const Icon = isLeague ? Trophy : isAvailability ? AlertTriangle : TrendingUp;
 
-                  const updateTheme = isAvailability
+                  const updateTheme = isLeague
+                    ? {
+                        border: 'border-l-violet-500/80',
+                        bgGradient: 'from-violet-500/[0.04] to-transparent',
+                        hoverBg: 'hover:bg-violet-500/[0.07]',
+                        badge: 'bg-violet-500/10 dark:bg-violet-500/15 text-violet-600 dark:text-violet-400',
+                        text: 'text-violet-600 dark:text-violet-400',
+                        label: 'League Update',
+                      }
+                    : isAvailability
                     ? {
                         border: 'border-l-rose-500/80',
                         bgGradient: 'from-rose-500/[0.04] to-transparent',
                         hoverBg: 'hover:bg-rose-500/[0.07]',
                         badge: 'bg-rose-500/10 dark:bg-rose-500/15 text-rose-600 dark:text-rose-400',
                         text: 'text-rose-600 dark:text-rose-400',
+                        label: 'Squad Alert',
                       }
                     : {
                         border: 'border-l-emerald-500/80',
@@ -737,6 +752,7 @@ export function DashboardWhatsNew({ whatsNew }: DashboardWhatsNewProps) {
                         hoverBg: 'hover:bg-emerald-500/[0.07]',
                         badge: 'bg-emerald-500/10 dark:bg-emerald-500/15 text-emerald-600 dark:text-emerald-400',
                         text: 'text-emerald-600 dark:text-emerald-400',
+                        label: 'Price Change',
                       };
 
                   return (
@@ -754,7 +770,7 @@ export function DashboardWhatsNew({ whatsNew }: DashboardWhatsNewProps) {
 
                         <div className="flex items-center gap-2 min-w-0">
                           <span className={`text-[11px] font-semibold shrink-0 ${updateTheme.text}`}>
-                            {isAvailability ? 'Squad Alert' : 'Price Change'}
+                            {updateTheme.label}
                           </span>
                           <span className="text-slate-300 dark:text-slate-700">·</span>
                           <h4 className="text-xs font-semibold text-slate-800 dark:text-slate-200 group-hover:text-slate-900 dark:group-hover:text-white transition-colors truncate">

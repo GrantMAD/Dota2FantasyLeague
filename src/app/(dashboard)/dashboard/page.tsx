@@ -4,7 +4,7 @@ import { getOrCreateFantasySeason } from '@/lib/fantasy-season';
 import { aggregatePlayerGameweekBreakdowns } from '@/lib/player-gameweek-breakdown';
 import { getGameweekMatchProgress } from '@/lib/dashboard/gameweek-match-progress';
 import type { DashboardData } from '@/types/fantasy';
-import type { WhatsNewData } from './components/DashboardWhatsNew';
+import type { WhatsNewData, WhatsNewUpdate } from './components/DashboardWhatsNew';
 import { DashboardClient } from './components/DashboardClient';
 
 // Force fully dynamic rendering — this page reads auth cookies per-request.
@@ -389,7 +389,7 @@ async function fetchWhatsNew(userId: string): Promise<WhatsNewData | null> {
         .from('user_notifications')
         .select('id, type, title, message, created_at, metadata')
         .eq('user_id', userId)
-        .in('type', ['price_change', 'system'])
+        .in('type', ['price_change', 'system', 'h2h_result', 'league_result', 'player_removed', 'player_unavailable'])
         .order('created_at', { ascending: false })
         .limit(20),
     ]);
@@ -435,13 +435,31 @@ async function fetchWhatsNew(userId: string): Promise<WhatsNewData | null> {
     const updates: WhatsNewData['updates'] = (updatesRes.data ?? []).map((n) => {
       const meta = n.metadata as Record<string, unknown> | null;
       const playerId = meta?.player_id ? Number(meta.player_id) : 0;
+      const leagueId = meta?.league_id ? Number(meta.league_id) : 0;
+
+      let href = '/dashboard';
+      if (leagueId > 0) {
+        href = `/leagues?leagueId=${leagueId}`;
+      } else if (n.type === 'player_removed') {
+        href = '/transfers';
+      } else if (playerId > 0) {
+        href = meta?.action === 'swap_required' ? '/transfers' : `/players/${playerId}`;
+      }
+
+      let kind: WhatsNewUpdate['kind'] = 'availability';
+      if (n.type === 'price_change') {
+        kind = 'price_change';
+      } else if (leagueId > 0 || n.type === 'h2h_result' || n.type === 'league_result') {
+        kind = 'league';
+      }
+
       return {
         id: n.id,
-        kind: n.type === 'system' ? ('availability' as const) : ('price_change' as const),
+        kind,
         title: n.title,
         message: n.message,
         createdAt: n.created_at,
-        href: playerId ? `/players/${playerId}` : '/players',
+        href,
       };
     });
 

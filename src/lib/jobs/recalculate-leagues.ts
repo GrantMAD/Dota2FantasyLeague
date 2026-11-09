@@ -304,12 +304,12 @@ class RecalculateLeagues {
                 : `You scored ${pointsA.toFixed(1)} pts but fell short against ${pointsB.toFixed(1)} pts.`;
             notifs.push({
               user_id: userIdA,
-              type: 'system',
+              type: 'h2h_result',
               title: titleA,
               message: msgA,
               metadata,
             });
-            pushCandidates.push({ userId: userIdA, type: 'system', metadata });
+            pushCandidates.push({ userId: userIdA, type: 'h2h_result', metadata });
           }
 
           if (userIdB) {
@@ -322,12 +322,12 @@ class RecalculateLeagues {
                 : `You scored ${pointsB.toFixed(1)} pts but fell short against ${pointsA.toFixed(1)} pts.`;
             notifs.push({
               user_id: userIdB,
-              type: 'system',
+              type: 'h2h_result',
               title: titleB,
               message: msgB,
               metadata,
             });
-            pushCandidates.push({ userId: userIdB, type: 'system', metadata });
+            pushCandidates.push({ userId: userIdB, type: 'h2h_result', metadata });
           }
 
           if (notifs.length > 0) {

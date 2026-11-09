@@ -7,8 +7,34 @@ import { fetchWithAuth } from '@/lib/fetch-with-auth';
 import { useHeaderData } from '@/context/HeaderDataContext';
 import type { HeaderNotification } from './header-types';
 
-function notificationHref(type: string) {
-  switch (type) {
+function notificationHref(notification: HeaderNotification) {
+  const leagueId = Number(notification.metadata?.league_id);
+  if (Number.isSafeInteger(leagueId) && leagueId > 0) {
+    return `/leagues?leagueId=${leagueId}`;
+  }
+
+  const gameweekId = Number(notification.metadata?.gameweek_id);
+  if (
+    ['gameweek_result', 'score_posted'].includes(notification.type) &&
+    Number.isSafeInteger(gameweekId) &&
+    gameweekId > 0
+  ) {
+    return `/gameweeks/${gameweekId}`;
+  }
+
+  const playerId = Number(notification.metadata?.player_id);
+  if (notification.type === 'player_removed') {
+    return '/transfers';
+  }
+  if (
+    notification.type === 'player_unavailable' &&
+    Number.isSafeInteger(playerId) &&
+    playerId > 0
+  ) {
+    return `/players/${playerId}`;
+  }
+
+  switch (notification.type) {
     case 'gameweek_deadline':
     case 'lineup_deadline':
     case 'deadline':
@@ -21,6 +47,8 @@ function notificationHref(type: string) {
     case 'gameweek_result':
     case 'rank_movement':
       return '/gameweeks';
+    case 'rank_update':
+      return '/leaderboard';
     case 'league_activity':
     case 'league_result':
     case 'h2h_result':
@@ -177,7 +205,7 @@ export function NotificationDropdown({
                   }`}
                 >
                   <Link
-                    href={notificationHref(notification.type)}
+                    href={notificationHref(notification)}
                     onClick={() => void handleNotificationClick(notification)}
                     className="min-w-0 flex-1"
                   >
