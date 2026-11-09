@@ -1,24 +1,21 @@
 'use client';
 
-import React, { useState } from 'react';
+import React from 'react';
 import { CheckCircle, XCircle, Info, Loader2, X } from 'lucide-react';
 import { Toast, useToast } from './ToastContext';
 
 interface ToastItemProps {
   toast: Toast;
+  isExiting: boolean;
 }
 
-export function ToastItem({ toast }: ToastItemProps) {
+export function ToastItem({ toast, isExiting }: ToastItemProps) {
   const { dismiss } = useToast();
-  const [isExiting, setIsExiting] = useState(false);
 
   const duration = toast.duration ?? 4000;
 
   const handleDismiss = () => {
-    setIsExiting(true);
-    setTimeout(() => {
-      dismiss(toast.id);
-    }, 150);
+    dismiss(toast.id);
   };
 
   const getThemeConfig = () => {

@@ -21,6 +21,7 @@ import {
   BarChart,
   Bar,
   Cell,
+  type TooltipContentProps,
 } from 'recharts';
 
 type TrendRow = {
@@ -93,6 +94,53 @@ function AnalyticsKpiValue({ value }: { value: string | number }) {
   );
 }
 
+type AnalyticsTooltipProps = Pick<TooltipContentProps, 'active' | 'payload' | 'label'> & {
+  labelColor: string;
+  formatValue: (
+    value: TooltipContentProps['payload'][number]['value'],
+    name: TooltipContentProps['payload'][number]['name'],
+  ) => string;
+};
+
+function AnalyticsChartTooltip({ active, payload, label, labelColor, formatValue }: AnalyticsTooltipProps) {
+  if (!active || !payload.length) return null;
+
+  return (
+    <div
+      className="animate-chart-tooltip rounded-xl border px-3 py-2 shadow-xl"
+      style={{
+        backgroundColor: 'var(--surface-raised)',
+        borderColor: 'var(--border)',
+        color: 'var(--text-primary)',
+        fontSize: '12px',
+      }}
+    >
+      {label != null && (
+        <p className="mb-1 font-bold" style={{ color: labelColor }}>
+          {label}
+        </p>
+      )}
+      <ul>
+        {payload.map((entry, index) => {
+          const name = entry.name ?? entry.dataKey;
+          const nameLabel = typeof name === 'function' ? '' : String(name ?? '');
+          return (
+            <li key={`${nameLabel}-${index}`} className="flex items-center justify-between gap-4 py-0.5">
+              <span className="flex items-center gap-1.5" style={{ color: 'var(--text-secondary)' }}>
+                <span className="h-2 w-2 rounded-full" style={{ backgroundColor: entry.color || 'var(--accent-primary)' }} />
+                {nameLabel}
+              </span>
+              <span className="font-semibold" style={{ color: 'var(--text-primary)' }}>
+                {formatValue(entry.value, entry.name)}
+              </span>
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  );
+}
+
 export default function AnalyticsDashboard() {
   return (
     <Suspense fallback={<div className="min-h-screen" aria-busy="true" />}>
@@ -110,10 +158,6 @@ function AnalyticsDashboardContent() {
     axisStroke: 'var(--text-muted)',
     tickFill: 'var(--text-secondary)',
     yTickFill: 'var(--text-primary)',
-    tooltipBg: 'var(--surface-raised)',
-    tooltipBorder: 'var(--border)',
-    tooltipText: 'var(--text-primary)',
-    tooltipItemColor: 'var(--text-secondary)',
     globalAvgLine: 'var(--text-muted)',
     globalAvgDot: 'var(--text-secondary)',
     rankLine: 'var(--danger)',
@@ -458,22 +502,17 @@ function AnalyticsDashboardContent() {
                                 width={36}
                               />
                               <Tooltip
-                                contentStyle={{
-                                  backgroundColor: chartTheme.tooltipBg,
-                                  borderColor: chartTheme.tooltipBorder,
-                                  borderRadius: '0.75rem',
-                                  boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.2)',
-                                  color: chartTheme.tooltipText,
-                                  fontSize: '12px',
-                                }}
-                                itemStyle={{ color: chartTheme.tooltipItemColor, padding: '2px 0' }}
-                                labelStyle={{ fontWeight: 'bold', color: 'var(--accent-secondary)', marginBottom: '4px' }}
-                                formatter={(value: unknown, name: unknown) => {
-                                  if (name === 'Global Rank') {
-                                    return [value != null ? `#${value}` : '—', String(name)];
-                                  }
-                                  return [`${value} pts`, String(name)];
-                                }}
+                                content={(props) => (
+                                  <AnalyticsChartTooltip
+                                    {...props}
+                                    labelColor="var(--accent-secondary)"
+                                    formatValue={(value, name) => (
+                                      name === 'Global Rank'
+                                        ? value != null ? `#${value}` : '—'
+                                        : `${value} pts`
+                                    )}
+                                  />
+                                )}
                               />
                               <Line
                                 yAxisId="points"
@@ -588,17 +627,13 @@ function AnalyticsDashboardContent() {
                                 width={90}
                               />
                               <Tooltip
-                                contentStyle={{
-                                  backgroundColor: chartTheme.tooltipBg,
-                                  borderColor: chartTheme.tooltipBorder,
-                                  borderRadius: '0.75rem',
-                                  boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.2)',
-                                  color: chartTheme.tooltipText,
-                                  fontSize: '12px',
-                                }}
-                                itemStyle={{ color: chartTheme.tooltipItemColor, padding: '2px 0' }}
-                                labelStyle={{ fontWeight: 'bold', color: 'var(--accent-primary)', marginBottom: '4px' }}
-                                formatter={(value) => [`${value ?? 0} pts`, 'Points']}
+                                content={(props) => (
+                                  <AnalyticsChartTooltip
+                                    {...props}
+                                    labelColor="var(--accent-primary)"
+                                    formatValue={(value) => `${value ?? 0} pts`}
+                                  />
+                                )}
                               />
                               <Bar dataKey="points" radius={[0, 8, 8, 0]} isAnimationActive animationBegin={0} animationDuration={900} animationEasing="ease-out">
                                 {data.roleBreakdown.map((entry: RoleBreakdownRow, index: number) => {

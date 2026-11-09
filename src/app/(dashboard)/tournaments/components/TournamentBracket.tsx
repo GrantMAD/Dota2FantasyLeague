@@ -231,7 +231,11 @@ export function TournamentBracket({ matches, teams }: TournamentBracketProps) {
       {/* Timeline: one section per match day */}
       <div className="space-y-8">
         {roundGroups.map((group, gIdx) => (
-          <div key={group.day}>
+          <div
+            key={group.day}
+            className="animate-tournament-group"
+            style={{ animationDelay: `${Math.min(gIdx, 5) * 90}ms` }}
+          >
             {/* Day header */}
             <div className="flex items-center gap-3 mb-4">
               <div
@@ -251,7 +255,7 @@ export function TournamentBracket({ matches, teams }: TournamentBracketProps) {
 
             {/* Series cards grid */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
-              {group.series.map((node) => {
+              {group.series.map((node, seriesIndex) => {
                 const isLive = node.status === 'live';
                 const isCompleted = node.status === 'completed';
                 const teamAWon = node.winnerTeamId !== null && node.winnerTeamId === node.teamAId;
@@ -384,11 +388,22 @@ export function TournamentBracket({ matches, teams }: TournamentBracketProps) {
                 );
 
                 return node.firstMatchId ? (
-                  <Link key={node.key} href={`/matches/${node.firstMatchId}`} className="block focus:outline-none">
+                  <Link
+                    key={node.key}
+                    href={`/matches/${node.firstMatchId}`}
+                    className="animate-tournament-series block focus:outline-none"
+                    style={{ animationDelay: `${Math.min(seriesIndex, 5) * 35}ms` }}
+                  >
                     {card}
                   </Link>
                 ) : (
-                  <div key={node.key}>{card}</div>
+                  <div
+                    key={node.key}
+                    className="animate-tournament-series"
+                    style={{ animationDelay: `${Math.min(seriesIndex, 5) * 35}ms` }}
+                  >
+                    {card}
+                  </div>
                 );
               })}
             </div>

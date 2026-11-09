@@ -200,11 +200,12 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
                 type="button"
                 onMouseEnter={() => setSelectedIndex(index)}
                 onClick={() => navigateToResult(item)}
-                className={`group flex w-full items-center justify-between rounded-xl p-2.5 text-left transition-colors ${
+                className={`animate-command-result group flex w-full items-center justify-between rounded-xl p-2.5 text-left transition-colors ${
                   activeIndex === index
                     ? 'bg-[var(--surface-muted)] ring-1 ring-cyan-500/30'
                     : 'hover:bg-[var(--surface-raised)]'
                 }`}
+                style={{ animationDelay: `${Math.min(index, 8) * 20}ms` }}
               >
                 <div className="flex items-center gap-3">
                   <div className={`rounded-lg p-2 ${item.category === 'Players' ? getRoleColor(item.role) : 'bg-[var(--surface-raised)] text-[var(--text-muted)]'}`}>

@@ -32,6 +32,24 @@ export function formatCountdown(totalSec: number): string {
   return `${pad(hours)}:${pad(minutes)}:${pad(seconds)}`;
 }
 
+function CountdownDisplay({ seconds }: { seconds: number }) {
+  const formatted = formatCountdown(seconds);
+
+  return (
+    <span aria-label={formatted} className="inline-flex font-mono tabular-nums" aria-live="off">
+      {Array.from(formatted).map((character, index) => (
+        /\d/.test(character) ? (
+          <span key={`${index}-${character}`} className="inline-block overflow-hidden leading-none">
+            <span className="inline-block animate-countdown-digit">{character}</span>
+          </span>
+        ) : (
+          <span key={`${index}-${character}`} aria-hidden="true">{character}</span>
+        )
+      ))}
+    </span>
+  );
+}
+
 export function getRushBadgeMeta(
   isLocked: boolean,
   isRushActive: boolean,
@@ -266,7 +284,7 @@ export function DashboardTransferRush({
                   }`}
                   style={!isRushActive ? { color: 'var(--text-primary)' } : undefined}
                 >
-                  {formatCountdown(timeRemaining)}
+                  <CountdownDisplay seconds={timeRemaining} />
                 </span>
               </div>
             </>

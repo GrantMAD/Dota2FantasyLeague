@@ -31,17 +31,19 @@ export function DashboardStarterCard({ player, onOpenPlayer, index }: DashboardS
   const [isScorePulsing, setIsScorePulsing] = useState(false);
 
   useEffect(() => {
+    const previousPoints = prevPointsRef.current;
+    prevPointsRef.current = player.gw_points;
+
     if (
-      prevPointsRef.current !== undefined &&
-      prevPointsRef.current !== null &&
+      previousPoints !== undefined &&
+      previousPoints !== null &&
       player.gw_points != null &&
-      player.gw_points !== prevPointsRef.current
+      player.gw_points !== previousPoints
     ) {
       setIsScorePulsing(true);
-      const timer = window.setTimeout(() => setIsScorePulsing(false), 1200);
+      const timer = window.setTimeout(() => setIsScorePulsing(false), 600);
       return () => window.clearTimeout(timer);
     }
-    prevPointsRef.current = player.gw_points;
   }, [player.gw_points]);
   const displayName = player.in_game_name || player.name;
   const initials = displayName.substring(0, 2).toUpperCase();

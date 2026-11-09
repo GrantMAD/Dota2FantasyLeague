@@ -150,8 +150,8 @@ export function DashboardNavigation({
     <>
       <aside className={`dashboard-sidebar fixed inset-y-0 left-0 z-50 hidden flex-col border-r border-slate-700 bg-slate-900 px-4 py-6 transition-[width] duration-200 md:flex ${sidebarCollapsed ? 'w-20' : 'w-64'}`}>
         <div className={`mb-6 flex items-center ${sidebarCollapsed ? 'justify-center' : 'justify-between'}`}>
-          <Link href="/dashboard" className="flex items-center gap-2 px-2 font-bold text-xl">
-            <BrandLogo className="h-8 w-8" />
+          <Link href="/dashboard" className="brand-logo-link flex items-center gap-2 px-2 font-bold text-xl">
+            <BrandLogo className="brand-logo-hover h-8 w-8" />
             {!sidebarCollapsed && <span className="bg-linear-to-r from-amber-500 to-orange-600 bg-clip-text text-transparent">Fantasy</span>}
           </Link>
           {!sidebarCollapsed && (
@@ -186,7 +186,7 @@ export function DashboardNavigation({
                           title={sidebarCollapsed ? `${link.label}: ${link.description}` : undefined}
                           aria-label={sidebarCollapsed ? `${link.label}: ${link.description}` : undefined}
                           aria-current={active ? 'page' : undefined}
-                          className={`flex items-center rounded-lg text-sm transition-colors ${sidebarCollapsed ? 'relative justify-center p-2.5' : 'items-start gap-3 px-3 py-2'} ${active ? 'bg-amber-500/20 text-amber-500' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}
+                          className={`nav-active-indicator flex items-center rounded-lg text-sm transition-colors ${sidebarCollapsed ? 'relative justify-center p-2.5' : 'items-start gap-3 px-3 py-2'} ${active ? 'bg-amber-500/20 text-amber-500' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}
                         >
                           <Icon className={`mt-0.5 h-5 w-5 shrink-0 ${active ? 'text-amber-500' : 'text-slate-400'}`} />
                           {!sidebarCollapsed && (
@@ -237,7 +237,7 @@ export function DashboardNavigation({
                       title={sidebarCollapsed ? `${link.label}: ${link.description}` : undefined}
                       aria-label={sidebarCollapsed ? `${link.label}: ${link.description}` : undefined}
                       aria-current={active ? 'page' : undefined}
-                      className={`flex items-center rounded-lg text-sm transition-colors ${sidebarCollapsed ? 'justify-center p-2.5' : 'gap-3 px-3 py-2.5'} ${active ? 'bg-amber-500/20 text-amber-500' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}
+                      className={`nav-active-indicator flex items-center rounded-lg text-sm transition-colors ${sidebarCollapsed ? 'justify-center p-2.5' : 'gap-3 px-3 py-2.5'} ${active ? 'bg-amber-500/20 text-amber-500' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}
                     >
                       <Icon className={`h-5 w-5 shrink-0 ${active ? 'text-amber-500' : 'text-slate-400'}`} />
                       {!sidebarCollapsed && (
@@ -271,7 +271,7 @@ export function DashboardNavigation({
                     title={sidebarCollapsed ? 'Admin Console: Manage app operations' : undefined}
                     aria-label={sidebarCollapsed ? 'Admin Console: Manage app operations' : undefined}
                     aria-current={pathname.startsWith('/admin') ? 'page' : undefined}
-                    className={`flex items-center rounded-lg text-sm font-medium transition-colors ${sidebarCollapsed ? 'justify-center p-2.5' : 'gap-3 px-3 py-2.5'} ${pathname.startsWith('/admin') ? 'bg-amber-500/20 text-amber-400 font-semibold' : 'text-amber-400/80 hover:bg-amber-500/10 hover:text-amber-300'}`}
+                    className={`nav-active-indicator flex items-center rounded-lg text-sm font-medium transition-colors ${sidebarCollapsed ? 'justify-center p-2.5' : 'gap-3 px-3 py-2.5'} ${pathname.startsWith('/admin') ? 'bg-amber-500/20 text-amber-400 font-semibold' : 'text-amber-400/80 hover:bg-amber-500/10 hover:text-amber-300'}`}
                   >
                     <Shield className="h-5 w-5 shrink-0 text-amber-400" />
                     {!sidebarCollapsed && (
@@ -312,8 +312,8 @@ export function DashboardNavigation({
         aria-hidden={!mobileMenuOpen}
       >
         <div className="flex items-center justify-between px-4 py-4 border-b border-slate-700/80 shrink-0">
-          <Link href="/dashboard" onClick={onMobileMenuClose} className="flex items-center gap-2 font-bold text-xl">
-            <BrandLogo className="h-8 w-8" />
+          <Link href="/dashboard" onClick={onMobileMenuClose} className="brand-logo-link flex items-center gap-2 font-bold text-xl">
+            <BrandLogo className="brand-logo-hover h-8 w-8" />
             <span className="bg-linear-to-r from-amber-500 to-orange-600 bg-clip-text text-transparent">Fantasy</span>
           </Link>
           <button type="button" aria-label="Close navigation menu" onClick={onMobileMenuClose} className="rounded-lg p-2 text-slate-400 hover:bg-slate-800 hover:text-white transition-colors">
@@ -344,7 +344,7 @@ export function DashboardNavigation({
                         key={link.href}
                         href={link.href}
                         aria-current={active ? 'page' : undefined}
-                        className={`flex items-start gap-3 rounded-lg px-3 py-2.5 transition-colors ${active ? 'bg-amber-500/20 text-amber-500' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}
+                        className={`nav-active-indicator flex items-start gap-3 rounded-lg px-3 py-2.5 transition-colors ${active ? 'bg-amber-500/20 text-amber-500' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}
                         onClick={onMobileMenuClose}
                       >
                         <Icon className={`mt-0.5 h-5 w-5 shrink-0 ${active ? 'text-amber-500' : 'text-slate-400'}`} />
@@ -370,7 +370,7 @@ export function DashboardNavigation({
                     key={link.href}
                     href={link.href}
                     aria-current={active ? 'page' : undefined}
-                    className={`flex items-start gap-3 rounded-lg px-3 py-2.5 transition-colors ${active ? 'bg-amber-500/20 text-amber-500' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`}
+                    className={`nav-active-indicator flex items-start gap-3 rounded-lg px-3 py-2.5 transition-colors ${active ? 'bg-amber-500/20 text-amber-500' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`}
                     onClick={onMobileMenuClose}
                   >
                     <Icon className={`mt-0.5 h-5 w-5 shrink-0 ${active ? 'text-amber-500' : 'text-slate-400'}`} />
@@ -385,7 +385,7 @@ export function DashboardNavigation({
                 <Link
                   href="/admin/dashboard"
                   aria-current={pathname.startsWith('/admin') ? 'page' : undefined}
-                  className={`flex items-start gap-3 rounded-lg px-3 py-2.5 font-medium transition-colors ${pathname.startsWith('/admin') ? 'bg-amber-500/20 text-amber-400 font-semibold' : 'text-amber-400/80 hover:bg-amber-500/10 hover:text-amber-300'}`}
+                  className={`nav-active-indicator flex items-start gap-3 rounded-lg px-3 py-2.5 font-medium transition-colors ${pathname.startsWith('/admin') ? 'bg-amber-500/20 text-amber-400 font-semibold' : 'text-amber-400/80 hover:bg-amber-500/10 hover:text-amber-300'}`}
                   onClick={onMobileMenuClose}
                 >
                   <Shield className="mt-0.5 h-5 w-5 shrink-0 text-amber-400" />
