@@ -28,7 +28,7 @@ interface ReportRow {
 async function getHandler(request: NextRequest) {
   let auth: Awaited<ReturnType<typeof verifyAuth>> | undefined;
   try {
-    auth = await verifyAuth(request);
+    auth = await verifyAuth(request, { requireFreshRole: true });
     if (auth.role !== 'admin') {
       return NextResponse.json({ error: 'Admin access required.' }, { status: 403 });
     }
@@ -121,7 +121,7 @@ async function getHandler(request: NextRequest) {
 async function patchHandler(request: NextRequest) {
   let auth: Awaited<ReturnType<typeof verifyAuth>> | undefined;
   try {
-    auth = await verifyAuth(request);
+    auth = await verifyAuth(request, { requireFreshRole: true });
     if (auth.role !== 'admin') {
       return NextResponse.json({ error: 'Admin access required.' }, { status: 403 });
     }

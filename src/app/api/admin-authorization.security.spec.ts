@@ -1,7 +1,7 @@
 /// <reference types="jest" />
 
 const mockSupabaseServer = jest.fn();
-const mockGetUser = jest.fn();
+const mockGetClaims = jest.fn();
 const mockMaybeSingle = jest.fn();
 const mockFrom = jest.fn();
 const mockCreateClient = jest.fn();
@@ -62,11 +62,12 @@ describe('admin API authorization', () => {
   beforeEach(() => {
     authToken = 'valid-token';
     jest.spyOn(console, 'error').mockImplementation(() => {});
-    mockGetUser.mockReset().mockResolvedValue({
+    mockGetClaims.mockReset().mockResolvedValue({
       data: {
-        user: {
-          id: 'user-1',
+        claims: {
+          sub: 'user-1',
           email: 'user@example.test',
+          user_role: 'user',
           user_metadata: { role: 'admin' },
           app_metadata: {},
         },
@@ -77,7 +78,7 @@ describe('admin API authorization', () => {
     mockFrom.mockReset();
     mockCreateClient.mockReset();
     mockSupabaseServer.mockReset().mockImplementation(() => ({
-      auth: { getUser: mockGetUser },
+      auth: { getClaims: mockGetClaims },
       from: (table: string) => {
         mockFrom(table);
         const query = {
@@ -100,7 +101,7 @@ describe('admin API authorization', () => {
     const response = await handler();
 
     expect(response.status).toBe(401);
-    expect(mockGetUser).not.toHaveBeenCalled();
+    expect(mockGetClaims).not.toHaveBeenCalled();
     expect(mockFrom).not.toHaveBeenCalled();
     expect(mockCreateClient).not.toHaveBeenCalled();
   });

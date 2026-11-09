@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { applyRefreshedTokens, verifyAuth } from './auth-utils';
+import { applyRefreshedTokens, verifyAdminAuth, verifyAuth } from './auth-utils';
 
 const mockSupabaseServer = jest.fn();
 
@@ -21,11 +21,23 @@ describe('auth-utils', () => {
     refreshedUser?: unknown;
     refreshSession?: unknown;
   }) {
-    const getUser = jest.fn()
-      .mockResolvedValueOnce({ data: { user: initialUser }, error: initialUser ? null : { message: 'expired' } });
-    if (refreshSession) {
-      getUser.mockResolvedValueOnce({ data: { user: refreshedUser }, error: null });
-    }
+    const makeClaims = (user: unknown) => {
+      if (!user || typeof user !== 'object') return { data: null, error: { message: 'expired' } };
+      const authUser = user as { id: string; email: string; app_metadata?: Record<string, unknown> };
+      return {
+        data: {
+          claims: {
+            sub: authUser.id,
+            email: authUser.email,
+            user_role: 'manager',
+            app_metadata: authUser.app_metadata ?? {},
+          },
+        },
+        error: null,
+      };
+    };
+    const getClaims = jest.fn().mockResolvedValueOnce(makeClaims(initialUser));
+    if (refreshSession) getClaims.mockResolvedValueOnce(makeClaims(refreshedUser));
     const query = {
       select: jest.fn().mockReturnThis(),
       eq: jest.fn().mockReturnThis(),
@@ -33,7 +45,7 @@ describe('auth-utils', () => {
     };
     const supabase = {
       auth: {
-        getUser,
+        getClaims,
         refreshSession: jest.fn().mockResolvedValue(refreshSession ?? { data: null, error: { message: 'unused' } }),
       },
       from: jest.fn(() => query),
@@ -64,8 +76,10 @@ describe('auth-utils', () => {
     }));
 
     expect(supabase.auth.refreshSession).toHaveBeenCalledWith({ refresh_token: 'refresh-cookie-token' });
+    expect(supabase.auth.getClaims).toHaveBeenNthCalledWith(2, 'fresh-access');
     expect(result).toMatchObject({
       userId: 'manager-1',
+      role: 'manager',
       refreshedAccessToken: 'fresh-access',
       refreshedRefreshToken: 'fresh-refresh',
     });
@@ -79,8 +93,81 @@ describe('auth-utils', () => {
       headers: { Cookie: 'sb-auth-token=cookie-access-token' },
     }));
 
-    expect(supabase.auth.getUser).toHaveBeenCalledWith('cookie-access-token');
+    expect(supabase.auth.getClaims).toHaveBeenCalledWith('cookie-access-token');
     expect(result.userId).toBe('manager-2');
+    expect(supabase.from).not.toHaveBeenCalled();
+  });
+
+  it('uses the current profile role when a fresh role is required', async () => {
+    const user = { id: 'admin-1', email: 'admin@example.test', app_metadata: {} };
+    const { supabase } = setupAuth({ initialUser: user });
+
+    const result = await verifyAuth(
+      new Request('http://localhost/api/admin/test', {
+        headers: { Authorization: 'Bearer access-token' },
+      }),
+      { requireFreshRole: true },
+    );
+
+    expect(supabase.from).toHaveBeenCalledWith('users');
+    expect(result.role).toBe('manager');
+  });
+
+  it('rejects a stale admin claim when the current profile role is no longer admin', async () => {
+    const user = { id: 'admin-1', email: 'admin@example.test', app_metadata: {} };
+    const { supabase } = setupAuth({ initialUser: user });
+    supabase.auth.getClaims.mockReset().mockResolvedValueOnce({
+      data: {
+        claims: {
+          sub: user.id,
+          email: user.email,
+          user_role: 'admin',
+          app_metadata: {},
+        },
+      },
+      error: null,
+    });
+
+    await expect(verifyAdminAuth(new Request('http://localhost/api/admin/test', {
+      headers: { Authorization: 'Bearer access-token' },
+    }))).rejects.toMatchObject({ status: 403 });
+  });
+
+  it('fails explicitly when the current profile role cannot be verified', async () => {
+    const user = { id: 'admin-1', email: 'admin@example.test', app_metadata: {} };
+    const { query } = setupAuth({ initialUser: user });
+    query.maybeSingle.mockResolvedValueOnce({
+      data: null,
+      error: { message: 'database unavailable' },
+    });
+
+    await expect(verifyAuth(
+      new Request('http://localhost/api/admin/test', {
+        headers: { Authorization: 'Bearer access-token' },
+      }),
+      { requireFreshRole: true },
+    )).rejects.toMatchObject({ status: 500 });
+  });
+
+  it('does not grant admin access when the current profile is missing', async () => {
+    const user = { id: 'admin-1', email: 'admin@example.test', app_metadata: { role: 'admin' } };
+    const { supabase, query } = setupAuth({ initialUser: user });
+    supabase.auth.getClaims.mockReset().mockResolvedValueOnce({
+      data: {
+        claims: {
+          sub: user.id,
+          email: user.email,
+          user_role: 'admin',
+          app_metadata: user.app_metadata,
+        },
+      },
+      error: null,
+    });
+    query.maybeSingle.mockResolvedValueOnce({ data: null, error: null });
+
+    await expect(verifyAdminAuth(new Request('http://localhost/api/admin/test', {
+      headers: { Authorization: 'Bearer access-token' },
+    }))).rejects.toMatchObject({ status: 403 });
   });
 
   it('writes the refreshed access and refresh tokens back to the cookies used at sign-in', async () => {

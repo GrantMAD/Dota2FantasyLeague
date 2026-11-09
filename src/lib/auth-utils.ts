@@ -22,6 +22,11 @@ export interface AuthResult {
   refreshedRefreshToken?: string;
 }
 
+export interface VerifyAuthOptions {
+  /** Load the current profile role instead of relying on the access-token claim. */
+  requireFreshRole?: boolean;
+}
+
 function readCookieValue(cookies: string[], names: string[]): string | undefined {
   const cookie = cookies.find((item) => {
     const separator = item.indexOf('=');
@@ -37,10 +42,13 @@ function readCookieValue(cookies: string[], names: string[]): string | undefined
 }
 
 /**
- * Check if a request has valid authentication headers
- * Returns the session if valid, or throws an error
+ * Verify a signed access token and read its role claim. Admin checks can request
+ * a fresh profile role to avoid honoring a revoked role until token expiry.
  */
-export async function verifyAuth(request: Request): Promise<AuthResult> {
+export async function verifyAuth(
+  request: Request,
+  options: VerifyAuthOptions = {},
+): Promise<AuthResult> {
   const authHeader = request.headers.get('authorization');
   const cookieHeader = request.headers.get('cookie') ?? '';
   const cookies = cookieHeader.split(';').map((c) => c.trim());
@@ -60,45 +68,62 @@ export async function verifyAuth(request: Request): Promise<AuthResult> {
 
   const supabase = supabaseServer();
 
-  // Verify the access token and renew it through the persistent refresh token
-  // when the short-lived access token has expired.
-  let { data, error } = await supabase.auth.getUser(token);
+  // Verify the signed JWT claims locally when the project uses asymmetric keys.
+  // Supabase falls back to server verification for symmetric signing keys.
+  let { data, error } = await supabase.auth.getClaims(token);
 
   let refreshedAccessToken: string | undefined;
   let refreshedRefreshToken: string | undefined;
 
-  if ((error || !data.user) && refreshToken) {
+  if ((error || !data?.claims) && refreshToken) {
     const refreshed = await supabase.auth.refreshSession({ refresh_token: refreshToken });
-    data = { user: refreshed.data.user };
-    error = refreshed.error;
     // Capture new tokens so the caller can persist them back to the browser cookie
     if (refreshed.data.session?.access_token) {
       refreshedAccessToken = refreshed.data.session.access_token;
       refreshedRefreshToken = refreshed.data.session.refresh_token ?? undefined;
+      const verified = await supabase.auth.getClaims(refreshed.data.session.access_token);
+      data = verified.data;
+      error = verified.error;
+    } else {
+      data = null;
+      error = refreshed.error ?? error;
     }
   }
 
-  if (error || !data.user) {
+  const claims = data?.claims;
+  if (error || !claims || typeof claims.sub !== 'string') {
     throw {
       status: 401,
       message: 'Invalid or expired token',
     } as AuthError;
   }
 
-  // Prefer the server-managed profile role; only fall back to trusted app metadata.
-  let role: string | undefined = data.user.app_metadata?.role;
-  const { data: userProfile } = await supabase.from('users')
-    .select('role')
-    .eq('id', data.user.id)
-    .maybeSingle();
+  const appMetadata = typeof claims.app_metadata === 'object' && claims.app_metadata !== null
+    ? claims.app_metadata
+    : undefined;
+  let role = typeof claims.user_role === 'string'
+    ? claims.user_role
+    : typeof appMetadata?.role === 'string'
+      ? appMetadata.role
+      : undefined;
 
-  if (userProfile?.role) {
-    role = userProfile.role;
+  if (options.requireFreshRole) {
+    const { data: userProfile, error: profileError } = await supabase.from('users')
+      .select('role')
+      .eq('id', claims.sub)
+      .maybeSingle();
+    if (profileError) {
+      throw {
+        status: 500,
+        message: 'Unable to verify the current user role',
+      } as AuthError;
+    }
+    role = userProfile?.role;
   }
 
   return {
-    userId: data.user.id,
-    email: data.user.email || '',
+    userId: claims.sub,
+    email: typeof claims.email === 'string' ? claims.email : '',
     role,
     refreshedAccessToken,
     refreshedRefreshToken,
@@ -128,7 +153,7 @@ export function applyRefreshedTokens(response: NextResponse, auth: AuthResult): 
  * Check if user has admin role
  */
 export async function verifyAdminAuth(request: Request): Promise<string> {
-  const auth = await verifyAuth(request);
+  const auth = await verifyAuth(request, { requireFreshRole: true });
 
   // Check if user has an administrator role from a trusted source.
   if (auth.role !== 'admin') {
