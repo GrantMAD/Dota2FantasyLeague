@@ -144,14 +144,6 @@ export const pageTours: Record<string, PageTourDefinition> = {
       { title: 'Settings', body: 'Open Settings to edit profile details and account preferences.', targetKey: 'profile-settings' },
     ],
   },
-  '/account': {
-    pageTitle: 'Account',
-    steps: [
-      { title: 'Username & identity', body: 'Review or update your username and account identity details.', targetKey: 'account-header' },
-      { title: 'Regional settings', body: 'Set country and timezone so date and match windows remain accurate.', targetKey: 'account-settings' },
-      { title: 'Password control', body: 'Use password reset when you need new credentials or account access recovery.', targetKey: 'account-actions' },
-    ],
-  },
   '/settings': {
     pageTitle: 'Settings',
     steps: [

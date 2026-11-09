@@ -10,6 +10,7 @@ export interface User {
   banner_theme?: string;
   email_notifications?: boolean;
   push_notifications?: boolean;
+  season_recap_sharing_consent?: boolean;
   created_at: string;
   updated_at: string;
 }

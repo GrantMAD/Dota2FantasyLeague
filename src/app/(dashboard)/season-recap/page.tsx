@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import {
@@ -31,14 +31,38 @@ import {
 
 type RecapResponse = { recaps?: SeasonRecap[]; error?: string };
 
+async function fetchSavedSharingConsent(): Promise<boolean> {
+  const response = await fetchWithAuth('/api/season-recap/consent');
+  const data = (await response.json()) as { sharingConsent?: boolean; error?: string };
+  if (!response.ok || typeof data.sharingConsent !== 'boolean') {
+    throw new Error(data.error || 'Unable to load your recap sharing preference.');
+  }
+  return data.sharingConsent;
+}
+
 export default function SeasonRecapPage() {
   const [recaps, setRecaps] = useState<SeasonRecap[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [sharingConsent, setSharingConsent] = useState(false);
+  const [consentLoading, setConsentLoading] = useState(true);
+  const [consentSaving, setConsentSaving] = useState(false);
+  const [consentError, setConsentError] = useState<string | null>(null);
   const [cardTheme, setCardTheme] = useState<SeasonRecapCardTheme>('radiant');
   const [feedback, setFeedback] = useState<string | null>(null);
   const [busyRecapId, setBusyRecapId] = useState<number | null>(null);
+  const [busyAction, setBusyAction] = useState<'sharing' | 'downloading' | null>(null);
+
+  const loadSharingConsent = useCallback(async () => {
+    try {
+      setSharingConsent(await fetchSavedSharingConsent());
+      setConsentError(null);
+    } catch (loadError: unknown) {
+      setConsentError(loadError instanceof Error ? loadError.message : 'Unable to load your recap sharing preference.');
+    } finally {
+      setConsentLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -59,14 +83,56 @@ export default function SeasonRecapPage() {
     }
 
     void loadRecaps();
+    void fetchSavedSharingConsent()
+      .then((consent) => {
+        if (!cancelled) {
+          setSharingConsent(consent);
+          setConsentError(null);
+        }
+      })
+      .catch((loadError: unknown) => {
+        if (!cancelled) {
+          setConsentError(loadError instanceof Error
+            ? loadError.message
+            : 'Unable to load your recap sharing preference.');
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setConsentLoading(false);
+      });
     return () => {
       cancelled = true;
     };
   }, []);
 
+  const updateSharingConsent = async (enabled: boolean) => {
+    setConsentSaving(true);
+    setConsentError(null);
+    setFeedback(null);
+    try {
+      const response = await fetchWithAuth('/api/season-recap/consent', {
+        method: 'PUT',
+        body: JSON.stringify({ sharingConsent: enabled }),
+      });
+      const data = (await response.json()) as { sharingConsent?: boolean; error?: string };
+      if (!response.ok || data.sharingConsent !== enabled) {
+        throw new Error(data.error || 'Unable to save your recap sharing preference.');
+      }
+      setSharingConsent(data.sharingConsent);
+      setFeedback(enabled
+        ? 'Recap sharing is enabled for your account on web and mobile.'
+        : 'Recap sharing has been disabled for your account.');
+    } catch (saveError: unknown) {
+      setConsentError(saveError instanceof Error ? saveError.message : 'Unable to save your recap sharing preference.');
+    } finally {
+      setConsentSaving(false);
+    }
+  };
+
   const shareRecap = async (recap: SeasonRecap) => {
-    if (!sharingConsent) return;
+    if (!sharingConsent || consentSaving || busyRecapId !== null) return;
     setBusyRecapId(recap.fantasySeasonId);
+    setBusyAction('sharing');
     setFeedback(null);
     try {
       const text = getSeasonRecapShareText(recap);
@@ -82,19 +148,41 @@ export default function SeasonRecapPage() {
       setFeedback(shareError instanceof Error ? `Could not share recap: ${shareError.message}` : 'Could not share recap.');
     } finally {
       setBusyRecapId(null);
+      setBusyAction(null);
     }
   };
 
-  const downloadCard = (recap: SeasonRecap) => {
-    if (!sharingConsent) return;
-    const blob = new Blob([createSeasonRecapShareCardSvg(recap, cardTheme)], { type: 'image/svg+xml;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const anchor = document.createElement('a');
-    anchor.href = url;
-    anchor.download = `dota-fantasy-${recap.seasonName.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-recap.svg`;
-    anchor.click();
-    URL.revokeObjectURL(url);
-    setFeedback('Privacy-safe recap card downloaded.');
+  const downloadCard = async (recap: SeasonRecap) => {
+    if (!sharingConsent || consentSaving || busyRecapId !== null) return;
+    setBusyRecapId(recap.fantasySeasonId);
+    setBusyAction('downloading');
+    setFeedback(null);
+    try {
+      const params = new URLSearchParams({
+        format: 'png',
+        fantasySeasonId: String(recap.fantasySeasonId),
+        theme: cardTheme,
+      });
+      const response = await fetchWithAuth(`/api/season-recap?${params}`);
+      if (!response.ok) {
+        const data = (await response.json()) as { error?: string };
+        throw new Error(data.error || `Unable to download recap card (${response.status}).`);
+      }
+      const url = URL.createObjectURL(await response.blob());
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = `dota-fantasy-${recap.seasonName.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-recap.png`;
+      anchor.click();
+      window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+      setFeedback('Privacy-safe PNG recap card downloaded.');
+    } catch (downloadError: unknown) {
+      setFeedback(downloadError instanceof Error
+        ? `Could not download recap card: ${downloadError.message}`
+        : 'Could not download recap card.');
+    } finally {
+      setBusyRecapId(null);
+      setBusyAction(null);
+    }
   };
 
   const selectedCardTheme = SEASON_RECAP_CARD_THEMES.find((theme) => theme.id === cardTheme)
@@ -205,7 +293,8 @@ export default function SeasonRecapPage() {
               id="season-recap-sharing-consent"
               type="checkbox"
               checked={sharingConsent}
-              onChange={(event) => setSharingConsent(event.target.checked)}
+              disabled={consentLoading || consentSaving}
+              onChange={(event) => void updateSharingConsent(event.target.checked)}
               className="mt-1 h-4 w-4 accent-cyan-500"
             />
             <div>
@@ -214,8 +303,26 @@ export default function SeasonRecapPage() {
               </label>
               <p className="mt-1 text-sm leading-relaxed text-[var(--text-secondary)]">
                 Sharing and downloading create a copy you can give to others, so both actions stay disabled until you opt in.
-                Nothing is published automatically.
+                Nothing is published automatically. Your preference is saved to your account and applies on web and mobile.
               </p>
+              {consentLoading && <p role="status" className="mt-2 text-sm text-[var(--text-secondary)]">Loading your saved preference…</p>}
+              {consentSaving && <p role="status" className="mt-2 text-sm text-[var(--text-secondary)]">Saving your preference…</p>}
+              {consentError && (
+                <div role="alert" className="mt-2 flex flex-wrap items-center gap-2 text-sm text-rose-700 dark:text-rose-200">
+                  <span>{consentError}</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setConsentLoading(true);
+                      setConsentError(null);
+                      void loadSharingConsent();
+                    }}
+                    className="font-bold underline"
+                  >
+                    Retry
+                  </button>
+                </div>
+              )}
               <details className="group mt-3 text-sm">
                 <summary className="w-fit cursor-pointer font-semibold text-cyan-700 hover:text-cyan-600 dark:text-cyan-300 dark:hover:text-cyan-200">
                   What information is included?
@@ -282,19 +389,19 @@ export default function SeasonRecapPage() {
               <div className="flex gap-2">
                 <button
                   type="button"
-                  disabled={!sharingConsent || busyRecapId === recap.fantasySeasonId}
+                  disabled={!sharingConsent || consentLoading || consentSaving || busyRecapId !== null}
                   onClick={() => void shareRecap(recap)}
                   className="inline-flex items-center gap-2 rounded-xl bg-cyan-600 px-4 py-2.5 text-sm font-bold text-white shadow-md shadow-cyan-600/20 transition hover:bg-cyan-500 disabled:cursor-not-allowed disabled:opacity-40"
                 >
-                  <Share2 className="h-4 w-4" /> {busyRecapId === recap.fantasySeasonId ? 'Sharing…' : 'Share recap'}
+                  <Share2 className="h-4 w-4" /> {busyAction === 'sharing' ? 'Sharing…' : 'Share recap'}
                 </button>
                 <button
                   type="button"
-                  disabled={!sharingConsent}
-                  onClick={() => downloadCard(recap)}
+                  disabled={!sharingConsent || consentLoading || consentSaving || busyRecapId !== null}
+                  onClick={() => void downloadCard(recap)}
                   className="inline-flex items-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--surface-raised)] px-4 py-2.5 text-sm font-bold text-[var(--text-primary)] transition hover:border-cyan-500/50 hover:bg-[var(--surface-muted)] disabled:cursor-not-allowed disabled:opacity-40"
                 >
-                  <Download className="h-4 w-4" /> Download card
+                  <Download className="h-4 w-4" /> {busyAction === 'downloading' ? 'Preparing…' : 'Download PNG'}
                 </button>
               </div>
             </div>

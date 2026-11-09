@@ -11,8 +11,12 @@ describe('page guide route index', () => {
   it('does not expose guide or tour controls on unsupported routes', () => {
     expect(getPageGuideKey('/unknown')).toBeUndefined();
     expect(getPageTourKey('/guide')).toBeUndefined();
+    expect(getPageGuideKey('/account')).toBeUndefined();
+    expect(getPageTourKey('/account')).toBeUndefined();
     expect(hasPageGuide('/unknown')).toBe(false);
     expect(hasPageTour('/unknown')).toBe(false);
+    expect(hasPageGuide('/account')).toBe(false);
+    expect(hasPageTour('/account')).toBe(false);
   });
 
   it('provides guide titles without importing the tour content module', () => {

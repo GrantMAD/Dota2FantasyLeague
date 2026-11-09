@@ -205,17 +205,6 @@ const guides: Record<string, PageGuide> = {
     tips: ['Use Settings for editable preferences and account fields.', 'Only share information you are comfortable displaying to other managers.'],
     related: [{ label: 'Settings', href: '/settings' }, { label: 'Leagues', href: '/leagues' }, { label: 'Leaderboard', href: '/leaderboard' }],
   },
-  '/account': {
-    overview: 'The account page provides access to your account settings and account-related actions.',
-    steps: [
-      'Review the account details shown on the page.',
-      'Follow the link to the relevant Settings section to update supported fields.',
-      'Use the password recovery flow if you need to change or regain access to your password.',
-    ],
-    implications: 'Account and security changes can affect how you sign in and how your profile appears. They do not change fantasy scoring or squad membership.',
-    tips: ['Keep access to your registered email address for recovery.', 'Use the Settings page for current account controls.'],
-    related: [{ label: 'Settings', href: '/settings?section=account' }, { label: 'Password recovery', href: '/forgot-password' }],
-  },
   '/settings': {
     overview: 'Settings contains your editable profile, appearance, notification, and account preferences.',
     steps: [

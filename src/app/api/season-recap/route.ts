@@ -2,7 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verifyAuth } from '@/lib/auth-utils';
 import { supabaseServer } from '@/lib/supabase';
 import { withApiTelemetry } from '@/lib/api-telemetry';
+import { SEASON_RECAP_CARD_THEMES } from '@/lib/season-recap';
+import { renderSeasonRecapPng } from '@/lib/season-recap-png';
 
+export const runtime = 'nodejs';
 
 type FantasySeasonRow = {
   id: number;
@@ -77,6 +80,15 @@ async function getHandler(request: NextRequest) {
   try {
     const { userId } = await verifyAuth(request);
     const supabase = supabaseServer();
+    const pngRequested = request.nextUrl.searchParams.get('format') === 'png';
+    const fantasySeasonId = Number(request.nextUrl.searchParams.get('fantasySeasonId'));
+    const requestedTheme = request.nextUrl.searchParams.get('theme');
+    if (pngRequested && (!Number.isInteger(fantasySeasonId) || fantasySeasonId < 1)) {
+      return errorResponse('A valid fantasy season ID is required for PNG export.', 400);
+    }
+    if (pngRequested && !SEASON_RECAP_CARD_THEMES.some((theme) => theme.id === requestedTheme)) {
+      return errorResponse('A valid recap card theme is required for PNG export.', 400);
+    }
 
     // These tables are not represented in the generated Supabase table types.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -90,7 +102,11 @@ async function getHandler(request: NextRequest) {
     }
 
     const fantasySeasons = (fantasySeasonData ?? []) as FantasySeasonRow[];
-    if (fantasySeasons.length === 0) return NextResponse.json({ recaps: [] });
+    if (fantasySeasons.length === 0) {
+      return pngRequested
+        ? errorResponse('The requested season recap was not found.', 404)
+        : NextResponse.json({ recaps: [] }, { headers: { 'Cache-Control': 'private, no-store' } });
+    }
     const fantasySeasonIds = fantasySeasons.map((season) => season.id);
     const seasonIds = [...new Set(fantasySeasons.map((season) => season.season_id))];
 
@@ -149,7 +165,11 @@ async function getHandler(request: NextRequest) {
     );
     const finishedFantasySeasons = fantasySeasons.filter((fantasySeason) =>
       finishedSeasonIds.has(fantasySeason.season_id));
-    if (finishedFantasySeasons.length === 0) return NextResponse.json({ recaps: [] });
+    if (finishedFantasySeasons.length === 0) {
+      return pngRequested
+        ? errorResponse('The requested season recap was not found.', 404)
+        : NextResponse.json({ recaps: [] }, { headers: { 'Cache-Control': 'private, no-store' } });
+    }
 
     const finishedFantasySeasonIds = finishedFantasySeasons.map((season) => season.id);
     const finishedGameweekIds = gameweeks
@@ -287,7 +307,35 @@ async function getHandler(request: NextRequest) {
       };
     }).sort((a, b) => (b.endDate ?? '').localeCompare(a.endDate ?? ''));
 
-    return NextResponse.json({ recaps });
+    if (pngRequested) {
+      const { data: userData, error: consentError } = await db.from('users')
+        .select('season_recap_sharing_consent')
+        .eq('id', userId)
+        .maybeSingle();
+      if (consentError) throw new Error(`Failed to verify recap sharing consent: ${consentError.message}`);
+      if (userData?.season_recap_sharing_consent !== true) {
+        return errorResponse('Enable recap sharing in your account before exporting a PNG.', 403);
+      }
+
+      const recap = recaps.find((item) => item.fantasySeasonId === fantasySeasonId);
+      if (!recap) return errorResponse('The requested season recap was not found.', 404);
+
+      const theme = SEASON_RECAP_CARD_THEMES.find((item) => item.id === requestedTheme);
+      if (!theme) return errorResponse('A valid recap card theme is required for PNG export.', 400);
+      const png = await renderSeasonRecapPng(recap, theme.id);
+      const pngBody = new Uint8Array(png.byteLength);
+      pngBody.set(png);
+      const response = new NextResponse(pngBody, {
+        headers: {
+          'Content-Type': 'image/png',
+          'Content-Disposition': 'attachment; filename="dota-fantasy-season-recap.png"',
+          'Cache-Control': 'private, no-store',
+        },
+      });
+      return response;
+    }
+
+    return NextResponse.json({ recaps }, { headers: { 'Cache-Control': 'private, no-store' } });
   } catch (error: unknown) {
     const status = typeof error === 'object' && error !== null && 'status' in error
       ? Number((error as { status?: number }).status)

@@ -36,7 +36,6 @@ const guideContent: Record<string, GuideContent> = {
   '/tournaments/1': { title: 'Tournament Details', steps: ['Review the tournament status and dates', 'Browse the associated matches', 'Open a match for additional details'] },
   '/analytics': { title: 'Analytics', steps: ['Read the headline metrics', 'Compare engagement and growth indicators', 'Use premium tools when your account has access'] },
   '/profile': { title: 'Profile', steps: ['Review your display name and username', 'Check your fantasy career statistics', 'Open Settings to edit profile details'] },
-  '/account': { title: 'Account', steps: ['Review or update your username', 'Set country and timezone', 'Use password reset when you need new credentials'] },
   '/settings': { title: 'Settings', steps: ['Update profile information', 'Choose light or dark mode', 'Manage email and push notification preferences'] },
   '/notifications': { title: 'Notifications', steps: ['Read unread notifications', 'Mark individual notifications as read', 'Use Mark all as read to clear the list'] },
   '/premium': { title: 'Premium', steps: ['Review the available features', 'Compare free and premium access', 'Choose an upgrade or waitlist action when available'] },
@@ -147,11 +146,6 @@ const targetSelectors: Record<string, string[]> = {
     '.profile-card h1, main h1',
     '.profile-card .grid, main .grid.grid-cols-1.sm\\:grid-cols-3',
     'a[href="/settings"]',
-  ],
-  '/account': [
-    'main h1',
-    'a[href*="settings?section=account"]',
-    'a[href="/forgot-password"], a[href*="password"]',
   ],
   '/settings': [
     'input[type="text"], input[value]',
