@@ -32,7 +32,7 @@ export interface FantasyScoreBreakdown {
 export function calculateFantasyScore(
   input: FantasyPerformanceInput,
 ): FantasyScoreBreakdown {
-  const combat = input.kills * 1.5 + input.assists * 0.75 - input.deaths * 1;
+  const combat = input.kills * 1.5 + input.assists * 0.75;
 
   const economy =
     input.lastHits * 0.02 +
@@ -65,7 +65,7 @@ export function calculateFantasyScore(
           : 0;
 
   const consistency = input.gameCount >= 5 && input.performanceIndex >= 80 ? 2 : 0;
-  const penalties = Math.max(0, input.deaths * 0.75);
+  const penalties = Math.max(0, input.deaths);
 
   const total =
     combat +
