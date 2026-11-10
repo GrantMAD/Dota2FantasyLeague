@@ -1,9 +1,5 @@
 import { expect, test } from '@playwright/test';
-
-const manager = {
-  id: 'e2e-manager',
-  email: 'e2e-manager@example.test',
-};
+import { e2eManager, installMockSignIn } from './helpers/auth';
 
 test.describe('manager sign-in core flow', () => {
   test('signs in and reviews the manager dashboard points and squad value', async ({ page }) => {
@@ -11,21 +7,7 @@ test.describe('manager sign-in core flow', () => {
       await route.fulfill({ status: 200, contentType: 'application/json', body: '{}' });
     });
 
-    await page.route('**/api/auth/signin', async (route) => {
-      const requestBody = route.request().postDataJSON() as { email?: string; password?: string };
-      expect(requestBody.email).toBe(manager.email);
-      expect(requestBody.password).toBe('E2E-only-password');
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        headers: { 'set-cookie': 'sb-auth-token=e2e-mock-token; Path=/; HttpOnly; SameSite=Lax' },
-        body: JSON.stringify({
-          message: 'Signed in successfully',
-          user: manager,
-          session: null,
-        }),
-      });
-    });
+    await installMockSignIn(page);
 
     await page.route('**/api/dashboard/stats', async (route) => {
       await route.fulfill({
@@ -57,7 +39,7 @@ test.describe('manager sign-in core flow', () => {
     });
 
     await page.goto('/login');
-    await page.getByLabel('Email').fill(manager.email);
+    await page.getByLabel('Email').fill(e2eManager.email);
     await page.getByRole('textbox', { name: 'Password' }).fill('E2E-only-password');
     await page.getByRole('button', { name: 'Sign In' }).click();
 

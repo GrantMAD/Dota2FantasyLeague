@@ -1,9 +1,5 @@
 import { expect, type Page, test } from '@playwright/test';
-
-const manager = {
-  id: 'e2e-manager',
-  email: 'e2e-manager@example.test',
-};
+import { e2eManager, installMockSignIn } from './helpers/auth';
 
 type Player = {
   id: number;
@@ -63,17 +59,9 @@ async function installFallbackRoutes(page: Page) {
 }
 
 async function signIn(page: Page) {
-  await page.route('**/api/auth/signin', async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      headers: { 'set-cookie': 'sb-auth-token=e2e-mock-token; Path=/; HttpOnly; SameSite=Lax' },
-      body: JSON.stringify({ message: 'Signed in successfully', user: manager, session: null }),
-    });
-  });
-
+  await installMockSignIn(page);
   await page.goto('/login');
-  await page.getByLabel('Email').fill(manager.email);
+  await page.getByLabel('Email').fill(e2eManager.email);
   await page.getByRole('textbox', { name: 'Password' }).fill('E2E-only-password');
   await page.getByRole('button', { name: 'Sign In' }).click();
   await expect(page).toHaveURL(/\/dashboard$/);

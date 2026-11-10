@@ -32,11 +32,24 @@ export default defineConfig({
     }
   ],
 
-  /* Run your local dev server before starting the tests */
-  webServer: {
-    command: 'npm run dev',
-    url: 'http://localhost:3000',
-    reuseExistingServer: !process.env.CI,
-    timeout: 120_000,
-  },
+  /* Keep end-to-end auth traffic isolated from configured Supabase projects. */
+  webServer: [
+    {
+      command: 'node tests/e2e/helpers/mock-supabase-server.cjs',
+      url: 'http://127.0.0.1:54321/health',
+      reuseExistingServer: false,
+      timeout: 10_000,
+    },
+    {
+      command: 'npm run dev',
+      url: 'http://localhost:3000',
+      reuseExistingServer: false,
+      timeout: 120_000,
+      env: {
+        NEXT_PUBLIC_SUPABASE_URL: 'http://127.0.0.1:54321',
+        NEXT_PUBLIC_SUPABASE_ANON_KEY: 'e2e-anon-key',
+        SUPABASE_SERVICE_ROLE_KEY: 'e2e-service-role-key',
+      },
+    },
+  ],
 });
