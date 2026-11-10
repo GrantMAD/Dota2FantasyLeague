@@ -7,8 +7,9 @@ import { useParams, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
 import { canOptimizeImage } from '@/lib/optimized-image';
-import { ShieldCheck, ArrowRightLeft, X } from 'lucide-react';
+import { Bookmark, BookmarkCheck, ShieldCheck, ArrowRightLeft, X } from 'lucide-react';
 import { fetchWithAuth } from '@/lib/fetch-with-auth';
+import { useToast } from '@/components/Toast';
 
 type PlayerAnalytics = {
   matches: number;
@@ -110,6 +111,7 @@ type MatchHistoryItem = {
 type PlayerResponse = { player?: PlayerDetail | null };
 
 export default function PlayerDetailPage() {
+  const toast = useToast();
   const params = useParams();
   const searchParams = useSearchParams();
   const id = params.id as string;
@@ -124,6 +126,8 @@ export default function PlayerDetailPage() {
   const [analytics, setAnalytics] = useState<PlayerAnalytics | null>(null);
   const [analyticsLoading, setAnalyticsLoading] = useState(false);
   const [isPremium, setIsPremium] = useState<boolean | null>(null);
+  const [isWatchlisted, setIsWatchlisted] = useState(false);
+  const [watchlistBusy, setWatchlistBusy] = useState(false);
 
   useEffect(() => {
     if (selectedMatch && matchModalContentRef.current) {
@@ -193,6 +197,61 @@ export default function PlayerDetailPage() {
     }
     fetchTransferContext();
   }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function loadWatchlistStatus() {
+      try {
+        const response = await fetchWithAuth('/api/user/player-watchlist');
+        const data = await response.json() as { playerIds?: unknown; error?: string };
+        if (!response.ok) throw new Error(data.error || 'Unable to load your player watchlist.');
+        if (!Array.isArray(data.playerIds) || !data.playerIds.every(
+          (playerId): playerId is number => Number.isSafeInteger(playerId) && playerId > 0,
+        )) {
+          throw new Error('Your player watchlist returned an unexpected response.');
+        }
+        if (!cancelled) setIsWatchlisted(data.playerIds.includes(Number(id)));
+      } catch (watchlistError: unknown) {
+        if (!cancelled) {
+          toast.error(
+            'Watchlist unavailable',
+            watchlistError instanceof Error ? watchlistError.message : 'Unable to load your player watchlist.',
+          );
+        }
+      }
+    }
+    if (id) void loadWatchlistStatus();
+    return () => { cancelled = true; };
+  }, [id, toast]);
+
+  async function toggleWatchlist() {
+    if (!player || watchlistBusy) return;
+    setWatchlistBusy(true);
+    try {
+      const response = await fetchWithAuth(
+        isWatchlisted
+          ? `/api/user/player-watchlist?playerId=${player.id}`
+          : '/api/user/player-watchlist',
+        isWatchlisted
+          ? { method: 'DELETE' }
+          : { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ playerId: player.id }) },
+      );
+      const data = await response.json() as { error?: string };
+      if (!response.ok) throw new Error(data.error || 'Unable to update your player watchlist.');
+      setIsWatchlisted(!isWatchlisted);
+      toast.success(
+        isWatchlisted ? 'Removed from watchlist' : 'Added to watchlist',
+        'Your saved players are shared across web and mobile.',
+      );
+    } catch (watchlistError: unknown) {
+      toast.error(
+        'Watchlist not updated',
+        watchlistError instanceof Error ? watchlistError.message : 'Unable to update your player watchlist.',
+      );
+    } finally {
+      setWatchlistBusy(false);
+    }
+  }
 
 
 
@@ -420,6 +479,16 @@ export default function PlayerDetailPage() {
                      <div className="text-xs text-[var(--text-muted)] uppercase tracking-wider mb-1 font-semibold">Current Price</div>
                      <div className="text-3xl font-mono font-black text-amber-400">{formatPlayerPrice(player.current_price)}</div>
                   </div>
+                  <button
+                     type="button"
+                     onClick={() => void toggleWatchlist()}
+                     disabled={watchlistBusy}
+                     aria-pressed={isWatchlisted}
+                     className="border border-amber-500/40 bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-300 px-5 py-2.5 rounded-xl font-semibold transition-all flex items-center justify-center gap-2 text-sm disabled:cursor-wait disabled:opacity-60"
+                  >
+                     {isWatchlisted ? <BookmarkCheck className="w-4 h-4" /> : <Bookmark className="w-4 h-4" />}
+                     {isWatchlisted ? 'In Watchlist' : 'Add to Watchlist'}
+                  </button>
                   {ownedPlayerIds.includes(player.id) ? (
                      <Link
                         href="/squads"

@@ -17,6 +17,8 @@ import {
   Shield,
   Swords,
   Crosshair,
+  Bookmark,
+  BookmarkCheck,
   Star,
   HelpCircle,
   Plus,
@@ -210,6 +212,7 @@ export default function PlayersPageClient({
 }: {
   initialData: PlayersCatalogResponse | null;
 }) {
+  const toast = useToast();
   const router = useRouter();
   const searchParams = useSearchParams();
   const initialSearch = searchParams.get('search') ?? '';
@@ -260,6 +263,9 @@ export default function PlayersPageClient({
   const [pinOwnedFirst, setPinOwnedFirst] = useState(true);
   const [comparePlayerIds, setComparePlayerIds] = useState<number[]>([]);
   const [compareMode, setCompareMode] = useState(false);
+  const [watchlistOnly, setWatchlistOnly] = useState(false);
+  const [watchlistIds, setWatchlistIds] = useState<number[]>([]);
+  const [watchlistBusyIds, setWatchlistBusyIds] = useState<Set<number>>(new Set());
 
   // Squad context
   const [ownedPlayerIds, setOwnedPlayerIds] = useState<number[]>([]);
@@ -297,9 +303,10 @@ export default function PlayersPageClient({
     async function loadTeamsAndSquadContext() {
       try {
         const session = await getAuthSession();
-        const [teamsResult, squadResult] = await Promise.allSettled([
+        const [teamsResult, squadResult, watchlistResult] = await Promise.allSettled([
           fetchWithAuth('/api/teams?limit=200', {}, session),
           fetchWithAuth('/api/fantasy/transfer-context', {}, session),
+          fetchWithAuth('/api/user/player-watchlist', {}, session),
         ]);
         if (cancelled) return;
 
@@ -314,6 +321,21 @@ export default function PlayersPageClient({
             'Unable to load player directory teams:',
             teamsResult.status === 'rejected' ? teamsResult.reason : teamsResult.value.status,
           );
+        }
+
+        if (watchlistResult.status === 'fulfilled' && watchlistResult.value.ok) {
+          const watchlistData = await watchlistResult.value.json() as { playerIds?: unknown };
+          if (Array.isArray(watchlistData.playerIds) && watchlistData.playerIds.every(
+            (id): id is number => Number.isSafeInteger(id) && id > 0,
+          )) {
+            setWatchlistIds(watchlistData.playerIds);
+          } else {
+            console.error('Player watchlist returned an unexpected response.');
+            toast.error('Watchlist unavailable', 'Refresh the page to try loading your saved players again.');
+          }
+        } else if (watchlistResult.status === 'rejected' || !watchlistResult.value.ok) {
+          console.error('Unable to load player watchlist:', watchlistResult.status === 'rejected' ? watchlistResult.reason : watchlistResult.value.status);
+          toast.error('Watchlist unavailable', 'Refresh the page to try loading your saved players again.');
         }
 
         if (squadResult.status === 'rejected') {
@@ -360,16 +382,15 @@ export default function PlayersPageClient({
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [toast]);
 
   // ── Fetch players ───────────────────────────────────────────────────────────
-  const toast = useToast();
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
 
-    const isInitialDirectoryQuery = page === 1
+    const isInitialDirectoryQuery = !watchlistOnly && page === 1
       && debouncedSearch === ''
       && roleFilter === ''
       && teamIdFilter === null
@@ -393,6 +414,15 @@ export default function PlayersPageClient({
           sort: sortBy,
           desc: sortDesc ? 'true' : 'false',
         });
+        if (watchlistOnly) {
+          if (watchlistIds.length === 0) {
+            setPlayers([]);
+            setTotal(0);
+            return;
+          }
+          params.set('ids', watchlistIds.join(','));
+          params.set('show_all', 'true');
+        }
         if (debouncedSearch) params.append('search', debouncedSearch);
         if (roleFilter)      params.append('role', roleFilter);
         if (teamIdFilter)    params.append('team_id', teamIdFilter.toString());
@@ -405,7 +435,7 @@ export default function PlayersPageClient({
         if (cancelled) return;
         const data = (await res.json()) as { data?: Player[]; total?: number };
         setPlayers(data.data || []);
-        setTotal(data.total || 0);
+        setTotal(data.total ?? 0);
       } catch (err: unknown) {
         if (!cancelled) {
           const msg = err instanceof Error ? err.message : 'Failed to fetch players';
@@ -419,7 +449,7 @@ export default function PlayersPageClient({
 
     void loadPlayers();
     return () => { cancelled = true; };
-  }, [page, limit, debouncedSearch, roleFilter, teamIdFilter, sortBy, sortDesc, toast]);
+  }, [page, limit, debouncedSearch, roleFilter, teamIdFilter, sortBy, sortDesc, toast, watchlistOnly, watchlistIds]);
 
   const totalPages = Math.ceil(total / limit);
 
@@ -433,6 +463,7 @@ export default function PlayersPageClient({
 
   // ── Pin owned squad players to top ─────────────────────────────────────────
   const displayedPlayers = (() => {
+    if (watchlistOnly) return players;
     if (!pinOwnedFirst || ownedPlayerIds.length === 0) return players;
 
     const matchingOwnedSquad: Player[] = [];
@@ -470,6 +501,40 @@ export default function PlayersPageClient({
     setComparePlayerIds([...comparePlayerIds, playerId]);
   };
 
+  const toggleWatchlistPlayer = async (playerId: number) => {
+    if (watchlistBusyIds.has(playerId)) return;
+    const isWatchlisted = watchlistIds.includes(playerId);
+    setWatchlistBusyIds((current) => new Set(current).add(playerId));
+    try {
+      const response = await fetchWithAuth(
+        isWatchlisted
+          ? `/api/user/player-watchlist?playerId=${playerId}`
+          : '/api/user/player-watchlist',
+        isWatchlisted
+          ? { method: 'DELETE' }
+          : { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ playerId }) },
+      );
+      const result = await response.json() as { error?: string };
+      if (!response.ok) throw new Error(result.error || 'Unable to update your player watchlist.');
+      setWatchlistIds((current) => isWatchlisted
+        ? current.filter((id) => id !== playerId)
+        : current.includes(playerId) ? current : [...current, playerId]);
+      toast.success(
+        isWatchlisted ? 'Removed from watchlist' : 'Added to watchlist',
+        isWatchlisted ? 'The player was removed from your saved list.' : 'The player is saved across your web and mobile apps.',
+      );
+    } catch (watchlistError: unknown) {
+      const message = watchlistError instanceof Error ? watchlistError.message : 'Unable to update your player watchlist.';
+      toast.error('Watchlist not updated', message);
+    } finally {
+      setWatchlistBusyIds((current) => {
+        const next = new Set(current);
+        next.delete(playerId);
+        return next;
+      });
+    }
+  };
+
   const openComparison = () => {
     if (comparePlayerIds.length < 2) return;
     router.push(`/players/compare?ids=${comparePlayerIds.join(',')}`);
@@ -491,6 +556,23 @@ export default function PlayersPageClient({
       </p>
 
       <div className="mb-4 flex justify-end">
+        <div className="flex flex-wrap justify-end gap-2">
+        <button
+          type="button"
+          onClick={() => {
+            setWatchlistOnly((current) => !current);
+            setPage(1);
+          }}
+          aria-pressed={watchlistOnly}
+          className={`inline-flex items-center gap-2 rounded-xl border px-4 py-2 text-sm font-semibold transition-colors ${
+            watchlistOnly
+              ? 'border-amber-500/50 bg-amber-500/15 text-amber-700 dark:text-amber-300'
+              : 'border-[var(--border)] bg-[var(--surface)] text-[var(--text-secondary)] hover:border-amber-500/40 hover:text-[var(--text-primary)]'
+          }`}
+        >
+          <Bookmark className="h-4 w-4" aria-hidden="true" />
+          {watchlistOnly ? 'All Players' : `Watchlist (${watchlistIds.length})`}
+        </button>
         <button
           type="button"
           onClick={() => {
@@ -507,6 +589,7 @@ export default function PlayersPageClient({
           <ArrowLeftRight className="h-4 w-4" aria-hidden="true" />
           {compareMode ? 'Exit Compare' : 'Compare Players'}
         </button>
+        </div>
       </div>
 
       {comparePlayerIds.length > 0 && (
@@ -1012,6 +1095,18 @@ export default function PlayersPageClient({
                       {/* Action */}
                       <td className="py-4 pl-4 pr-8 whitespace-nowrap text-right">
                         <div className="inline-flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => void toggleWatchlistPlayer(player.id)}
+                            disabled={watchlistBusyIds.has(player.id)}
+                            aria-label={`${watchlistIds.includes(player.id) ? 'Remove' : 'Add'} ${player.in_game_name || player.name} ${watchlistIds.includes(player.id) ? 'from' : 'to'} watchlist`}
+                            title={watchlistIds.includes(player.id) ? 'Remove from watchlist' : 'Add to watchlist'}
+                            className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-amber-500/35 bg-amber-500/10 text-amber-600 transition-colors hover:bg-amber-500/20 disabled:cursor-wait disabled:opacity-50 dark:text-amber-300"
+                          >
+                            {watchlistIds.includes(player.id)
+                              ? <BookmarkCheck className="h-4 w-4" />
+                              : <Bookmark className="h-4 w-4" />}
+                          </button>
                           {!isOwned && player.availability_status?.toLowerCase() === 'available' && (
                             <Link
                               href={`/transfers?playerId=${player.id}`}
