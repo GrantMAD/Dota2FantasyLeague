@@ -8,12 +8,14 @@ import { fetchWithAuth } from '@/lib/fetch-with-auth';
 import { useToast } from '@/components/Toast';
 
 type ReportStatus = 'new' | 'under_review' | 'in_progress' | 'resolved' | 'closed';
-type ReportCategory = 'bug' | 'error' | 'ui';
+type ReportCategory = 'bug' | 'error' | 'ui' | 'feature_request' | 'performance';
+type ReportSeverity = 'low' | 'medium' | 'high' | 'critical';
 
 interface IssueReport {
   id: number;
   title: string;
   category: ReportCategory;
+  severity: ReportSeverity;
   description: string;
   page_url: string | null;
   screenshot_url: string | null;
@@ -44,6 +46,14 @@ const categoryLabels: Record<ReportCategory, string> = {
   bug: 'Bug',
   error: 'Error message',
   ui: 'UI problem',
+  feature_request: 'Feature request',
+  performance: 'Performance',
+};
+const severityLabels: Record<ReportSeverity, string> = {
+  low: 'Low',
+  medium: 'Medium',
+  high: 'High',
+  critical: 'Critical',
 };
 
 export default function ReportIssuePage() {
@@ -58,6 +68,7 @@ export default function ReportIssuePage() {
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [title, setTitle] = useState('');
   const [category, setCategory] = useState<ReportCategory>('bug');
+  const [severity, setSeverity] = useState<ReportSeverity>('medium');
   const [description, setDescription] = useState('');
   const [screenshot, setScreenshot] = useState<File | null>(null);
   const [screenshotPreview, setScreenshotPreview] = useState<string | null>(null);
@@ -109,6 +120,7 @@ export default function ReportIssuePage() {
     const formData = new FormData();
     formData.set('title', title);
     formData.set('category', category);
+    formData.set('severity', severity);
     formData.set('description', description);
     formData.set('page_url', `${pathname}${window.location.search}`);
     if (screenshot) formData.set('screenshot', screenshot);
@@ -120,6 +132,7 @@ export default function ReportIssuePage() {
       setReports((current) => [data.report!, ...current]);
       setTitle('');
       setCategory('bug');
+      setSeverity('medium');
       setDescription('');
       setScreenshot(null);
       setScreenshotPreview(null);
@@ -144,7 +157,7 @@ export default function ReportIssuePage() {
           </div>
         </div>
         <p className="mt-4 max-w-2xl text-sm leading-6 text-[var(--text-secondary)]">
-          Tell us about a bug, error, or interface problem. Your report is private to you and the support team, and you can follow its status here.
+          Tell us about a bug, error, interface problem, feature idea, or performance issue. Your report is private to you and the support team, and you can follow its status here.
         </p>
       </header>
 
@@ -159,6 +172,13 @@ export default function ReportIssuePage() {
           <label className="space-y-2 text-sm font-semibold text-[var(--text-primary)]">
             Short title
             <input required minLength={5} maxLength={120} value={title} onChange={(event) => setTitle(event.target.value)} placeholder="What went wrong?" className="w-full rounded-xl border border-[var(--border)] bg-[var(--surface-raised)] px-4 py-3" />
+          </label>
+          <label className="space-y-2 text-sm font-semibold text-[var(--text-primary)]">
+            Impact
+            <select value={severity} onChange={(event) => setSeverity(event.target.value as ReportSeverity)} className="w-full rounded-xl border border-[var(--border)] bg-[var(--surface-raised)] px-4 py-3">
+              {Object.entries(severityLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+            </select>
+            <span className="block text-xs font-normal text-[var(--text-muted)]">Your estimate of impact; the support team will confirm priority.</span>
           </label>
         </div>
         <label className="block space-y-2 text-sm font-semibold text-[var(--text-primary)]">
@@ -208,6 +228,7 @@ export default function ReportIssuePage() {
               <div>
                 <div className="mb-2 flex flex-wrap gap-2">
                   <span className="rounded-full border border-cyan-500/30 bg-cyan-500/10 px-2.5 py-1 text-xs font-semibold text-cyan-700 dark:text-cyan-300">{categoryLabels[report.category]}</span>
+                  <span className="rounded-full border border-violet-500/30 bg-violet-500/10 px-2.5 py-1 text-xs font-semibold text-violet-700 dark:text-violet-300">{severityLabels[report.severity]} impact</span>
                   <span className="rounded-full border border-amber-500/30 bg-amber-500/10 px-2.5 py-1 text-xs font-semibold text-amber-700 dark:text-amber-300">{statusLabels[report.status]}</span>
                 </div>
                 <h3 className="font-bold text-[var(--text-primary)]">{report.title}</h3>

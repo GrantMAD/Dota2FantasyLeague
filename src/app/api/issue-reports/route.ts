@@ -8,6 +8,8 @@ import { withApiTelemetry } from '@/lib/api-telemetry';
 const BUCKET = 'issue-report-screenshots';
 const MAX_SCREENSHOT_SIZE = 5 * 1024 * 1024;
 const REPORT_LIMIT = 50;
+const categories = ['bug', 'error', 'ui', 'feature_request', 'performance'] as const;
+const severities = ['low', 'medium', 'high', 'critical'] as const;
 const IMAGE_TYPES = {
   'image/jpeg': { extension: 'jpg', signature: [0xff, 0xd8, 0xff] },
   'image/png': { extension: 'png', signature: [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a] },
@@ -20,6 +22,7 @@ interface IssueReportRow {
   user_id: string;
   title: string;
   category: string;
+  severity: string;
   description: string;
   page_url: string | null;
   screenshot_path: string | null;
@@ -84,7 +87,7 @@ async function getHandler(request: NextRequest) {
     }
     const recentReportsQuery = supabase
       .from('issue_reports')
-      .select('id, user_id, title, category, description, page_url, screenshot_path, status, resolution_note, created_at, updated_at, resolved_at')
+      .select('id, user_id, title, category, severity, description, page_url, screenshot_path, status, resolution_note, created_at, updated_at, resolved_at')
       .eq('user_id', auth.userId)
       .order('created_at', { ascending: false })
       .limit(REPORT_LIMIT);
@@ -93,7 +96,7 @@ async function getHandler(request: NextRequest) {
       reportId === null
         ? Promise.resolve({ data: null, error: null })
         : supabase.from('issue_reports')
-          .select('id, user_id, title, category, description, page_url, screenshot_path, status, resolution_note, created_at, updated_at, resolved_at')
+          .select('id, user_id, title, category, severity, description, page_url, screenshot_path, status, resolution_note, created_at, updated_at, resolved_at')
           .eq('user_id', auth.userId)
           .eq('id', reportId)
           .maybeSingle(),
@@ -154,6 +157,7 @@ async function postHandler(request: NextRequest) {
     }
     const titleValue = formData.get('title');
     const categoryValue = formData.get('category');
+    const severityValue = formData.get('severity');
     const descriptionValue = formData.get('description');
     const pageUrlValue = formData.get('page_url');
     if (typeof titleValue !== 'string' || typeof categoryValue !== 'string' || typeof descriptionValue !== 'string') {
@@ -164,8 +168,11 @@ async function postHandler(request: NextRequest) {
     if (title.length < 5 || title.length > 120) {
       return NextResponse.json({ error: 'Title must be between 5 and 120 characters.' }, { status: 400 });
     }
-    if (!['bug', 'error', 'ui'].includes(categoryValue)) {
+    if (!categories.includes(categoryValue as typeof categories[number])) {
       return NextResponse.json({ error: 'Choose a valid report category.' }, { status: 400 });
+    }
+    if (typeof severityValue !== 'string' || !severities.includes(severityValue as typeof severities[number])) {
+      return NextResponse.json({ error: 'Choose a valid impact level.' }, { status: 400 });
     }
     if (description.length < 10 || description.length > 5000) {
       return NextResponse.json({ error: 'Description must be between 10 and 5,000 characters.' }, { status: 400 });
@@ -206,6 +213,7 @@ async function postHandler(request: NextRequest) {
       p_user_id: auth.userId,
       p_title: title,
       p_category: categoryValue,
+      p_severity: severityValue,
       p_description: description,
       p_page_url: pageUrl,
       p_screenshot_path: uploadedPath,

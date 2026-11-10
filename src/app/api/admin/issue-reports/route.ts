@@ -6,7 +6,8 @@ import { withApiTelemetry } from '@/lib/api-telemetry';
 
 const statuses = ['new', 'under_review', 'in_progress', 'resolved', 'closed'] as const;
 type ReportStatus = typeof statuses[number];
-const categories = ['bug', 'error', 'ui'] as const;
+const categories = ['bug', 'error', 'ui', 'feature_request', 'performance'] as const;
+const severities = ['low', 'medium', 'high', 'critical'] as const;
 const PAGE_LIMIT = 50;
 
 interface ReportRow {
@@ -14,6 +15,7 @@ interface ReportRow {
   user_id: string;
   title: string;
   category: string;
+  severity: string;
   description: string;
   page_url: string | null;
   screenshot_path: string | null;
@@ -35,12 +37,16 @@ async function getHandler(request: NextRequest) {
     const params = request.nextUrl.searchParams;
     const rawStatus = params.get('status');
     const rawCategory = params.get('category');
+    const rawSeverity = params.get('severity');
     const rawSearch = params.get('search')?.trim() ?? '';
     if (rawStatus && rawStatus !== 'all' && !statuses.includes(rawStatus as ReportStatus)) {
       return NextResponse.json({ error: 'Invalid report status filter.' }, { status: 400 });
     }
     if (rawCategory && rawCategory !== 'all' && !categories.includes(rawCategory as typeof categories[number])) {
       return NextResponse.json({ error: 'Invalid report category filter.' }, { status: 400 });
+    }
+    if (rawSeverity && rawSeverity !== 'all' && !severities.includes(rawSeverity as typeof severities[number])) {
+      return NextResponse.json({ error: 'Invalid report impact filter.' }, { status: 400 });
     }
     const requestedPage = Number(params.get('page') ?? '1');
     if (!Number.isSafeInteger(requestedPage) || requestedPage < 1) {
@@ -53,11 +59,12 @@ async function getHandler(request: NextRequest) {
     const page = Math.min(requestedPage, 10_000);
     const supabase = supabaseServer();
     let query = supabase.from('issue_reports')
-      .select('id, user_id, title, category, description, page_url, screenshot_path, status, resolution_note, created_at, updated_at, resolved_at, updated_by', { count: 'exact' })
+      .select('id, user_id, title, category, severity, description, page_url, screenshot_path, status, resolution_note, created_at, updated_at, resolved_at, updated_by', { count: 'exact' })
       .order('created_at', { ascending: false })
       .range((page - 1) * PAGE_LIMIT, page * PAGE_LIMIT - 1);
     if (rawStatus && rawStatus !== 'all') query = query.eq('status', rawStatus);
     if (rawCategory && rawCategory !== 'all') query = query.eq('category', rawCategory);
+    if (rawSeverity && rawSeverity !== 'all') query = query.eq('severity', rawSeverity);
     if (search) query = query.or(`title.ilike.%${search}%,description.ilike.%${search}%`);
     const { data, count, error } = await query;
     if (error) throw new Error(`Unable to load issue reports: ${error.message}`);

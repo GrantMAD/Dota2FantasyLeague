@@ -7,13 +7,15 @@ import { fetchWithAuth } from '@/lib/fetch-with-auth';
 import { useToast } from '@/components/Toast';
 
 type ReportStatus = 'new' | 'under_review' | 'in_progress' | 'resolved' | 'closed';
-type ReportCategory = 'bug' | 'error' | 'ui';
+type ReportCategory = 'bug' | 'error' | 'ui' | 'feature_request' | 'performance';
+type ReportSeverity = 'low' | 'medium' | 'high' | 'critical';
 
 interface IssueReport {
   id: number;
   user_id: string;
   title: string;
   category: ReportCategory;
+  severity: ReportSeverity;
   description: string;
   page_url: string | null;
   screenshot_url: string | null;
@@ -42,7 +44,8 @@ const statusLabels: Record<ReportStatus, string> = {
   resolved: 'Resolved',
   closed: 'Closed',
 };
-const categoryLabels: Record<ReportCategory, string> = { bug: 'Bug', error: 'Error', ui: 'UI problem' };
+const categoryLabels: Record<ReportCategory, string> = { bug: 'Bug', error: 'Error message', ui: 'UI problem', feature_request: 'Feature request', performance: 'Performance' };
+const severityLabels: Record<ReportSeverity, string> = { low: 'Low', medium: 'Medium', high: 'High', critical: 'Critical' };
 const reportStatuses = Object.keys(statusLabels) as ReportStatus[];
 
 export default function AdminIssueReportsPage() {
@@ -51,6 +54,7 @@ export default function AdminIssueReportsPage() {
   const [history, setHistory] = useState<StatusHistory[]>([]);
   const [statusFilter, setStatusFilter] = useState('all');
   const [categoryFilter, setCategoryFilter] = useState('all');
+  const [severityFilter, setSeverityFilter] = useState('all');
   const [search, setSearch] = useState('');
   const [appliedSearch, setAppliedSearch] = useState('');
   const [page, setPage] = useState(1);
@@ -71,7 +75,7 @@ export default function AdminIssueReportsPage() {
   const loadReports = useCallback(async () => {
     setLoading(true);
     try {
-      const params = new URLSearchParams({ page: String(page), status: statusFilter, category: categoryFilter });
+      const params = new URLSearchParams({ page: String(page), status: statusFilter, category: categoryFilter, severity: severityFilter });
       if (appliedSearch) params.set('search', appliedSearch);
       const response = await fetchWithAuth(`/api/admin/issue-reports?${params.toString()}`);
       const data = await response.json() as { reports?: IssueReport[]; history?: StatusHistory[]; total?: number; error?: string };
@@ -85,7 +89,7 @@ export default function AdminIssueReportsPage() {
     } finally {
       setLoading(false);
     }
-  }, [appliedSearch, categoryFilter, page, statusFilter]);
+  }, [appliedSearch, categoryFilter, page, severityFilter, statusFilter]);
 
   useEffect(() => {
     const timeout = window.setTimeout(() => { void loadReports(); }, 0);
@@ -143,7 +147,7 @@ export default function AdminIssueReportsPage() {
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-amber-400">Support queue</p>
           <h1 className="mt-1 flex items-center gap-3 text-3xl font-black text-white"><Bug className="h-7 w-7 text-amber-400" />Issue reports</h1>
-          <p className="mt-2 text-sm text-gray-400">Review user-submitted bugs, errors, and interface problems; status changes notify the reporter.</p>
+          <p className="mt-2 text-sm text-gray-400">Review issue reports and reporter-estimated impact; status changes notify the reporter.</p>
         </div>
         <button type="button" onClick={() => void loadReports()} className="inline-flex items-center gap-2 rounded-xl border border-gray-700 px-4 py-2 text-sm font-semibold text-gray-200 hover:bg-gray-800">
           <RefreshCw className="h-4 w-4" /> Refresh
@@ -166,6 +170,12 @@ export default function AdminIssueReportsPage() {
             {Object.entries(categoryLabels).map(([category, label]) => <option key={category} value={category}>{label}</option>)}
           </select>
         </label>
+        <label className="text-xs font-semibold text-gray-400">Reported impact
+          <select value={severityFilter} onChange={(event) => { setPage(1); setSeverityFilter(event.target.value); }} className="mt-1 block rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 dark:border-gray-700 dark:bg-gray-950 dark:text-white">
+            <option value="all">All impact levels</option>
+            {Object.entries(severityLabels).map(([severity, label]) => <option key={severity} value={severity}>{label}</option>)}
+          </select>
+        </label>
         <p className="ml-auto self-end pb-2 text-sm text-gray-400">{total} report{total === 1 ? '' : 's'}</p>
       </div>
 
@@ -182,6 +192,12 @@ export default function AdminIssueReportsPage() {
                   <div className="min-w-0">
                     <div className="mb-2 flex flex-wrap gap-2">
                       <span className="rounded-full border border-cyan-500/30 bg-cyan-500/10 px-2.5 py-1 text-xs font-semibold text-cyan-200">{categoryLabels[report.category]}</span>
+                      <span className={`rounded-full border px-2.5 py-1 text-xs font-semibold ${
+                        report.severity === 'critical' ? 'border-rose-500/40 bg-rose-500/15 text-rose-200'
+                          : report.severity === 'high' ? 'border-orange-500/40 bg-orange-500/15 text-orange-200'
+                            : report.severity === 'medium' ? 'border-amber-500/40 bg-amber-500/15 text-amber-200'
+                              : 'border-slate-500/40 bg-slate-500/15 text-slate-200'
+                      }`}>{severityLabels[report.severity]} impact</span>
                       <span className="rounded-full border border-amber-500/30 bg-amber-500/10 px-2.5 py-1 text-xs font-semibold text-amber-200">{statusLabels[report.status]}</span>
                       <span className="text-xs text-gray-500">Report #{report.id}</span>
                     </div>

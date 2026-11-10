@@ -42,6 +42,13 @@ describe('/api/admin/issue-reports', () => {
     expect(mockSupabaseServer).not.toHaveBeenCalled();
   });
 
+  it('rejects unsupported reported impact filters', async () => {
+    const response = await GET(makeRequest('/api/admin/issue-reports?severity=urgent'));
+
+    expect(response.status).toBe(400);
+    expect(mockSupabaseServer).not.toHaveBeenCalled();
+  });
+
   it('notifies the reporter after a status change', async () => {
     const report = {
       id: 28,
