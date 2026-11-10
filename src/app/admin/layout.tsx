@@ -17,15 +17,17 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
         <AdminSidebar />
 
         {/* Main Content */}
-        <main className="flex-1 overflow-y-auto">
+        <main className="min-w-0 flex-1 overflow-y-auto">
           <div className="min-h-full bg-gray-900 text-white">
             {/* Top Bar */}
-            <div className="border-b border-gray-800 bg-gray-800/50 px-8 py-4">
-              <div className="flex items-center justify-between">
-                <h1 className="text-2xl font-bold">Admin Console</h1>
+            <div className="border-b border-gray-800 bg-gray-800/50 px-4 py-4 md:px-8">
+              <div className="flex items-center justify-between gap-3">
+                <div className="min-w-0 pl-12 md:pl-0">
+                  <h1 className="truncate text-xl font-bold md:text-2xl">Admin Console</h1>
+                </div>
                 <div className="flex items-center gap-4">
                   <ThemeToggle />
-                  <span className="text-sm text-gray-400">
+                  <span className="hidden text-sm text-gray-400 sm:inline">
                     {new Date().toLocaleString()}
                   </span>
                 </div>
@@ -33,7 +35,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
             </div>
 
             {/* Content */}
-            <div className="p-8">
+            <div className="p-4 md:p-8">
               {children}
             </div>
           </div>
@@ -43,4 +45,3 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
     </ToastProvider>
   );
 }
-
