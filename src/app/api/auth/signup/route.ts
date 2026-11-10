@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabase, supabaseServer } from '@/lib/supabase';
 import { withApiTelemetry } from '@/lib/api-telemetry';
 import { enforceAuthRateLimit } from '@/lib/auth-rate-limit';
+import { getEmailConfirmationRedirectUrl } from '@/lib/auth-redirect';
 
 
 /**
@@ -41,6 +42,9 @@ async function postHandler(request: NextRequest) {
     const { data: authData, error: signUpError } = await supabase.auth.signUp({
       email,
       password,
+      options: {
+        emailRedirectTo: getEmailConfirmationRedirectUrl(request.url),
+      },
     });
     
     if (signUpError) {
@@ -54,6 +58,16 @@ async function postHandler(request: NextRequest) {
       return NextResponse.json(
         { error: 'User creation failed' },
         { status: 500 }
+      );
+    }
+
+    if (authData.user.identities?.length === 0) {
+      return NextResponse.json(
+        {
+          message: 'If this address can be registered, a confirmation email will be sent.',
+          user: authData.user,
+        },
+        { status: 201 }
       );
     }
     
@@ -109,6 +123,7 @@ async function postHandler(request: NextRequest) {
       {
         message: 'User created successfully. Please check your email to confirm.',
         user: authData.user,
+        session: authData.session,
       },
       { status: 201 }
     );

@@ -43,9 +43,11 @@ Required local variables:
 - NEXT_PUBLIC_SUPABASE_URL
 - NEXT_PUBLIC_SUPABASE_ANON_KEY
 - SUPABASE_SERVICE_ROLE_KEY
+- NEXT_PUBLIC_SITE_URL (recommended; set to the canonical public origin used for authentication emails)
 
 These should stay in .env.local and must not be committed to the repository.
 The shared privileged server client requires SUPABASE_SERVICE_ROLE_KEY and fails explicitly if it is missing; it never falls back to the public anon key.
+Add `${NEXT_PUBLIC_SITE_URL}/auth/callback` to the Supabase Auth URL configuration's allowed redirect URLs. For local development, also allow `http://localhost:3000/auth/callback`.
 
 Professional data provider configuration:
 

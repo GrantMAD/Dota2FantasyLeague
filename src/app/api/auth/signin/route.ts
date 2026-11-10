@@ -31,8 +31,12 @@ async function postHandler(request: NextRequest) {
     });
     
     if (error) {
+      const emailNeedsConfirmation = error.code === 'email_not_confirmed'
+        || error.message.toLowerCase().includes('email not confirmed');
       return NextResponse.json(
-        { error: 'Sign in failed', details: error.message },
+        emailNeedsConfirmation
+          ? { error: 'Please confirm your email before signing in.', code: 'email_not_confirmed' }
+          : { error: 'Sign in failed', details: error.message },
         { status: 401 }
       );
     }

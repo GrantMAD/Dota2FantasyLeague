@@ -64,4 +64,19 @@ describe('POST /api/auth/signin', () => {
     expect(response.headers.get('set-cookie')).toContain('sb-auth-token=access-token');
     expect(response.headers.get('set-cookie')).toContain('sb-refresh-token=refresh-token');
   });
+
+  it('returns an actionable error code when email confirmation is pending', async () => {
+    mockSignInWithPassword.mockResolvedValue({
+      data: { user: null, session: null },
+      error: { code: 'email_not_confirmed', message: 'Email not confirmed' },
+    });
+
+    const response = await POST(createRequest());
+
+    expect(response.status).toBe(401);
+    expect(await response.json()).toMatchObject({
+      error: 'Please confirm your email before signing in.',
+      code: 'email_not_confirmed',
+    });
+  });
 });

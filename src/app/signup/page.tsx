@@ -9,7 +9,7 @@ import { AuthBackground } from '@/components/auth/AuthBackground';
 import { AuthCard } from '@/components/auth/AuthCard';
 import { AuthInput } from '@/components/auth/AuthInput';
 import { PasswordStrength } from '@/components/auth/PasswordStrength';
-import { AuthSuccessOverlay } from '@/components/auth/AuthSuccessOverlay';
+import { supabase } from '@/lib/supabase';
 
 const TRUST_POINTS = [
   { text: 'Free forever — no subscription' },
@@ -28,7 +28,9 @@ export default function SignupPage() {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState(false);
+  const [pendingConfirmation, setPendingConfirmation] = useState(false);
+  const [isResending, setIsResending] = useState(false);
+  const [resendMessage, setResendMessage] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [formData, setFormData] = useState({
@@ -75,10 +77,27 @@ export default function SignupPage() {
         throw new Error(data.details ? `${data.error}: ${data.details}` : data.error || 'Failed to sign up');
       }
 
-      setSuccess(true);
-      setTimeout(() => {
-        router.push('/login');
-      }, 4000);
+      if (data.session?.access_token && data.session?.refresh_token) {
+        const { error: sessionError } = await supabase.auth.setSession({
+          access_token: data.session.access_token,
+          refresh_token: data.session.refresh_token,
+        });
+        if (sessionError) throw sessionError;
+
+        const cookieResponse = await fetch('/api/auth/refresh-session', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            access_token: data.session.access_token,
+            refresh_token: data.session.refresh_token,
+          }),
+        });
+        if (!cookieResponse.ok) throw new Error('Account created, but the session could not be started. Please sign in.');
+        router.push('/dashboard');
+        return;
+      }
+
+      setPendingConfirmation(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
     } finally {
@@ -86,15 +105,63 @@ export default function SignupPage() {
     }
   };
 
-  if (success) {
+  const resendConfirmation = async () => {
+    setIsResending(true);
+    setResendMessage(null);
+    setError(null);
+    try {
+      const response = await fetch('/api/auth/resend-confirmation', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: formData.email }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Unable to resend the confirmation email.');
+      setResendMessage('If this account needs confirmation, a new email will arrive shortly. Check your inbox and spam folder.');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unable to resend the confirmation email.');
+    } finally {
+      setIsResending(false);
+    }
+  };
+
+  if (pendingConfirmation) {
     return (
-      <AuthSuccessOverlay
-        title="Account Created!"
-        message="Check your inbox to confirm your email address, then sign in to build your squad."
-        redirectHref="/login"
-        redirectLabel="Go to Sign In"
-        redirectDelay={4000}
-      />
+      <div className="relative flex min-h-screen items-center justify-center px-4 py-10 text-slate-100">
+        <AuthBackground />
+        <div className="relative z-10 w-full max-w-md">
+          <div className="mb-6 text-center">
+            <Link href="/" className="mb-6 inline-flex items-center gap-3">
+              <BrandLogo className="h-10 w-10" />
+              <span className="text-xl font-bold text-amber-400">Fantasy Dota 2</span>
+            </Link>
+            <h1 className="mt-5 text-3xl font-black text-white">Confirm your email</h1>
+            <p className="mt-3 text-sm leading-6 text-slate-300">
+              If email confirmation is required, a link will be sent to <strong className="break-all text-white">{formData.email}</strong>. Open it to finish creating your account.
+            </p>
+          </div>
+          <AuthCard>
+            <div className="space-y-4 text-center">
+              <p className="text-sm leading-6 text-slate-400">
+                If it is not in your inbox, check your spam folder and make sure the address is correct. Confirmation links expire, but you can request a new one here.
+              </p>
+              {error && <p role="alert" className="text-sm text-red-400">{error}</p>}
+              {resendMessage && <p role="status" className="text-sm text-emerald-300">{resendMessage}</p>}
+              <button
+                type="button"
+                onClick={resendConfirmation}
+                disabled={isResending}
+                className="min-h-11 w-full rounded-xl bg-amber-500 px-4 py-3 text-sm font-bold text-amber-950 hover:bg-amber-400 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {isResending ? 'Sending…' : 'Resend confirmation email'}
+              </button>
+              <Link href="/login" className="inline-block text-sm font-semibold text-amber-400 hover:text-amber-300">
+                Return to sign in
+              </Link>
+            </div>
+          </AuthCard>
+        </div>
+      </div>
     );
   }
 

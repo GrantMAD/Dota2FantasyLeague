@@ -15,6 +15,9 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [confirmationEmail, setConfirmationEmail] = useState<string | null>(null);
+  const [resendingConfirmation, setResendingConfirmation] = useState(false);
+  const [resendMessage, setResendMessage] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     email: '',
     password: '',
@@ -28,6 +31,8 @@ export default function LoginPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    setConfirmationEmail(null);
+    setResendMessage(null);
     setIsLoading(true);
 
     try {
@@ -39,6 +44,7 @@ export default function LoginPage() {
 
       if (!response.ok) {
         const data = await response.json();
+        if (data.code === 'email_not_confirmed') setConfirmationEmail(formData.email);
         throw new Error(data.error || 'Failed to sign in');
       }
 
@@ -56,6 +62,26 @@ export default function LoginPage() {
       setError(err instanceof Error ? err.message : 'An error occurred');
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const resendConfirmation = async () => {
+    if (!confirmationEmail) return;
+    setResendingConfirmation(true);
+    setResendMessage(null);
+    try {
+      const response = await fetch('/api/auth/resend-confirmation', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: confirmationEmail }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Unable to resend the confirmation email.');
+      setResendMessage('If this account needs confirmation, a new email will arrive shortly. Check your inbox and spam folder.');
+    } catch (err) {
+      setResendMessage(err instanceof Error ? err.message : 'Unable to resend the confirmation email.');
+    } finally {
+      setResendingConfirmation(false);
     }
   };
 
@@ -88,6 +114,23 @@ export default function LoginPage() {
                   <circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" />
                 </svg>
                 {error}
+              </div>
+            )}
+
+            {confirmationEmail && (
+              <div className="space-y-3 rounded-xl border border-amber-500/25 bg-amber-500/5 p-4">
+                <p className="text-sm leading-5 text-amber-100">
+                  Confirm your email before signing in. Check your inbox and spam folder, or request a new confirmation email.
+                </p>
+                <button
+                  type="button"
+                  onClick={resendConfirmation}
+                  disabled={resendingConfirmation}
+                  className="min-h-10 rounded-lg border border-amber-500/30 px-3 text-sm font-semibold text-amber-300 hover:bg-amber-500/10 disabled:opacity-60"
+                >
+                  {resendingConfirmation ? 'Sending…' : 'Resend confirmation email'}
+                </button>
+                {resendMessage && <p role="status" className="text-xs text-slate-300">{resendMessage}</p>}
               </div>
             )}
 

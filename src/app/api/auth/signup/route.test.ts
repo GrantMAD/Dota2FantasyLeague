@@ -52,11 +52,29 @@ describe('POST /api/auth/signup', () => {
     const response = await POST(createRequest());
 
     expect(response.status).toBe(201);
+    expect(mockSignUp).toHaveBeenCalledWith({
+      email: 'manager@example.test',
+      password: 'secure-password',
+      options: { emailRedirectTo: 'http://localhost:3000/auth/callback' },
+    });
     expect(mockInsert).toHaveBeenCalledWith([{
       id: 'auth-user-1',
       username: 'manager',
       display_name: 'manager',
     }]);
+    expect(mockDeleteUser).not.toHaveBeenCalled();
+  });
+
+  it('does not alter profiles for an email that Supabase has already registered', async () => {
+    mockSignUp.mockResolvedValue({
+      data: { user: { id: 'existing-user', identities: [] } },
+      error: null,
+    });
+
+    const response = await POST(createRequest());
+
+    expect(response.status).toBe(201);
+    expect(mockInsert).not.toHaveBeenCalled();
     expect(mockDeleteUser).not.toHaveBeenCalled();
   });
 
