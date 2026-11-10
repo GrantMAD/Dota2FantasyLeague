@@ -1,4 +1,4 @@
-const { createServer } = require('node:http');
+import { createServer } from 'node:http';
 
 const server = createServer((request, response) => {
   const { pathname } = new URL(request.url, 'http://127.0.0.1');

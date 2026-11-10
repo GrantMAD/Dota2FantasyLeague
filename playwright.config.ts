@@ -35,7 +35,7 @@ export default defineConfig({
   /* Keep end-to-end auth traffic isolated from configured Supabase projects. */
   webServer: [
     {
-      command: 'node tests/e2e/helpers/mock-supabase-server.cjs',
+      command: 'node tests/e2e/helpers/mock-supabase-server.mjs',
       url: 'http://127.0.0.1:54321/health',
       reuseExistingServer: false,
       timeout: 10_000,
