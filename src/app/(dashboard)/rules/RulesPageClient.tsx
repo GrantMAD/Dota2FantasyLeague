@@ -5,15 +5,18 @@ import {
   ArrowLeft,
   ArrowRight,
   CalendarClock,
+  Calculator,
   ChevronDown,
   Cpu,
   Crown,
   Gauge,
+  HelpCircle,
   LineChart,
   Search,
   ScrollText,
   Shield,
   Sparkles,
+  Trophy,
   Users
 } from 'lucide-react';
 import { useState } from 'react';
@@ -25,8 +28,143 @@ const sections = [
   { id: 'chips', label: 'Chips', icon: Sparkles },
   { id: 'transfers', label: 'Transfers', icon: LineChart },
   { id: 'deadlines', label: 'Deadlines', icon: CalendarClock },
+  { id: 'leagues', label: 'Leagues', icon: Trophy },
+  { id: 'faq', label: 'FAQ', icon: HelpCircle },
   { id: 'hood', label: 'Under the Hood', icon: Cpu },
 ];
+
+const roleNames = ['Carry', 'Mid', 'Offlane', 'Support', 'Hard Support'] as const;
+type RoleName = (typeof roleNames)[number];
+type CalculatorField =
+  | 'kills'
+  | 'assists'
+  | 'deaths'
+  | 'gpm'
+  | 'xpm'
+  | 'lastHits'
+  | 'denies'
+  | 'heroDamage'
+  | 'towerDamage'
+  | 'healing'
+  | 'wardsPlaced'
+  | 'wardsDestroyed'
+  | 'roshanKills'
+  | 'duration';
+
+type CalculatorInputs = Record<CalculatorField, string>;
+
+const defaultCalculatorInputs: CalculatorInputs = {
+  kills: '0',
+  assists: '0',
+  deaths: '0',
+  gpm: '0',
+  xpm: '0',
+  lastHits: '0',
+  denies: '0',
+  heroDamage: '0',
+  towerDamage: '0',
+  healing: '0',
+  wardsPlaced: '0',
+  wardsDestroyed: '0',
+  roshanKills: '0',
+  duration: '40',
+};
+
+const calculatorFields: { field: CalculatorField; label: string }[] = [
+  { field: 'kills', label: 'Kills' },
+  { field: 'assists', label: 'Assists' },
+  { field: 'deaths', label: 'Deaths' },
+  { field: 'gpm', label: 'Gold per minute' },
+  { field: 'xpm', label: 'Experience per minute' },
+  { field: 'lastHits', label: 'Last hits' },
+  { field: 'denies', label: 'Denies' },
+  { field: 'heroDamage', label: 'Hero damage' },
+  { field: 'towerDamage', label: 'Tower damage' },
+  { field: 'healing', label: 'Healing' },
+  { field: 'wardsPlaced', label: 'Wards placed' },
+  { field: 'wardsDestroyed', label: 'Wards destroyed' },
+  { field: 'roshanKills', label: 'Roshan kills' },
+  { field: 'duration', label: 'Match duration (minutes)' },
+];
+
+const roleBenchmarks: Record<RoleName, {
+  gpm: number;
+  xpm: number;
+  lastHitsPerMinute: number;
+  heroDamage: number;
+  towerDamage: number;
+  healing: number;
+}> = {
+  Carry: { gpm: 550, xpm: 600, lastHitsPerMinute: 6, heroDamage: 25000, towerDamage: 3000, healing: 1000 },
+  Mid: { gpm: 450, xpm: 550, lastHitsPerMinute: 5, heroDamage: 20000, towerDamage: 2000, healing: 1500 },
+  Offlane: { gpm: 350, xpm: 450, lastHitsPerMinute: 3, heroDamage: 18000, towerDamage: 2500, healing: 2000 },
+  Support: { gpm: 250, xpm: 350, lastHitsPerMinute: 3, heroDamage: 12000, towerDamage: 1500, healing: 5000 },
+  'Hard Support': { gpm: 200, xpm: 300, lastHitsPerMinute: 3, heroDamage: 10000, towerDamage: 1000, healing: 6000 },
+};
+
+function calculateDefaultScoreEstimate(
+  inputs: CalculatorInputs,
+  role: RoleName,
+  teamWon: boolean,
+  seriesClincher: boolean,
+  previousPerformanceStreak: number,
+) {
+  const value = (field: CalculatorField) => {
+    const parsed = Number(inputs[field]);
+    return Number.isFinite(parsed) ? Math.max(0, parsed) : 0;
+  };
+  const benchmarks = roleBenchmarks[role];
+  const gameDuration = value('duration') || 40;
+  const kills = value('kills');
+  const assists = value('assists');
+  const deaths = value('deaths');
+  const kda = deaths === 0 ? kills + assists : (kills + assists) / deaths;
+  const combat = Math.max(0, kills * 1.5 + assists * 0.75 + (kda >= 5 ? 2 : kda >= 3 ? 1 : 0));
+  const economy = Math.min(value('gpm') / benchmarks.gpm, 1.5) * 5
+    + Math.min(value('xpm') / benchmarks.xpm, 1.5) * 4
+    + Math.min(value('lastHits') / ((gameDuration / 60) * benchmarks.lastHitsPerMinute), 1.3) * 2
+    + value('denies') * 0.1;
+  const objective = Math.min(value('heroDamage') / benchmarks.heroDamage, 1.5) * 4
+    + Math.min(value('towerDamage') / benchmarks.towerDamage, 1.5) * 2
+    + Math.min(value('healing') / benchmarks.healing, 1.5) * 3
+    + value('roshanKills') * 2
+    + value('wardsPlaced') * 0.5
+    + value('wardsDestroyed') * 0.3;
+  const performanceIndex = Math.min(100, Math.max(0, ((combat + economy + objective) / 40) * 100));
+  const performanceBonus = performanceIndex >= 90 ? 5 : performanceIndex >= 80 ? 3 : performanceIndex >= 70 ? 1 : 0;
+  const teamfight = value('heroDamage') * 0.0004
+    + value('healing') * 0.0015
+    + value('towerDamage') * 0.0008;
+  const components = {
+    Combat: combat,
+    Economy: economy,
+    Objective: objective,
+    Teamfight: teamfight,
+    'Match win': teamWon ? 5 : 0,
+    'Series clincher': teamWon && seriesClincher ? 3 : 0,
+    'Performance bonus': performanceBonus,
+    Consistency: performanceIndex >= 80 && previousPerformanceStreak >= 2 ? 1 : 0,
+    'Death penalty': -deaths,
+  };
+  const round = (points: number) => Math.round(points * 100) / 100;
+  const roundedComponents = {
+    Combat: round(components.Combat),
+    Economy: round(components.Economy),
+    Objective: round(components.Objective),
+    Teamfight: round(components.Teamfight),
+    'Match win': round(components['Match win']),
+    'Series clincher': round(components['Series clincher']),
+    'Performance bonus': round(components['Performance bonus']),
+    Consistency: round(components.Consistency),
+    'Death penalty': round(components['Death penalty']),
+  };
+
+  return {
+    performanceIndex,
+    components: roundedComponents,
+    total: Object.values(roundedComponents).reduce((sum, points) => sum + Number(points), 0),
+  };
+}
 
 const scoringRows = [
   ['Kill', '+1.5', 'Combat', 'Positive combat impact'],
@@ -46,23 +184,36 @@ const scoringRows = [
   ['Roshan Kill', '+2.0 each', 'Objective', 'Securing Aegis of the Immortal'],
   ['Teamfight proxy', 'Formula proxy', 'Teamfight', 'Damage ×0.0004 + healing ×0.0015 + tower ×0.0008'],
   ['Game win', '+5.0', 'Match result', 'Flat bonus for map victory'],
-  ['Series win', '+3.0', 'Series', 'Awarded on clinching series game'],
+  ['Series win', '+3.0', 'Series', 'Awarded to the winning team in the clinching match only'],
   ['Performance index (≥90)', '+5.0', 'Role execution', 'Tier 1 performance mastery'],
   ['Performance index (≥80)', '+3.0', 'Role execution', 'Tier 2 performance excellence'],
   ['Performance index (≥70)', '+1.0', 'Role execution', 'Tier 3 performance consistency'],
-  ['Consistency bonus', '+1.0', 'Consistency', '3 consecutive matches with index ≥80'],
+  ['Consistency bonus', '+1.0', 'Consistency', '3 consecutive matches with index ≥80, including the current match'],
 ];
 
 const chips = [
   { name: 'Wildcard', badge: '1 per season', description: 'Make unlimited free transfers for one gameweek without taking extra transfer penalties.' },
-  { name: 'Triple Captain', badge: '1 per season', description: 'Your selected captain earns 3.0x points instead of the normal 2.0x multiplier.' },
-  { name: 'Bench Boost', badge: '1 per season', description: 'All three bench players contribute their points to your gameweek total.' },
+  { name: 'Triple Captain', badge: '1 per season', description: 'Your selected captain earns 3.0x points. If they have no recorded participation, your vice-captain inherits the 3.0x multiplier.' },
+  { name: 'Bench Boost', badge: '1 per season', description: 'All three bench players contribute their points to your gameweek total. Bench players are not multiplied; captaincy still follows the captain and vice-captain rules.' },
 ];
 
 export default function RulesPage() {
   const [query, setQuery] = useState('');
+  const [calculatorInputs, setCalculatorInputs] = useState<CalculatorInputs>(defaultCalculatorInputs);
+  const [calculatorRole, setCalculatorRole] = useState<RoleName>('Carry');
+  const [teamWon, setTeamWon] = useState(false);
+  const [seriesClincher, setSeriesClincher] = useState(false);
+  const [previousPerformanceStreak, setPreviousPerformanceStreak] = useState(0);
   const [visibleSections, setVisibleSections] = useState<string[]>(
     sections.map((section) => section.id)
+  );
+
+  const scoreEstimate = calculateDefaultScoreEstimate(
+    calculatorInputs,
+    calculatorRole,
+    teamWon,
+    seriesClincher,
+    previousPerformanceStreak,
   );
 
   function handleSearch(value: string) {
@@ -77,7 +228,12 @@ export default function RulesPage() {
     if (normalizedQuery) {
       matchingSections.forEach(({ id }) => {
         const element = document.getElementById(id);
-        if (element instanceof HTMLDetailsElement) element.open = true;
+        if (element instanceof HTMLDetailsElement) {
+          element.open = true;
+          element.querySelectorAll('details').forEach((detail) => {
+            if (detail.textContent?.toLocaleLowerCase().includes(normalizedQuery)) detail.open = true;
+          });
+        }
       });
     }
   }
@@ -221,9 +377,9 @@ export default function RulesPage() {
           ))}
         </div>
         <p className="text-sm leading-relaxed text-[var(--text-secondary)]">
-          Your lineup must fill one starting slot for each of the five roles above. A squad can have up to{' '}
+          Your lineup must fill one starting slot for each of the five roles above. Support and Hard Support players may fill either of those two starting slots. A squad can have up to{' '}
           <strong className="text-[var(--text-primary)]">3 optional bench players</strong>; you do not need to fill the bench to save a lineup. Bench players can automatically substitute for absent starters only if they played that gameweek and share the{' '}
-          <strong className="text-[var(--text-primary)]">exact same role</strong> as the missing starter. You may not own the same player in two squad slots, and a maximum of{' '}
+          <strong className="text-[var(--text-primary)]">exact same role</strong> as the missing starter; Support and Hard Support are not interchangeable for substitutions. You may not own the same player in two squad slots, and a maximum of{' '}
           <strong className="text-[var(--text-primary)]">3 players</strong> from the same professional team are allowed in your squad at any time.
         </p>
       </details>
@@ -254,6 +410,10 @@ export default function RulesPage() {
           </li>
           <li className="flex items-start gap-2.5">
             <span className="text-emerald-500 mt-0.5 font-bold">→</span>
+            <span>If neither captain nor vice-captain has recorded participation, no player receives the captain multiplier.</span>
+          </li>
+          <li className="flex items-start gap-2.5">
+            <span className="text-emerald-500 mt-0.5 font-bold">→</span>
             <span>You can change your captain and vice-captain at any time <strong className="text-[var(--text-primary)]">up until the gameweek deadline</strong>.</span>
           </li>
         </ul>
@@ -273,6 +433,9 @@ export default function RulesPage() {
         </summary>
         <p className="mb-6 text-sm leading-relaxed text-[var(--text-secondary)]">
           The values below describe the current default scoring engine. Published scoring rules for your season take precedence and may change configurable point values. Role-adjusted categories are capped at the amounts shown.
+        </p>
+        <p className="mb-5 rounded-xl border border-cyan-500/20 bg-cyan-500/5 p-4 text-sm text-[var(--text-secondary)]">
+          <strong className="text-[var(--text-primary)]">Performance Index</strong> = min(100, max(0, ((Combat + Economy + Objective) ÷ 40) × 100)). The thresholds in the table use this index, not a leaderboard percentile.
         </p>
 
         {/* Visual Scoring Chips Table */}
@@ -314,6 +477,135 @@ export default function RulesPage() {
               })}
             </tbody>
           </table>
+        </div>
+
+        <section className="mt-8 rounded-2xl border border-cyan-500/25 bg-cyan-500/5 p-5 sm:p-6" aria-labelledby="score-calculator-title">
+          <div className="mb-5 flex items-start gap-3">
+            <Calculator className="mt-1 h-5 w-5 shrink-0 text-cyan-600 dark:text-cyan-400" aria-hidden="true" />
+            <div>
+              <h3 id="score-calculator-title" className="text-lg font-bold text-[var(--text-primary)]">Single-match score calculator</h3>
+              <p className="mt-1 text-xs leading-relaxed text-[var(--text-secondary)]">
+                Estimate one player&apos;s score using the default values above and the selected role. Published season rules may differ. This estimate does not include captaincy, bench, chip, or transfer adjustments.
+              </p>
+            </div>
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <label className="text-xs font-semibold text-[var(--text-secondary)]">
+              Player role
+              <select
+                value={calculatorRole}
+                onChange={(event) => {
+                  const selectedRole = roleNames.find((role) => role === event.target.value);
+                  if (selectedRole) setCalculatorRole(selectedRole);
+                }}
+                className="mt-1.5 min-h-11 w-full rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 text-sm text-[var(--text-primary)]"
+              >
+                {roleNames.map((role) => <option key={role} value={role}>{role}</option>)}
+              </select>
+            </label>
+            {calculatorFields.map(({ field, label }) => (
+              <label key={field} className="text-xs font-semibold text-[var(--text-secondary)]">
+                {label}
+                <input
+                  type="number"
+                  min="0"
+                  step={field === 'duration' ? '1' : 'any'}
+                  value={calculatorInputs[field]}
+                  onChange={(event) => setCalculatorInputs((current) => ({ ...current, [field]: event.target.value }))}
+                  className="mt-1.5 min-h-11 w-full rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 text-sm text-[var(--text-primary)]"
+                />
+              </label>
+            ))}
+          </div>
+
+          <div className="mt-4 flex flex-wrap gap-x-6 gap-y-3 text-sm text-[var(--text-secondary)]">
+            <label className="inline-flex items-center gap-2">
+              <input type="checkbox" checked={teamWon} onChange={(event) => setTeamWon(event.target.checked)} />
+              My player&apos;s team won the map
+            </label>
+            <label className="inline-flex items-center gap-2">
+              <input
+                type="checkbox"
+                checked={seriesClincher}
+                onChange={(event) => setSeriesClincher(event.target.checked)}
+                disabled={!teamWon}
+              />
+              This was the series-clinching map
+            </label>
+            <label className="inline-flex items-center gap-2">
+              Prior consecutive matches with index ≥80
+              <select
+                value={previousPerformanceStreak}
+                onChange={(event) => setPreviousPerformanceStreak(Number(event.target.value))}
+                className="min-h-9 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-2 text-sm text-[var(--text-primary)]"
+              >
+                <option value={0}>0</option>
+                <option value={1}>1</option>
+                <option value={2}>2 or more</option>
+              </select>
+            </label>
+          </div>
+
+          <p className="mt-3 text-xs text-[var(--text-muted)]">
+            The consistency bonus requires two prior qualifying matches plus this match (three consecutive matches total).
+          </p>
+
+          <div className="mt-5 grid gap-4 lg:grid-cols-[minmax(0,1fr)_16rem]">
+            <div className="overflow-x-auto rounded-xl border border-[var(--border)]">
+              <table className="w-full text-left text-sm">
+                <thead className="bg-[var(--surface-raised)] text-xs uppercase tracking-wider text-[var(--text-muted)]">
+                  <tr><th className="px-3 py-2.5">Component</th><th className="px-3 py-2.5 text-right">Estimated points</th></tr>
+                </thead>
+                <tbody className="divide-y divide-[var(--border)]">
+                  {Object.entries(scoreEstimate.components).map(([name, points]) => (
+                    <tr key={name}>
+                      <td className="px-3 py-2 text-[var(--text-secondary)]">{name}</td>
+                      <td className="px-3 py-2 text-right font-mono text-[var(--text-primary)]">{points > 0 ? '+' : ''}{points.toFixed(2)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div className="flex flex-col justify-center rounded-xl border border-cyan-500/25 bg-[var(--surface)] p-4 text-center">
+              <span className="text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]">Estimated match total</span>
+              <strong className="mt-2 text-3xl font-black text-cyan-700 dark:text-cyan-300">{scoreEstimate.total.toFixed(2)}</strong>
+              <span className="mt-3 text-xs text-[var(--text-secondary)]">Performance Index: {scoreEstimate.performanceIndex.toFixed(1)}</span>
+            </div>
+          </div>
+        </section>
+
+        <div className="mt-8">
+          <h3 className="mb-3 text-lg font-bold text-[var(--text-primary)]">Role benchmarks at a glance</h3>
+          <p className="mb-4 text-sm text-[var(--text-secondary)]">These are the default reference stats used to scale role-adjusted scoring. Last-hit expectations are per minute; the other values are per match.</p>
+          <div className="overflow-x-auto rounded-xl border border-[var(--border)]">
+            <table className="w-full min-w-180 text-left text-xs">
+              <thead className="bg-[var(--surface-raised)] uppercase tracking-wider text-[var(--text-muted)]">
+                <tr>
+                  <th className="px-3 py-3">Role</th>
+                  <th className="px-3 py-3">GPM</th>
+                  <th className="px-3 py-3">XPM</th>
+                  <th className="px-3 py-3">Last hits/min</th>
+                  <th className="px-3 py-3">Hero damage</th>
+                  <th className="px-3 py-3">Tower damage</th>
+                  <th className="px-3 py-3">Healing</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[var(--border)]">
+                {roleNames.map((role) => (
+                  <tr key={role}>
+                    <th scope="row" className="px-3 py-3 font-semibold text-[var(--text-primary)]">{role}</th>
+                    <td className="px-3 py-3 text-[var(--text-secondary)]">{roleBenchmarks[role].gpm}</td>
+                    <td className="px-3 py-3 text-[var(--text-secondary)]">{roleBenchmarks[role].xpm}</td>
+                    <td className="px-3 py-3 text-[var(--text-secondary)]">{roleBenchmarks[role].lastHitsPerMinute}</td>
+                    <td className="px-3 py-3 text-[var(--text-secondary)]">{roleBenchmarks[role].heroDamage.toLocaleString()}</td>
+                    <td className="px-3 py-3 text-[var(--text-secondary)]">{roleBenchmarks[role].towerDamage.toLocaleString()}</td>
+                    <td className="px-3 py-3 text-[var(--text-secondary)]">{roleBenchmarks[role].healing.toLocaleString()}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
 
         <p className="mt-5 text-xs leading-relaxed text-[var(--text-muted)]">
@@ -374,14 +666,14 @@ export default function RulesPage() {
 
         <div className="grid gap-4 sm:grid-cols-3 mb-6">
           <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface-raised)] p-4.5">
-            <p className="text-xs font-semibold text-[var(--text-muted)]">Weekly Free Transfer</p>
-            <p className="mt-1 text-xl font-black text-amber-600 dark:text-amber-400">1 per gameweek</p>
-            <p className="mt-1 text-xs text-[var(--text-secondary)]">Rolls over up to a max bank of 2 free transfers.</p>
+            <p className="text-xs font-semibold text-[var(--text-muted)]">Free Transfers</p>
+            <p className="mt-1 text-xl font-black text-amber-600 dark:text-amber-400">2 to start</p>
+            <p className="mt-1 text-xs text-[var(--text-secondary)]">Gain 1 at each gameweek rollover; unused transfers roll over to a maximum bank of 2.</p>
           </div>
           <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface-raised)] p-4.5">
             <p className="text-xs font-semibold text-[var(--text-muted)]">Additional Transfer Cost</p>
             <p className="mt-1 text-xl font-black text-rose-600 dark:text-rose-400">-4 pts penalty</p>
-            <p className="mt-1 text-xs text-[var(--text-secondary)]">Recorded on the upcoming lineup; not currently subtracted by gameweek score recalculation.</p>
+            <p className="mt-1 text-xs text-[var(--text-secondary)]">An extra transfer is recorded as a -4 hit, but current gameweek score totals do not subtract it.</p>
           </div>
           <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface-raised)] p-4.5">
             <p className="text-xs font-semibold text-[var(--text-muted)]">Max Pro Club Quota</p>
@@ -404,16 +696,85 @@ export default function RulesPage() {
           <ChevronDown className="mt-3 h-5 w-5 shrink-0 text-[var(--text-muted)] transition-transform group-open:rotate-180" aria-hidden="true" />
         </summary>
         <p className="mb-6 text-sm text-[var(--text-secondary)]">
-          All transfers, captaincy picks, and seasonal chips lock strictly at the calculated gameweek deadline timestamp.
+        Lineups, transfers, captaincy picks, and seasonal chips lock at the gameweek deadline timestamp.
         </p>
 
         <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface-raised)] p-5 text-sm text-[var(--text-secondary)] leading-relaxed space-y-2">
           <p>
-            ⏱️ <strong>Lock Timing:</strong> Exactly 30 minutes before the scheduled start time of the first fixture in the gameweek.
+            ⏱️ <strong>Lock Timing:</strong> Each gameweek has a stored deadline timestamp. It is not recalculated whenever you open the page; check the current gameweek countdown for the exact time.
           </p>
           <p>
-            🔒 <strong>Server-Enforced Truth:</strong> Deadlines are verified and enforced in backend database transactions; changes attempted after the timestamp are rejected.
+            🔒 <strong>Server-Enforced Truth:</strong> Lineup and transfer changes are locked after the timestamp or when the gameweek is marked closed, whichever occurs first.
           </p>
+        </div>
+      </details>
+
+      {/* League formats */}
+      <details id="leagues" open className="group scroll-mt-24 rounded-3xl border border-amber-500/25 bg-amber-500/5 p-6 sm:p-8 shadow-sm" hidden={!visibleSections.includes('leagues')}>
+        <summary className="mb-6 flex cursor-pointer list-none items-start gap-3.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/50 [&::-webkit-details-marker]:hidden">
+          <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-amber-500/10 text-amber-600 dark:text-amber-400">
+            <Trophy className="h-5 w-5" />
+          </div>
+          <div className="flex-1">
+            <p className="text-xs font-bold uppercase tracking-[0.2em] text-amber-700 dark:text-amber-400">Competitions</p>
+            <h2 className="mt-1 text-2xl font-bold text-[var(--text-primary)]">League formats</h2>
+          </div>
+          <ChevronDown className="mt-3 h-5 w-5 shrink-0 text-[var(--text-muted)] transition-transform group-open:rotate-180" aria-hidden="true" />
+        </summary>
+        <div className="grid gap-4 md:grid-cols-2">
+          <article className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5">
+            <h3 className="text-lg font-bold text-[var(--text-primary)]">Classic leagues</h3>
+            <p className="mt-2 text-sm leading-relaxed text-[var(--text-secondary)]">
+              Managers are ranked by cumulative fantasy points across the season. Each gameweek&apos;s lineup score contributes to the season total.
+            </p>
+          </article>
+          <article className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5">
+            <h3 className="text-lg font-bold text-[var(--text-primary)]">Head-to-head leagues</h3>
+            <p className="mt-2 text-sm leading-relaxed text-[var(--text-secondary)]">
+              Each gameweek, your lineup total is compared with your scheduled opponent&apos;s. The higher score earns a win; equal scores are a draw. H2H standings track wins, losses, draws, and points.
+            </p>
+          </article>
+        </div>
+        <div className="mt-4 rounded-2xl border border-[var(--border)] bg-[var(--surface-raised)] p-5">
+          <h3 className="text-sm font-bold text-[var(--text-primary)]">League size and byes</h3>
+          <p className="mt-2 text-sm leading-relaxed text-[var(--text-secondary)]">
+            Create a league for 4–32 managers (10 by default). In an H2H league with an odd number of participants, one manager receives a bye and an automatic win for that round.
+          </p>
+          <p className="mt-2 text-sm leading-relaxed text-[var(--text-secondary)]">
+            Private leagues can be joined with the league&apos;s invite code. Public and private leagues are available from the <Link href="/leagues" className="font-semibold text-cyan-600 underline-offset-2 hover:underline dark:text-cyan-400">Leagues page</Link>.
+          </p>
+        </div>
+      </details>
+
+      {/* Frequently asked questions */}
+      <details id="faq" open className="group scroll-mt-24 rounded-3xl border border-cyan-500/25 bg-cyan-500/5 p-6 sm:p-8 shadow-sm" hidden={!visibleSections.includes('faq')}>
+        <summary className="mb-5 flex cursor-pointer list-none items-start gap-3.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/50 [&::-webkit-details-marker]:hidden">
+          <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-cyan-500/10 text-cyan-600 dark:text-cyan-400">
+            <HelpCircle className="h-5 w-5" />
+          </div>
+          <div className="flex-1">
+            <p className="text-xs font-bold uppercase tracking-[0.2em] text-cyan-700 dark:text-cyan-400">Quick answers</p>
+            <h2 className="mt-1 text-2xl font-bold text-[var(--text-primary)]">Frequently asked questions</h2>
+          </div>
+          <ChevronDown className="mt-3 h-5 w-5 shrink-0 text-[var(--text-muted)] transition-transform group-open:rotate-180" aria-hidden="true" />
+        </summary>
+        <div className="space-y-3">
+          {[
+            ['When does my lineup lock?', 'At the gameweek’s stored deadline timestamp, or when that gameweek is marked closed. Use the countdown on the gameweek page for the current deadline.'],
+            ['Can a Support play in the Hard Support slot?', 'Yes. Support and Hard Support players are interchangeable in the two starting slots, but auto-bench substitutions still require an exact role match.'],
+            ['What happens if no bench player can replace an absent starter?', 'No replacement is made; that absent starter contributes zero points. The system checks eligible bench players in bench order.'],
+            ['Does my vice-captain get the Triple Captain multiplier?', 'Yes, if the selected captain has no recorded match participation. If neither captain nor vice-captain participates, no captain multiplier is awarded.'],
+            ['Are extra-transfer hits deducted from my score?', 'The app records a -4-point hit for each transfer beyond your free allowance, but current gameweek score totals do not subtract that hit.'],
+            ['Can I use more than one chip in a gameweek?', 'Different chip types can be active in the same gameweek. Each chip can be used once per season, and chip actions lock at the gameweek deadline.'],
+            ['When does the series-win bonus apply?', 'The +3 bonus is awarded only to players on the winning team in the match that clinches a series, typically a BO1, BO3, or BO5.'],
+          ].map(([question, answer]) => (
+            <details key={question} className="rounded-xl border border-[var(--border)] bg-[var(--surface)] px-4 py-3">
+              <summary className="cursor-pointer text-sm font-bold text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/50">
+                {question}
+              </summary>
+              <p className="mt-3 text-sm leading-relaxed text-[var(--text-secondary)]">{answer}</p>
+            </details>
+          ))}
         </div>
       </details>
 
@@ -431,6 +792,25 @@ export default function RulesPage() {
           </div>
           <ChevronDown className="mt-8 h-5 w-5 shrink-0 text-[var(--text-muted)] transition-transform group-open:rotate-180" aria-hidden="true" />
         </summary>
+
+        <div className="mb-8">
+          <h3 className="mb-3 text-lg font-bold text-[var(--text-primary)]">How a score reaches the standings</h3>
+          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
+            {[
+              ['1', 'Match data', 'Completed match stats are ingested.'],
+              ['2', 'Fantasy score', 'Default or published season rules score each player.'],
+              ['3', 'Lineup total', 'Starters, captaincy, and active chips are applied.'],
+              ['4', 'League tables', 'Season points and H2H results are recalculated.'],
+              ['5', 'Global ranking', 'Managers are ranked by season points.'],
+            ].map(([step, title, description]) => (
+              <div key={step} className="relative rounded-xl border border-[var(--border)] bg-[var(--surface-raised)] p-4">
+                <span className="flex h-7 w-7 items-center justify-center rounded-full bg-violet-500/15 text-xs font-black text-violet-700 dark:text-violet-300">{step}</span>
+                <h4 className="mt-3 text-sm font-bold text-[var(--text-primary)]">{title}</h4>
+                <p className="mt-1 text-xs leading-relaxed text-[var(--text-secondary)]">{description}</p>
+              </div>
+            ))}
+          </div>
+        </div>
 
         {/* Automated Job Schedule */}
         <div className="mb-8">
@@ -453,10 +833,18 @@ export default function RulesPage() {
                   ['Tournament Discovery','Finds and registers new active tournaments','Every 6 hours'],
                   ['Match Fetch','Pulls new scheduled and live matches','Every hour'],
                   ['Match Details','Ingests per-player stats for each match','Every 30 min'],
-                  ['Process Completed','Locks finished matches ready for scoring','Every 45 min'],
-                  ['Score Calculation','Calculates fantasy score breakdowns','Recurring schedule'],
-                  ['Gameweek Recalculation','Updates gameweek totals and standings','Recurring schedule'],
-                  ['Price Updates','Recalculates all player prices','Every 10 min']
+                  ['Process Completed','Locks finished matches ready for scoring','Hourly at :45 UTC'],
+                  ['Score Calculation','Calculates fantasy score breakdowns','Hourly at :50 UTC'],
+                  ['Gameweek Recalculation','Updates gameweek totals and standings','Hourly at :55 UTC'],
+                  ['League Recalculation','Updates classic standings and H2H results','Hourly at :00 UTC'],
+                  ['Global Rankings','Ranks fantasy teams by season points','Hourly at :05 UTC'],
+                  ['Price Updates','Recalculates all player prices','Every 10 min'],
+                  ['Deadline Notifications','Checks approaching deadlines and lineup status','Every 15 min'],
+                  ['Price Change Notifications','Alerts managers to significant player price changes','Every 15 min'],
+                  ['Unavailable Player Alerts','Checks for unavailable players in your squad','Every 30 min'],
+                  ['Rank Notifications','Alerts managers after global or league rank changes','Hourly at :10 UTC'],
+                  ['Gameweek Transitions','Activates and closes gameweeks','Every 5 min'],
+                  ['Conflict Resolution','Resolves eligible player and team conflicts','Daily at 03:45 UTC']
                 ].map(([job, desc, freq]) => (
                   <tr key={job} className="border-b border-[var(--border)] last:border-0 hover:bg-[var(--surface-raised)]/50 transition-colors">
                     <td className="px-4 py-3 font-semibold text-[var(--text-primary)] whitespace-nowrap">{job}</td>
@@ -467,7 +855,7 @@ export default function RulesPage() {
               </tbody>
             </table>
           </div>
-          <p className="mt-3 text-xs text-[var(--text-muted)]">💡 Score calculation triggers a gameweek recalculation after processing. Final updates depend on match data arriving and the scheduled jobs completing.</p>
+          <p className="mt-3 text-xs text-[var(--text-muted)]">💡 The score pipeline runs in sequence, followed by league and global ranking updates. Final updates depend on match data arriving and scheduled jobs completing.</p>
         </div>
 
         {/* Dynamic Pricing Formula */}
@@ -507,8 +895,8 @@ export default function RulesPage() {
               ['1','Lineup Total',"Selected starters' points are summed. The captain's score is multiplied (2× or 3× with Triple Captain active). If Bench Boost is active, selected bench players also contribute."],
               ['2','VC Fallback',"If the captain has no recorded match participation, the vice-captain automatically receives the captain multiplier instead."],
               ['3','Season Total','Each gameweek total is accumulated into the running season total stored per fantasy team.'],
-              ['4','Global Rank','Fantasy teams are ranked by season total. Rankings refresh on a separate scheduled job and may lag behind new scores.'],
-              ['5','League Rank','The same calculation is applied within each private or public league you have joined.'],
+              ['4','League Standings','Classic leagues rank managers by season points. H2H leagues update matchup records from each gameweek lineup total.'],
+              ['5','Global Rank','Fantasy teams are ranked by season total; the global rankings job runs hourly at :05 UTC after league recalculation.'],
             ].map(([num, title, desc]) => (
               <div key={num} className="flex gap-4 rounded-xl border border-[var(--border)] bg-[var(--surface-raised)]/60 p-4">
                 <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-violet-500/20 text-xs font-black text-violet-700 dark:text-violet-300">{num}</span>
@@ -524,10 +912,11 @@ export default function RulesPage() {
         {/* Automated Notifications */}
         <div>
           <h3 className="mb-1 flex items-center gap-2 text-lg font-bold text-[var(--text-primary)]"><span>🔔</span> Automated Notifications</h3>
-          <p className="mb-4 text-sm text-[var(--text-secondary)]">Three types of notification are sent automatically based on system events:</p>
-          <div className="grid gap-4 sm:grid-cols-3">
+          <p className="mb-4 text-sm text-[var(--text-secondary)]">Notifications are sent automatically for deadlines, player availability, price movement, and rank changes:</p>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {[
-              ['⏰','Deadline Alert','Sent 30 minutes before a gameweek locks. Reminds you to finalise your lineup and captain before transfers close.','border-red-500/25 bg-red-500/10 text-red-700 dark:text-red-300'],
+              ['⏰','Deadline Reminders','A general reminder is sent when a deadline is within 24 hours. Within 2 hours, an additional reminder is sent if your lineup is incomplete.','border-red-500/25 bg-red-500/10 text-red-700 dark:text-red-300'],
+              ['⚠️','Player Availability','Alerts when an availability change affects a player in your squad. The system checks every 30 minutes.','border-violet-500/25 bg-violet-500/10 text-violet-700 dark:text-violet-300'],
               ['💰','Price Change','Triggered when a player in your squad experiences a significant price movement up or down.','border-amber-500/25 bg-amber-500/10 text-amber-700 dark:text-amber-300'],
               ['📈','Rank Change','Sent when your global or league rank changes after a gameweek is fully scored and standings are recalculated.','border-emerald-500/25 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'],
             ].map(([icon, title, desc, style]) => (
@@ -575,6 +964,10 @@ export default function RulesPage() {
             </div>
           </div>
           <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-4">
+            <p className="mb-2 text-sm font-bold text-[var(--text-primary)]">No eligible replacement?</p>
+            <p className="text-sm text-[var(--text-secondary)]">If no unused bench player who played that gameweek has the exact missing role, no substitute is made and the absent starter contributes zero points.</p>
+          </div>
+          <div className="mt-3 rounded-xl border border-amber-500/30 bg-amber-500/10 p-4">
             <p className="mb-2 text-xs font-bold uppercase tracking-widest text-amber-700 dark:text-amber-300">💡 Strategy Tip</p>
             <p className="text-sm text-[var(--text-secondary)]">Don&apos;t just pick any three players for your bench. Your bench should ideally cover the roles of your riskiest starters. If your Carry plays infrequently, keep a bench Carry who plays regularly — they&apos;ll step in automatically.</p>
           </div>
