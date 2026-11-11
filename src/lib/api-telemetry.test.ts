@@ -12,6 +12,7 @@ jest.mock('@/lib/server-telemetry', () => ({
 }));
 
 import { withApiTelemetry } from './api-telemetry';
+import { recordRefreshedAuthTokens } from './auth-token-context';
 
 describe('withApiTelemetry', () => {
   beforeEach(() => {
@@ -63,5 +64,20 @@ describe('withApiTelemetry', () => {
       error_class: 'Error',
     }));
     expect(mockFlushTelemetryEvents).toHaveBeenCalledTimes(1);
+  });
+
+  it('persists auth tokens recorded by a handler onto its response', async () => {
+    const handler = withApiTelemetry('GET', '/api/example', async () => {
+      recordRefreshedAuthTokens({
+        refreshedAccessToken: 'rotated-access',
+        refreshedRefreshToken: 'rotated-refresh',
+      });
+      return Response.json({ ok: true });
+    });
+
+    const response = await handler();
+
+    expect(response.headers.get('set-cookie')).toContain('sb-auth-token=rotated-access');
+    expect(response.headers.get('set-cookie')).toContain('sb-refresh-token=rotated-refresh');
   });
 });

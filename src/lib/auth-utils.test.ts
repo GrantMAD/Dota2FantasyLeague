@@ -1,5 +1,10 @@
 import { NextResponse } from 'next/server';
-import { applyRefreshedTokens, verifyAdminAuth, verifyAuth } from './auth-utils';
+import {
+  applyRefreshedTokens,
+  verifyAdminAuth,
+  verifyAuth,
+} from './auth-utils';
+import { withAuthTokenPersistence } from './auth-token-context';
 
 const mockSupabaseServer = jest.fn();
 
@@ -98,6 +103,37 @@ describe('auth-utils', () => {
     expect(supabase.from).not.toHaveBeenCalled();
   });
 
+  it('refreshes a session when only the refresh cookie is present', async () => {
+    const user = { id: 'manager-3', email: 'cookie@example.test', app_metadata: {} };
+    const { supabase } = setupAuth({ initialUser: user });
+    supabase.auth.getClaims.mockResolvedValue({
+      data: {
+        claims: {
+          sub: user.id,
+          email: user.email,
+          user_role: 'manager',
+          app_metadata: {},
+        },
+      },
+      error: null,
+    });
+    supabase.auth.refreshSession.mockResolvedValue({
+      data: {
+        user,
+        session: { access_token: 'fresh-cookie-access', refresh_token: 'fresh-cookie-refresh' },
+      },
+      error: null,
+    } as never);
+
+    const result = await verifyAuth(new Request('http://localhost/api/test', {
+      headers: { Cookie: 'sb-refresh-token=refresh-cookie-token' },
+    }));
+
+    expect(supabase.auth.getClaims).toHaveBeenCalledWith('fresh-cookie-access');
+    expect(supabase.auth.refreshSession).toHaveBeenCalledWith({ refresh_token: 'refresh-cookie-token' });
+    expect(result.userId).toBe(user.id);
+  });
+
   it('uses the current profile role when a fresh role is required', async () => {
     const user = { id: 'admin-1', email: 'admin@example.test', app_metadata: {} };
     const { supabase } = setupAuth({ initialUser: user });
@@ -174,13 +210,69 @@ describe('auth-utils', () => {
     const response = NextResponse.json({});
 
     applyRefreshedTokens(response, {
-      userId: 'manager-1',
-      email: 'manager@example.test',
       refreshedAccessToken: 'fresh-access',
       refreshedRefreshToken: 'fresh-refresh',
     });
 
     expect(response.cookies.get('sb-auth-token')?.value).toBe('fresh-access');
     expect(response.cookies.get('sb-refresh-token')?.value).toBe('fresh-refresh');
+  });
+
+  it('automatically persists refreshed cookies on handler error responses', async () => {
+    const user = { id: 'manager-4', email: 'manager@example.test', app_metadata: {} };
+    setupAuth({
+      initialUser: null,
+      refreshedUser: user,
+      refreshSession: {
+        data: {
+          user,
+          session: { access_token: 'fresh-access', refresh_token: 'fresh-refresh' },
+        },
+        error: null,
+      },
+    });
+
+    const response = await withAuthTokenPersistence(async () => {
+      await verifyAuth(new Request('http://localhost/api/test', {
+        headers: {
+          Authorization: 'Bearer stale-access',
+          Cookie: 'sb-refresh-token=refresh-cookie-token',
+        },
+      }));
+      return NextResponse.json({ error: 'downstream failure' }, { status: 500 });
+    });
+
+    expect(response.status).toBe(500);
+    expect(response.headers.get('set-cookie')).toContain('sb-auth-token=fresh-access');
+    expect(response.headers.get('set-cookie')).toContain('sb-refresh-token=fresh-refresh');
+  });
+
+  it('retains refreshed cookies when the route returns a plain Response', async () => {
+    const user = { id: 'manager-5', email: 'manager@example.test', app_metadata: {} };
+    setupAuth({
+      initialUser: null,
+      refreshedUser: user,
+      refreshSession: {
+        data: {
+          user,
+          session: { access_token: 'fresh-access', refresh_token: 'fresh-refresh' },
+        },
+        error: null,
+      },
+    });
+
+    const response = await withAuthTokenPersistence(async () => {
+      await verifyAuth(new Request('http://localhost/api/test', {
+        headers: {
+          Authorization: 'Bearer stale-access',
+          Cookie: 'sb-refresh-token=refresh-cookie-token',
+        },
+      }));
+      return Response.json({ error: 'forbidden' }, { status: 403 });
+    });
+
+    expect(response.status).toBe(403);
+    expect(response.headers.get('set-cookie')).toContain('sb-auth-token=fresh-access');
+    expect(response.headers.get('set-cookie')).toContain('sb-refresh-token=fresh-refresh');
   });
 });

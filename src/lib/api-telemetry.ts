@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { withAuthTokenPersistence } from '@/lib/auth-token-context';
 import { flushTelemetryEvents, getCurrentTraceId, runWithTelemetrySuppressed, runWithTraceId, scheduleTelemetryWrite } from '@/lib/server-telemetry';
 import { getErrorClass, normalizeRoutePath } from '@/lib/telemetry';
 
@@ -21,7 +22,7 @@ export function withApiTelemetry<Args extends unknown[]>(
     const isTelemetryIngestion = route === '/api/telemetry/events';
     const isTelemetryRoute = isTelemetryIngestion || route === '/api/admin/telemetry';
 
-    return runWithTraceId(traceId, async () => {
+    return withAuthTokenPersistence(() => runWithTraceId(traceId, async () => {
       try {
         const response = isTelemetryIngestion
           ? await runWithTelemetrySuppressed(() => handler(...args))
@@ -60,6 +61,6 @@ export function withApiTelemetry<Args extends unknown[]>(
         }
         throw error;
       }
-    }, route);
+    }, route));
   };
 }

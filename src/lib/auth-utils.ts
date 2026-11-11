@@ -4,8 +4,9 @@
  * Helper functions for checking authentication and authorization
  */
 
-import { NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase';
+import { recordRefreshedAuthTokens } from '@/lib/auth-token-context';
+export { applyRefreshedTokens, withAuthTokenPersistence } from '@/lib/auth-token-context';
 
 export interface AuthError {
   status: number;
@@ -59,7 +60,7 @@ export async function verifyAuth(
     ? authHeader.substring(7)
     : cookieToken;
 
-  if (!token) {
+  if (!token && !refreshToken) {
     throw {
       status: 401,
       message: 'Missing or invalid authorization header',
@@ -70,14 +71,15 @@ export async function verifyAuth(
 
   // Verify the signed JWT claims locally when the project uses asymmetric keys.
   // Supabase falls back to server verification for symmetric signing keys.
-  let { data, error } = await supabase.auth.getClaims(token);
+  const claimsResult = token ? await supabase.auth.getClaims(token) : null;
+  let data = claimsResult?.data ?? null;
+  let error = claimsResult?.error ?? null;
 
   let refreshedAccessToken: string | undefined;
   let refreshedRefreshToken: string | undefined;
 
-  if ((error || !data?.claims) && refreshToken) {
+  if ((!token || error || !data?.claims) && refreshToken) {
     const refreshed = await supabase.auth.refreshSession({ refresh_token: refreshToken });
-    // Capture new tokens so the caller can persist them back to the browser cookie
     if (refreshed.data.session?.access_token) {
       refreshedAccessToken = refreshed.data.session.access_token;
       refreshedRefreshToken = refreshed.data.session.refresh_token ?? undefined;
@@ -96,6 +98,10 @@ export async function verifyAuth(
       status: 401,
       message: 'Invalid or expired token',
     } as AuthError;
+  }
+
+  if (refreshedAccessToken) {
+    recordRefreshedAuthTokens({ refreshedAccessToken, refreshedRefreshToken });
   }
 
   const appMetadata = typeof claims.app_metadata === 'object' && claims.app_metadata !== null
@@ -128,25 +134,6 @@ export async function verifyAuth(
     refreshedAccessToken,
     refreshedRefreshToken,
   };
-}
-
-/**
- * Apply refreshed auth cookies to a NextResponse when the access token was silently renewed.
- * Call this after verifyAuth whenever the returned refreshedAccessToken is set.
- */
-export function applyRefreshedTokens(response: NextResponse, auth: AuthResult): void {
-  if (!auth.refreshedAccessToken) return;
-  const persistentCookieOptions = {
-    httpOnly: true,
-    sameSite: 'lax' as const,
-    secure: process.env.NODE_ENV === 'production',
-    path: '/',
-    maxAge: 60 * 60 * 24 * 30, // 30 days
-  };
-  response.cookies.set('sb-auth-token', auth.refreshedAccessToken, persistentCookieOptions);
-  if (auth.refreshedRefreshToken) {
-    response.cookies.set('sb-refresh-token', auth.refreshedRefreshToken, persistentCookieOptions);
-  }
 }
 
 /**

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { supabaseServer } from '@/lib/supabase';
 import { withApiTelemetry } from '@/lib/api-telemetry';
 
 
@@ -13,10 +14,24 @@ import { withApiTelemetry } from '@/lib/api-telemetry';
  */
 async function postHandler(request: NextRequest) {
   try {
-    const { access_token, refresh_token } = await request.json();
+    const body: unknown = await request.json();
 
-    if (!access_token || !refresh_token) {
+    if (
+      typeof body !== 'object' ||
+      body === null ||
+      !('access_token' in body) ||
+      typeof body.access_token !== 'string' ||
+      !body.access_token ||
+      !('refresh_token' in body) ||
+      typeof body.refresh_token !== 'string' ||
+      !body.refresh_token
+    ) {
       return NextResponse.json({ error: 'Missing tokens' }, { status: 400 });
+    }
+
+    const { data, error } = await supabaseServer().auth.getClaims(body.access_token);
+    if (error || typeof data?.claims?.sub !== 'string') {
+      return NextResponse.json({ error: 'Invalid access token' }, { status: 401 });
     }
 
     const response = NextResponse.json({ ok: true });
@@ -29,8 +44,8 @@ async function postHandler(request: NextRequest) {
       maxAge: 60 * 60 * 24 * 30, // 30 days
     };
 
-    response.cookies.set('sb-auth-token', access_token, cookieOptions);
-    response.cookies.set('sb-refresh-token', refresh_token, cookieOptions);
+    response.cookies.set('sb-auth-token', body.access_token, cookieOptions);
+    response.cookies.set('sb-refresh-token', body.refresh_token, cookieOptions);
 
     return response;
   } catch {
