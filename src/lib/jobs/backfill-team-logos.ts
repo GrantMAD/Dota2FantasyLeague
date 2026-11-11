@@ -14,7 +14,7 @@
  * OpenDota covers everything stay zero-cost.
  *
  * Safe to run repeatedly — only teams that still have null logo_url are touched.
- * Run schedule: Manual only (maintenance job)
+ * Run schedule: Daily at 5:30 AM UTC (registered in scheduler.ts)
  */
 
 import { getSupabaseServerClient } from '@/lib/db/supabase-server';
