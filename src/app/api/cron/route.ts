@@ -1,6 +1,6 @@
 /**
- * Cron entry point for Vercel. Scheduled job definitions and UTC matching live
- * in the scheduler so deployment cadence and job cadence cannot drift apart.
+ * Legacy authenticated batch trigger for manual use.
+ * Production cron-jobs.org schedules call the individual /api/cron/[job] routes.
  */
 
 import { NextRequest, NextResponse } from 'next/server';

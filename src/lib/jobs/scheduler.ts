@@ -2,10 +2,8 @@
  * Job Scheduler
  * 
  * Manages scheduling and execution of all background jobs
- * Can be triggered via:
- * - Vercel Cron functions (production)
- * - API endpoints (manual/testing)
- * - External job runner (scalable deployment)
+ * Production cron-jobs.org triggers each job through its own Vercel endpoint.
+ * The batch and admin endpoints remain for manual/testing use.
  */
 
 import { getSupabaseServerClient } from '@/lib/db/supabase-server';
@@ -175,7 +173,8 @@ const JOBS: JobDefinition[] = [
   },
   {
     name: 'calculate-global-rankings',
-    schedule: '5 * * * *', // Hourly at :05, after league recalculation
+    // cron-jobs.org must invoke this after score and gameweek recalculations complete.
+    schedule: '5 * * * *', // Hourly at :05, after gameweek and league recalculation
     handler: calculateGlobalRankings,
     enabled: process.env.ENABLE_GLOBAL_RANKINGS !== 'false',
     timeout: 15 * 60 * 1000,

@@ -27,7 +27,15 @@ interface SeasonIdRow {
   id: number;
 }
 
-interface FilteredMutationQuery extends PromiseLike<unknown> {
+interface DatabaseError {
+  message: string;
+}
+
+interface DatabaseMutationResult {
+  error: DatabaseError | null;
+}
+
+interface FilteredMutationQuery extends PromiseLike<DatabaseMutationResult> {
   eq(column: string, value: number): FilteredMutationQuery;
 }
 
@@ -36,7 +44,7 @@ interface FilteredMutationTable<TValues> {
 }
 
 interface UpsertTable<TValues> {
-  upsert(values: TValues, options: { onConflict: string }): PromiseLike<unknown>;
+  upsert(values: TValues, options: { onConflict: string }): PromiseLike<DatabaseMutationResult>;
 }
 
 class CalculateGlobalRankings {
@@ -53,100 +61,103 @@ class CalculateGlobalRankings {
    * Calculate global rankings for all fantasy seasons and snapshot them
    */
   private async calculateGlobalRankings(seasonId: number, seasonLimit?: number): Promise<{ ranked: number; hasMore: boolean }> {
-    try {
-      // Fetch all fantasy seasons for the current season, ordered by points
-      const { data: fantasySeasons, error: fetchError } = await this.supabase
-        .from('fantasy_seasons')
-        .select('id, total_points, global_rank')
-        .eq('season_id', seasonId)
-        .order('total_points', { ascending: false });
+    const { data: fantasySeasons, error: fetchError } = await this.supabase
+      .from('fantasy_seasons')
+      .select('id, total_points, global_rank')
+      .eq('season_id', seasonId)
+      .order('total_points', { ascending: false });
 
-      if (fetchError || !fantasySeasons) {
-        console.error('Failed to fetch fantasy seasons:', fetchError);
-        return { ranked: 0, hasMore: false };
-      }
-
-      // Apply seasonLimit for chunked execution within Vercel's 10s limit
-      let seasonsToProcess = fantasySeasons as FantasySeasonPointsRow[];
-      let hasMore = false;
-      if (seasonLimit && fantasySeasons.length > seasonLimit) {
-        seasonsToProcess = seasonsToProcess.slice(0, seasonLimit);
-        hasMore = true;
-        console.log(
-          `[calculateGlobalRankings] seasonLimit=${seasonLimit}: processing ${seasonsToProcess.length} of ${fantasySeasons.length} managers`
-        );
-      }
-
-      let rank = 1;
-      let prevPoints: number | null = null;
-      let tieCount = 0;
-      let ranked = 0;
-
-      // Find the latest closed gameweek for the snapshot
-      const { data: latestGameweekData } = await this.supabase
-        .from('gameweeks')
-        .select('id')
-        .eq('season_id', seasonId)
-        .eq('status', 'closed')
-        .order('end_date', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      const latestGameweek = latestGameweekData as GameweekIdRow | null;
-
-      for (const fs of seasonsToProcess) {
-        // Handle ties
-        if (fs.total_points === prevPoints) {
-          tieCount++;
-        } else {
-          rank += tieCount;
-          tieCount = 1;
-          prevPoints = fs.total_points;
-        }
-
-        // Update fantasy_seasons table
-        const seasonUpdates = this.supabase.from('fantasy_seasons') as unknown as FilteredMutationTable<{
-          global_rank: number;
-          previous_rank: number | null;
-        }>;
-        await seasonUpdates.update({ global_rank: rank, previous_rank: fs.global_rank })
-          .eq('id', fs.id);
-
-        // Create snapshot in season_standings
-        if (latestGameweek) {
-          const { data: latestLineupData } = await this.supabase
-            .from('fantasy_lineups')
-            .select('total_points')
-            .eq('fantasy_season_id', fs.id)
-            .eq('gameweek_id', latestGameweek.id)
-            .maybeSingle();
-          const latestLineup = latestLineupData as { total_points: number | null } | null;
-
-          const standingUpsert = this.supabase.from('season_standings') as unknown as UpsertTable<{
-            fantasy_season_id: number;
-            gameweek_id: number;
-            rank: number;
-            total_points: number;
-            gameweek_points: number;
-            league_id: null;
-          }>;
-          await standingUpsert.upsert({
-              fantasy_season_id: fs.id,
-              gameweek_id: latestGameweek.id,
-              rank: rank,
-              total_points: fs.total_points,
-              gameweek_points: latestLineup?.total_points ?? 0,
-              league_id: null // Global standing
-            }, { onConflict: 'fantasy_season_id,gameweek_id' });
-        }
-
-        ranked++;
-      }
-
-      return { ranked, hasMore };
-    } catch (error: unknown) {
-      console.error('Error calculating global rankings:', error);
-      return { ranked: 0, hasMore: false };
+    if (fetchError) {
+      throw new Error(`Failed to fetch fantasy seasons: ${fetchError.message}`);
     }
+    if (!fantasySeasons) throw new Error('Failed to fetch fantasy seasons: no data returned');
+
+    // Apply seasonLimit for chunked execution within Vercel's function duration limit.
+    let seasonsToProcess = fantasySeasons as FantasySeasonPointsRow[];
+    let hasMore = false;
+    if (seasonLimit && fantasySeasons.length > seasonLimit) {
+      seasonsToProcess = seasonsToProcess.slice(0, seasonLimit);
+      hasMore = true;
+      console.log(
+        `[calculateGlobalRankings] seasonLimit=${seasonLimit}: processing ${seasonsToProcess.length} of ${fantasySeasons.length} managers`
+      );
+    }
+
+    let rank = 1;
+    let prevPoints: number | null = null;
+    let tieCount = 0;
+    let ranked = 0;
+
+    const { data: latestGameweekData, error: gameweekError } = await this.supabase
+      .from('gameweeks')
+      .select('id')
+      .eq('season_id', seasonId)
+      .eq('status', 'closed')
+      .order('end_date', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (gameweekError) {
+      throw new Error(`Failed to fetch the latest closed gameweek: ${gameweekError.message}`);
+    }
+    const latestGameweek = latestGameweekData as GameweekIdRow | null;
+
+    for (const fs of seasonsToProcess) {
+      if (fs.total_points === prevPoints) {
+        tieCount++;
+      } else {
+        rank += tieCount;
+        tieCount = 1;
+        prevPoints = fs.total_points;
+      }
+
+      const seasonUpdates = this.supabase.from('fantasy_seasons') as unknown as FilteredMutationTable<{
+        global_rank: number;
+        previous_rank: number | null;
+      }>;
+      const { error: updateError } = await seasonUpdates
+        .update({ global_rank: rank, previous_rank: fs.global_rank })
+        .eq('id', fs.id);
+      if (updateError) {
+        throw new Error(`Failed to update global rank for fantasy season ${fs.id}: ${updateError.message}`);
+      }
+
+      if (latestGameweek) {
+        const { data: latestLineupData, error: lineupError } = await this.supabase
+          .from('fantasy_lineups')
+          .select('total_points')
+          .eq('fantasy_season_id', fs.id)
+          .eq('gameweek_id', latestGameweek.id)
+          .maybeSingle();
+        if (lineupError) {
+          throw new Error(`Failed to fetch gameweek points for fantasy season ${fs.id}: ${lineupError.message}`);
+        }
+        const latestLineup = latestLineupData as { total_points: number | null } | null;
+
+        const standingUpsert = this.supabase.from('season_standings') as unknown as UpsertTable<{
+          fantasy_season_id: number;
+          gameweek_id: number;
+          rank: number;
+          total_points: number;
+          gameweek_points: number;
+          league_id: null;
+        }>;
+        const { error: standingError } = await standingUpsert.upsert({
+          fantasy_season_id: fs.id,
+          gameweek_id: latestGameweek.id,
+          rank,
+          total_points: fs.total_points,
+          gameweek_points: latestLineup?.total_points ?? 0,
+          league_id: null,
+        }, { onConflict: 'fantasy_season_id,gameweek_id' });
+        if (standingError) {
+          throw new Error(`Failed to save leaderboard snapshot for fantasy season ${fs.id}: ${standingError.message}`);
+        }
+      }
+
+      ranked++;
+    }
+
+    return { ranked, hasMore };
   }
 
   /**
@@ -241,13 +252,14 @@ class CalculateGlobalRankings {
     try {
       // Get active season — use maybeSingle + ordering so this works
       // even when multiple seasons are marked active simultaneously.
-      const { data: seasonData } = await this.supabase
+      const { data: seasonData, error: seasonError } = await this.supabase
         .from('seasons')
         .select('id')
         .eq('status', 'active')
         .order('id', { ascending: false })
         .limit(1)
         .maybeSingle();
+      if (seasonError) throw new Error(`Failed to fetch active season: ${seasonError.message}`);
       const season = seasonData as SeasonIdRow | null;
       
       if (!season) {

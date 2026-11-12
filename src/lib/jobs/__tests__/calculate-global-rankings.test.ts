@@ -59,7 +59,9 @@ describe('Calculate Global Rankings Job', () => {
         error: null,
       },
       { data: null, error: null },
-      { count: 0, error: null },
+      { error: null },
+      { error: null },
+      { error: null },
     );
 
     const result = await calculateGlobalRankings();
@@ -71,5 +73,21 @@ describe('Calculate Global Rankings Job', () => {
     expect(mockSupabase.update).toHaveBeenCalledWith({ global_rank: 1, previous_rank: 2 });
     expect(mockSupabase.update).toHaveBeenCalledWith({ global_rank: 1, previous_rank: 1 });
     expect(mockSupabase.update).toHaveBeenCalledWith({ global_rank: 3, previous_rank: 3 });
+  });
+
+  it('should fail when a global rank update is rejected', async () => {
+    queryResults.push(
+      { data: { id: 1 }, error: null },
+      { data: [{ id: 10, total_points: 150, global_rank: 2 }], error: null },
+      { data: null, error: null },
+      { error: { message: 'database unavailable' } },
+    );
+
+    const result = await calculateGlobalRankings();
+
+    expect(result.success).toBe(false);
+    expect(result.errors).toContain(
+      'Fatal error in global rankings job: Failed to update global rank for fantasy season 10: database unavailable',
+    );
   });
 });

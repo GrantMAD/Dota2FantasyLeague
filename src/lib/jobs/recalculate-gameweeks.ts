@@ -5,7 +5,6 @@ interface JobResult {
   gameweeksRecalculated: number;
   lineupsUpdated: number;
   fantasySeasonsUpdated: number;
-  leaderboardsGenerated: number;
   errors: string[];
   duration: number;
   hasMore?: boolean;
@@ -42,13 +41,6 @@ interface BenchPlayerRoleRow {
 interface SeasonLineupTotalRow {
   gameweek_id: number;
   total_points: number | null;
-}
-
-interface LeaderboardLineupRow {
-  id: number;
-  fantasy_season_id: number;
-  total_points: number | null;
-  fantasy_seasons: { user_id: string } | null;
 }
 
 interface ClosedGameweekRow {
@@ -255,58 +247,6 @@ class RecalculateGameweeks {
   }
 
   /**
-   * Generate leaderboard rankings for a closed gameweek
-   */
-  private async generateGameweekLeaderboard(gameweekId: number, seasonId: number): Promise<number> {
-    try {
-      // Get all lineups for this gameweek, ordered by total_points descending
-      const { data: lineups, error: lineupsError } = await this.supabase
-        .from('fantasy_lineups')
-        .select(
-          `
-          id,
-          fantasy_season_id,
-          total_points,
-          fantasy_seasons(user_id)
-        `,
-        )
-        .eq('gameweek_id', gameweekId)
-        .order('total_points', { ascending: false });
-
-      if (lineupsError || !lineups) return 0;
-
-      // Update global_rank for fantasy_seasons based on this gameweek
-      const userRanks = new Map<string, number>();
-      let rank = 1;
-
-      (lineups as LeaderboardLineupRow[]).forEach((lineup) => {
-        const userId = lineup.fantasy_seasons?.user_id;
-        if (userId && !userRanks.has(userId)) {
-          userRanks.set(userId, rank);
-          rank++;
-        }
-      });
-
-      // Update fantasy_seasons with new ranks in parallel
-      const userRankUpdates = Array.from(userRanks.entries()).map(async ([userId, newRank]) => {
-        const { error: updateError } = await (
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          this.supabase.from('fantasy_seasons') as any
-        ).update({ global_rank: newRank })
-          .eq('user_id', userId)
-          .eq('season_id', seasonId);
-
-        return !updateError;
-      });
-      const updateOutcomes = await Promise.all(userRankUpdates);
-      return updateOutcomes.filter(Boolean).length;
-    } catch (err: unknown) {
-      console.error(`Error generating leaderboard for gameweek ${gameweekId}:`, err);
-      return 0;
-    }
-  }
-
-  /**
    * Main job entry point
    */
   async execute(options: { gameweekLimit?: number } = {}): Promise<JobResult> {
@@ -316,7 +256,6 @@ class RecalculateGameweeks {
       gameweeksRecalculated: 0,
       lineupsUpdated: 0,
       fantasySeasonsUpdated: 0,
-      leaderboardsGenerated: 0,
       errors: [],
       duration: 0,
       hasMore: false,
@@ -324,7 +263,7 @@ class RecalculateGameweeks {
 
     try {
       // Find gameweeks that are active or closed — active ones score in real-time,
-      // closed ones are fully finalised and also trigger leaderboard updates.
+      // closed ones are fully finalised.
       const { data: rawGameweekData, error: gameweekError } = await this.supabase
         .from('gameweeks')
         .select('id, season_id, status')
@@ -445,12 +384,6 @@ class RecalculateGameweeks {
               result.lineupsUpdated++;
               updatedFantasySeasons.add(sId);
             }
-          }
-
-          // Only generate leaderboard rankings for fully closed gameweeks
-          if (gameweek.status === 'closed') {
-            const leaderboardsGenerated = await this.generateGameweekLeaderboard(gameweek.id, gameweek.season_id);
-            result.leaderboardsGenerated += leaderboardsGenerated;
           }
 
           result.gameweeksRecalculated++;
