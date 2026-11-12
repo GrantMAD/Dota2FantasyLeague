@@ -19,9 +19,12 @@ For the complete product and implementation details, see the [Web App descriptio
 - Next.js 16, React 19, TypeScript, and Tailwind CSS.
 - Supabase provides PostgreSQL storage, authentication, and row-level security.
 - Dota 2 data is integrated from external providers, including OpenDota and STRATZ.
+- Tournament discovery supplements STRATZ with OpenDota professional-match activity; OpenDota start/end dates are marked as observed (`date_basis=observed`) and remain active for 14 days after the latest observed match.
 - Server-side API routes and scheduled jobs handle protected operations and data processing.
 
 Keep Supabase service-role credentials and other private provider keys on the server. Never expose them in browser code or commit them to the repository. The public Supabase anon key is intended for client use with the project's row-level security policies in place.
+
+Before deploying the provider-aware tournament and match jobs, apply [migration 019](<../Documents/Complete database sql/migrations/019_add_tournament_provider_and_date_basis.sql>) to the Supabase database.
 
 ## Run locally
 

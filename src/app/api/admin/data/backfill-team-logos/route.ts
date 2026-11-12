@@ -15,6 +15,7 @@ import { supabaseServer } from '@/lib/supabase';
 import { verifyAdminAuth } from '@/lib/auth-utils';
 import { logAuditAction } from '@/lib/audit-logger';
 import { withApiTelemetry } from '@/lib/api-telemetry';
+import { parseTeamLogoProviderId } from '@/lib/jobs/backfill-team-logos';
 
 
 const OPENDOTA_API = process.env.OPENDOTA_API_URL || 'https://api.opendota.com/api';
@@ -79,7 +80,8 @@ async function postHandler(request: NextRequest) {
 
     for (const team of batch) {
       await sleep(DELAY_MS);
-      const logoUrl = await fetchOpenDotaTeamLogo(team.data_provider_id);
+      const { teamId } = parseTeamLogoProviderId(team.data_provider_id);
+      const logoUrl = await fetchOpenDotaTeamLogo(teamId);
 
       if (logoUrl) {
         const { error: updateErr } = await supabase

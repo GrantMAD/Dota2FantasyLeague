@@ -97,8 +97,9 @@ export async function fetchAllTournamentMatches(
       offset,
     });
 
+    const previousSize = matchesById.size;
     for (const match of page) matchesById.set(match.id, match);
-    if (page.length < MATCH_PAGE_SIZE) break;
+    if (page.length < MATCH_PAGE_SIZE || matchesById.size === previousSize) break;
     offset += MATCH_PAGE_SIZE;
   }
 

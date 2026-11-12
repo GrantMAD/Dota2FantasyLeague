@@ -77,6 +77,7 @@ export interface JobRunOptions {
   matchId?: number;
   processLimit?: number; // Max players to process per invocation (sync-players chunking)
   batchSize?: number;    // Max items to process per invocation (backfill-team-logos chunking)
+  afterId?: number;      // Resume a batched team-logo backfill after this team ID
   matchLimit?: number;   // Max matches to process per invocation (calculate-fantasy-scores chunking)
   gameweekLimit?: number; // Max gameweeks to process per invocation (recalculate-gameweeks chunking)
   tournamentLimit?: number; // Max tournaments to process per invocation (fetch-matches chunking)

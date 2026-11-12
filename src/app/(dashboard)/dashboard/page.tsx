@@ -3,6 +3,7 @@ import { supabaseServer } from '@/lib/supabase';
 import { getOrCreateFantasySeason } from '@/lib/fantasy-season';
 import { aggregatePlayerGameweekBreakdowns } from '@/lib/player-gameweek-breakdown';
 import { getGameweekMatchProgress } from '@/lib/dashboard/gameweek-match-progress';
+import { fetchGameweekTournaments } from '@/lib/dashboard/gameweek-tournaments';
 import type { DashboardData } from '@/types/fantasy';
 import type { WhatsNewData, WhatsNewUpdate } from './components/DashboardWhatsNew';
 import { DashboardClient } from './components/DashboardClient';
@@ -366,8 +367,7 @@ async function fetchWhatsNew(userId: string): Promise<WhatsNewData | null> {
       return { gameweek: null, events: [], updates: [] };
     }
 
-    const today = new Date().toISOString().slice(0, 10);
-    const [gameweeksRes, tournamentsRes, updatesRes] = await Promise.all([
+    const [gameweeksRes, updatesRes] = await Promise.all([
       supabase
         .from('gameweeks')
         .select('id, gameweek_number, status, start_date, deadline')
@@ -375,16 +375,6 @@ async function fetchWhatsNew(userId: string): Promise<WhatsNewData | null> {
         .in('status', ['active', 'upcoming'])
         .order('start_date', { ascending: true })
         .limit(1),
-      supabase
-        .from('tournaments')
-        .select('id, name, tier, start_date, end_date')
-        .eq('season_id', fantasySeason.season_id)
-        .eq('eligible', true)
-        .neq('status', 'archived')
-        .lte('start_date', today)
-        .gte('end_date', today)
-        .order('start_date', { ascending: false })
-        .limit(10),
       supabase
         .from('user_notifications')
         .select('id, type, title, message, created_at, metadata')
@@ -395,18 +385,15 @@ async function fetchWhatsNew(userId: string): Promise<WhatsNewData | null> {
         .limit(20),
     ]);
 
-    const gw = gameweeksRes.data?.[0] ?? null;
-    let matchProgress = { total: 0, statuses: {} as Record<string, number> };
-    if (gw) {
-      const { data: matches, error: matchesError } = await supabase
-        .from('matches')
-        .select('status')
-        .eq('gameweek_id', gw.id);
-      if (matchesError) {
-        throw new Error(`Failed to fetch gameweek ${gw.id} match counts: ${matchesError.message}`);
-      }
-      matchProgress = getGameweekMatchProgress(matches ?? []);
+    if (gameweeksRes.error) {
+      throw new Error(`Failed to fetch current gameweek: ${gameweeksRes.error.message}`);
     }
+
+    const gw = gameweeksRes.data?.[0] ?? null;
+    const gameweekTournamentData = gw
+      ? await fetchGameweekTournaments(supabase, fantasySeason.season_id, gw.id)
+      : { matches: [], tournaments: [] };
+    const matchProgress = getGameweekMatchProgress(gameweekTournamentData.matches);
 
     const now = Date.now();
     const gameweek: WhatsNewData['gameweek'] = gw
@@ -424,7 +411,7 @@ async function fetchWhatsNew(userId: string): Promise<WhatsNewData | null> {
         }
       : null;
 
-    const events: WhatsNewData['events'] = (tournamentsRes.data ?? []).map((t) => ({
+    const events: WhatsNewData['events'] = gameweekTournamentData.tournaments.map((t) => ({
       kind: 'tournament' as const,
       id: t.id,
       title: t.name,

@@ -27,6 +27,17 @@ const DELAY_MS = 1100;
 const RETRY_DELAY_MS = 3000; // Extra wait before retrying a null result
 const BATCH_LOG_SIZE = 20;
 
+export function parseTeamLogoProviderId(dataProviderId: string): {
+  provider: 'opendota' | 'stratz';
+  teamId: string;
+} {
+  const prefix = 'opendota:';
+  if (dataProviderId.startsWith(prefix)) {
+    return { provider: 'opendota', teamId: dataProviderId.slice(prefix.length) };
+  }
+  return { provider: 'stratz', teamId: dataProviderId };
+}
+
 async function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -71,7 +82,7 @@ async function fetchLogoFromStratz(teamId: string): Promise<string | null> {
   }
 }
 
-export async function backfillTeamLogos(options: { batchSize?: number } = {}): Promise<{
+export async function backfillTeamLogos(options: { batchSize?: number; afterId?: number } = {}): Promise<{
   success: boolean;
   errors: string[];
   duration: number;
@@ -80,8 +91,14 @@ export async function backfillTeamLogos(options: { batchSize?: number } = {}): P
   skipped: number;
   hasMore: boolean;
   teamsRemaining: number;
+  nextAfterId: number;
 }> {
-  const { batchSize = 4 } = options;
+  const batchSize = Number.isSafeInteger(options.batchSize) && (options.batchSize ?? 0) > 0
+    ? options.batchSize!
+    : 4;
+  const afterId = Number.isSafeInteger(options.afterId) && (options.afterId ?? 0) >= 0
+    ? options.afterId!
+    : 0;
   const startedAt = Date.now();
   const supabase = getSupabaseServerClient();
   const errors: string[] = [];
@@ -89,11 +106,14 @@ export async function backfillTeamLogos(options: { batchSize?: number } = {}): P
   let skipped = 0;
 
   // Fetch all teams in our DB that still have no logo
-  const { data: teams, error: fetchErr } = await supabase
+  const query = supabase
     .from('professional_teams')
     .select('id, name, data_provider_id')
     .is('logo_url', null)
-    .not('data_provider_id', 'is', null);
+    .not('data_provider_id', 'is', null)
+    .gt('id', afterId)
+    .order('id', { ascending: true });
+  const { data: teams, error: fetchErr } = await query;
 
   if (fetchErr) {
     return {
@@ -105,6 +125,7 @@ export async function backfillTeamLogos(options: { batchSize?: number } = {}): P
       skipped: 0,
       hasMore: false,
       teamsRemaining: 0,
+      nextAfterId: afterId,
     };
   }
 
@@ -112,6 +133,7 @@ export async function backfillTeamLogos(options: { batchSize?: number } = {}): P
   const rows = allRows.slice(0, batchSize);
   const hasMore = allRows.length > batchSize;
   const teamsRemaining = Math.max(0, allRows.length - batchSize);
+  const nextAfterId = rows.length > 0 ? rows[rows.length - 1].id : afterId;
   console.log(
     `[backfillTeamLogos] ${allRows.length} teams with null logo_url — processing ${rows.length}${hasMore ? `, ${teamsRemaining} remain after this batch` : ' (all)'}`
   );
@@ -121,12 +143,13 @@ export async function backfillTeamLogos(options: { batchSize?: number } = {}): P
     await sleep(DELAY_MS);
 
     // 1. Try OpenDota first (includes its own built-in retry on null)
-    let logoUrl = await fetchLogoFromOpenDota(team.data_provider_id);
+    const providerIdentity = parseTeamLogoProviderId(team.data_provider_id);
+    let logoUrl = await fetchLogoFromOpenDota(providerIdentity.teamId);
 
     // 2. Fall back to Stratz if OpenDota couldn't find one
-    if (!logoUrl) {
+    if (!logoUrl && providerIdentity.provider !== 'opendota') {
       console.log(`[backfillTeamLogos] OpenDota returned no logo for ${team.name}, trying Stratz...`);
-      logoUrl = await fetchLogoFromStratz(team.data_provider_id);
+      logoUrl = await fetchLogoFromStratz(providerIdentity.teamId);
     }
 
     if (logoUrl) {
@@ -169,5 +192,6 @@ export async function backfillTeamLogos(options: { batchSize?: number } = {}): P
     skipped,
     hasMore,
     teamsRemaining,
+    nextAfterId,
   };
 }

@@ -70,7 +70,9 @@ interface OpenDotaProMatch {
   league_name?: string | null;
   series_name?: string | null;
   radiant_team_id?: number | null;
+  radiant_name?: string | null;
   dire_team_id?: number | null;
+  dire_name?: string | null;
   start_time: number;
   duration?: number | null;
   radiant_win?: boolean;
@@ -113,6 +115,9 @@ interface OpenDotaPlayerDetails {
     avatarfull?: string | null;
   } | null;
 }
+
+const OPENDOTA_ACTIVITY_WINDOW_DAYS = 14;
+const OPENDOTA_ACTIVITY_WINDOW_MS = OPENDOTA_ACTIVITY_WINDOW_DAYS * 24 * 60 * 60 * 1000;
 
 export class OpenDotaProvider extends DataProviderBase implements DataProvider {
   name = 'OpenDota';
@@ -368,40 +373,33 @@ export class OpenDotaProvider extends DataProviderBase implements DataProvider {
 
   async fetchTournaments(filters?: DataProviderFilters & { status?: 'upcoming' | 'active' | 'concluded'; minTier?: string }): Promise<TournamentData[]> {
     try {
-      // OpenDota has limited tournament data via proMatches
-      // This is a simplified implementation
-      const queryParams: Record<string, string | number | undefined> = {};
-      if (filters?.offset && filters.offset > 0) {
-        queryParams.less_than_match_id = filters.offset.toString();
-      }
-      const response = await this.request<OpenDotaProMatch[]>('/proMatches', queryParams);
-
-      // Group matches by tournament/event
+      const response = await this.request<OpenDotaProMatch[]>('/proMatches');
       const tournamentsMap = new Map<string, TournamentData>();
+      const latestMatchTimes = new Map<string, number>();
 
       for (const match of response || []) {
         const tournamentKey = match.leagueid ? String(match.leagueid) : (match.series_id ? String(match.series_id) : null);
 
         if (!tournamentKey) continue;
 
-        if (!tournamentsMap.has(tournamentKey)) {
-          tournamentsMap.set(tournamentKey, {
-            id: tournamentKey,
-            name: match.league_name || match.series_name || `Tournament ${tournamentKey}`,
-            region: undefined,
-            prizePool: undefined,
-            currency: 'USD',
-            startDate: new Date(match.start_time * 1000),
-            endDate: undefined,
-            status: match.radiant_win !== undefined ? 'concluded' : 'upcoming',
-            teams: [],
-            matches: [],
-            tier: 'Professional',
-            lastUpdated: new Date(),
-          });
-        }
-
-        const tournament = tournamentsMap.get(tournamentKey)!;
+        const matchDate = new Date(match.start_time * 1000);
+        const tournament = tournamentsMap.get(tournamentKey) ?? {
+          id: tournamentKey,
+          name: match.league_name || match.series_name || `Tournament ${tournamentKey}`,
+          region: undefined,
+          prizePool: undefined,
+          currency: 'USD',
+          startDate: matchDate,
+          endDate: matchDate,
+          status: 'concluded' as const,
+          teams: [],
+          matches: [],
+          tier: 'Professional',
+          lastUpdated: new Date(),
+        };
+        if (matchDate < tournament.startDate) tournament.startDate = matchDate;
+        const latestMatchTime = Math.max(latestMatchTimes.get(tournamentKey) ?? 0, matchDate.getTime());
+        latestMatchTimes.set(tournamentKey, latestMatchTime);
         if (match.radiant_team_id && !tournament.teams?.includes(String(match.radiant_team_id))) {
           tournament.teams?.push(String(match.radiant_team_id));
         }
@@ -411,9 +409,21 @@ export class OpenDotaProvider extends DataProviderBase implements DataProvider {
         if (match.match_id) {
           tournament.matches?.push(String(match.match_id));
         }
+        tournamentsMap.set(tournamentKey, tournament);
       }
 
-      return Array.from(tournamentsMap.values());
+      for (const [tournamentId, tournament] of tournamentsMap) {
+        const latestMatchTime = latestMatchTimes.get(tournamentId) ?? 0;
+        const isRecentlyActive = Date.now() - latestMatchTime <= OPENDOTA_ACTIVITY_WINDOW_MS;
+        tournament.status = isRecentlyActive ? 'active' : 'concluded';
+        tournament.endDate = new Date(latestMatchTime + (isRecentlyActive ? OPENDOTA_ACTIVITY_WINDOW_MS : 0));
+      }
+
+      const offset = filters?.offset ?? 0;
+      const limit = filters?.limit ?? tournamentsMap.size;
+      return Array.from(tournamentsMap.values())
+        .filter((tournament) => filters?.status === undefined || tournament.status === filters.status)
+        .slice(offset, offset + limit);
     } catch (error) {
       throw this.createError(
         'OPENDOTA_TOURNAMENTS_FETCH_FAILED',
@@ -430,26 +440,26 @@ export class OpenDotaProvider extends DataProviderBase implements DataProvider {
     filters?: DataProviderFilters & { status?: 'scheduled' | 'live' | 'concluded' }
   ): Promise<MatchData[]> {
     try {
-      const queryParams: Record<string, string | number | undefined> = {};
-      if (filters?.offset && filters.offset > 0) {
-        queryParams.less_than_match_id = filters.offset.toString();
-      }
-      const response = await this.request<OpenDotaProMatch[]>('/proMatches', queryParams);
-
-      return (response || [])
+      const response = await this.request<OpenDotaProMatch[]>('/proMatches');
+      const filteredMatches = (response || [])
         .filter((match) => !tournamentId || String(match.leagueid) === tournamentId || String(match.series_id) === tournamentId)
         .map((m) => ({
           id: String(m.match_id),
           tournamentId: String(m.leagueid || m.series_id || tournamentId || '0'),
           team1Id: String(m.radiant_team_id),
+          team1Name: m.radiant_name || undefined,
           team2Id: String(m.dire_team_id),
+          team2Name: m.dire_name || undefined,
           scheduledAt: new Date(m.start_time * 1000),
           startedAt: m.start_time ? new Date(m.start_time * 1000) : undefined,
           endedAt: m.start_time && m.duration ? new Date((m.start_time + m.duration) * 1000) : undefined,
-          status: m.radiant_win !== undefined ? 'concluded' : 'scheduled',
+          status: m.radiant_win !== undefined ? 'concluded' as const : 'scheduled' as const,
           seriesStatus: undefined,
           lastUpdated: new Date(),
         }));
+      const offset = filters?.offset ?? 0;
+      const limit = filters?.limit ?? filteredMatches.length;
+      return filteredMatches.slice(offset, offset + limit);
     } catch (error) {
       throw this.createError(
         'OPENDOTA_MATCHES_FETCH_FAILED',

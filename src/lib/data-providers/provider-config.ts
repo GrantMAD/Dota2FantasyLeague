@@ -113,6 +113,12 @@ export async function getMatchDataProvider(): Promise<DataProvider> {
   });
 }
 
+export function getOpenDotaProvider(): DataProvider {
+  return new OpenDotaProvider({
+    apiUrl: process.env.OPENDOTA_API_URL || 'https://api.opendota.com/api',
+  });
+}
+
 /**
  * Manually set provider health status
  * Used after failed provider operations to trigger fallback on next call

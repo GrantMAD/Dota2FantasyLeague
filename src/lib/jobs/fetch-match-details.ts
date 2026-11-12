@@ -16,7 +16,7 @@ import {
   normalizePlayerIdentity,
 } from './player-identity';
 import type { JobRunOptions } from './scheduler';
-import { requireStratzMatchProvider } from './match-sync';
+import type { DataProvider } from '../data-providers/provider-interface';
 
 interface FetchDetailsResult {
   fetched: number;
@@ -43,9 +43,11 @@ export async function fetchMatchDetails(options?: JobRunOptions): Promise<FetchD
   };
 
   try {
-    const { getMatchDataProvider } = await import('../data-providers/provider-config');
-    const provider = await getMatchDataProvider();
-    requireStratzMatchProvider(provider);
+    const { getMatchDataProvider, getOpenDotaProvider } = await import('../data-providers/provider-config');
+    const providers: Record<'stratz' | 'opendota', DataProvider> = {
+      stratz: await getMatchDataProvider(),
+      opendota: getOpenDotaProvider(),
+    };
 
     console.log('[fetchMatchDetails] Starting match detail fetch');
 
@@ -55,6 +57,8 @@ export async function fetchMatchDetails(options?: JobRunOptions): Promise<FetchD
       // Get pending matches (concluded but no details yet)
       const pendingMatches = await getPendingMatches(options?.matchId);
       console.log(`[fetchMatchDetails] Found ${pendingMatches.length} matches pending details`);
+
+      const providerSources = await getMatchProviderSources(pendingMatches);
 
       // Preload player and team maps for resolving IDs
       const { playerMap, teamMap } = await getEntityLookupMaps();
@@ -66,6 +70,8 @@ export async function fetchMatchDetails(options?: JobRunOptions): Promise<FetchD
 
         for (const match of batch) {
           try {
+            const providerSource = providerSources.get(match.series_id) ?? 'stratz';
+            const provider = providers[providerSource];
             const externalId = match.external_match_id || match.id.toString();
             // Fetch detailed stats from provider
             const details = await provider.fetchMatchDetails(externalId);
@@ -77,7 +83,8 @@ export async function fetchMatchDetails(options?: JobRunOptions): Promise<FetchD
             
             for (const team of details.teams || []) {
               const teamProviderId = String(team.teamId || '');
-              let dbTeamId = teamMap.get(teamProviderId);
+              const providerTeamKey = `${providerSource}:${teamProviderId}`;
+              let dbTeamId = teamMap.get(providerTeamKey);
               
               // Fallback to match teams if provider team ID matches or cannot be found
               if (!dbTeamId) {
@@ -102,20 +109,24 @@ export async function fetchMatchDetails(options?: JobRunOptions): Promise<FetchD
 
                   if (existingByName) {
                     dbTeamId = existingByName.id;
-                    teamMap.set(teamProviderId, existingByName.id);
+                    teamMap.set(providerTeamKey, existingByName.id);
                   } else {
                     const { data: newTeam } = await supabase.from('professional_teams')
                       .insert({
                         name: teamName,
-                        slug: `team-${teamProviderId}`,
-                        data_provider_id: teamProviderId,
+                        slug: providerSource === 'opendota'
+                          ? `opendota-team-${teamProviderId}`
+                          : `team-${teamProviderId}`,
+                        data_provider_id: providerSource === 'opendota'
+                          ? `opendota:${teamProviderId}`
+                          : teamProviderId,
                         logo_url: logoUrl,
                       })
                       .select('id')
                       .maybeSingle();
                     if (newTeam) {
                       dbTeamId = newTeam.id;
-                      teamMap.set(teamProviderId, newTeam.id);
+                      teamMap.set(providerTeamKey, newTeam.id);
                     }
                   }
                 }
@@ -265,7 +276,7 @@ export async function fetchMatchDetails(options?: JobRunOptions): Promise<FetchD
               updateMatchPayload.duration_minutes = Math.round(details.duration / 60);
             }
             if (details.winner) {
-              const winnerDbId = teamMap.get(String(details.winner));
+              const winnerDbId = teamMap.get(`${providerSource}:${String(details.winner)}`);
               if (winnerDbId) {
                 updateMatchPayload.winner_team_id = winnerDbId;
               }
@@ -371,11 +382,54 @@ async function getEntityLookupMaps(): Promise<{
   const teamMap = new Map<string, number>();
   for (const t of teamsRes.data || []) {
     if (t.data_provider_id) {
-      teamMap.set(String(t.data_provider_id), t.id);
+      const providerId = String(t.data_provider_id);
+      teamMap.set(
+        providerId.startsWith('opendota:')
+          ? providerId
+          : `stratz:${providerId}`,
+        t.id,
+      );
     }
   }
 
   return { playerMap, teamMap };
+}
+
+async function getMatchProviderSources(matches: Match[]): Promise<Map<number, 'stratz' | 'opendota'>> {
+  const seriesIds = [...new Set(matches.map((match) => match.series_id))];
+  if (seriesIds.length === 0) return new Map();
+
+  const supabase = getSupabaseServerClient();
+  const { data: seriesRows, error: seriesError } = await supabase
+    .from('tournament_series')
+    .select('id, tournament_id')
+    .in('id', seriesIds);
+  if (seriesError) {
+    throw new Error(`Failed to load tournament sources for pending matches: ${seriesError.message}`);
+  }
+
+  const series = (seriesRows ?? []) as Array<{ id: number; tournament_id: number }>;
+  const tournamentIds = [...new Set(series.map((row) => row.tournament_id))];
+  const { data: tournamentRows, error: tournamentError } = await supabase
+    .from('tournaments')
+    .select('id, data_provider')
+    .in('id', tournamentIds);
+  if (tournamentError) {
+    throw new Error(`Failed to load tournament sources for pending matches: ${tournamentError.message}`);
+  }
+
+  const sourceByTournamentId = new Map<number, 'stratz' | 'opendota'>();
+  for (const tournament of (tournamentRows ?? []) as Array<{
+    id: number;
+    data_provider: 'stratz' | 'opendota' | null;
+  }>) {
+    sourceByTournamentId.set(tournament.id, tournament.data_provider ?? 'stratz');
+  }
+
+  return new Map(series.map((row) => [
+    row.id,
+    sourceByTournamentId.get(row.tournament_id) ?? 'stratz',
+  ]));
 }
 
 async function logJobExecution(

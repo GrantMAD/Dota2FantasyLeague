@@ -175,4 +175,28 @@ describe('match synchronization helpers', () => {
       ['league-1', 200],
     ]);
   });
+
+  it('stops pagination when a provider repeats a full page', async () => {
+    const matches = Array.from({ length: 100 }, (_, index) => makeMatch(`match-${index}`, 'scheduled'));
+    const fetchMatches = jest.fn(async () => matches);
+    const provider: DataProvider = {
+      name: 'OpenDota',
+      version: 'test',
+      healthCheck: jest.fn(),
+      fetchPlayers: jest.fn(),
+      fetchPlayer: jest.fn(),
+      fetchTeams: jest.fn(),
+      fetchTeam: jest.fn(),
+      fetchTournaments: jest.fn(),
+      fetchMatches,
+      fetchMatchDetails: jest.fn(),
+      fetchRosterHistory: jest.fn(),
+      getRateLimitStatus: jest.fn(),
+    };
+
+    const result = await fetchAllTournamentMatches(provider, 'league-1');
+
+    expect(result).toHaveLength(100);
+    expect(fetchMatches).toHaveBeenCalledTimes(2);
+  });
 });

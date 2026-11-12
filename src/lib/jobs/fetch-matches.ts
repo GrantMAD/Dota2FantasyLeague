@@ -15,11 +15,9 @@ import {
   type OutOfGameweekDiagnostics,
 } from './match-gameweek-routing';
 import {
-  filterTournamentsToProviderIds,
   fetchAllTournamentMatches,
   findExistingMatchByTeamsAndTime,
   preserveMatchStatus,
-  requireStratzMatchProvider,
   toDatabaseMatchStatus,
 } from './match-sync';
 
@@ -74,10 +72,12 @@ export async function fetchMatches(options: { tournamentLimit?: number } = {}): 
   };
 
   try {
-    const { getMatchDataProvider } = await import('../data-providers/provider-config');
-    const provider = await getMatchDataProvider();
+    const { getMatchDataProvider, getOpenDotaProvider } = await import('../data-providers/provider-config');
+    const providers = {
+      stratz: await getMatchDataProvider(),
+      opendota: getOpenDotaProvider(),
+    };
     const supabase = getSupabaseServerClient();
-    requireStratzMatchProvider(provider);
 
     console.log('[fetchMatches] Starting match fetch');
 
@@ -85,18 +85,22 @@ export async function fetchMatches(options: { tournamentLimit?: number } = {}): 
 
     try {
       // 1. Get active/eligible tournaments from DB
-      const professionalTournaments = await provider.fetchTournaments({ limit: 100 });
-      const professionalTournamentIds = new Set(
-        professionalTournaments.map((tournament) => String(tournament.id))
-      );
       const eligibleTournaments = await getActiveTournaments();
-      const activeTournaments = filterTournamentsToProviderIds(
-        eligibleTournaments,
-        professionalTournamentIds
+      const professionalTournamentsBySource = await Promise.all(
+        Object.entries(providers).map(async ([source, provider]) => [
+          source,
+          new Set((await provider.fetchTournaments({ limit: 100 }))
+            .map((tournament) => String(tournament.id))),
+        ] as const),
       );
+      const professionalTournamentIds = new Map(professionalTournamentsBySource);
+      const activeTournaments = eligibleTournaments.filter((tournament) => {
+        const source = tournament.data_provider ?? 'stratz';
+        return professionalTournamentIds.get(source)?.has(String(tournament.data_provider_id));
+      });
       console.log(
         `[fetchMatches] Found ${activeTournaments.length} eligible professional tournaments; ` +
-        `ignoring ${eligibleTournaments.length - activeTournaments.length} previously discovered tournaments outside professional STRATZ tiers`
+        `ignoring ${eligibleTournaments.length - activeTournaments.length} tournaments not present in their provider's professional feed`
       );
 
       // Apply tournamentLimit for chunked execution within Vercel's limits (default 4)
@@ -144,13 +148,25 @@ export async function fetchMatches(options: { tournamentLimit?: number } = {}): 
       const teamIdMap = new Map<string, number>();
       const teamNameMap = new Map<number, string>(); // id → current name
       for (const t of dbTeams || []) {
-        if (t.data_provider_id) teamIdMap.set(String(t.data_provider_id), t.id);
-        teamIdMap.set(String(t.id), t.id);
+        if (t.data_provider_id) {
+          const providerTeamId = String(t.data_provider_id);
+          if (providerTeamId.startsWith('opendota:')) {
+            teamIdMap.set(providerTeamId, t.id);
+          } else {
+            teamIdMap.set(`stratz:${providerTeamId}`, t.id);
+          }
+        }
         teamNameMap.set(t.id, t.name ?? '');
       }
 
       for (const tournament of tournamentsToProcess) {
         try {
+          const providerSource = tournament.data_provider ?? 'stratz';
+          const provider = providers[providerSource];
+          if (!provider) {
+            result.errors.push(`Unsupported data provider "${providerSource}" for tournament ${tournament.id}`);
+            continue;
+          }
           const tournamentGameweeks = gameweeksBySeason.get(tournament.season_id) ?? [];
           if (tournamentGameweeks.length === 0) {
             result.errors.push(
@@ -240,10 +256,14 @@ export async function fetchMatches(options: { tournamentLimit?: number } = {}): 
               let existing: Match | undefined = existingMatchesForId[0] ?? scheduledFixtureMatches[0];
 
               // Resolve Team A
-              const teamAId = await resolveOrCreateTeam(match.team1Id, teamIdMap, teamNameMap, provider);
+              const teamAId = await resolveOrCreateTeam(
+                match.team1Id, match.team1Name, providerSource, teamIdMap, teamNameMap, provider
+              );
 
               // Resolve Team B
-              const teamBId = await resolveOrCreateTeam(match.team2Id, teamIdMap, teamNameMap, provider);
+              const teamBId = await resolveOrCreateTeam(
+                match.team2Id, match.team2Name, providerSource, teamIdMap, teamNameMap, provider
+              );
 
               if (!teamAId || !teamBId) {
                 // Cannot insert match without both valid team references
@@ -542,15 +562,17 @@ async function checkMatchDetails(matchId: string): Promise<boolean> {
  */
 async function resolveOrCreateTeam(
   teamProviderId: string | number | undefined,
+  teamNameFromMatch: string | undefined,
+  providerSource: 'stratz' | 'opendota',
   teamIdMap: Map<string, number>,
   teamNameMap: Map<number, string>,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  provider: any
+  provider: import('../data-providers/provider-interface').DataProvider
 ): Promise<number | null> {
   const INVALID_IDS = new Set(['0', 'null', 'undefined', 'nan', 'none', '']);
   if (!teamProviderId || INVALID_IDS.has(String(teamProviderId).toLowerCase())) return null;
   const pIdStr = String(teamProviderId);
-  const existingDbId = teamIdMap.get(pIdStr);
+  const providerKey = `${providerSource}:${pIdStr}`;
+  const existingDbId = teamIdMap.get(providerKey);
 
   // If we already have a DB record for this provider ID, check whether its name
   // is still a placeholder (e.g. "Team 124"). If so, try to enrich it.
@@ -565,17 +587,19 @@ async function resolveOrCreateTeam(
   }
 
   const supabase = getSupabaseServerClient();
-  let teamName = `Team ${pIdStr}`;
+  let teamName = teamNameFromMatch?.trim() || `Team ${pIdStr}`;
   let logoUrl: string | undefined = undefined;
 
-  try {
-    const fetched = await provider.fetchTeam(pIdStr);
-    if (fetched?.name && fetched.name.trim().length > 0 && !/^\d+$/.test(fetched.name)) {
-      teamName = fetched.name.trim();
-      logoUrl = fetched.logoUrl;
+  if (!teamNameFromMatch || !teamNameFromMatch.trim()) {
+    try {
+      const fetched = await provider.fetchTeam(pIdStr);
+      if (fetched?.name && fetched.name.trim().length > 0 && !/^\d+$/.test(fetched.name)) {
+        teamName = fetched.name.trim();
+        logoUrl = fetched.logoUrl;
+      }
+    } catch {
+      // Fall back to Team <id> if provider lookup fails
     }
-  } catch {
-    // Fall back to Team <id> if provider lookup fails
   }
 
   // If we have an existing DB id and just retrieved the real name, update it
@@ -600,7 +624,7 @@ async function resolveOrCreateTeam(
   const existingByName = existingByNameData as TeamReference | null;
 
   if (existingByName) {
-    teamIdMap.set(pIdStr, existingByName.id);
+    teamIdMap.set(providerKey, existingByName.id);
     return existingByName.id;
   }
 
@@ -608,8 +632,8 @@ async function resolveOrCreateTeam(
   const { data: newTeamData, error } = await supabase.from('professional_teams')
     .insert({
       name: teamName,
-      slug: `team-${pIdStr}`,
-      data_provider_id: pIdStr,
+      slug: providerSource === 'opendota' ? `opendota-team-${pIdStr}` : `team-${pIdStr}`,
+      data_provider_id: providerSource === 'opendota' ? `opendota:${pIdStr}` : pIdStr,
       logo_url: logoUrl,
     })
     .select('id')
@@ -617,18 +641,19 @@ async function resolveOrCreateTeam(
   const newTeam = newTeamData as { id: number } | null;
 
   if (newTeam) {
-    teamIdMap.set(pIdStr, newTeam.id);
+    teamIdMap.set(providerKey, newTeam.id);
     return newTeam.id;
   }
 
   if (error?.code === '23505') {
+    const storedProviderId = providerSource === 'opendota' ? `opendota:${pIdStr}` : pIdStr;
     const { data: retryTeamData } = await supabase.from('professional_teams')
       .select('id')
-      .or(`data_provider_id.eq.${pIdStr},name.ilike.${teamName}`)
+      .or(`data_provider_id.eq.${storedProviderId},name.ilike.${teamName}`)
       .maybeSingle();
     const retryTeam = retryTeamData as { id: number } | null;
     if (retryTeam) {
-      teamIdMap.set(pIdStr, retryTeam.id);
+      teamIdMap.set(providerKey, retryTeam.id);
       return retryTeam.id;
     }
   }

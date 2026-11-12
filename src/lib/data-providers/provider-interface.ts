@@ -58,7 +58,9 @@ export interface MatchData {
   id: string;
   tournamentId: string;
   team1Id: string;
+  team1Name?: string;
   team2Id: string;
+  team2Name?: string;
   sourceSeriesId?: string;
   scheduledAt: Date;
   startedAt?: Date;

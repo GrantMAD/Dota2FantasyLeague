@@ -151,7 +151,7 @@ const JOB_METADATA: Record<string, {
     category: 'maintenance',
   },
   'backfill-team-logos': {
-    description: 'Individually fetches each team with a missing logo from OpenDota. Runs automatically every day at 5:30 AM UTC, or can be triggered manually.',
+    description: 'Fetches missing team logos from the matching provider. Scheduled runs process a small batch; a manual run continues through all missing-logo teams.',
     category: 'maintenance',
   },
   'purge-inactive-data': {
@@ -343,22 +343,69 @@ export default function DataJobsPage() {
     toast.info('Job Triggered', `Job ${jobName} has been queued.`);
     try {
       const authHeaders = await getAuthHeaders();
-      const response = await fetchWithAuth('/api/admin/jobs/run', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...authHeaders,
-        },
-        body: JSON.stringify({ job_name: jobName }),
-      });
-      if (response.ok) {
-        toast.success('Job Complete', `Job ${jobName} finished successfully.`);
-        await fetchJobStatus(true);
-        await fetchFailedJobs();
+      if (jobName === 'backfill-team-logos') {
+        let afterId = 0;
+        let hasMore = true;
+        let updated = 0;
+        let skipped = 0;
+
+        while (hasMore) {
+          const response = await fetchWithAuth('/api/admin/jobs/run', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              ...authHeaders,
+            },
+            body: JSON.stringify({ job_name: jobName, batchSize: 4, afterId }),
+          });
+          const data = await response.json().catch(() => ({}));
+          if (!response.ok) {
+            throw new Error(data.error || `Job ${jobName} execution returned an error.`);
+          }
+
+          const batchResult = data.result?.result as {
+            success?: boolean;
+            updated?: number;
+            skipped?: number;
+            hasMore?: boolean;
+            nextAfterId?: number;
+            errors?: string[];
+          } | undefined;
+          if (!batchResult?.success) {
+            throw new Error(batchResult?.errors?.join('; ') || `Job ${jobName} batch failed.`);
+          }
+
+          updated += batchResult.updated ?? 0;
+          skipped += batchResult.skipped ?? 0;
+          if (batchResult.hasMore) {
+            const nextAfterId = batchResult.nextAfterId;
+            if (typeof nextAfterId !== 'number' || !Number.isSafeInteger(nextAfterId) || nextAfterId <= afterId) {
+              throw new Error('Logo backfill batch did not advance to the next team.');
+            }
+            afterId = nextAfterId;
+          }
+          hasMore = Boolean(batchResult.hasMore);
+        }
+
+        toast.success('Job Complete', `Logo backfill finished: ${updated} updated, ${skipped} still unavailable.`);
       } else {
-        const errData = await response.json().catch(() => ({}));
-        toast.error('Job Failed', errData.error || `Job ${jobName} execution returned an error.`);
+        const response = await fetchWithAuth('/api/admin/jobs/run', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...authHeaders,
+          },
+          body: JSON.stringify({ job_name: jobName }),
+        });
+        if (response.ok) {
+          toast.success('Job Complete', `Job ${jobName} finished successfully.`);
+        } else {
+          const errData = await response.json().catch(() => ({}));
+          toast.error('Job Failed', errData.error || `Job ${jobName} execution returned an error.`);
+        }
       }
+      await fetchJobStatus(true);
+      await fetchFailedJobs();
     } catch (error) {
       console.error('Failed to trigger job:', error);
       toast.error('Job Error', `Failed to connect or trigger ${jobName}.`);

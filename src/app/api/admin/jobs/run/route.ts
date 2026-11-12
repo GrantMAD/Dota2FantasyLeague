@@ -16,11 +16,12 @@
  * }
  */
 
-import { runJob, runAllJobs, runAllJobsSequential } from '@/lib/jobs/scheduler';
+import { runJob, runAllJobs, runAllJobsSequential, type JobRunOptions } from '@/lib/jobs/scheduler';
 import { verifyAdminAuth, createErrorResponse } from '@/lib/auth-utils';
 import { logAuditAction } from '@/lib/audit-logger';
 import { withApiTelemetry } from '@/lib/api-telemetry';
 
+export const maxDuration = 60;
 
 async function postHandler(request: Request) {
   try {
@@ -56,7 +57,13 @@ async function postHandler(request: Request) {
     }
 
     // Run specific job
-    const result = await runJob(jobName);
+    const jobOptions: JobRunOptions = jobName === 'backfill-team-logos'
+      ? {
+          batchSize: typeof body.batchSize === 'number' ? body.batchSize : undefined,
+          afterId: typeof body.afterId === 'number' ? body.afterId : undefined,
+        }
+      : {};
+    const result = await runJob(jobName, jobOptions);
 
     await logAuditAction({
       tableName: 'job_execution_log',
