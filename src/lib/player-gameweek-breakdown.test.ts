@@ -70,4 +70,26 @@ describe('aggregate player gameweek breakdowns', () => {
       { player_id: 42, fantasy_points_breakdown: null },
     ])).toEqual(new Map());
   });
+
+  it('makes a scored player breakdown available through a duplicate lineup player ID', () => {
+    const breakdown = {
+      combat_points: 5,
+      economy_points: 1,
+      objective_points: 0,
+      teamfight_points: 2,
+      win_points: 3,
+      series_points: 0,
+      performance_index_points: 1,
+      consistency_points: 0,
+      penalty_points: 0,
+      total_points: 12,
+    };
+
+    const totals = aggregatePlayerGameweekBreakdowns(
+      [{ player_id: 20, fantasy_points_breakdown: breakdown }],
+      new Map([[20, [10, 20]]]),
+    );
+
+    expect(totals.get(10)?.total).toBe(12);
+  });
 });

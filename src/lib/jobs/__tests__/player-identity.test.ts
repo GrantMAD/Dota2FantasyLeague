@@ -1,7 +1,9 @@
 import {
   deduplicatePlayerRecords,
   getCanonicalSteamId,
+  getEquivalentProviderIds,
   getPlayerIdentityKeys,
+  getRelatedPlayerIds,
   hasCanonicalSteamId,
   normalizePlayerIdentity,
 } from '../player-identity';
@@ -19,6 +21,20 @@ describe('player identity normalization', () => {
     expect(getCanonicalSteamId('301750126')).toBe('76561198262015854');
     expect(getCanonicalSteamId('76561198262015854')).toBe('76561198262015854');
     expect(getCanonicalSteamId('321580662')).toBe('76561198281846390');
+  });
+
+  it('finds provider-ID aliases for dashboard performance lookups', () => {
+    expect(getEquivalentProviderIds('847565596')).toEqual([
+      '847565596',
+      '76561198807831324',
+    ]);
+    expect(getRelatedPlayerIds([
+      { id: 10, data_provider_id: '847565596' },
+      { id: 20, data_provider_id: '76561198807831324' },
+    ])).toEqual(new Map([
+      [10, [10, 20]],
+      [20, [20, 10]],
+    ]));
   });
 
   it('does not conflate arbitrary provider identifiers', () => {

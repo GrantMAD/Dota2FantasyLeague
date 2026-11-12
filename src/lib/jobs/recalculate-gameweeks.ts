@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import { getPlayerIdentityKeys } from './player-identity';
 
 interface JobResult {
   success: boolean;
@@ -30,17 +31,24 @@ interface Lineup {
 
 interface PlayerPointsRow {
   player_id: number;
+  match_id: number;
   fantasy_points_breakdown: { total_points: number | null } | null;
 }
 
 interface BenchPlayerRoleRow {
   id: number;
   primary_role: string;
+  data_provider_id: string | null;
 }
 
 interface SeasonLineupTotalRow {
   gameweek_id: number;
   total_points: number | null;
+}
+
+interface SeasonGameweekStatusRow {
+  id: number;
+  status: string;
 }
 
 interface ClosedGameweekRow {
@@ -51,6 +59,52 @@ interface ClosedGameweekRow {
 
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
+}
+
+export function getLatestGameweekPoints(
+  lineups: SeasonLineupTotalRow[],
+  gameweeks: SeasonGameweekStatusRow[],
+): number {
+  const statusesById = new Map(gameweeks.map((gameweek) => [gameweek.id, gameweek.status]));
+  const latestScoredGameweek = [...lineups]
+    .filter((lineup) => {
+      const status = statusesById.get(lineup.gameweek_id);
+      return status === 'active' || status === 'closed';
+    })
+    .sort((left, right) => right.gameweek_id - left.gameweek_id)[0];
+
+  return latestScoredGameweek?.total_points ?? 0;
+}
+
+export function buildPlayerScoringMaps(
+  performances: PlayerPointsRow[],
+  identityByPlayerId: Map<number, string[]>,
+  playerIdsByIdentity: Map<string, number[]>,
+): { playersWhoPlayed: Set<number>; playerPointsMap: Map<number, number> } {
+  const playersWhoPlayed = new Set<number>();
+  const playerPointsMap = new Map<number, number>();
+  const scoredIdentityMatches = new Set<string>();
+
+  performances.forEach((row) => {
+    const identities = identityByPlayerId.get(row.player_id) ?? [];
+    const points = Number(row.fantasy_points_breakdown?.total_points ?? 0);
+    const targets = identities.length > 0
+      ? identities.flatMap((identity) => playerIdsByIdentity.get(identity) ?? [row.player_id])
+      : [row.player_id];
+    const uniqueTargets = [...new Set(targets)];
+
+    uniqueTargets.forEach((playerId) => playersWhoPlayed.add(playerId));
+
+    const scoreKey = `${identities[0] ?? row.player_id}:${row.match_id}`;
+    if (scoredIdentityMatches.has(scoreKey)) return;
+    scoredIdentityMatches.add(scoreKey);
+
+    uniqueTargets.forEach((playerId) => {
+      playerPointsMap.set(playerId, (playerPointsMap.get(playerId) ?? 0) + points);
+    });
+  });
+
+  return { playersWhoPlayed, playerPointsMap };
 }
 
 class RecalculateGameweeks {
@@ -222,8 +276,18 @@ class RecalculateGameweeks {
       if (lineups.length === 0) return false;
 
       const totalPoints = lineups.reduce((sum, lineup) => sum + (lineup.total_points || 0), 0);
-      const latestLineup = [...lineups].sort((a, b) => (b.gameweek_id || 0) - (a.gameweek_id || 0))[0];
-      const latestPoints = latestLineup?.total_points || 0;
+      const { data: gameweeks, error: gameweeksError } = await this.supabase
+        .from('gameweeks')
+        .select('id, status')
+        .in('id', [...new Set(lineups.map((lineup) => lineup.gameweek_id))]);
+      if (gameweeksError) {
+        console.error(`Failed to fetch gameweek statuses for fantasy season ${fantasySeasonId}:`, gameweeksError);
+        return false;
+      }
+      const latestPoints = getLatestGameweekPoints(
+        lineups,
+        (gameweeks ?? []) as SeasonGameweekStatusRow[],
+      );
 
       const { error } = await (
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -286,10 +350,19 @@ class RecalculateGameweeks {
       // Pre-fetch professional player roles into a memory map once
       const { data: benchPlayersData } = await this.supabase
         .from('professional_players')
-        .select('id, primary_role');
+        .select('id, primary_role, data_provider_id');
       const benchPlayerRoles = new Map<number, string>();
+      const identityByPlayerId = new Map<number, string[]>();
+      const playerIdsByIdentity = new Map<string, number[]>();
       (benchPlayersData ?? []).forEach((p: BenchPlayerRoleRow) => {
         benchPlayerRoles.set(p.id, p.primary_role);
+        const identities = getPlayerIdentityKeys(p.data_provider_id);
+        identityByPlayerId.set(p.id, identities);
+        identities.forEach((identity) => {
+          const matchingIds = playerIdsByIdentity.get(identity) ?? [];
+          matchingIds.push(p.id);
+          playerIdsByIdentity.set(identity, matchingIds);
+        });
       });
 
       // Sort gameweeks: active first, then newest closed gameweeks
@@ -318,18 +391,15 @@ class RecalculateGameweeks {
           // Pre-fetch all player performances & points for this gameweek in 1 query
           const { data: rawPerfsWithPoints } = await this.supabase
             .from('player_performances')
-            .select('player_id, fantasy_points_breakdown(total_points)')
+            .select('player_id, match_id, fantasy_points_breakdown(total_points)')
             .eq('gameweek_id', gameweek.id);
           const perfsWithPoints = (rawPerfsWithPoints ?? []) as PlayerPointsRow[];
 
-          const playersWhoPlayed = new Set<number>();
-          const playerPointsMap = new Map<number, number>();
-          perfsWithPoints.forEach((row) => {
-            playersWhoPlayed.add(row.player_id);
-            const pts = Number(row.fantasy_points_breakdown?.total_points ?? 0);
-            const current = playerPointsMap.get(row.player_id) || 0;
-            playerPointsMap.set(row.player_id, current + pts);
-          });
+          const { playersWhoPlayed, playerPointsMap } = buildPlayerScoringMaps(
+            perfsWithPoints,
+            identityByPlayerId,
+            playerIdsByIdentity,
+          );
 
           // Get all lineups for this gameweek
           const { data: lineups, error: lineupsError } = await this.supabase

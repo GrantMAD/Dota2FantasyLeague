@@ -22,6 +22,49 @@ export function getPlayerIdentityKeys(...identifiers: Array<string | null | unde
     .filter((identity): identity is string => identity !== null))];
 }
 
+export function getEquivalentProviderIds(...identifiers: Array<string | null | undefined>): string[] {
+  const providerIds = new Set<string>();
+
+  for (const identifier of identifiers) {
+    const value = identifier?.trim();
+    if (!value) continue;
+    providerIds.add(value);
+
+    const identity = normalizePlayerIdentity(value);
+    if (identity?.startsWith('steam-account:')) {
+      providerIds.add(identity.slice('steam-account:'.length));
+      providerIds.add(getCanonicalSteamId(value));
+    }
+  }
+
+  return [...providerIds];
+}
+
+export function getRelatedPlayerIds(
+  players: Array<{ id: number; data_provider_id: string | null }>,
+): Map<number, number[]> {
+  const idsByIdentity = new Map<string, number[]>();
+
+  for (const player of players) {
+    for (const identity of getPlayerIdentityKeys(player.data_provider_id)) {
+      const ids = idsByIdentity.get(identity) ?? [];
+      ids.push(player.id);
+      idsByIdentity.set(identity, ids);
+    }
+  }
+
+  const relatedIdsByPlayerId = new Map<number, number[]>();
+  for (const player of players) {
+    const relatedIds = new Set<number>([player.id]);
+    for (const identity of getPlayerIdentityKeys(player.data_provider_id)) {
+      (idsByIdentity.get(identity) ?? []).forEach((id) => relatedIds.add(id));
+    }
+    relatedIdsByPlayerId.set(player.id, [...relatedIds]);
+  }
+
+  return relatedIdsByPlayerId;
+}
+
 export function getCanonicalSteamId(value: string): string {
   const identity = normalizePlayerIdentity(value);
   if (!identity?.startsWith('steam-account:')) return value.trim();

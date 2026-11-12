@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase';
 import { withApiTelemetry } from '@/lib/api-telemetry';
 import { getTeamDisplayTag } from '@/lib/team-tag';
+import { getPlayerIdentityKeys } from '@/lib/jobs/player-identity';
 
 
 interface RouteContext {
@@ -198,7 +199,7 @@ async function getHandler(request: NextRequest, context: RouteContext) {
       .select(`
         *,
         hero_name,
-        professional_players(id, name, in_game_name, primary_role, profile_image_url)
+      professional_players(id, name, in_game_name, primary_role, profile_image_url, data_provider_id)
       `)
       .eq('match_id', matchId)
       .order('team_id', { ascending: true });
@@ -268,15 +269,53 @@ async function getHandler(request: NextRequest, context: RouteContext) {
               .eq('gameweek_id', matchRecord.gameweek_id)
               .maybeSingle();
 
-            // Find squad members
-            const { data: squadMembers } = await supabase
-              .from('fantasy_squad_members')
-              .select('player_id, removed_date')
-              .eq('fantasy_season_id', fantasySeason.id);
+            // Squad members link to the squad, not directly to the fantasy season.
+            const { data: squad, error: squadError } = await supabase
+              .from('fantasy_squads')
+              .select('id')
+              .eq('fantasy_season_id', fantasySeason.id)
+              .maybeSingle();
+            if (squadError) throw squadError;
+
+            // Find active squad members
+            const { data: squadMembers, error: membersError } = squad?.id
+              ? await supabase
+                .from('fantasy_squad_members')
+                .select('player_id, removed_date')
+                .eq('squad_id', squad.id)
+              : { data: [], error: null };
+            if (membersError) throw membersError;
 
             const ownedIds = (squadMembers ?? [])
               .filter((member: { removed_date: string | null }) => !member.removed_date)
               .map((member: { player_id: number }) => member.player_id);
+            const { data: ownedPlayers, error: ownedPlayersError } = ownedIds.length > 0
+              ? await supabase
+                .from('professional_players')
+                .select('id, data_provider_id')
+                .in('id', ownedIds)
+              : { data: [], error: null };
+            if (ownedPlayersError) throw ownedPlayersError;
+
+            const identityByOwnedId = new Map<number, string[]>(
+              (ownedPlayers ?? []).map((player: { id: number; data_provider_id: string | null }) => [
+                player.id,
+                getPlayerIdentityKeys(player.data_provider_id),
+              ]),
+            );
+            const matchPlayerIdByIdentity = new Map<string, number>();
+            for (const stat of playerStats ?? []) {
+              const providerId = stat.professional_players?.data_provider_id;
+              for (const identity of getPlayerIdentityKeys(providerId)) {
+                if (!matchPlayerIdByIdentity.has(identity)) {
+                  matchPlayerIdByIdentity.set(identity, Number(stat.player_id));
+                }
+              }
+            }
+            const matchedOwnedPlayerIds = ownedIds.flatMap((playerId: number) => (
+              identityByOwnedId.get(playerId) ?? []
+            )).map((identity: string) => matchPlayerIdByIdentity.get(identity))
+              .filter((playerId: number | undefined): playerId is number => playerId !== undefined);
 
             const lineupDetails: Array<{
               playerId: number;
@@ -325,15 +364,20 @@ async function getHandler(request: NextRequest, context: RouteContext) {
             }
 
             userFantasyImpact = {
-              userOwnedPlayerIds: ownedIds,
+              userOwnedPlayerIds: [...new Set([...ownedIds, ...matchedOwnedPlayerIds])],
               tripleCaptainActive: fantasySeason.triple_captain_gameweek_id === matchRecord.gameweek_id,
-              lineupDetails,
+              lineupDetails: lineupDetails.map((detail) => {
+                const matchPlayerId = (identityByOwnedId.get(detail.playerId) ?? [])
+                  .map((identity) => matchPlayerIdByIdentity.get(identity))
+                  .find((playerId): playerId is number => playerId !== undefined);
+                return matchPlayerId === undefined ? detail : { ...detail, playerId: matchPlayerId };
+              }),
             };
           }
         }
       }
-    } catch {
-      // Gracefully ignore auth or lookup errors for unauthenticated/unrelated callers
+    } catch (error) {
+      console.warn('Failed to load match fantasy impact:', error);
     }
 
     return NextResponse.json({

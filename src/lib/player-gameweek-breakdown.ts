@@ -29,36 +29,40 @@ export interface PlayerGameweekBreakdownRow {
 
 export function aggregatePlayerGameweekBreakdowns(
   rows: PlayerGameweekBreakdownRow[],
+  relatedPlayerIds: Map<number, number[]> = new Map(),
 ): Map<number, PlayerGameweekBreakdown> {
   const totals = new Map<number, PlayerGameweekBreakdown>();
 
   for (const row of rows) {
     if (!row.fantasy_points_breakdown) continue;
     const breakdown = row.fantasy_points_breakdown;
-    const current = totals.get(row.player_id) ?? {
-      combat: 0,
-      economy: 0,
-      objective: 0,
-      teamfight: 0,
-      win: 0,
-      series: 0,
-      performance: 0,
-      consistency: 0,
-      penalty: 0,
-      total: 0,
-    };
+    const playerIds = relatedPlayerIds.get(row.player_id) ?? [row.player_id];
+    for (const playerId of playerIds) {
+      const current = totals.get(playerId) ?? {
+        combat: 0,
+        economy: 0,
+        objective: 0,
+        teamfight: 0,
+        win: 0,
+        series: 0,
+        performance: 0,
+        consistency: 0,
+        penalty: 0,
+        total: 0,
+      };
 
-    current.combat += Number(breakdown.combat_points ?? 0);
-    current.economy += Number(breakdown.economy_points ?? 0);
-    current.objective += Number(breakdown.objective_points ?? 0);
-    current.teamfight += Number(breakdown.teamfight_points ?? 0);
-    current.win += Number(breakdown.win_points ?? 0);
-    current.series += Number(breakdown.series_points ?? 0);
-    current.performance += Number(breakdown.performance_index_points ?? 0);
-    current.consistency += Number(breakdown.consistency_points ?? 0);
-    current.penalty -= Number(breakdown.penalty_points ?? 0);
-    current.total += Number(breakdown.total_points ?? 0);
-    totals.set(row.player_id, current);
+      current.combat += Number(breakdown.combat_points ?? 0);
+      current.economy += Number(breakdown.economy_points ?? 0);
+      current.objective += Number(breakdown.objective_points ?? 0);
+      current.teamfight += Number(breakdown.teamfight_points ?? 0);
+      current.win += Number(breakdown.win_points ?? 0);
+      current.series += Number(breakdown.series_points ?? 0);
+      current.performance += Number(breakdown.performance_index_points ?? 0);
+      current.consistency += Number(breakdown.consistency_points ?? 0);
+      current.penalty -= Number(breakdown.penalty_points ?? 0);
+      current.total += Number(breakdown.total_points ?? 0);
+      totals.set(playerId, current);
+    }
   }
 
   return totals;

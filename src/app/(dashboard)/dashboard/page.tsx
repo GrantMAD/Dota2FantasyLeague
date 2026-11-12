@@ -2,6 +2,7 @@ import { cookies } from 'next/headers';
 import { supabaseServer } from '@/lib/supabase';
 import { getOrCreateFantasySeason } from '@/lib/fantasy-season';
 import { aggregatePlayerGameweekBreakdowns } from '@/lib/player-gameweek-breakdown';
+import { getEquivalentProviderIds, getRelatedPlayerIds } from '@/lib/jobs/player-identity';
 import { getGameweekMatchProgress } from '@/lib/dashboard/gameweek-match-progress';
 import { fetchGameweekTournaments } from '@/lib/dashboard/gameweek-tournaments';
 import type { DashboardData } from '@/types/fantasy';
@@ -58,6 +59,7 @@ async function fetchDashboardData(userId: string): Promise<DashboardData | null>
       primary_role: string;
       profile_image_url: string | null;
       team_id: number | null;
+      data_provider_id: string | null;
       professional_teams: { name: string } | null;
     };
 
@@ -185,7 +187,7 @@ async function fetchDashboardData(userId: string): Promise<DashboardData | null>
       allDetailPlayerIds.length > 0
         ? (supabase
             .from('professional_players')
-            .select('id, name, in_game_name, primary_role, profile_image_url, team_id, professional_teams(name)')
+            .select('id, name, in_game_name, primary_role, profile_image_url, team_id, data_provider_id, professional_teams(name)')
             .in('id', allDetailPlayerIds) as unknown as Promise<{ data: StarterQueryPlayer[] | null }>)
         : Promise.resolve({ data: [] }),
     ]);
@@ -199,6 +201,23 @@ async function fetchDashboardData(userId: string): Promise<DashboardData | null>
 
     const squadValue = squadPlayerIds.reduce((total, playerId) => total + (latestPrices.get(playerId) ?? 0), 0);
     const playerMap = new Map((playersRes.data ?? []).map((p) => [p.id, p]));
+    const starterProviderIds = starterIds
+      .map((id) => playerMap.get(id)?.data_provider_id ?? null);
+    const equivalentProviderIds = getEquivalentProviderIds(...starterProviderIds);
+    const { data: relatedPlayers } = equivalentProviderIds.length > 0
+      ? await supabase
+        .from('professional_players')
+        .select('id, data_provider_id')
+        .in('data_provider_id', equivalentProviderIds)
+      : { data: [] };
+    const relatedPlayerIds = getRelatedPlayerIds([
+      ...(playersRes.data ?? []).map((player) => ({
+        id: player.id,
+        data_provider_id: player.data_provider_id,
+      })),
+      ...((relatedPlayers ?? []) as Array<{ id: number; data_provider_id: string | null }>),
+    ]);
+    const performancePlayerIds = [...new Set(starterIds.flatMap((id) => relatedPlayerIds.get(id) ?? [id]))];
 
     let captain: { name: string; primary_role: string } | null = null;
     let viceCaptain: { name: string; primary_role: string } | null = null;
@@ -268,7 +287,6 @@ async function fetchDashboardData(userId: string): Promise<DashboardData | null>
         error: { message: string } | null;
       };
 
-      const starterPlayerIds = starterObjects.map((s) => s!.id);
       const previousGameweek =
         previousClosedGameweek && gameweek && previousClosedGameweek.id !== gameweek.id
           ? previousClosedGameweek
@@ -281,7 +299,7 @@ async function fetchDashboardData(userId: string): Promise<DashboardData | null>
               'player_id, fantasy_points_breakdown(combat_points, economy_points, objective_points, teamfight_points, win_points, series_points, performance_index_points, consistency_points, penalty_points, total_points)'
             )
             .eq('gameweek_id', gameweek.id)
-            .in('player_id', starterPlayerIds) as unknown as Promise<PerformanceQueryResult<BreakdownRow>>)
+            .in('player_id', performancePlayerIds) as unknown as Promise<PerformanceQueryResult<BreakdownRow>>)
         : Promise.resolve({ data: null, error: null });
 
       const prevPerfPromise: Promise<PerformanceQueryResult<PrevPerfRow>> = previousGameweek
@@ -289,13 +307,16 @@ async function fetchDashboardData(userId: string): Promise<DashboardData | null>
             .from('player_performances')
             .select('player_id, fantasy_points_breakdown(total_points)')
             .eq('gameweek_id', previousGameweek.id)
-            .in('player_id', starterPlayerIds) as unknown as Promise<PerformanceQueryResult<PrevPerfRow>>)
+            .in('player_id', performancePlayerIds) as unknown as Promise<PerformanceQueryResult<PrevPerfRow>>)
         : Promise.resolve({ data: null, error: null });
 
       const [currentPerfRes, prevPerfRes] = await Promise.all([currentPerfPromise, prevPerfPromise]);
 
       if (currentPerfRes.data && Array.isArray(currentPerfRes.data)) {
-        const breakdownMap = aggregatePlayerGameweekBreakdowns(currentPerfRes.data as BreakdownRow[]);
+        const breakdownMap = aggregatePlayerGameweekBreakdowns(
+          currentPerfRes.data as BreakdownRow[],
+          relatedPlayerIds,
+        );
         starterObjects.forEach((starter) => {
           if (!starter) return;
           const bd = breakdownMap.get(starter.id);
@@ -322,7 +343,9 @@ async function fetchDashboardData(userId: string): Promise<DashboardData | null>
         for (const row of prevPerfRes.data as PrevPerfRow[]) {
           const pts = row.fantasy_points_breakdown?.total_points;
           if (pts != null) {
-            prevTotals.set(row.player_id, (prevTotals.get(row.player_id) ?? 0) + pts);
+            for (const playerId of relatedPlayerIds.get(row.player_id) ?? [row.player_id]) {
+              prevTotals.set(playerId, (prevTotals.get(playerId) ?? 0) + pts);
+            }
           }
         }
         starterObjects.forEach((starter) => {

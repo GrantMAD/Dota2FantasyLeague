@@ -191,6 +191,7 @@ describe('GET /api/matches/[id]', () => {
       winner_team_id: 1,
     };
     let matchesLookupCount = 0;
+    let squadMembersEq: jest.Mock | null = null;
     jest.mocked(verifyAuth).mockResolvedValue({ userId: 'manager-1' } as Awaited<ReturnType<typeof verifyAuth>>);
     mockSupabaseServer.mockReturnValue({
       from: jest.fn((table: string) => {
@@ -241,9 +242,40 @@ describe('GET /api/matches/[id]', () => {
             },
             error: null,
           });
+        } else if (table === 'fantasy_squads') {
+          query.maybeSingle = jest.fn().mockResolvedValue({
+            data: { id: 25 },
+            error: null,
+          });
         } else if (table === 'fantasy_squad_members') {
+          squadMembersEq = query.eq as jest.Mock;
           query.then = (resolve: (val: unknown) => unknown) =>
             resolve({ data: [{ player_id: 10 }], error: null });
+        } else if (table === 'professional_players') {
+          query.then = (resolve: (val: unknown) => unknown) =>
+            resolve({
+              data: [{ id: 10, data_provider_id: '847565596' }],
+              error: null,
+            });
+        } else if (table === 'match_player_stats') {
+          query.then = (resolve: (val: unknown) => unknown) =>
+            resolve({
+              data: [{
+                id: 50,
+                player_id: 20,
+                team_id: 1,
+                kills: 1,
+                deaths: 0,
+                assists: 2,
+                professional_players: {
+                  id: 20,
+                  name: 'rue',
+                  in_game_name: 'rue',
+                  data_provider_id: '76561198807831324',
+                },
+              }],
+              error: null,
+            });
         } else {
           query.then = (resolve: (val: unknown) => unknown) => resolve({ data: [], error: null });
           query.maybeSingle = jest.fn().mockResolvedValue({ data: null, error: null });
@@ -261,8 +293,10 @@ describe('GET /api/matches/[id]', () => {
     expect(response.status).toBe(200);
     expect(body.userFantasyImpact.tripleCaptainActive).toBe(true);
     expect(body.userFantasyImpact.lineupDetails[0]).toMatchObject({
-      playerId: 10,
+      playerId: 20,
       isCaptain: true,
     });
+    expect(body.userFantasyImpact.userOwnedPlayerIds).toEqual([10, 20]);
+    expect(squadMembersEq).toHaveBeenCalledWith('squad_id', 25);
   });
 });

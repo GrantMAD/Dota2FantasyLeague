@@ -1,13 +1,41 @@
 /// <reference types="jest" />
 
 import { createClient } from '@supabase/supabase-js';
-import { recalculateGameweeks } from '../recalculate-gameweeks';
+import { getLatestGameweekPoints, recalculateGameweeks } from '../recalculate-gameweeks';
 
 jest.mock('@supabase/supabase-js', () => ({
   createClient: jest.fn(),
 }));
 
 describe('Recalculate gameweeks job', () => {
+  it('uses the latest active or closed gameweek instead of a future lineup', () => {
+    expect(getLatestGameweekPoints(
+      [
+        { gameweek_id: 3, total_points: 6157.95 },
+        { gameweek_id: 5, total_points: 241.46 },
+        { gameweek_id: 12, total_points: 0 },
+      ],
+      [
+        { id: 3, status: 'closed' },
+        { id: 5, status: 'active' },
+        { id: 12, status: 'upcoming' },
+      ],
+    )).toBe(241.46);
+  });
+
+  it('falls back to the latest closed gameweek when none is active', () => {
+    expect(getLatestGameweekPoints(
+      [
+        { gameweek_id: 3, total_points: 6157.95 },
+        { gameweek_id: 12, total_points: 0 },
+      ],
+      [
+        { id: 3, status: 'closed' },
+        { id: 12, status: 'upcoming' },
+      ],
+    )).toBe(6157.95);
+  });
+
   it('does not overwrite season-wide global ranks while recalculating a closed gameweek', async () => {
     const updates: Array<{ table: string; values: Record<string, unknown> }> = [];
     const lineup = {

@@ -93,6 +93,44 @@ interface FantasyPointsBreakdownInsert {
   penalty_points: number;
 }
 
+interface PerformanceScoreStatusRow {
+  match_id: number;
+  fantasy_points_breakdown: { id: number } | { id: number }[] | null;
+}
+
+export function findMatchesNeedingScores(
+  matches: Pick<Match, 'id'>[],
+  stats: Pick<MatchPlayerStats, 'match_id'>[],
+  performances: PerformanceScoreStatusRow[],
+  limit: number,
+): number[] {
+  const matchIdsWithStats = new Set(stats.map((row) => row.match_id));
+  const performanceRowsByMatch = new Map<number, PerformanceScoreStatusRow[]>();
+
+  for (const performance of performances) {
+    const rows = performanceRowsByMatch.get(performance.match_id) ?? [];
+    rows.push(performance);
+    performanceRowsByMatch.set(performance.match_id, rows);
+  }
+
+  const pendingMatchIds: number[] = [];
+  for (const match of matches) {
+    if (!matchIdsWithStats.has(match.id)) continue;
+    const matchPerformances = performanceRowsByMatch.get(match.id) ?? [];
+    const hasMissingBreakdown = matchPerformances.length === 0 || matchPerformances.some((row) => {
+      const breakdown = row.fantasy_points_breakdown;
+      return Array.isArray(breakdown) ? breakdown.length === 0 : breakdown === null;
+    });
+
+    if (hasMissingBreakdown) {
+      pendingMatchIds.push(match.id);
+      if (pendingMatchIds.length > limit) break;
+    }
+  }
+
+  return pendingMatchIds;
+}
+
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
@@ -385,15 +423,52 @@ export class FantasyScoreCalculator {
         return result;
       }
 
-      // Apply matchLimit for chunked execution within Vercel's limits (default 15)
+      // Score only matches with player stats and at least one missing performance breakdown.
       const matchLimit = options.matchLimit ?? 15;
-      let matchesToProcess = matches;
-      if (matches.length > matchLimit) {
-        matchesToProcess = matches.slice(0, matchLimit);
-        result.hasMore = true;
-        console.log(
-          `[CalculateScores] matchLimit=${matchLimit}: processing ${matchesToProcess.length} of ${matches.length} matches, more remain`
+      const pendingMatches: typeof matches = [];
+      const scanBatchSize = 50;
+      for (let offset = 0; offset < matches.length && pendingMatches.length <= matchLimit; offset += scanBatchSize) {
+        const scanBatch = matches.slice(offset, offset + scanBatchSize);
+        const matchIds = scanBatch.map((match) => match.id);
+        const [statsResult, performancesResult] = await Promise.all([
+          this.supabase.from('match_player_stats').select('match_id').in('match_id', matchIds),
+          this.supabase
+            .from('player_performances')
+            .select('match_id, fantasy_points_breakdown(id)')
+            .in('match_id', matchIds),
+        ]);
+
+        if (statsResult.error) {
+          result.errors.push(`Failed to check match stats for scoring: ${statsResult.error.message}`);
+          result.duration = Date.now() - startTime;
+          return result;
+        }
+        if (performancesResult.error) {
+          result.errors.push(`Failed to check existing fantasy scores: ${performancesResult.error.message}`);
+          result.duration = Date.now() - startTime;
+          return result;
+        }
+
+        const unscoredIds = findMatchesNeedingScores(
+          scanBatch,
+          (statsResult.data ?? []) as Pick<MatchPlayerStats, 'match_id'>[],
+          (performancesResult.data ?? []) as PerformanceScoreStatusRow[],
+          matchLimit + 1 - pendingMatches.length,
         );
+        const pendingIdSet = new Set(unscoredIds);
+        pendingMatches.push(...scanBatch.filter((match) => pendingIdSet.has(match.id)));
+      }
+
+      const matchesToProcess = pendingMatches.slice(0, matchLimit);
+      result.hasMore = pendingMatches.length > matchLimit;
+      if (matchesToProcess.length === 0) {
+        console.log('No matches with unscored player performances');
+        result.success = true;
+        result.duration = Date.now() - startTime;
+        return result;
+      }
+      if (result.hasMore) {
+        console.log(`[CalculateScores] matchLimit=${matchLimit}: processing ${matchesToProcess.length} matches with more unscored matches remaining`);
       }
 
       // Get a sample season to load scoring rules

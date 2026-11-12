@@ -3,6 +3,7 @@ import { supabaseServer } from '@/lib/supabase';
 import { verifyAuth, applyRefreshedTokens, AuthError } from '@/lib/auth-utils';
 import { getOrCreateFantasySeason } from '@/lib/fantasy-season';
 import { aggregatePlayerGameweekBreakdowns } from '@/lib/player-gameweek-breakdown';
+import { getEquivalentProviderIds, getRelatedPlayerIds } from '@/lib/jobs/player-identity';
 import { withApiTelemetry } from '@/lib/api-telemetry';
 
 const PRIVATE_CACHE_HEADERS = { 'Cache-Control': 'private, no-store' };
@@ -137,6 +138,7 @@ async function getHandler(request: NextRequest) {
       primary_role: string;
       profile_image_url: string | null;
       team_id: number | null;
+      data_provider_id: string | null;
       professional_teams: { name: string } | null;
     };
 
@@ -153,7 +155,7 @@ async function getHandler(request: NextRequest) {
       allDetailPlayerIds.length > 0
         ? (supabase
             .from('professional_players')
-            .select('id, name, in_game_name, primary_role, profile_image_url, team_id, professional_teams(name)')
+            .select('id, name, in_game_name, primary_role, profile_image_url, team_id, data_provider_id, professional_teams(name)')
             .in('id', allDetailPlayerIds) as unknown as Promise<{ data: StarterQueryPlayer[] | null }>)
         : Promise.resolve({ data: [] }),
     ]);
@@ -170,6 +172,23 @@ async function getHandler(request: NextRequest) {
 
     // Build players lookup map
     const playerMap = new Map((playersRes.data ?? []).map((p) => [p.id, p]));
+    const starterProviderIds = starterIds
+      .map((id) => playerMap.get(id)?.data_provider_id ?? null);
+    const equivalentProviderIds = getEquivalentProviderIds(...starterProviderIds);
+    const { data: relatedPlayers } = equivalentProviderIds.length > 0
+      ? await supabase
+        .from('professional_players')
+        .select('id, data_provider_id')
+        .in('data_provider_id', equivalentProviderIds)
+      : { data: [] };
+    const relatedPlayerIds = getRelatedPlayerIds([
+      ...(playersRes.data ?? []).map((player) => ({
+        id: player.id,
+        data_provider_id: player.data_provider_id,
+      })),
+      ...((relatedPlayers ?? []) as Array<{ id: number; data_provider_id: string | null }>),
+    ]);
+    const performancePlayerIds = [...new Set(starterIds.flatMap((id) => relatedPlayerIds.get(id) ?? [id]))];
 
     // Resolve captain and vice-captain from playerMap
     let captain: { name: string; primary_role: string } | null = null;
@@ -241,7 +260,6 @@ async function getHandler(request: NextRequest) {
         error: { message: string } | null;
       };
 
-      const starterPlayerIds = starterObjects.map((s) => s!.id);
       const previousGameweek = previousClosedGameweek && gameweek && previousClosedGameweek.id !== gameweek.id
         ? previousClosedGameweek
         : null;
@@ -251,14 +269,14 @@ async function getHandler(request: NextRequest) {
             .from('player_performances')
             .select('player_id, fantasy_points_breakdown(combat_points, economy_points, objective_points, teamfight_points, win_points, series_points, performance_index_points, consistency_points, penalty_points, total_points)')
             .eq('gameweek_id', gameweek.id)
-            .in('player_id', starterPlayerIds) as unknown as Promise<PerformanceQueryResult<BreakdownRow>>)
+            .in('player_id', performancePlayerIds) as unknown as Promise<PerformanceQueryResult<BreakdownRow>>)
         : Promise.resolve({ data: null, error: null });
       const previousPerformancesPromise: Promise<PerformanceQueryResult<PrevPerfRow>> = previousGameweek
         ? (supabase
             .from('player_performances')
             .select('player_id, fantasy_points_breakdown(total_points)')
             .eq('gameweek_id', previousGameweek.id)
-            .in('player_id', starterPlayerIds) as unknown as Promise<PerformanceQueryResult<PrevPerfRow>>)
+            .in('player_id', performancePlayerIds) as unknown as Promise<PerformanceQueryResult<PrevPerfRow>>)
         : Promise.resolve({ data: null, error: null });
       const [currentPerformancesRes, previousPerformancesRes] = await Promise.all([
         currentPerformancesPromise,
@@ -273,7 +291,10 @@ async function getHandler(request: NextRequest) {
       }
 
       if (perfRows && Array.isArray(perfRows)) {
-        const breakdownMap = aggregatePlayerGameweekBreakdowns(perfRows as BreakdownRow[]);
+        const breakdownMap = aggregatePlayerGameweekBreakdowns(
+          perfRows as BreakdownRow[],
+          relatedPlayerIds,
+        );
 
         starterObjects.forEach((starter) => {
           if (!starter) return;
@@ -301,7 +322,9 @@ async function getHandler(request: NextRequest) {
         for (const row of prevPerfRows as PrevPerfRow[]) {
           const pts = row.fantasy_points_breakdown?.total_points;
           if (pts != null) {
-            prevTotals.set(row.player_id, (prevTotals.get(row.player_id) ?? 0) + pts);
+            for (const playerId of relatedPlayerIds.get(row.player_id) ?? [row.player_id]) {
+              prevTotals.set(playerId, (prevTotals.get(playerId) ?? 0) + pts);
+            }
           }
         }
         starterObjects.forEach((starter) => {
