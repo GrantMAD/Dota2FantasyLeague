@@ -76,13 +76,17 @@ class RecalculateGameweeks {
   }
 
   /**
-   * Calculate lineup total points for a specific lineup
-   * Applies captain multiplier and aggregates all player scores
+   * Pure in-memory calculation of lineup total points from pre-fetched gameweek maps.
+   * Completely avoids N+1 database queries per lineup.
    */
-  private async calculateLineupTotal(lineup: Lineup): Promise<number> {
+  private computeLineupTotalInMemory(
+    lineup: Lineup,
+    playersWhoPlayed: Set<number>,
+    benchPlayerRoles: Map<number, string>,
+    playerPointsMap: Map<number, number>,
+  ): number {
     let totalPoints = 0;
 
-    // Separate starters from bench players
     const starterSlots = [
       { id: lineup.carry_id, role: 'Carry' },
       { id: lineup.mid_id, role: 'Mid' },
@@ -90,50 +94,25 @@ class RecalculateGameweeks {
       { id: lineup.support_id, role: 'Support' },
       { id: lineup.hard_support_id, role: 'Hard Support' },
     ];
-    
-    const starterIds = starterSlots.map(s => s.id).filter((id) => id !== null) as number[];
 
+    const starterIds = starterSlots.map(s => s.id).filter((id): id is number => id !== null);
     const benchIds = [
       lineup.bench_1_id,
       lineup.bench_2_id,
       lineup.bench_3_id,
-    ].filter((id) => id !== null) as number[];
-    
+    ].filter((id): id is number => id !== null);
+
     const allIds = [...starterIds, ...benchIds];
     if (allIds.length === 0) return 0;
 
-    // Fetch player performances to see who actually played matches in this gameweek
-    const { data: rawPerformances } = await this.supabase
-      .from('player_performances')
-      .select('player_id')
-      .eq('gameweek_id', lineup.gameweek_id)
-      .in('player_id', allIds);
-    const performances = (rawPerformances ?? []) as PlayerParticipationRow[];
-
-    const playersWhoPlayed = new Set<number>();
-    performances.forEach((performance) => playersWhoPlayed.add(performance.player_id));
-    
-    // Fetch bench player roles for substitutions
-    const { data: benchPlayersData } = await this.supabase
-      .from('professional_players')
-      .select('id, primary_role')
-      .in('id', benchIds);
-      
-    const benchPlayerRoles = new Map<number, string>();
-    (benchPlayersData ?? []).forEach((p: BenchPlayerRoleRow) => {
-      benchPlayerRoles.set(p.id, p.primary_role);
-    });
-
-    // Auto-bench substitution logic
     const activeStarters: number[] = [];
     const usedBench = new Set<number>();
     const availableBench = benchIds.filter(id => playersWhoPlayed.has(id));
 
     starterSlots.forEach(slot => {
       if (slot.id === null) return;
-      
+
       if (!playersWhoPlayed.has(slot.id)) {
-        // Starter didn't play, find first eligible bench player with the matching role
         const subId = availableBench.find(
           bId => !usedBench.has(bId) && benchPlayerRoles.get(bId) === slot.role
         );
@@ -146,48 +125,28 @@ class RecalculateGameweeks {
       }
     });
 
-    // Bench players only score if Bench Boost chip is active this gameweek
     const isBenchBoostActive = lineup.bench_boost_gameweek_id === lineup.gameweek_id;
     const finalScoringIds = isBenchBoostActive ? allIds : activeStarters;
 
     if (finalScoringIds.length === 0) return 0;
 
-    // Get fantasy points for all relevant players in this gameweek
-    const { data: rawPerfsWithPoints } = await this.supabase
-      .from('player_performances')
-      .select('player_id, fantasy_points_breakdown(total_points)')
-      .eq('gameweek_id', lineup.gameweek_id)
-      .in('player_id', finalScoringIds);
-    const perfsWithPoints = (rawPerfsWithPoints ?? []) as PlayerPointsRow[];
-
-    const playerPointsMap = new Map<number, number>();
-    perfsWithPoints.forEach((row) => {
-      const pts = Number(row.fantasy_points_breakdown?.total_points ?? 0);
-      const current = playerPointsMap.get(row.player_id) || 0;
-      playerPointsMap.set(row.player_id, current + pts);
-    });
-
     const captainPlayed = playersWhoPlayed.has(lineup.captain_player_id);
 
-    // Sum points for each scoring player, applying captain multiplier
     finalScoringIds.forEach((playerId) => {
       let playerScore = playerPointsMap.get(playerId) || 0;
 
-      // Apply Triple Captain or normal Captain multiplier
       if (playerId === lineup.captain_player_id) {
         if (lineup.triple_captain_gameweek_id === lineup.gameweek_id) {
-          playerScore *= 3.0; // Triple captain
+          playerScore *= 3.0;
         } else {
-          playerScore *= 2.0; // Normal captain
+          playerScore *= 2.0;
         }
-      }
-      // Apply vice-captain multiplier (1x unless captain didn't play)
-      else if (playerId === lineup.vice_captain_player_id) {
+      } else if (playerId === lineup.vice_captain_player_id) {
         if (!captainPlayed) {
           if (lineup.triple_captain_gameweek_id === lineup.gameweek_id) {
-            playerScore *= 3.0; // Vice-captain becomes triple captain if captain didn't play
+            playerScore *= 3.0;
           } else {
-            playerScore *= 2.0; // Vice-captain becomes captain if captain didn't play
+            playerScore *= 2.0;
           }
         }
       }
@@ -196,6 +155,43 @@ class RecalculateGameweeks {
     });
 
     return Math.round(totalPoints * 100) / 100;
+  }
+
+  /**
+   * Calculate lineup total points for a specific lineup (standalone calculation)
+   */
+  private async calculateLineupTotal(lineup: Lineup): Promise<number> {
+    const starterSlots = [
+      { id: lineup.carry_id, role: 'Carry' },
+      { id: lineup.mid_id, role: 'Mid' },
+      { id: lineup.offlane_id, role: 'Offlane' },
+      { id: lineup.support_id, role: 'Support' },
+      { id: lineup.hard_support_id, role: 'Hard Support' },
+    ];
+    const starterIds = starterSlots.map(s => s.id).filter((id) => id !== null) as number[];
+    const benchIds = [lineup.bench_1_id, lineup.bench_2_id, lineup.bench_3_id].filter((id) => id !== null) as number[];
+    const allIds = [...starterIds, ...benchIds];
+    if (allIds.length === 0) return 0;
+
+    const [perfsRes, benchRolesRes] = await Promise.all([
+      this.supabase.from('player_performances').select('player_id, fantasy_points_breakdown(total_points)').eq('gameweek_id', lineup.gameweek_id).in('player_id', allIds),
+      this.supabase.from('professional_players').select('id, primary_role').in('id', benchIds),
+    ]);
+
+    const playersWhoPlayed = new Set<number>();
+    const playerPointsMap = new Map<number, number>();
+    ((perfsRes.data ?? []) as PlayerPointsRow[]).forEach((row) => {
+      playersWhoPlayed.add(row.player_id);
+      const pts = Number(row.fantasy_points_breakdown?.total_points ?? 0);
+      playerPointsMap.set(row.player_id, (playerPointsMap.get(row.player_id) || 0) + pts);
+    });
+
+    const benchPlayerRoles = new Map<number, string>();
+    ((benchRolesRes.data ?? []) as BenchPlayerRoleRow[]).forEach((p) => {
+      benchPlayerRoles.set(p.id, p.primary_role);
+    });
+
+    return this.computeLineupTotalInMemory(lineup, playersWhoPlayed, benchPlayerRoles, playerPointsMap);
   }
 
   /**
@@ -295,9 +291,8 @@ class RecalculateGameweeks {
         }
       });
 
-      // Update fantasy_seasons with new ranks
-      let updated = 0;
-      for (const [userId, newRank] of userRanks.entries()) {
+      // Update fantasy_seasons with new ranks in parallel
+      const userRankUpdates = Array.from(userRanks.entries()).map(async ([userId, newRank]) => {
         const { error: updateError } = await (
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           this.supabase.from('fantasy_seasons') as any
@@ -305,10 +300,10 @@ class RecalculateGameweeks {
           .eq('user_id', userId)
           .eq('season_id', seasonId);
 
-        if (!updateError) updated++;
-      }
-
-      return updated;
+        return !updateError;
+      });
+      const updateOutcomes = await Promise.all(userRankUpdates);
+      return updateOutcomes.filter(Boolean).length;
     } catch (err: unknown) {
       console.error(`Error generating leaderboard for gameweek ${gameweekId}:`, err);
       return 0;
@@ -353,13 +348,30 @@ class RecalculateGameweeks {
         return result;
       }
 
-      // Apply gameweekLimit for chunked execution within Vercel's 10s limit
-      let gameweeksToProcess = gameweeks;
-      if (options.gameweekLimit && gameweeks.length > options.gameweekLimit) {
-        gameweeksToProcess = gameweeks.slice(0, options.gameweekLimit);
+      // Pre-fetch professional player roles into a memory map once
+      const { data: benchPlayersData } = await this.supabase
+        .from('professional_players')
+        .select('id, primary_role');
+      const benchPlayerRoles = new Map<number, string>();
+      (benchPlayersData ?? []).forEach((p: BenchPlayerRoleRow) => {
+        benchPlayerRoles.set(p.id, p.primary_role);
+      });
+
+      // Sort gameweeks: active first, then newest closed gameweeks
+      const sortedGameweeks = [...gameweeks].sort((a, b) => {
+        if (a.status === 'active' && b.status !== 'active') return -1;
+        if (b.status === 'active' && a.status !== 'active') return 1;
+        return b.id - a.id;
+      });
+
+      // Default to 2 gameweeks (active + latest closed) if gameweekLimit not specified
+      const gameweekLimit = options.gameweekLimit ?? 2;
+      let gameweeksToProcess = sortedGameweeks;
+      if (sortedGameweeks.length > gameweekLimit) {
+        gameweeksToProcess = sortedGameweeks.slice(0, gameweekLimit);
         result.hasMore = true;
         console.log(
-          `[recalculateGameweeks] gameweekLimit=${options.gameweekLimit}: processing ${gameweeksToProcess.length} of ${gameweeks.length} gameweeks`
+          `[recalculateGameweeks] gameweekLimit=${gameweekLimit}: processing ${gameweeksToProcess.length} of ${sortedGameweeks.length} gameweeks`
         );
       }
 
@@ -368,6 +380,22 @@ class RecalculateGameweeks {
       // Process each gameweek
       for (const gameweek of gameweeksToProcess) {
         try {
+          // Pre-fetch all player performances & points for this gameweek in 1 query
+          const { data: rawPerfsWithPoints } = await this.supabase
+            .from('player_performances')
+            .select('player_id, fantasy_points_breakdown(total_points)')
+            .eq('gameweek_id', gameweek.id);
+          const perfsWithPoints = (rawPerfsWithPoints ?? []) as PlayerPointsRow[];
+
+          const playersWhoPlayed = new Set<number>();
+          const playerPointsMap = new Map<number, number>();
+          perfsWithPoints.forEach((row) => {
+            playersWhoPlayed.add(row.player_id);
+            const pts = Number(row.fantasy_points_breakdown?.total_points ?? 0);
+            const current = playerPointsMap.get(row.player_id) || 0;
+            playerPointsMap.set(row.player_id, current + pts);
+          });
+
           // Get all lineups for this gameweek
           const { data: lineups, error: lineupsError } = await this.supabase
             .from('fantasy_lineups')
@@ -385,24 +413,45 @@ class RecalculateGameweeks {
             continue;
           }
 
-          if (!lineups) continue;
+          if (!lineups || lineups.length === 0) continue;
 
-          // Update each lineup's total points
-          for (const rawLineup of (lineups as Array<Lineup & { fantasy_seasons: { triple_captain_gameweek_id: number | null; bench_boost_gameweek_id: number | null } | null }>)) {
-            const lineup = {
-              ...rawLineup,
-              triple_captain_gameweek_id: rawLineup.fantasy_seasons?.triple_captain_gameweek_id || null,
-              bench_boost_gameweek_id: rawLineup.fantasy_seasons?.bench_boost_gameweek_id || null,
-            };
-            const updated = await this.updateLineupTotal(lineup as Lineup);
-            if (updated) {
+          // Compute and update each lineup's total points in parallel
+          const lineupUpdatePromises = (lineups as Array<Lineup & { fantasy_seasons: { triple_captain_gameweek_id: number | null; bench_boost_gameweek_id: number | null } | null }>).map(
+            async (rawLineup) => {
+              const lineup: Lineup = {
+                ...rawLineup,
+                triple_captain_gameweek_id: rawLineup.fantasy_seasons?.triple_captain_gameweek_id || null,
+                bench_boost_gameweek_id: rawLineup.fantasy_seasons?.bench_boost_gameweek_id || null,
+              };
+              const totalPoints = this.computeLineupTotalInMemory(
+                lineup,
+                playersWhoPlayed,
+                benchPlayerRoles,
+                playerPointsMap,
+              );
+
+              const { error: updateErr } = await (
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                this.supabase.from('fantasy_lineups') as any
+              ).update({ total_points: totalPoints })
+                .eq('id', lineup.id);
+
+              if (!updateErr) {
+                return lineup.fantasy_season_id;
+              }
+              return null;
+            }
+          );
+
+          const updatedSeasonIds = await Promise.all(lineupUpdatePromises);
+          for (const sId of updatedSeasonIds) {
+            if (sId) {
               result.lineupsUpdated++;
-              updatedFantasySeasons.add(lineup.fantasy_season_id);
+              updatedFantasySeasons.add(sId);
             }
           }
 
-          // Only generate leaderboard rankings for fully closed gameweeks —
-          // active gameweek rankings change every match so we skip them here.
+          // Only generate leaderboard rankings for fully closed gameweeks
           if (gameweek.status === 'closed') {
             const leaderboardsGenerated = await this.generateGameweekLeaderboard(gameweek.id, gameweek.season_id);
             result.leaderboardsGenerated += leaderboardsGenerated;
@@ -414,13 +463,12 @@ class RecalculateGameweeks {
         }
       }
 
-      // Update fantasy season totals for all affected seasons
-      for (const fantasySeasonId of updatedFantasySeasons) {
-        const updated = await this.updateFantasySeasonTotal(fantasySeasonId);
-        if (updated) {
-          result.fantasySeasonsUpdated++;
-        }
-      }
+      // Update fantasy season totals in parallel for all affected seasons
+      const seasonUpdatePromises = Array.from(updatedFantasySeasons).map(async (fantasySeasonId) => {
+        return this.updateFantasySeasonTotal(fantasySeasonId);
+      });
+      const seasonResults = await Promise.all(seasonUpdatePromises);
+      result.fantasySeasonsUpdated += seasonResults.filter(Boolean).length;
 
       result.success = true;
     } catch (err: unknown) {

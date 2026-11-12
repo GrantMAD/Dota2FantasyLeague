@@ -107,15 +107,32 @@ class SendPriceChangeNotifications {
         return result;
       }
 
-      // Apply playerLimit for chunked execution within Vercel's 10s limit
+      // Apply playerLimit for chunked execution within Vercel's limits (default 15)
+      const playerLimit = options.playerLimit ?? 15;
       let changesToProcess = priceChanges as unknown as PriceChangeRecord[];
-      if (options.playerLimit && priceChanges.length > options.playerLimit) {
-        changesToProcess = changesToProcess.slice(0, options.playerLimit);
+      if (priceChanges.length > playerLimit) {
+        changesToProcess = changesToProcess.slice(0, playerLimit);
         result.hasMore = true;
         console.log(
-          `[sendPriceChangeNotifications] playerLimit=${options.playerLimit}: processing ${changesToProcess.length} of ${priceChanges.length} price changes`
+          `[sendPriceChangeNotifications] playerLimit=${playerLimit}: processing ${changesToProcess.length} of ${priceChanges.length} price changes`
         );
       }
+
+      // Pre-fetch all price_change notifications for this gameweek in ONE query
+      const { data: rawExistingNotifs } = await this.supabase
+        .from('user_notifications')
+        .select('user_id, metadata')
+        .eq('type', 'price_change');
+
+      const notifiedUsers = new Set<string>();
+      (rawExistingNotifs ?? []).forEach((n: { user_id: string; metadata?: { player_id?: number; gameweek_id?: number } | null }) => {
+        const meta = n.metadata;
+        if (meta && meta.player_id && meta.gameweek_id === gameweek.id) {
+          notifiedUsers.add(`${n.user_id}_${meta.player_id}_${gameweek.id}`);
+        }
+      });
+
+      const notificationsToInsert: UserNotificationInsert[] = [];
 
       // 3. For each price change, notify users who own the player
       for (const pc of changesToProcess) {
@@ -150,26 +167,15 @@ class SendPriceChangeNotifications {
           const userId = joinedSeason?.user_id;
           if (!userId) continue;
 
-          // Check if already notified for this player's price change in this gameweek
-          const { data: existingNotif } = await this.supabase
-            .from('user_notifications')
-            .select('id')
-            .eq('user_id', userId)
-            .eq('type', 'price_change')
-            .contains('metadata', { player_id: pc.player_id, gameweek_id: gameweek.id })
-            .limit(1)
-            .maybeSingle();
+          const notifKey = `${userId}_${pc.player_id}_${gameweek.id}`;
+          if (notifiedUsers.has(notifKey)) continue;
+          notifiedUsers.add(notifKey);
 
-          if (existingNotif) continue;
-
-          // Create notification
+          // Queue notification for batch insert
           const title = `${playerName} Price ${isRise ? 'Rise' : 'Fall'}!`;
           const message = `${playerName}'s price has ${isRise ? 'risen' : 'fallen'} by ${changeStr}m to $${pc.price}m.`;
           
-          const notificationTable = this.supabase.from('user_notifications') as unknown as {
-            insert(values: UserNotificationInsert): PromiseLike<{ error: { message: string } | null }>;
-          };
-          const { error: insertError } = await notificationTable.insert({
+          notificationsToInsert.push({
             user_id: userId,
             type: 'price_change',
             title,
@@ -177,17 +183,24 @@ class SendPriceChangeNotifications {
             metadata: { player_id: pc.player_id, gameweek_id: gameweek.id, price_change: pc.price_change },
           });
 
-          if (insertError) {
-            result.errors.push(`Failed to insert notif for user ${userId}: ${insertError.message}`);
-            continue;
-          }
-
-          result.notificationsGenerated++;
           pushCandidates.push({
             userId,
             type: 'price_change',
             metadata: { player_id: pc.player_id, gameweek_id: gameweek.id, price_change: pc.price_change },
           });
+        }
+      }
+
+      // Insert notifications
+      for (const notif of notificationsToInsert) {
+        const notificationTable = this.supabase.from('user_notifications') as unknown as {
+          insert(values: UserNotificationInsert): PromiseLike<{ error: { message: string } | null }>;
+        };
+        const { error: insertError } = await notificationTable.insert(notif);
+        if (insertError) {
+          result.errors.push(`Failed to insert notif for user ${notif.user_id}: ${insertError.message}`);
+        } else {
+          result.notificationsGenerated++;
         }
       }
 

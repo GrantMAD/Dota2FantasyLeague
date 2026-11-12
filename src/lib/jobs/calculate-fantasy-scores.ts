@@ -385,13 +385,14 @@ export class FantasyScoreCalculator {
         return result;
       }
 
-      // Apply matchLimit if set for chunked execution within Vercel's 10s limit
+      // Apply matchLimit for chunked execution within Vercel's limits (default 15)
+      const matchLimit = options.matchLimit ?? 15;
       let matchesToProcess = matches;
-      if (options.matchLimit && matches.length > options.matchLimit) {
-        matchesToProcess = matches.slice(0, options.matchLimit);
+      if (matches.length > matchLimit) {
+        matchesToProcess = matches.slice(0, matchLimit);
         result.hasMore = true;
         console.log(
-          `[CalculateScores] matchLimit=${options.matchLimit}: processing ${matchesToProcess.length} of ${matches.length} matches, more remain`
+          `[CalculateScores] matchLimit=${matchLimit}: processing ${matchesToProcess.length} of ${matches.length} matches, more remain`
         );
       }
 

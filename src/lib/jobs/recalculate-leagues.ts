@@ -426,8 +426,9 @@ class RecalculateLeagues {
         }
       }
 
-      // Calculate results for closed H2H gameweeks
-      for (const closedGw of closedGameweeks) {
+      // Calculate results for the most recent closed H2H gameweek (historical ones are already finalized)
+      const targetClosedGws = closedGameweeks.slice(-1);
+      for (const closedGw of targetClosedGws) {
           const calculated = await this.calculateH2HResults(closedGw.id);
           result.h2hResultsCalculated += calculated;
       }

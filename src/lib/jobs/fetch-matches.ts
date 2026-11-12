@@ -99,13 +99,14 @@ export async function fetchMatches(options: { tournamentLimit?: number } = {}): 
         `ignoring ${eligibleTournaments.length - activeTournaments.length} previously discovered tournaments outside professional STRATZ tiers`
       );
 
-      // Apply tournamentLimit for chunked execution within Vercel's 10s limit
+      // Apply tournamentLimit for chunked execution within Vercel's limits (default 4)
+      const tournamentLimit = options.tournamentLimit ?? 4;
       let tournamentsToProcess = activeTournaments;
-      if (options.tournamentLimit && activeTournaments.length > options.tournamentLimit) {
-        tournamentsToProcess = activeTournaments.slice(0, options.tournamentLimit);
+      if (activeTournaments.length > tournamentLimit) {
+        tournamentsToProcess = activeTournaments.slice(0, tournamentLimit);
         result.hasMore = true;
         console.log(
-          `[fetchMatches] tournamentLimit=${options.tournamentLimit}: processing ${tournamentsToProcess.length} of ${activeTournaments.length} tournaments`
+          `[fetchMatches] tournamentLimit=${tournamentLimit}: processing ${tournamentsToProcess.length} of ${activeTournaments.length} tournaments`
         );
       }
 
