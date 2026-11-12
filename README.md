@@ -1,82 +1,56 @@
-﻿# Fantasy Dota 2
+# Dota 2 Fantasy League - Web App
 
-A Next.js fantasy esports application for building Dota 2 squads, tracking player performance, managing gameweeks, and competing in leagues.
+The web app is the full-featured platform for playing fantasy Dota 2. Build a roster of professional players, manage your team through gameweeks, compete in leagues, and follow player and tournament data.
 
-## Tech Stack
+For the complete product and implementation details, see the [Web App description](<../Documents/Web App/App Description/APP_DESCRIPTION.md>).
 
-- Next.js 16
-- React 19
-- TypeScript
-- Tailwind CSS
-- Supabase
+## What you can do
 
-## Local Development
+- **Manage a fantasy team:** pick players within your budget, set your lineup and captain, make transfers, and use gameweek chips.
+- **Compete:** join or create leagues, follow standings and rankings, and compare your results with other managers.
+- **Follow Dota 2:** explore tournaments, teams, players, fixtures, and match results, with fantasy points calculated from professional match data.
+- **Track performance:** review your dashboard, gameweek scores, player statistics, rankings, and other fantasy insights.
+- **Stay up to date:** receive in-app updates and notifications about deadlines, player availability, price changes, and rank changes.
+- **Use the support and community features:** access account and help pages, report issues, and participate in available social features.
+- **Operate the platform:** authorized administrators have tools for managing data, jobs, users, and operational activity.
 
-1. Install dependencies
+## Technology and security
 
-   npm install
+- Next.js 16, React 19, TypeScript, and Tailwind CSS.
+- Supabase provides PostgreSQL storage, authentication, and row-level security.
+- Dota 2 data is integrated from external providers, including OpenDota and STRATZ.
+- Server-side API routes and scheduled jobs handle protected operations and data processing.
 
-2. Create your local environment file
+Keep Supabase service-role credentials and other private provider keys on the server. Never expose them in browser code or commit them to the repository. The public Supabase anon key is intended for client use with the project's row-level security policies in place.
 
-   Copy .env.local from the real project values or use the local keys already configured for this workspace.
+## Run locally
 
-3. Start the app
+Use a supported Node.js version and npm. From this directory:
 
-   npm run dev
+```bash
+npm ci
+npm run dev
+```
 
-4. Open the app in the browser
+Create `.env.local` in this directory and configure the Supabase variables used by the app: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, and `SUPABASE_SERVICE_ROLE_KEY`. Add provider variables such as `STRATZ_API_KEY` when needed for the data features you are running. Keep service-role and provider keys server-side; never expose or commit them.
 
-   http://localhost:3000
+Open [http://localhost:3000](http://localhost:3000).
 
-## Useful Commands
+## Useful commands
 
-- npm run dev
-- npm run build
-- npm run lint
-- npm test (runs the complete Jest unit and security suite)
-- npm run test:e2e (runs the separate Playwright end-to-end suite)
+| Command | Purpose |
+| --- | --- |
+| `npm run dev` | Start the local development server |
+| `npm run build` | Create a production build |
+| `npm run lint` | Run ESLint |
+| `npm test` | Run the Jest test suite |
+| `npm run test:e2e` | Run the Playwright end-to-end tests |
 
-## Environment Variables
+## Project layout
 
-Required local variables:
+- `src/app/` — pages, layouts, and API routes
+- `src/components/` — shared and page-specific UI
+- `src/lib/` — application services, data access, and business logic
+- `public/` — static assets
 
-- NEXT_PUBLIC_SUPABASE_URL
-- NEXT_PUBLIC_SUPABASE_ANON_KEY
-- SUPABASE_SERVICE_ROLE_KEY
-- NEXT_PUBLIC_SITE_URL (recommended; set to the canonical public origin used for authentication emails)
-
-These should stay in .env.local and must not be committed to the repository.
-The shared privileged server client requires SUPABASE_SERVICE_ROLE_KEY and fails explicitly if it is missing; it never falls back to the public anon key.
-Add `${NEXT_PUBLIC_SITE_URL}/auth/callback` to the Supabase Auth URL configuration's allowed redirect URLs. For local development, also allow `http://localhost:3000/auth/callback`.
-
-Professional data provider configuration:
-
-- `NEXT_PUBLIC_DATA_PROVIDER` defaults to `opendota`, which is also explicitly configured as the Vercel production primary.
-- STRATZ is the fallback when `ENABLE_PROVIDER_FALLBACK` is unset or not `false`; configure `STRATZ_API_KEY` to use that fallback.
-- Tournament discovery, match ingestion, and match detail retrieval use STRATZ directly, independent of the global primary/fallback setting, so provider-specific league and match IDs stay consistent. `STRATZ_API_KEY` is required while those jobs are enabled.
-- Match sync pages through STRATZ match records, live matches, and upcoming league-node fixtures. Scheduled fixture rows are reconciled to real match IDs by STRATZ series ID when match records appear; statuses are stored as `scheduled`, `in_progress`, and `completed`. Completed matches alone are sent through detail ingestion and fantasy scoring.
-- Matches outside all configured gameweek windows are intentionally not imported; they are counted in a per-tournament summary instead of being reported as job errors. Matches that fall in overlapping gameweeks remain errors so the schedule can be corrected.
-- Existing matches are updated by provider match ID; if provider IDs differ, a unique same-team match within 15 minutes of the existing scheduled time is updated instead. Ambiguous matches are skipped and reported rather than inserted as likely duplicates.
-- STRATZ league records without a usable ID, name, or start date are skipped with a warning and are not written to the tournaments table.
-- Tournament discovery and match sync are restricted to STRATZ professional, minor, major, international, and DPC league/qualifier tiers. Previously discovered non-professional tournament rows are left intact but excluded from match ingestion unless STRATZ reports them in an approved tier.
-- STRATZ GraphQL query and mapping behavior has focused mocked-response coverage. Run the enabled jobs with the configured API key to validate live API access in the target environment.
-- `/api/data/sync-status` reports the effective primary/fallback names and whether fallback is enabled; it never returns provider credentials.
-
-## Project Structure
-
-- app/src/app for route pages
-- app/src/components for UI components
-- app/src/lib for business logic and integrations
-- app/src/types for shared TypeScript models
-
-## Current Status
-
-The app includes core fantasy functionality, backend job logic, scoring logic, captain and vice-captain handling, and gameweek simulation panels.
-
-## Security Notes
-
-- Never expose service role keys to the browser
-- Keep .env.local out of source control
-- Use deployment environment variables for production hosting
-
-See SECURITY.md for the project security checklist.
+See the [full Web App description](<../Documents/Web App/App Description/APP_DESCRIPTION.md>) for the detailed feature set, scoring and league rules, integrations, data models, and administration tools.
