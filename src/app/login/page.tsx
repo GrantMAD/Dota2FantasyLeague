@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Eye, EyeOff } from 'lucide-react';
+import { Eye, EyeOff, Loader2 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { BrandLogo } from '@/components/BrandLogo';
 import { AuthBackground } from '@/components/auth/AuthBackground';
@@ -58,9 +58,9 @@ export default function LoginPage() {
       }
 
       router.push('/dashboard');
+      // Keep isLoading true so the activity indicator stays visible during dashboard transition
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
-    } finally {
       setIsLoading(false);
     }
   };
@@ -181,24 +181,28 @@ export default function LoginPage() {
               />
             </div>
 
-            <button
-              type="submit"
-              id="login-submit"
-              disabled={isLoading}
-              className="animate-glow-pulse mt-2 w-full rounded-xl bg-gradient-to-r from-amber-500 to-orange-600 py-3.5 text-sm font-black text-white shadow-lg shadow-orange-500/20 transition-all hover:-translate-y-0.5 hover:from-amber-400 hover:to-orange-500 hover:shadow-orange-500/35 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:translate-y-0"
-            >
-              {isLoading ? (
-                <span className="flex items-center justify-center gap-2">
-                  <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0z" strokeOpacity="0.3"/><path d="M21 12a9 9 0 0 1-9 9" /></svg>
-                  Signing in…
-                </span>
-              ) : (
+            {isLoading ? (
+              <div
+                role="status"
+                aria-live="polite"
+                aria-label="Signing in"
+                className="mt-2 flex w-full items-center justify-center gap-2.5 rounded-xl border border-amber-500/40 bg-amber-500/10 py-3.5 text-sm font-bold text-amber-300 shadow-lg shadow-orange-500/10 backdrop-blur-sm"
+              >
+                <Loader2 className="h-5 w-5 animate-spin text-amber-400" />
+                <span>Signing in…</span>
+              </div>
+            ) : (
+              <button
+                type="submit"
+                id="login-submit"
+                className="animate-glow-pulse mt-2 w-full rounded-xl bg-gradient-to-r from-amber-500 to-orange-600 py-3.5 text-sm font-black text-white shadow-lg shadow-orange-500/20 transition-all hover:-translate-y-0.5 hover:from-amber-400 hover:to-orange-500 hover:shadow-orange-500/35"
+              >
                 <span className="flex items-center justify-center gap-2">
                   Sign In
                   <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M5 12h14M12 5l7 7-7 7" /></svg>
                 </span>
-              )}
-            </button>
+              </button>
+            )}
           </form>
 
           {/* Divider */}
