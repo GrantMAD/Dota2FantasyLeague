@@ -5,7 +5,7 @@ import { getInitialGameweeks } from '@/lib/gameweeks-initial-data';
 import type { GameweekRow } from '@/types/fantasy';
 export type { GameweekRow };
 
-export const revalidate = 60;
+export const dynamic = 'force-dynamic';
 
 export default async function GameweeksPage() {
   let gameweeks: GameweekRow[] = [];

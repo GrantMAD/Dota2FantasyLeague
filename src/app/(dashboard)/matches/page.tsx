@@ -3,7 +3,7 @@ import { Suspense } from 'react';
 import MatchesPageClient from './MatchesPageClient';
 import { getInitialMatchesData } from '@/lib/matches-initial-data';
 
-export const revalidate = 60;
+export const dynamic = 'force-dynamic';
 
 export default async function MatchesPage() {
   let initialData;
