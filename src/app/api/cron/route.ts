@@ -7,6 +7,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { runAllJobs, runScheduledJobs } from '@/lib/jobs/scheduler';
 import { withApiTelemetry } from '@/lib/api-telemetry';
 
+export const maxDuration = 60; // Allow up to 60 seconds execution limit on Vercel
+
 
 function isAuthorizedCronRequest(request: NextRequest): boolean {
   const cronSecret = process.env.CRON_SECRET;

@@ -14,6 +14,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { runJob, type JobRunOptions } from '@/lib/jobs/scheduler';
 import { withApiTelemetry } from '@/lib/api-telemetry';
 
+export const maxDuration = 60; // Allow up to 60 seconds execution limit on Vercel
+
 const VALID_JOB_NAMES = [
   'sync-players',
   'sync-teams',
