@@ -29,10 +29,6 @@ interface Lineup {
   bench_boost_gameweek_id?: number | null;
 }
 
-interface PlayerParticipationRow {
-  player_id: number;
-}
-
 interface PlayerPointsRow {
   player_id: number;
   fantasy_points_breakdown: { total_points: number | null } | null;
