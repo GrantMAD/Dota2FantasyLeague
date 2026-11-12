@@ -6,6 +6,7 @@ interface JobResult {
   ownershipRecordsUpdated: number;
   errors: string[];
   duration: number;
+  hasMore?: boolean;
 }
 
 interface FantasySeasonPointsRow {
@@ -51,7 +52,7 @@ class CalculateGlobalRankings {
   /**
    * Calculate global rankings for all fantasy seasons and snapshot them
    */
-  private async calculateGlobalRankings(seasonId: number): Promise<number> {
+  private async calculateGlobalRankings(seasonId: number, seasonLimit?: number): Promise<{ ranked: number; hasMore: boolean }> {
     try {
       // Fetch all fantasy seasons for the current season, ordered by points
       const { data: fantasySeasons, error: fetchError } = await this.supabase
@@ -62,7 +63,18 @@ class CalculateGlobalRankings {
 
       if (fetchError || !fantasySeasons) {
         console.error('Failed to fetch fantasy seasons:', fetchError);
-        return 0;
+        return { ranked: 0, hasMore: false };
+      }
+
+      // Apply seasonLimit for chunked execution within Vercel's 10s limit
+      let seasonsToProcess = fantasySeasons as FantasySeasonPointsRow[];
+      let hasMore = false;
+      if (seasonLimit && fantasySeasons.length > seasonLimit) {
+        seasonsToProcess = seasonsToProcess.slice(0, seasonLimit);
+        hasMore = true;
+        console.log(
+          `[calculateGlobalRankings] seasonLimit=${seasonLimit}: processing ${seasonsToProcess.length} of ${fantasySeasons.length} managers`
+        );
       }
 
       let rank = 1;
@@ -81,7 +93,7 @@ class CalculateGlobalRankings {
         .maybeSingle();
       const latestGameweek = latestGameweekData as GameweekIdRow | null;
 
-      for (const fs of fantasySeasons as FantasySeasonPointsRow[]) {
+      for (const fs of seasonsToProcess) {
         // Handle ties
         if (fs.total_points === prevPoints) {
           tieCount++;
@@ -130,10 +142,10 @@ class CalculateGlobalRankings {
         ranked++;
       }
 
-      return ranked;
+      return { ranked, hasMore };
     } catch (error: unknown) {
       console.error('Error calculating global rankings:', error);
-      return 0;
+      return { ranked: 0, hasMore: false };
     }
   }
 
@@ -215,7 +227,7 @@ class CalculateGlobalRankings {
   }
 
 
-  async execute(): Promise<JobResult> {
+  async execute(options: { seasonLimit?: number } = {}): Promise<JobResult> {
     const startTime = Date.now();
     const result: JobResult = {
       success: false,
@@ -223,6 +235,7 @@ class CalculateGlobalRankings {
       ownershipRecordsUpdated: 0,
       errors: [],
       duration: 0,
+      hasMore: false,
     };
 
     try {
@@ -243,7 +256,9 @@ class CalculateGlobalRankings {
          return result;
       }
 
-      result.managersRanked = await this.calculateGlobalRankings(season.id);
+      const rankingResult = await this.calculateGlobalRankings(season.id, options.seasonLimit);
+      result.managersRanked = rankingResult.ranked;
+      result.hasMore = rankingResult.hasMore;
       result.ownershipRecordsUpdated = await this.calculateOwnership(season.id);
 
       result.success = true;
@@ -257,9 +272,11 @@ class CalculateGlobalRankings {
   }
 }
 
-export async function calculateGlobalRankings(): Promise<JobResult> {
+export async function calculateGlobalRankings(
+  options: { seasonLimit?: number } = {}
+): Promise<JobResult> {
   const job = new CalculateGlobalRankings();
-  return job.execute();
+  return job.execute(options);
 }
 
 export default calculateGlobalRankings;

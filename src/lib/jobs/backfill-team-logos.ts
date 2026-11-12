@@ -71,14 +71,17 @@ async function fetchLogoFromStratz(teamId: string): Promise<string | null> {
   }
 }
 
-export async function backfillTeamLogos(): Promise<{
+export async function backfillTeamLogos(options: { batchSize?: number } = {}): Promise<{
   success: boolean;
   errors: string[];
   duration: number;
   created: number;
   updated: number;
   skipped: number;
+  hasMore: boolean;
+  teamsRemaining: number;
 }> {
+  const { batchSize = 4 } = options;
   const startedAt = Date.now();
   const supabase = getSupabaseServerClient();
   const errors: string[] = [];
@@ -100,11 +103,18 @@ export async function backfillTeamLogos(): Promise<{
       created: 0,
       updated: 0,
       skipped: 0,
+      hasMore: false,
+      teamsRemaining: 0,
     };
   }
 
-  const rows: { id: number; name: string; data_provider_id: string }[] = teams ?? [];
-  console.log(`[backfillTeamLogos] ${rows.length} teams with null logo_url to check`);
+  const allRows: { id: number; name: string; data_provider_id: string }[] = teams ?? [];
+  const rows = allRows.slice(0, batchSize);
+  const hasMore = allRows.length > batchSize;
+  const teamsRemaining = Math.max(0, allRows.length - batchSize);
+  console.log(
+    `[backfillTeamLogos] ${allRows.length} teams with null logo_url — processing ${rows.length}${hasMore ? `, ${teamsRemaining} remain after this batch` : ' (all)'}`
+  );
 
   for (let i = 0; i < rows.length; i++) {
     const team = rows[i];
@@ -157,5 +167,7 @@ export async function backfillTeamLogos(): Promise<{
     created: 0,
     updated,
     skipped,
+    hasMore,
+    teamsRemaining,
   };
 }

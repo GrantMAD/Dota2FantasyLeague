@@ -35,6 +35,7 @@ interface FetchResult {
   duration: number;
   startedAt: Date;
   completedAt: Date;
+  hasMore?: boolean;
 }
 
 interface GameweekReference {
@@ -55,7 +56,7 @@ interface TeamReference {
   data_provider_id: string | null;
 }
 
-export async function fetchMatches(): Promise<FetchResult> {
+export async function fetchMatches(options: { tournamentLimit?: number } = {}): Promise<FetchResult> {
   const startedAt = new Date();
   const result: FetchResult = {
     fetched: 0,
@@ -69,6 +70,7 @@ export async function fetchMatches(): Promise<FetchResult> {
     duration: 0,
     startedAt,
     completedAt: new Date(),
+    hasMore: false,
   };
 
   try {
@@ -97,13 +99,23 @@ export async function fetchMatches(): Promise<FetchResult> {
         `ignoring ${eligibleTournaments.length - activeTournaments.length} previously discovered tournaments outside professional STRATZ tiers`
       );
 
-      if (activeTournaments.length === 0) {
+      // Apply tournamentLimit for chunked execution within Vercel's 10s limit
+      let tournamentsToProcess = activeTournaments;
+      if (options.tournamentLimit && activeTournaments.length > options.tournamentLimit) {
+        tournamentsToProcess = activeTournaments.slice(0, options.tournamentLimit);
+        result.hasMore = true;
+        console.log(
+          `[fetchMatches] tournamentLimit=${options.tournamentLimit}: processing ${tournamentsToProcess.length} of ${activeTournaments.length} tournaments`
+        );
+      }
+
+      if (tournamentsToProcess.length === 0) {
         console.log('[fetchMatches] No active or eligible tournaments found to sync');
       }
 
       // Assign each provider match by its scheduled date, not by whichever
       // gameweek happens to be Active when this job runs.
-      const seasonIds = [...new Set(activeTournaments.map((tournament) => tournament.season_id))];
+      const seasonIds = [...new Set(tournamentsToProcess.map((tournament) => tournament.season_id))];
       const gameweeksBySeason = new Map<number, GameweekReference[]>();
       if (seasonIds.length > 0) {
         const { data: gameweekRows, error: gameweekError } = await supabase
@@ -136,7 +148,7 @@ export async function fetchMatches(): Promise<FetchResult> {
         teamNameMap.set(t.id, t.name ?? '');
       }
 
-      for (const tournament of activeTournaments) {
+      for (const tournament of tournamentsToProcess) {
         try {
           const tournamentGameweeks = gameweeksBySeason.get(tournament.season_id) ?? [];
           if (tournamentGameweeks.length === 0) {

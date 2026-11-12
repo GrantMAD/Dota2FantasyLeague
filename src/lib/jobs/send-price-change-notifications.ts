@@ -8,6 +8,7 @@ interface JobResult {
   pushNotificationsSent: number;
   errors: string[];
   duration: number;
+  hasMore?: boolean;
 }
 
 interface PriceChangeRecord {
@@ -46,7 +47,7 @@ class SendPriceChangeNotifications {
     );
   }
 
-  public async execute(): Promise<JobResult> {
+  public async execute(options: { playerLimit?: number } = {}): Promise<JobResult> {
     const startTime = Date.now();
     const result: JobResult = {
       success: true,
@@ -55,6 +56,7 @@ class SendPriceChangeNotifications {
       pushNotificationsSent: 0,
       errors: [],
       duration: 0,
+      hasMore: false,
     };
     const pushCandidates: PushNotificationCandidate[] = [];
 
@@ -105,8 +107,18 @@ class SendPriceChangeNotifications {
         return result;
       }
 
+      // Apply playerLimit for chunked execution within Vercel's 10s limit
+      let changesToProcess = priceChanges as unknown as PriceChangeRecord[];
+      if (options.playerLimit && priceChanges.length > options.playerLimit) {
+        changesToProcess = changesToProcess.slice(0, options.playerLimit);
+        result.hasMore = true;
+        console.log(
+          `[sendPriceChangeNotifications] playerLimit=${options.playerLimit}: processing ${changesToProcess.length} of ${priceChanges.length} price changes`
+        );
+      }
+
       // 3. For each price change, notify users who own the player
-      for (const pc of priceChanges as unknown as PriceChangeRecord[]) {
+      for (const pc of changesToProcess) {
         result.priceChangesProcessed++;
         
         const joinedPlayer = Array.isArray(pc.professional_players)
@@ -193,7 +205,9 @@ class SendPriceChangeNotifications {
   }
 }
 
-export async function sendPriceChangeNotifications(): Promise<JobResult> {
+export async function sendPriceChangeNotifications(
+  options: { playerLimit?: number } = {}
+): Promise<JobResult> {
   const job = new SendPriceChangeNotifications();
-  return await job.execute();
+  return await job.execute(options);
 }

@@ -30,6 +30,7 @@ interface SyncResult {
   duration: number;
   startedAt: Date;
   completedAt: Date;
+  hasMore?: boolean;
 }
 
 interface OpenDotaPlayerRow {
@@ -54,7 +55,7 @@ interface OpenDotaPlayerRow {
  * Sync players from data provider to database
  * Idempotent: Can be safely retried without duplication
  */
-export async function syncPlayers(): Promise<SyncResult> {
+export async function syncPlayers(options: { processLimit?: number } = {}): Promise<SyncResult> {
   const startedAt = new Date();
   const result: SyncResult = {
     created: 0,
@@ -124,6 +125,16 @@ export async function syncPlayers(): Promise<SyncResult> {
         throw new Error('Player sync received an empty active-player feed; refusing to process or deactivate players');
       }
 
+      // Apply processLimit for Vercel-safe chunked execution (10s limit).
+      // When set, only the first N players are processed and deactivation is skipped
+      // so players absent from the partial slice are not incorrectly marked inactive.
+      const { processLimit } = options;
+      if (processLimit && players.length > processLimit) {
+        result.hasMore = true;
+        players = players.slice(0, processLimit);
+        console.log(`[syncPlayers] processLimit=${processLimit}: processing ${players.length} players, ${result.hasMore ? 'more remain' : 'done'}`);
+      }
+
       // Get existing players for deduplication
       const existingPlayers = await getExistingPlayers();
       console.log(`[syncPlayers] Found ${existingPlayers.size} existing players in database`);
@@ -154,6 +165,8 @@ export async function syncPlayers(): Promise<SyncResult> {
       // Step: Post-sync soft delete (Phase 1)
       // Any player currently marked available who was NOT in the provider's active response
       // gets marked as 'inactive'.
+      // Skipped when processLimit is set — a partial slice must not deactivate unseen players.
+      if (!processLimit) {
       try {
         const activeProviderIds = new Set<string>();
         for (const p of players) {
@@ -251,6 +264,7 @@ export async function syncPlayers(): Promise<SyncResult> {
         console.warn('[syncPlayers] Error during post-sync soft delete step:', softDelError);
         throw softDelError;
       }
+      } // end if (!processLimit)
 
       // Log successful completion
       await logJobExecution('sync-players', 'completed', {

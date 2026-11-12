@@ -8,6 +8,7 @@ interface JobResult {
   leaderboardsGenerated: number;
   errors: string[];
   duration: number;
+  hasMore?: boolean;
 }
 
 interface Lineup {
@@ -317,7 +318,7 @@ class RecalculateGameweeks {
   /**
    * Main job entry point
    */
-  async execute(): Promise<JobResult> {
+  async execute(options: { gameweekLimit?: number } = {}): Promise<JobResult> {
     const startTime = Date.now();
     const result: JobResult = {
       success: false,
@@ -327,6 +328,7 @@ class RecalculateGameweeks {
       leaderboardsGenerated: 0,
       errors: [],
       duration: 0,
+      hasMore: false,
     };
 
     try {
@@ -351,10 +353,20 @@ class RecalculateGameweeks {
         return result;
       }
 
+      // Apply gameweekLimit for chunked execution within Vercel's 10s limit
+      let gameweeksToProcess = gameweeks;
+      if (options.gameweekLimit && gameweeks.length > options.gameweekLimit) {
+        gameweeksToProcess = gameweeks.slice(0, options.gameweekLimit);
+        result.hasMore = true;
+        console.log(
+          `[recalculateGameweeks] gameweekLimit=${options.gameweekLimit}: processing ${gameweeksToProcess.length} of ${gameweeks.length} gameweeks`
+        );
+      }
+
       const updatedFantasySeasons = new Set<number>();
 
       // Process each gameweek
-      for (const gameweek of gameweeks) {
+      for (const gameweek of gameweeksToProcess) {
         try {
           // Get all lineups for this gameweek
           const { data: lineups, error: lineupsError } = await this.supabase
@@ -421,9 +433,11 @@ class RecalculateGameweeks {
   }
 }
 
-export async function recalculateGameweeks(): Promise<JobResult> {
+export async function recalculateGameweeks(
+  options: { gameweekLimit?: number } = {}
+): Promise<JobResult> {
   const calculator = new RecalculateGameweeks();
-  return calculator.execute();
+  return calculator.execute(options);
 }
 
 export default recalculateGameweeks;

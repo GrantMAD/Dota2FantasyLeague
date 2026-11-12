@@ -16,6 +16,7 @@ interface JobResult {
   gameweeksUpdated: number;
   errors: string[];
   duration: number;
+  hasMore?: boolean;
 }
 
 interface MatchPlayerStats {
@@ -329,7 +330,7 @@ export class FantasyScoreCalculator {
   /**
    * Main job entry point: process completed matches and calculate scores
    */
-  async execute(): Promise<JobResult> {
+  async execute(options: { matchLimit?: number; skipRecalculateChain?: boolean } = {}): Promise<JobResult> {
     const startTime = Date.now();
     const result: JobResult = {
       success: false,
@@ -338,6 +339,7 @@ export class FantasyScoreCalculator {
       gameweeksUpdated: 0,
       errors: [],
       duration: 0,
+      hasMore: false,
     };
 
     try {
@@ -383,6 +385,16 @@ export class FantasyScoreCalculator {
         return result;
       }
 
+      // Apply matchLimit if set for chunked execution within Vercel's 10s limit
+      let matchesToProcess = matches;
+      if (options.matchLimit && matches.length > options.matchLimit) {
+        matchesToProcess = matches.slice(0, options.matchLimit);
+        result.hasMore = true;
+        console.log(
+          `[CalculateScores] matchLimit=${options.matchLimit}: processing ${matchesToProcess.length} of ${matches.length} matches, more remain`
+        );
+      }
+
       // Get a sample season to load scoring rules
       const { data: rawSeasonData } = await this.supabase
         .from('seasons')
@@ -397,9 +409,9 @@ export class FantasyScoreCalculator {
       }
 
       const updatedGameweeks = new Set<number>();
-      const matchCount = matches.length;
+      const matchCount = matchesToProcess.length;
       console.log(`[CalculateScores] Processing fantasy scores for ${matchCount} matches...`);
-      const clincherMatchBySeries = findSeriesClincherMatches(matches);
+      const clincherMatchBySeries = findSeriesClincherMatches(matchesToProcess);
       const performanceStreaks = new Map<number, number>();
 
       // Pre-load all professional player roles into memory map so we don't query 1-by-1
@@ -414,7 +426,7 @@ export class FantasyScoreCalculator {
       // Process in chunks of 20 matches
       const CHUNK_SIZE = 20;
       for (let i = 0; i < matchCount; i += CHUNK_SIZE) {
-        const chunk = matches.slice(i, i + CHUNK_SIZE);
+        const chunk = matchesToProcess.slice(i, i + CHUNK_SIZE);
         const matchIds = chunk.map((match) => match.id);
         const matchMap = new Map<number, Match>(chunk.map((match) => [match.id, match]));
 
@@ -518,17 +530,19 @@ export class FantasyScoreCalculator {
       result.success = true;
       console.log(`[CalculateScores] Completed in ${Date.now() - startTime}ms. Calculated ${result.scoresCalculated} scores across ${result.gameweeksUpdated} gameweeks.`);
 
-      // Immediately update fantasy_seasons.total_points so the dashboard reflects fresh
-      // scores without waiting for the next recalculate-gameweeks cron slot.
-      if (result.scoresCalculated > 0) {
-        console.log('[CalculateScores] Chaining recalculate-gameweeks to refresh season totals...');
+      // In serverless/cron deployment with strict execution time limits (e.g. Vercel 10s),
+      // recalculate-gameweeks is scheduled independently as its own job (/api/cron/recalculate-gameweeks)
+      // to avoid sequential stacking. We only chain if skipRecalculateChain is explicitly set to false.
+      if (options.skipRecalculateChain === false && result.scoresCalculated > 0) {
+        console.log('[CalculateScores] Explicitly chaining recalculate-gameweeks to refresh season totals...');
         try {
           await recalculateGameweeks();
           console.log('[CalculateScores] Season totals refreshed successfully.');
         } catch (gwErr: unknown) {
-          // Non-fatal — scores are written; totals will catch up on the next cron run.
           console.warn('[CalculateScores] recalculate-gameweeks chain failed (non-fatal):', gwErr);
         }
+      } else if (result.scoresCalculated > 0) {
+        console.log('[CalculateScores] Fantasy scores written. Season totals will be refreshed by recalculate-gameweeks.');
       }
     } catch (err: unknown) {
       result.errors.push(`Fatal error in score calculation job: ${errorMessage(err)}`);
@@ -540,9 +554,11 @@ export class FantasyScoreCalculator {
   }
 }
 
-export async function calculateFantasyScores(): Promise<JobResult> {
+export async function calculateFantasyScores(
+  options: { matchLimit?: number; skipRecalculateChain?: boolean } = {}
+): Promise<JobResult> {
   const calculator = new FantasyScoreCalculator();
-  return calculator.execute();
+  return calculator.execute(options);
 }
 
 export default calculateFantasyScores;

@@ -77,6 +77,16 @@ interface JobDefinition {
 
 export interface JobRunOptions {
   matchId?: number;
+  processLimit?: number; // Max players to process per invocation (sync-players chunking)
+  batchSize?: number;    // Max items to process per invocation (backfill-team-logos chunking)
+  matchLimit?: number;   // Max matches to process per invocation (calculate-fantasy-scores chunking)
+  gameweekLimit?: number; // Max gameweeks to process per invocation (recalculate-gameweeks chunking)
+  tournamentLimit?: number; // Max tournaments to process per invocation (fetch-matches chunking)
+  playerLimit?: number;  // Max price changes/players to process per invocation (send-price-change-notifications chunking)
+  seasonLimit?: number;  // Max managers/seasons to process per invocation (calculate-global-rankings chunking)
+  teamLimit?: number;    // Max teams to process per invocation (sync-teams chunking)
+  skipRosters?: boolean; // Skip syncing team rosters (sync-teams chunking)
+  skipRecalculateChain?: boolean; // Skip inline recalculate-gameweeks chain (calculate-fantasy-scores)
 }
 
 interface JobResult {
@@ -371,12 +381,15 @@ export async function runJob(jobName: JobName, options?: JobRunOptions): Promise
   if (!jobDef) {
     throw new Error(`Unknown job: ${jobName}`);
   }
-  if (options && (
-    jobName !== 'fetch-match-details' ||
-    !Number.isSafeInteger(options.matchId) ||
-    (options.matchId ?? 0) <= 0
+
+  // Validate matchId option — only fetch-match-details accepts it
+  if (options?.matchId !== undefined && jobName !== 'fetch-match-details') {
+    throw new Error('Only fetch-match-details accepts a matchId option');
+  }
+  if (options?.matchId !== undefined && (
+    !Number.isSafeInteger(options.matchId) || options.matchId <= 0
   )) {
-    throw new Error('Only fetch-match-details accepts a positive integer matchId option');
+    throw new Error('matchId must be a positive integer');
   }
 
   // Check if already running

@@ -22,6 +22,7 @@ interface SyncResult {
   duration: number;
   startedAt: Date;
   completedAt: Date;
+  hasMore?: boolean;
 }
 
 interface ActiveDbTeamRow {
@@ -32,7 +33,7 @@ interface ActiveDbTeamRow {
 /**
  * Sync teams from data provider to database
  */
-export async function syncTeams(): Promise<SyncResult> {
+export async function syncTeams(options: { teamLimit?: number; skipRosters?: boolean } = {}): Promise<SyncResult> {
   const startedAt = new Date();
   const result: SyncResult = {
     created: 0,
@@ -42,6 +43,7 @@ export async function syncTeams(): Promise<SyncResult> {
     duration: 0,
     startedAt,
     completedAt: new Date(),
+    hasMore: false,
   };
 
   try {
@@ -93,6 +95,15 @@ export async function syncTeams(): Promise<SyncResult> {
         }
       }
 
+      // Apply teamLimit for chunked execution within Vercel's 10s limit
+      if (options.teamLimit && teams.length > options.teamLimit) {
+        result.hasMore = true;
+        teams = teams.slice(0, options.teamLimit);
+        console.log(
+          `[syncTeams] teamLimit=${options.teamLimit}: processing ${teams.length} teams, more remain`
+        );
+      }
+
       // Get existing teams for deduplication
       const existingTeams = await getExistingTeams();
       console.log(`[syncTeams] Found ${existingTeams.size} existing teams in database`);
@@ -115,11 +126,15 @@ export async function syncTeams(): Promise<SyncResult> {
         );
       }
 
-      // Also sync team rosters
-      console.log('[syncTeams] Syncing team rosters');
-      const rosterResults = await syncTeamRosters(teams);
-      result.created += rosterResults.created;
-      result.updated += rosterResults.updated;
+      // Also sync team rosters (skip when skipRosters is set for faster chunked runs)
+      if (!options.skipRosters) {
+        console.log('[syncTeams] Syncing team rosters');
+        const rosterResults = await syncTeamRosters(teams);
+        result.created += rosterResults.created;
+        result.updated += rosterResults.updated;
+      } else {
+        console.log('[syncTeams] Skipping roster sync (skipRosters=true)');
+      }
 
       await logJobExecution('sync-teams', 'completed', {
         created: result.created,
