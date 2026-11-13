@@ -441,6 +441,9 @@ async function fetchWhatsNew(userId: string): Promise<WhatsNewData | null> {
       startedAt: `${t.start_date}T00:00:00.000Z`,
       href: `/tournaments/${t.id}`,
       tier: t.tier ?? null,
+      seriesCount: t.seriesCount,
+      matchCount: t.matchCount,
+      bestOfFormats: t.bestOfFormats,
     }));
 
     const updates: WhatsNewData['updates'] = (updatesRes.data ?? []).map((n) => {
