@@ -749,7 +749,7 @@ export default function SquadsPage() {
                   {/* Top Lane: Offlane */}
                   <div className="flex justify-start sm:pl-12">
                     <PitchPlayerSlot
-                      roleTitle="Offlane (Pos 3)"
+                      roleTitle="Pos 3 · Offlane"
                       slotItem={pitchRoster.offlane}
                       onSelect={openPlayerDetails}
                       isLoading={loading}
@@ -759,7 +759,7 @@ export default function SquadsPage() {
                   {/* Mid Lane: Centre */}
                   <div className="flex justify-center">
                     <PitchPlayerSlot
-                      roleTitle="Mid Lane (Pos 2)"
+                      roleTitle="Pos 2 · Mid"
                       slotItem={pitchRoster.mid}
                       onSelect={openPlayerDetails}
                       isLoading={loading}
@@ -769,13 +769,13 @@ export default function SquadsPage() {
                   {/* Dual Support / Roam Lane */}
                   <div className="flex justify-around sm:px-16">
                     <PitchPlayerSlot
-                      roleTitle="Support (Pos 4)"
+                      roleTitle="Pos 4 · Support"
                       slotItem={pitchRoster.pos4}
                       onSelect={openPlayerDetails}
                       isLoading={loading}
                     />
                     <PitchPlayerSlot
-                      roleTitle="Hard Support (Pos 5)"
+                      roleTitle="Pos 5 · Hard Sup."
                       slotItem={pitchRoster.pos5}
                       onSelect={openPlayerDetails}
                       isLoading={loading}
@@ -785,7 +785,7 @@ export default function SquadsPage() {
                   {/* Safe Lane: Carry */}
                   <div className="flex justify-end sm:pr-12">
                     <PitchPlayerSlot
-                      roleTitle="Safe Lane Carry (Pos 1)"
+                      roleTitle="Pos 1 · Carry"
                       slotItem={pitchRoster.carry}
                       onSelect={openPlayerDetails}
                       isLoading={loading}
@@ -1297,7 +1297,7 @@ function PitchPlayerSlot({
       </div>
 
       <div className="min-w-0 flex-1">
-        <span className="block text-[10px] font-bold uppercase tracking-wider truncate" style={{ color: 'var(--accent-primary)' }}>
+        <span className="block whitespace-nowrap text-[8px] font-bold uppercase leading-tight tracking-normal" style={{ color: 'var(--accent-primary)' }}>
           {roleTitle}
         </span>
         <span
@@ -1308,7 +1308,7 @@ function PitchPlayerSlot({
           {playerName}
         </span>
         <span className="block truncate text-xs" style={{ color: 'var(--text-muted)' }}>
-          {player.professional_teams?.slug?.toUpperCase() || player.professional_teams?.name || 'Free Agent'}
+          {player.professional_teams?.name || 'Free Agent'}
         </span>
       </div>
 

@@ -5,6 +5,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useRef,
   useState,
   type ReactNode,
 } from 'react';
@@ -59,6 +60,8 @@ export function HeaderDataProvider({ children }: { children: ReactNode }) {
   const [quickStats, setQuickStats] = useState<QuickStats | null>(null);
   const [notifications, setNotifications] = useState<HeaderNotification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
+  const notificationRequestId = useRef(0);
+  const activeNotificationUserId = useRef<string | null>(null);
   const showNotificationToast = useToast().info;
 
   // ── Profile ──────────────────────────────────────────────────────────────
@@ -122,64 +125,58 @@ export function HeaderDataProvider({ children }: { children: ReactNode }) {
 
   // ── Notifications ─────────────────────────────────────────────────────────
   const loadNotifications = useCallback(async () => {
+    const requestId = ++notificationRequestId.current;
     try {
       const response = await fetchWithAuth('/api/notifications?limit=5');
-      if (!response.ok) return;
+      if (!response.ok || requestId !== notificationRequestId.current) return;
       const data = (await response.json()) as {
         notifications: HeaderNotification[];
         unreadCount: number;
       };
+      if (requestId !== notificationRequestId.current) return;
       setNotifications(data.notifications ?? []);
       setUnreadCount(data.unreadCount ?? 0);
     } catch (error) {
-      console.error('Unable to load Header notifications:', error);
+      if (requestId === notificationRequestId.current) {
+        console.error('Unable to load Header notifications:', error);
+      }
     }
   }, []);
 
   useEffect(() => {
-    const initialLoad = window.setTimeout(() => void loadNotifications(), 0);
-
     let disposed = false;
     let channel: ReturnType<typeof supabase.channel> | null = null;
 
-    const refreshNotifications = async () => {
-      try {
-        const response = await fetchWithAuth('/api/notifications?limit=5');
-        if (!response.ok) return;
-        const data = (await response.json()) as {
-          notifications: HeaderNotification[];
-          unreadCount: number;
-        };
-        if (disposed) return;
-        setNotifications(data.notifications ?? []);
-        setUnreadCount(data.unreadCount ?? 0);
-      } catch (error) {
-        console.error('Failed to refresh notifications after realtime event:', error);
-      }
+    const clearNotifications = () => {
+      notificationRequestId.current += 1;
+      setNotifications([]);
+      setUnreadCount(0);
     };
 
-    const setupRealtime = async () => {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      if (disposed || !session?.user.id) return;
+    const subscribeToUser = (userId: string | null) => {
+      if (channel) {
+        void supabase.removeChannel(channel);
+        channel = null;
+      }
+      if (!userId) return;
 
       channel = supabase
-        .channel(`user-notifications:${session.user.id}`)
+        .channel(`user-notifications:${userId}`)
         .on(
           'postgres_changes',
           {
             event: 'INSERT',
             schema: 'public',
             table: 'user_notifications',
-            filter: `user_id=eq.${session.user.id}`,
+            filter: `user_id=eq.${userId}`,
           },
           (payload) => {
+            if (disposed || activeNotificationUserId.current !== userId) return;
             const notification = payload.new as HeaderNotification;
             if (notification.is_read === false) {
               showNotificationToast(notification.title, notification.message, 7000);
             }
-            void refreshNotifications();
+            void loadNotifications();
           },
         )
         .on(
@@ -188,9 +185,13 @@ export function HeaderDataProvider({ children }: { children: ReactNode }) {
             event: 'UPDATE',
             schema: 'public',
             table: 'user_notifications',
-            filter: `user_id=eq.${session.user.id}`,
+            filter: `user_id=eq.${userId}`,
           },
-          () => void refreshNotifications(),
+          () => {
+            if (!disposed && activeNotificationUserId.current === userId) {
+              void loadNotifications();
+            }
+          },
         )
         .subscribe((status, error) => {
           if (disposed) return;
@@ -205,13 +206,30 @@ export function HeaderDataProvider({ children }: { children: ReactNode }) {
         });
     };
 
-    void setupRealtime().catch((error: unknown) => {
-      if (!disposed) console.error('Unable to set up realtime notification subscription:', error);
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (disposed) return;
+
+      if (event === 'SIGNED_OUT') {
+        activeNotificationUserId.current = null;
+        clearNotifications();
+        subscribeToUser(null);
+        return;
+      }
+
+      if (event !== 'INITIAL_SESSION' && event !== 'SIGNED_IN') return;
+
+      const userId = session?.user.id ?? null;
+      if (userId !== activeNotificationUserId.current) {
+        activeNotificationUserId.current = userId;
+        clearNotifications();
+      }
+      subscribeToUser(userId);
+      if (userId) void loadNotifications();
     });
 
     return () => {
       disposed = true;
-      window.clearTimeout(initialLoad);
+      subscription.unsubscribe();
       if (channel) void supabase.removeChannel(channel);
     };
   }, [loadNotifications, showNotificationToast]);
