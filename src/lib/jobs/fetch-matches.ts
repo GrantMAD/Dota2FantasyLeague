@@ -21,6 +21,10 @@ import {
   preserveMatchStatus,
   toDatabaseMatchStatus,
 } from './match-sync';
+import {
+  findLastProcessedTournamentId,
+  selectNextTournamentBatch,
+} from './match-tournament-batch';
 
 interface FetchResult {
   fetched: number;
@@ -35,6 +39,7 @@ interface FetchResult {
   startedAt: Date;
   completedAt: Date;
   hasMore?: boolean;
+  lastProcessedTournamentId?: number;
 }
 
 interface GameweekReference {
@@ -110,14 +115,22 @@ export async function fetchMatches(options: { tournamentLimit?: number } = {}): 
         `ignoring ${eligibleTournaments.length - activeTournaments.length} tournaments not present in their provider's professional feed`
       );
 
-      // Apply tournamentLimit for chunked execution within Vercel's limits (default 4)
-      const tournamentLimit = options.tournamentLimit ?? 4;
-      let tournamentsToProcess = activeTournaments;
-      if (activeTournaments.length > tournamentLimit) {
-        tournamentsToProcess = activeTournaments.slice(0, tournamentLimit);
-        result.hasMore = true;
+      const tournamentLimit = options.tournamentLimit ?? 1;
+      if (!Number.isSafeInteger(tournamentLimit) || tournamentLimit < 1 || tournamentLimit > 4) {
+        throw new Error('tournamentLimit must be an integer between 1 and 4.');
+      }
+      const lastProcessedTournamentId = await getLastProcessedTournamentId(supabase);
+      const tournamentBatch = selectNextTournamentBatch(
+        activeTournaments,
+        tournamentLimit,
+        lastProcessedTournamentId,
+      );
+      const tournamentsToProcess = tournamentBatch.tournaments;
+      result.hasMore = tournamentBatch.hasMore;
+      if (tournamentsToProcess.length > 0) {
         console.log(
-          `[fetchMatches] tournamentLimit=${tournamentLimit}: processing ${tournamentsToProcess.length} of ${activeTournaments.length} tournaments`
+          `[fetchMatches] tournamentLimit=${tournamentLimit}: processing ${tournamentsToProcess.length} of ` +
+          `${activeTournaments.length} tournaments starting after ${lastProcessedTournamentId ?? 'the beginning'}`
         );
       }
 
@@ -516,6 +529,7 @@ export async function fetchMatches(options: { tournamentLimit?: number } = {}): 
         fetched: result.fetched,
         updated: result.updated,
         scheduled: result.scheduled,
+        lastProcessedTournamentId: tournamentBatch.lastProcessedTournamentId ?? lastProcessedTournamentId,
         skippedOutsideGameweeks: result.skippedOutsideGameweeks,
         skippedOutsideGameweeksPast: result.skippedOutsideGameweeksPast,
         skippedOutsideGameweeksFuture: result.skippedOutsideGameweeksFuture,
@@ -523,6 +537,8 @@ export async function fetchMatches(options: { tournamentLimit?: number } = {}): 
         errors: result.errors.length,
       }, jobExecutionId);
 
+      const nextCursor = tournamentBatch.lastProcessedTournamentId ?? lastProcessedTournamentId;
+      if (nextCursor !== null) result.lastProcessedTournamentId = nextCursor;
       console.log('[fetchMatches] Completed successfully');
     } catch (error) {
       await logJobExecution('fetch-matches', 'failed', {
@@ -540,6 +556,26 @@ export async function fetchMatches(options: { tournamentLimit?: number } = {}): 
   result.duration = result.completedAt.getTime() - result.startedAt.getTime();
 
   return result;
+}
+
+async function getLastProcessedTournamentId(
+  supabase: ReturnType<typeof getSupabaseServerClient>,
+): Promise<number | null> {
+  const { data, error } = await supabase
+    .from('job_execution_log')
+    .select('metadata')
+    .eq('job_name', 'fetch-matches')
+    .eq('status', 'completed')
+    .order('completed_at', { ascending: false })
+    .limit(25);
+
+  if (error) {
+    throw new Error(`Failed to load fetch-matches tournament cursor: ${error.message}`);
+  }
+
+  return findLastProcessedTournamentId(
+    (data ?? []) as Array<{ metadata: unknown }>,
+  );
 }
 
 async function getActiveTournaments(): Promise<Tournament[]> {

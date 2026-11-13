@@ -62,6 +62,10 @@ async function postHandler(request: Request) {
           batchSize: typeof body.batchSize === 'number' ? body.batchSize : undefined,
           afterId: typeof body.afterId === 'number' ? body.afterId : undefined,
         }
+      : jobName === 'fetch-matches'
+        ? {
+            tournamentLimit: typeof body.tournamentLimit === 'number' ? body.tournamentLimit : undefined,
+          }
       : {};
     const result = await runJob(jobName, jobOptions);
 
