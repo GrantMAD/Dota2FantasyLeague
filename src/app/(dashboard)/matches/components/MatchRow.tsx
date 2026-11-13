@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { TeamLogo } from './TeamLogo';
 import type { MatchData } from './MatchCard';
 import type { MatchSquadPlayer } from '@/lib/match-squad-tracking';
-import { summarizeMatchSeries } from '@/lib/match-series';
+import { getCompletedGamesAwaitingPlayerStats, summarizeMatchSeries } from '@/lib/match-series';
 
 interface MatchRowProps {
   match: MatchData;
@@ -22,6 +22,7 @@ export function MatchRow({
     : initialMatch.series_matches?.length ? initialMatch.series_matches : [initialMatch];
   const match = initialMatch;
   const seriesScore = summarizeMatchSeries(games, match.best_of ?? 3);
+  const gamesAwaitingPlayerStats = getCompletedGamesAwaitingPlayerStats(games);
   const isRadiantWinner = seriesScore.clinchedTeamId === match.radiant_team_id;
   const isDireWinner = seriesScore.clinchedTeamId === match.dire_team_id;
   const isLive = seriesScore.isLive && !seriesScore.isComplete;
@@ -148,6 +149,15 @@ export function MatchRow({
           </span>
         </div>
       </div>
+
+      {gamesAwaitingPlayerStats.length > 0 && (
+        <p
+          role="status"
+          className="mx-4 mb-3 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-800 dark:text-amber-200"
+        >
+          Player stats for {gamesAwaitingPlayerStats.length} completed {gamesAwaitingPlayerStats.length === 1 ? 'game are' : 'games are'} still being processed.
+        </p>
+      )}
 
       {/* Right: Fantasy squad badge & Action */}
       <div className="flex items-center justify-between md:justify-end gap-3 min-w-[160px]">

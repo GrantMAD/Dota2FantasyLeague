@@ -11,7 +11,7 @@ import { TeamLogo } from '../components/TeamLogo';
 import { MatchFantasyImpactBanner, type UserFantasyImpact } from '../components/MatchFantasyImpactBanner';
 import { MatchLeadersStrip } from '../components/MatchLeadersStrip';
 import { SeriesGameTabs } from '../components/SeriesGameTabs';
-import { getDefaultSeriesGame } from '@/lib/match-series';
+import { getCompletedGamesAwaitingPlayerStats, getDefaultSeriesGame } from '@/lib/match-series';
 import { calculateSeriesLeaders } from '@/lib/match-series-stats';
 
 type MatchDetail = {
@@ -226,6 +226,7 @@ function MatchDetailInner({ params }: { params: Promise<{ id: string }> }) {
         fantasyBreakdown,
       }];
   const defaultGame = getDefaultSeriesGame(availableSeriesGames) ?? availableSeriesGames[0];
+  const gamesAwaitingPlayerStats = getCompletedGamesAwaitingPlayerStats(availableSeriesGames);
   const activeGame = availableSeriesGames.find((game) => game.id === selectedGameId)
     ?? defaultGame;
   const isRadiantWinner = activeGame.winner_team_id === match.radiant_team_id;
@@ -672,6 +673,14 @@ function MatchDetailInner({ params }: { params: Promise<{ id: string }> }) {
           activeMatchId={activeGame.id}
           onSelect={setSelectedGameId}
         />
+      )}
+      {gamesAwaitingPlayerStats.length > 0 && (
+        <p
+          role="status"
+          className="mb-4 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-800 dark:text-amber-200"
+        >
+          Player stats for {gamesAwaitingPlayerStats.map((game) => `Game ${game.match_number}`).join(', ')} are still being processed and will appear here once available.
+        </p>
       )}
       <div
         id={`series-game-panel-${activeGame.id}`}

@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { Star } from 'lucide-react';
 import { TeamLogo } from './TeamLogo';
 import type { MatchSquadPlayer } from '@/lib/match-squad-tracking';
-import { summarizeMatchSeries } from '@/lib/match-series';
+import { getCompletedGamesAwaitingPlayerStats, summarizeMatchSeries } from '@/lib/match-series';
 
 export interface MatchData {
   id: number;
@@ -61,6 +61,7 @@ export function MatchCard({
     : initialMatch.series_matches?.length ? initialMatch.series_matches : [initialMatch];
   const match = initialMatch;
   const seriesScore = summarizeMatchSeries(games, match.best_of ?? 3);
+  const gamesAwaitingPlayerStats = getCompletedGamesAwaitingPlayerStats(games);
   const isRadiantWinner = seriesScore.clinchedTeamId === match.radiant_team_id;
   const isDireWinner = seriesScore.clinchedTeamId === match.dire_team_id;
   const isLive = seriesScore.isLive && !seriesScore.isComplete;
@@ -243,6 +244,15 @@ export function MatchCard({
           </div>
         </div>
       </div>
+
+      {gamesAwaitingPlayerStats.length > 0 && (
+        <p
+          role="status"
+          className="mx-4 mb-3 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-800 dark:text-amber-200"
+        >
+          Player stats for {gamesAwaitingPlayerStats.length} completed {gamesAwaitingPlayerStats.length === 1 ? 'game are' : 'games are'} still being processed.
+        </p>
+      )}
 
       {/* Fantasy League Impact Footer */}
       {squadPlayers.length > 0 && (

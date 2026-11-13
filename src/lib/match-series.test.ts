@@ -1,4 +1,5 @@
 import {
+  getCompletedGamesAwaitingPlayerStats,
   getDefaultSeriesGame,
   groupMatchesBySeries,
   shouldShowMatchSeries,
@@ -16,6 +17,28 @@ describe('getDefaultSeriesGame', () => {
   it('falls back to the first game when game numbers are unavailable', () => {
     const games: Array<{ id: number; match_number?: number }> = [{ id: 7 }, { id: 8 }];
     expect(getDefaultSeriesGame(games)).toBe(games[0]);
+  });
+});
+
+describe('getCompletedGamesAwaitingPlayerStats', () => {
+  it('returns completed games without player stats but excludes games still in progress', () => {
+    expect(getCompletedGamesAwaitingPlayerStats([
+      { id: 1, match_number: 1, status: 'completed', player_ids: [501] },
+      { id: 2, match_number: 2, status: 'completed', player_ids: [] },
+      { id: 3, match_number: 3, status: 'scheduled', player_ids: [] },
+      { id: 4, match_number: 4, status: 'live', playerStats: [] },
+    ])).toEqual([
+      { id: 2, match_number: 2, status: 'completed', player_ids: [] },
+    ]);
+  });
+
+  it('uses detail player stats when the game list has no player ID field', () => {
+    expect(getCompletedGamesAwaitingPlayerStats([
+      { id: 1, match_number: 1, status: 'completed', playerStats: [{ player_id: 501 }] },
+      { id: 2, match_number: 2, status: 'completed', playerStats: [] },
+    ])).toEqual([
+      { id: 2, match_number: 2, status: 'completed', playerStats: [] },
+    ]);
   });
 });
 

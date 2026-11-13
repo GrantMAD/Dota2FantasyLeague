@@ -27,6 +27,21 @@ export interface MatchSeriesScore {
   isLive: boolean;
 }
 
+export function getCompletedGamesAwaitingPlayerStats<
+  T extends {
+    status: string;
+    player_ids?: number[];
+    playerStats?: unknown[];
+    match_number?: number | null;
+  },
+>(games: T[]): T[] {
+  return games.filter((game) => (
+    game.status === 'completed'
+    && (game.player_ids?.length ?? 0) === 0
+    && (game.playerStats?.length ?? 0) === 0
+  ));
+}
+
 export function getDefaultSeriesGame<T extends { match_number?: number }>(games: T[]): T | undefined {
   return games.find((game) => game.match_number === 1) ?? games[0];
 }
