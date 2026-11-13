@@ -2,102 +2,28 @@
 
 import Link from 'next/link';
 import { Star, Shield, Award, Users } from 'lucide-react';
+import {
+  calculateSeriesFantasyImpact,
+  type SeriesFantasyImpactContext,
+  type SeriesGameStatistics,
+} from '@/lib/match-series-stats';
 
-export interface UserLineupDetail {
-  playerId: number;
-  slot: string;
-  isCaptain: boolean;
-  isViceCaptain: boolean;
-  isStarter: boolean;
-}
-
-export interface UserFantasyImpact {
-  userOwnedPlayerIds: number[];
-  lineupDetails: UserLineupDetail[];
-  tripleCaptainActive?: boolean;
-}
-
-interface PlayerImpactSummary {
-  playerId: number;
-  playerName: string;
-  heroName?: string;
-  role: string;
-  fantasyPoints: number;
-  effectivePoints: number;
-  multiplier: number;
-  slot: string;
-  isCaptain: boolean;
-  isViceCaptain: boolean;
-  isStarter: boolean;
-  isOwned: boolean;
-}
+export type UserFantasyImpact = SeriesFantasyImpactContext;
 
 interface MatchFantasyImpactBannerProps {
   impact: UserFantasyImpact | null;
-  playerStats: Array<{
-    player_id: number;
-    hero_name?: string | null;
-    professional_players?: {
-      id: number;
-      name: string;
-      in_game_name?: string | null;
-      primary_role?: string | null;
-    } | null;
-  }>;
-  fantasyPointsByPlayer: Map<number, number>;
+  seriesGames: SeriesGameStatistics[];
   gameweekNumber?: number;
 }
 
 export function MatchFantasyImpactBanner({
   impact,
-  playerStats,
-  fantasyPointsByPlayer,
+  seriesGames,
   gameweekNumber,
 }: MatchFantasyImpactBannerProps) {
   if (!impact) return null;
 
-  const lineupMap = new Map<number, UserLineupDetail>(
-    impact.lineupDetails.map((detail) => [detail.playerId, detail])
-  );
-  const ownedSet = new Set<number>(impact.userOwnedPlayerIds);
-
-  const matchedPlayers: PlayerImpactSummary[] = [];
-
-  for (const stat of playerStats) {
-    const isOwned = ownedSet.has(stat.player_id);
-    const lineup = lineupMap.get(stat.player_id);
-
-    if (isOwned || lineup) {
-      const basePoints = fantasyPointsByPlayer.get(stat.player_id) ?? 0;
-      let multiplier = 1;
-      if (lineup?.isCaptain) {
-        multiplier = impact.tripleCaptainActive ? 3 : 2;
-      } else if (!lineup?.isStarter) {
-        multiplier = 0; // Bench players don't count towards active lineup total unless subbed
-      }
-
-      const effectivePoints = basePoints * multiplier;
-      const playerName =
-        stat.professional_players?.in_game_name ||
-        stat.professional_players?.name ||
-        `Player #${stat.player_id}`;
-
-      matchedPlayers.push({
-        playerId: stat.player_id,
-        playerName,
-        heroName: stat.hero_name ?? undefined,
-        role: stat.professional_players?.primary_role || 'Core',
-        fantasyPoints: basePoints,
-        effectivePoints,
-        multiplier,
-        slot: lineup?.slot || 'Squad Roster',
-        isCaptain: Boolean(lineup?.isCaptain),
-        isViceCaptain: Boolean(lineup?.isViceCaptain),
-        isStarter: Boolean(lineup?.isStarter),
-        isOwned,
-      });
-    }
-  }
+  const matchedPlayers = calculateSeriesFantasyImpact(seriesGames, impact);
 
   if (matchedPlayers.length === 0) {
     return (
@@ -109,7 +35,7 @@ export function MatchFantasyImpactBanner({
           <div>
             <h4 className="text-sm font-semibold text-[var(--text-primary)]">Fantasy Squad Status</h4>
             <p className="text-xs text-[var(--text-muted)]">
-              None of your active roster players featured in this match {gameweekNumber ? `(Gameweek ${gameweekNumber})` : ''}.
+              None of your active roster players featured in this series {gameweekNumber ? `(Gameweek ${gameweekNumber})` : ''}.
             </p>
           </div>
         </div>
@@ -137,17 +63,17 @@ export function MatchFantasyImpactBanner({
             <div className="flex items-center gap-2">
               <h3 className="text-base font-bold text-[var(--text-primary)]">Your Fantasy Match Impact</h3>
               <span className="text-[10px] font-bold uppercase tracking-wider bg-amber-500/20 text-amber-300 border border-amber-500/30 px-2 py-0.5 rounded-full">
-                {matchedPlayers.length} {matchedPlayers.length === 1 ? 'Player' : 'Players'} In Match
+                {matchedPlayers.length} {matchedPlayers.length === 1 ? 'Player' : 'Players'} In Series
               </span>
             </div>
             <p className="text-xs text-[var(--text-secondary)]">
-              Fantasy points contributed to your Gameweek {gameweekNumber ?? ''} squad score.
+              Total fantasy points contributed across this series to your Gameweek {gameweekNumber ?? ''} squad score.
             </p>
           </div>
         </div>
 
         <div className="flex items-center gap-3 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-2">
-          <span className="text-xs font-medium text-[var(--text-muted)]">Net Match Impact:</span>
+          <span className="text-xs font-medium text-[var(--text-muted)]">Net Series Impact:</span>
           <span className="font-mono text-xl font-black text-amber-400">
             +{totalEffectivePoints.toFixed(1)}
           </span>
@@ -158,49 +84,81 @@ export function MatchFantasyImpactBanner({
         {matchedPlayers.map((player) => (
           <div
             key={player.playerId}
-            className="flex items-center justify-between gap-3 rounded-xl border border-[var(--border)] bg-[var(--surface-raised)] p-3 transition hover:border-amber-500/40 hover:shadow-lg hover:shadow-amber-500/5"
+            className="flex flex-col gap-3 rounded-xl border border-[var(--border)] bg-[var(--surface-raised)] p-3 transition hover:border-amber-500/40 hover:shadow-lg hover:shadow-amber-500/5"
           >
-            <div className="min-w-0">
-              <div className="flex items-center gap-1.5 flex-wrap">
-                <Link
-                  href={`/players/${player.playerId}`}
-                  className="truncate text-sm font-bold text-[var(--text-primary)] transition-colors hover:text-amber-500"
-                >
-                  {player.playerName}
-                </Link>
-                <span className="rounded-full border border-cyan-500/25 bg-cyan-500/10 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-cyan-600 dark:text-cyan-300">
-                  {player.role}
-                </span>
-                {player.isCaptain && (
-                  <span className="inline-flex items-center gap-0.5 text-[10px] font-bold bg-amber-500 text-slate-950 px-1.5 py-0.5 rounded">
-                    <Star className="h-2.5 w-2.5 fill-current" /> C {player.multiplier}×
+            <div className="flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <Link
+                    href={`/players/${player.playerId}`}
+                    className="truncate text-sm font-bold text-[var(--text-primary)] transition-colors hover:text-amber-500"
+                  >
+                    {player.playerName}
+                  </Link>
+                  <span className="rounded-full border border-cyan-500/25 bg-cyan-500/10 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-cyan-600 dark:text-cyan-300">
+                    {player.role}
                   </span>
-                )}
-                {player.isViceCaptain && (
-                  <span className="inline-flex items-center gap-0.5 text-[10px] font-bold bg-slate-700 text-slate-200 px-1.5 py-0.5 rounded">
-                    <Shield className="h-2.5 w-2.5" /> VC
-                  </span>
-                )}
-                {!player.isStarter && (
-                  <span className="rounded bg-[var(--surface)] px-1.5 py-0.5 text-[10px] text-[var(--text-muted)]">
-                    Bench
-                  </span>
-                )}
-              </div>
-              <p className="truncate text-xs text-[var(--text-muted)]">
-                {player.slot}{player.heroName ? ` · ${player.heroName}` : ''}
-              </p>
-            </div>
-
-            <div className="text-right shrink-0">
-              <div className="inline-flex rounded-lg border border-amber-500/25 bg-amber-500/10 px-2 py-1 font-mono text-sm font-bold text-amber-600 dark:text-amber-300">
-                {player.effectivePoints > 0 ? '+' : ''}{player.effectivePoints.toFixed(1)} pts
-              </div>
-              {player.multiplier > 1 && (
-                <div className="mt-1 text-[10px] text-[var(--text-muted)]">
-                  Base {player.fantasyPoints.toFixed(1)}
+                  {player.isCaptain && (
+                    <span className="inline-flex items-center gap-0.5 text-[10px] font-bold bg-amber-500 text-slate-950 px-1.5 py-0.5 rounded">
+                      <Star className="h-2.5 w-2.5 fill-current" /> C {player.multiplier}×
+                    </span>
+                  )}
+                  {player.isViceCaptain && (
+                    <span className="inline-flex items-center gap-0.5 text-[10px] font-bold bg-slate-700 text-slate-200 px-1.5 py-0.5 rounded">
+                      <Shield className="h-2.5 w-2.5" /> VC
+                    </span>
+                  )}
+                  {!player.isStarter && (
+                    <span className="rounded bg-[var(--surface)] px-1.5 py-0.5 text-[10px] text-[var(--text-muted)]">
+                      Bench
+                    </span>
+                  )}
                 </div>
-              )}
+                <p className="truncate text-xs text-[var(--text-muted)]">
+                  {player.slot}{player.heroName ? ` · ${player.heroName}` : ''} · {player.gamesPlayed} {player.gamesPlayed === 1 ? 'game' : 'games'}
+                </p>
+              </div>
+
+              <div className="text-right shrink-0">
+                <div className="inline-flex rounded-lg border border-amber-500/25 bg-amber-500/10 px-2 py-1 font-mono text-sm font-bold text-amber-600 dark:text-amber-300">
+                  {player.effectivePoints > 0 ? '+' : ''}{player.effectivePoints.toFixed(1)} pts
+                </div>
+                {player.multiplier !== 1 && (
+                  <div className="mt-1 text-[10px] text-[var(--text-muted)]">
+                    Series base: {player.fantasyPoints.toFixed(1)} pts
+                  </div>
+                )}
+              </div>
+            </div>
+            <div className="space-y-1 border-t border-[var(--border)] pt-2">
+              {player.gameValues.map((game) => {
+                const effectivePoints = game.fantasyPoints * player.multiplier;
+                return (
+                  <div key={game.matchId} className="flex items-center justify-between gap-2 text-[10px]">
+                    <span className="min-w-0 truncate text-[var(--text-muted)]">
+                      Game {game.matchNumber}
+                      {game.scheduledAt && (
+                        <>
+                          {' · '}
+                          <time suppressHydrationWarning dateTime={game.scheduledAt}>
+                            {new Date(game.scheduledAt).toLocaleString([], {
+                              month: 'short',
+                              day: 'numeric',
+                              hour: 'numeric',
+                              minute: '2-digit',
+                            })}
+                          </time>
+                        </>
+                      )}
+                    </span>
+                    <span className="shrink-0 font-mono font-semibold text-[var(--text-secondary)]">
+                      {player.multiplier === 1
+                        ? `${game.fantasyPoints.toFixed(1)} pts`
+                        : `${game.fantasyPoints.toFixed(1)} × ${player.multiplier} = ${effectivePoints > 0 ? '+' : ''}${effectivePoints.toFixed(1)} pts`}
+                    </span>
+                  </div>
+                );
+              })}
             </div>
           </div>
         ))}

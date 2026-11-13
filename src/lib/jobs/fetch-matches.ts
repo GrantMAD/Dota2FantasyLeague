@@ -17,6 +17,7 @@ import {
 import {
   fetchAllTournamentMatches,
   findExistingMatchByTeamsAndTime,
+  getTournamentSeriesIdentity,
   preserveMatchStatus,
   toDatabaseMatchStatus,
 } from './match-sync';
@@ -46,7 +47,13 @@ interface GameweekReference {
 
 interface SeriesReference {
   id: number;
+  tournament_id: number;
   gameweek_id: number;
+  source_series_id: string | null;
+  series_number: number;
+  best_of: number | null;
+  team_a_id: number | null;
+  team_b_id: number | null;
 }
 
 interface TeamReference {
@@ -202,7 +209,7 @@ export async function fetchMatches(options: { tournamentLimit?: number } = {}): 
             continue;
           }
 
-          const { existingMatches, allMatches, seriesByGameweek } = await getTournamentMatchState(supabase, tournament.id);
+          const { existingMatches, allMatches, seriesByIdentity } = await getTournamentMatchState(supabase, tournament.id);
           const routedMatchIds = new Set<string>();
           const reconciledMatchIds = new Set<number>();
           let skippedOutsideGameweeks = 0;
@@ -287,24 +294,87 @@ export async function fetchMatches(options: { tournamentLimit?: number } = {}): 
                 existing = reconciliation.match ?? undefined;
               }
 
-              let seriesRecord = seriesByGameweek.get(targetGameweek.id);
+              const teamPair = [teamAId, teamBId].sort((a, b) => a - b);
+              const seriesIdentity = getTournamentSeriesIdentity(
+                providerSource,
+                match.sourceSeriesId,
+                targetGameweek.id,
+                teamAId,
+                teamBId,
+                new Date(scheduledTime),
+              );
+              const fallbackSeriesId = getTournamentSeriesIdentity(
+                providerSource,
+                undefined,
+                targetGameweek.id,
+                teamAId,
+                teamBId,
+                new Date(scheduledTime),
+              );
+              const providerSeriesId = match.sourceSeriesId ? seriesIdentity : null;
+              let seriesRecord = seriesByIdentity.get(seriesIdentity);
+
+              if (!seriesRecord && providerSeriesId) {
+                const fallbackSeries = seriesByIdentity.get(fallbackSeriesId);
+                if (
+                  fallbackSeries
+                  && [fallbackSeries.team_a_id, fallbackSeries.team_b_id].sort((a, b) => Number(a) - Number(b)).join(':')
+                    === teamPair.join(':')
+                ) {
+                  const { error: promoteSeriesError } = await supabase
+                    .from('tournament_series')
+                    .update({ source_series_id: providerSeriesId })
+                    .eq('id', fallbackSeries.id);
+                  if (promoteSeriesError) {
+                    throw new Error(`Failed to add provider identity to series ${fallbackSeries.id}: ${promoteSeriesError.message}`);
+                  }
+                  seriesRecord = { ...fallbackSeries, source_series_id: providerSeriesId };
+                  seriesByIdentity.delete(fallbackSeriesId);
+                  seriesByIdentity.set(providerSeriesId, seriesRecord);
+                }
+              }
+
+              if (seriesRecord && seriesRecord.team_a_id !== null && seriesRecord.team_b_id !== null) {
+                const recordedTeams = [seriesRecord.team_a_id, seriesRecord.team_b_id].sort((a, b) => a - b);
+                if (recordedTeams[0] !== teamPair[0] || recordedTeams[1] !== teamPair[1]) {
+                  throw new Error(`Provider series identity ${seriesIdentity} was already assigned to different teams`);
+                }
+              }
+              if (seriesRecord && match.bestOfSeries && seriesRecord.best_of !== match.bestOfSeries) {
+                const { error: updateFormatError } = await supabase
+                  .from('tournament_series')
+                  .update({ best_of: match.bestOfSeries })
+                  .eq('id', seriesRecord.id);
+                if (updateFormatError) {
+                  throw new Error(`Failed to update format for series ${seriesRecord.id}: ${updateFormatError.message}`);
+                }
+                seriesRecord = { ...seriesRecord, best_of: match.bestOfSeries };
+                seriesByIdentity.set(seriesIdentity, seriesRecord);
+              }
+
               if (!seriesRecord) {
+                const seriesNumber = [...seriesByIdentity.values()]
+                  .filter((series) => series.gameweek_id === targetGameweek.id)
+                  .reduce((maximum, series) => Math.max(maximum, series.series_number), 0) + 1;
                 const { data: newSeries, error: seriesError } = await supabase
                   .from('tournament_series')
                   .insert({
                     tournament_id: tournament.id,
                     gameweek_id: targetGameweek.id,
-                    series_number: 1,
-                    best_of: 3,
+                    series_number: seriesNumber,
+                    best_of: match.bestOfSeries ?? 3,
+                    team_a_id: teamAId,
+                    team_b_id: teamBId,
+                    source_series_id: seriesIdentity,
                   })
-                  .select('id, gameweek_id')
+                  .select('id, tournament_id, gameweek_id, source_series_id, series_number, best_of, team_a_id, team_b_id')
                   .single();
 
                 if (seriesError) {
                   throw new Error(`Failed to create tournament series: ${seriesError.message}`);
                 }
                 seriesRecord = newSeries as SeriesReference;
-                seriesByGameweek.set(targetGameweek.id, seriesRecord);
+                seriesByIdentity.set(seriesIdentity, seriesRecord);
               }
 
               const incomingStatus = toDatabaseMatchStatus(match.status);
@@ -494,11 +564,11 @@ async function getTournamentMatchState(
 ): Promise<{
   existingMatches: Map<string, Match[]>;
   allMatches: Match[];
-  seriesByGameweek: Map<number, SeriesReference>;
+  seriesByIdentity: Map<string, SeriesReference>;
 }> {
   const { data: rawSeriesRows, error: seriesError } = await supabase
     .from('tournament_series')
-    .select('id, gameweek_id')
+    .select('id, tournament_id, gameweek_id, source_series_id, series_number, best_of, team_a_id, team_b_id')
     .eq('tournament_id', tournamentId);
 
   if (seriesError) {
@@ -506,18 +576,16 @@ async function getTournamentMatchState(
   }
 
   const seriesRows = (rawSeriesRows ?? []) as SeriesReference[];
-  const seriesByGameweek = new Map<number, SeriesReference>();
+  const seriesByIdentity = new Map<string, SeriesReference>();
   for (const series of seriesRows) {
-    if (!seriesByGameweek.has(series.gameweek_id)) {
-      seriesByGameweek.set(series.gameweek_id, series);
-    }
+    if (series.source_series_id) seriesByIdentity.set(series.source_series_id, series);
   }
 
   const seriesIds = seriesRows.map((series) => series.id);
   const existingMatches = new Map<string, Match[]>();
   const allMatches: Match[] = [];
   if (seriesIds.length === 0) {
-    return { existingMatches, allMatches, seriesByGameweek };
+    return { existingMatches, allMatches, seriesByIdentity };
   }
 
   const { data: matchRows, error: matchesError } = await supabase
@@ -538,7 +606,7 @@ async function getTournamentMatchState(
     }
   }
 
-  return { existingMatches, allMatches, seriesByGameweek };
+  return { existingMatches, allMatches, seriesByIdentity };
 }
 
 async function checkMatchDetails(matchId: string): Promise<boolean> {

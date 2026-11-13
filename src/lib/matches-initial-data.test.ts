@@ -31,18 +31,29 @@ function createQuery(table: string) {
       result = options?.head
         ? { data: null, count: 1, error: null }
         : {
-            data: [{
-              id: 101,
-              status: 'completed',
-              scheduled_time: '2026-11-01T12:00:00Z',
-              duration_minutes: 40,
-              gameweek_id: 8,
-              series_id: 3,
-              match_number: 1,
-              team_a_id: 10,
-              team_b_id: 11,
-              winner_team_id: 10,
-            }],
+            data: (() => {
+              const match = {
+                id: 101,
+                status: 'completed',
+                scheduled_time: '2026-11-01T12:00:00Z',
+                duration_minutes: 40,
+                gameweek_id: 8,
+                series_id: 3,
+                match_number: 1,
+                team_a_id: 10,
+                team_b_id: 11,
+                winner_team_id: 10,
+              };
+              const isSiblingQuery = operations.some(([method, column]) => method === 'in' && column === 'series_id')
+                && !operations.some(([method]) => method === 'range');
+              return isSiblingQuery
+                ? [
+                    match,
+                    { ...match, id: 102, team_a_id: 12, team_b_id: 13 },
+                    { ...match, id: 103, gameweek_id: 9 },
+                  ]
+                : [match];
+            })(),
             count: 1,
             error: null,
           };
@@ -80,5 +91,7 @@ describe('getInitialMatchesData', () => {
     const data = await getInitialMatchesData();
 
     expect(data.matches[0].player_ids).toEqual([501]);
+    expect(data.matches[0].series_matches?.map((match) => match.id)).toEqual([101]);
+    expect(data.matches[0].match_number).toBe(1);
   });
 });

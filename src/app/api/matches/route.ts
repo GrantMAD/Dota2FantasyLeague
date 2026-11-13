@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase';
 import { withApiTelemetry } from '@/lib/api-telemetry';
 import { getTeamDisplayTag } from '@/lib/team-tag';
+import { getMatchSeriesKey } from '@/lib/match-series';
 
 interface MatchRecord {
   [column: string]: unknown;
@@ -257,7 +258,27 @@ async function getHandler(request: NextRequest) {
 
     const matchRows = (matchResult.data ?? []) as MatchRecord[];
     const total = matchResult.count ?? 0;
-    const matchIds = matchRows.map((match) => match.id);
+    const pageSeriesIds = [...new Set(matchRows.map((match) => match.series_id).filter((id): id is number => id !== null))];
+    const { data: siblingMatchRows, error: siblingMatchesError } = pageSeriesIds.length > 0
+      ? await supabase.from('matches')
+        .select(MATCH_COLUMNS)
+        .in('series_id', pageSeriesIds)
+        .order('scheduled_time', { ascending: true })
+        .order('id', { ascending: true })
+      : { data: [], error: null };
+    if (siblingMatchesError) {
+      return databaseError('fetch match series games', siblingMatchesError);
+    }
+
+    const pageSeriesKeys = new Set(matchRows.map(getMatchSeriesKey));
+    const scopedSiblingMatchRows = ((siblingMatchRows ?? []) as MatchRecord[])
+      .filter((match) => pageSeriesKeys.has(getMatchSeriesKey(match)));
+    const allMatchesById = new Map<number, MatchRecord>();
+    for (const match of [...scopedSiblingMatchRows, ...matchRows]) {
+      allMatchesById.set(match.id, match);
+    }
+    const allMatchRows = [...allMatchesById.values()];
+    const matchIds = allMatchRows.map((match) => match.id);
     const { data: matchPlayerStats, error: matchPlayerStatsError } = matchIds.length > 0
       ? await (supabase
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -276,8 +297,8 @@ async function getHandler(request: NextRequest) {
       playerIdsByMatch.set(stat.match_id, playerIds);
     }
 
-    const teamIds = [...new Set(matchRows.flatMap((match) => [match.team_a_id, match.team_b_id]).filter((id): id is number => id !== null))];
-    const seriesIds = [...new Set(matchRows.map((match) => match.series_id).filter((id): id is number => id !== null))];
+    const teamIds = [...new Set(allMatchRows.flatMap((match) => [match.team_a_id, match.team_b_id]).filter((id): id is number => id !== null))];
+    const seriesIds = [...new Set(allMatchRows.map((match) => match.series_id).filter((id): id is number => id !== null))];
 
     const [
       { data: teamData, error: teamsError },
@@ -315,8 +336,7 @@ async function getHandler(request: NextRequest) {
     const seriesMap = new Map(series.map((item) => [item.id, item] as const));
     const counts = Object.fromEntries(countStatuses.map(([key], index) => [key, countResults[index].count ?? 0]));
 
-    const response = {
-      matches: matchRows.map((match) => {
+    const mappedMatches = allMatchRows.map((match) => {
         const seriesInfo = match.series_id === null ? undefined : seriesMap.get(match.series_id);
         const buildTeam = (teamId: number | null) => {
           if (teamId === null) return null;
@@ -327,7 +347,7 @@ async function getHandler(request: NextRequest) {
           ...match,
           player_ids: playerIdsByMatch.get(match.id) ?? [],
           status: match.status === 'in_progress' ? 'live' : match.status,
-          match_number: match.match_number || 1,
+          match_number: match.match_number ?? undefined,
           best_of: seriesInfo?.best_of || 3,
           series_number: seriesInfo?.series_number || 1,
           scheduled_at: match.scheduled_time,
@@ -338,7 +358,33 @@ async function getHandler(request: NextRequest) {
           dire_team: buildTeam(match.team_b_id),
           tournaments: seriesInfo?.tournament_id != null ? tournamentById.get(seriesInfo.tournament_id) ?? null : null,
         };
-      }),
+      });
+    const mappedById = new Map(mappedMatches.map((match) => [match.id, match]));
+    const siblingMatchesBySeries = new Map<string, typeof mappedMatches>();
+    for (const match of mappedMatches) {
+      if (match.series_id === null) continue;
+      const seriesKey = getMatchSeriesKey(match);
+      const games = siblingMatchesBySeries.get(seriesKey) ?? [];
+      games.push(match);
+      siblingMatchesBySeries.set(seriesKey, games);
+    }
+    for (const games of siblingMatchesBySeries.values()) {
+      games.sort((left, right) => left.scheduled_time.localeCompare(right.scheduled_time) || left.id - right.id);
+      games.forEach((game, index) => {
+        if (!game.match_number || game.match_number < 1) game.match_number = index + 1;
+      });
+    }
+    const pageMatches = matchRows.map((match) => {
+      const mappedMatch = mappedById.get(match.id);
+      if (!mappedMatch || mappedMatch.series_id === null) return mappedMatch;
+      return {
+        ...mappedMatch,
+        series_matches: siblingMatchesBySeries.get(getMatchSeriesKey(mappedMatch)) ?? [mappedMatch],
+      };
+    }).filter((match): match is NonNullable<typeof match> => match !== undefined);
+
+    const response = {
+      matches: pageMatches,
       tournaments: ((tournamentOptionsData ?? []) as Array<{ id: number; name: string }>),
       pagination: {
         page,

@@ -10,6 +10,9 @@ import { TeamLogo } from '../components/TeamLogo';
 
 import { MatchFantasyImpactBanner, type UserFantasyImpact } from '../components/MatchFantasyImpactBanner';
 import { MatchLeadersStrip } from '../components/MatchLeadersStrip';
+import { SeriesGameTabs } from '../components/SeriesGameTabs';
+import { getDefaultSeriesGame } from '@/lib/match-series';
+import { calculateSeriesLeaders } from '@/lib/match-series-stats';
 
 type MatchDetail = {
   id: number;
@@ -31,6 +34,7 @@ type MatchDetail = {
 type PlayerStat = {
   id: number;
   player_id: number;
+  series_player_key?: string;
   team_id: number;
   hero_name?: string | null;
   kills: number;
@@ -67,10 +71,24 @@ type FantasyBreakdown = {
   penalty_points?: number;
 };
 
+type SeriesGameDetail = {
+  id: number;
+  status: string;
+  scheduled_at: string;
+  duration_seconds: number | null;
+  winner_team_id: number | null;
+  radiant_team_id: number | null;
+  dire_team_id: number | null;
+  match_number: number;
+  playerStats: PlayerStat[];
+  fantasyBreakdown: FantasyBreakdown[];
+};
+
 type MatchApiResponse = {
   match?: MatchDetail;
   playerStats?: PlayerStat[];
   fantasyBreakdown?: FantasyBreakdown[];
+  seriesGames?: SeriesGameDetail[];
   seriesScore?: {
     radiantWins: number;
     direWins: number;
@@ -132,6 +150,8 @@ function MatchDetailInner({ params }: { params: Promise<{ id: string }> }) {
   const [match, setMatch] = useState<MatchDetail | null>(null);
   const [playerStats, setPlayerStats] = useState<PlayerStat[]>([]);
   const [fantasyBreakdown, setFantasyBreakdown] = useState<FantasyBreakdown[]>([]);
+  const [seriesGames, setSeriesGames] = useState<SeriesGameDetail[]>([]);
+  const [selectedGameId, setSelectedGameId] = useState<number | null>(null);
   const [seriesScore, setSeriesScore] = useState<MatchApiResponse['seriesScore']>(null);
   const [userFantasyImpact, setUserFantasyImpact] = useState<UserFantasyImpact | null>(null);
   const [viewMode, setViewMode] = useState<'fantasy' | 'traditional'>('fantasy');
@@ -141,6 +161,7 @@ function MatchDetailInner({ params }: { params: Promise<{ id: string }> }) {
 
   useEffect(() => {
     async function loadMatch() {
+      setSelectedGameId(null);
       try {
         const response = await fetchWithAuth(`/api/matches/${id}`);
         const data = (await response.json()) as MatchApiResponse & { error?: string };
@@ -148,6 +169,7 @@ function MatchDetailInner({ params }: { params: Promise<{ id: string }> }) {
         setMatch(data.match ?? null);
         setPlayerStats(data.playerStats ?? []);
         setFantasyBreakdown(data.fantasyBreakdown ?? []);
+        setSeriesGames(data.seriesGames ?? []);
         setSeriesScore(data.seriesScore ?? null);
         setUserFantasyImpact(data.userFantasyImpact ?? null);
       } catch (requestError: unknown) {
@@ -189,16 +211,35 @@ function MatchDetailInner({ params }: { params: Promise<{ id: string }> }) {
     return `${m}:${s.toString().padStart(2, '0')}`;
   };
 
-  const isRadiantWinner = match.winner_team_id === match.radiant_team_id;
-  const isDireWinner = match.winner_team_id === match.dire_team_id;
-  const isCompleted = match.status === 'completed';
-  const isLive = match.status === 'live';
+  const availableSeriesGames = seriesGames.length > 0
+    ? seriesGames
+    : [{
+        id: match.id,
+        status: match.status,
+        scheduled_at: match.scheduled_at,
+        duration_seconds: match.duration_seconds,
+        winner_team_id: match.winner_team_id,
+        radiant_team_id: match.radiant_team_id,
+        dire_team_id: match.dire_team_id,
+        match_number: match.match_number ?? 1,
+        playerStats,
+        fantasyBreakdown,
+      }];
+  const defaultGame = getDefaultSeriesGame(availableSeriesGames) ?? availableSeriesGames[0];
+  const activeGame = availableSeriesGames.find((game) => game.id === selectedGameId)
+    ?? defaultGame;
+  const isRadiantWinner = activeGame.winner_team_id === match.radiant_team_id;
+  const isDireWinner = activeGame.winner_team_id === match.dire_team_id;
+  const isCompleted = activeGame.status === 'completed';
+  const isLive = activeGame.status === 'live' || activeGame.status === 'in_progress';
+  const activePlayerStats = activeGame?.playerStats ?? playerStats;
+  const activeFantasyBreakdown = activeGame?.fantasyBreakdown ?? fantasyBreakdown;
 
   const fantasyMap = new Map<number, FantasyBreakdown>(
-    fantasyBreakdown.map((f) => [f.player_id, f])
+    activeFantasyBreakdown.map((f) => [f.player_id, f])
   );
   const fantasyPointsByPlayer = new Map<number, number>(
-    fantasyBreakdown.map((f) => [f.player_id, Number(f.total_points || 0)])
+    activeFantasyBreakdown.map((f) => [f.player_id, Number(f.total_points || 0)])
   );
 
   const lineupDetailMap = new Map<number, { slot: string; isCaptain: boolean; isViceCaptain: boolean; isStarter: boolean }>(
@@ -224,36 +265,9 @@ function MatchDetailInner({ params }: { params: Promise<{ id: string }> }) {
     return raw;
   };
 
-  const radiantStats = playerStats.filter((p) => p.team_id === match.radiant_team_id);
-  const direStats = playerStats.filter((p) => p.team_id === match.dire_team_id);
-
-  // Calculate Match Leaders
-  let fantasyMVP: { playerId: number; playerName: string; heroName?: string | null; role: string; value: number; formattedValue: string } | null = null;
-  let highestDamage: { playerId: number; playerName: string; heroName?: string | null; role: string; value: number; formattedValue: string } | null = null;
-  let highestGPM: { playerId: number; playerName: string; heroName?: string | null; role: string; value: number; formattedValue: string } | null = null;
-  let highestKills: { playerId: number; playerName: string; heroName?: string | null; role: string; value: number; formattedValue: string } | null = null;
-
-  for (const s of playerStats) {
-    const pName = cleanPlayerName(s);
-    const role = s.professional_players?.primary_role || 'Core';
-    const pts = fantasyPointsByPlayer.get(s.player_id) ?? 0;
-    const dmg = Number(s.hero_damage || 0);
-    const gpm = Number(s.gold_per_minute || 0);
-    const kills = Number(s.kills || 0);
-
-    if (!fantasyMVP || pts > fantasyMVP.value) {
-      fantasyMVP = { playerId: s.player_id, playerName: pName, heroName: s.hero_name, role, value: pts, formattedValue: `${pts.toFixed(1)} pts` };
-    }
-    if (!highestDamage || dmg > highestDamage.value) {
-      highestDamage = { playerId: s.player_id, playerName: pName, heroName: s.hero_name, role, value: dmg, formattedValue: dmg.toLocaleString() };
-    }
-    if (!highestGPM || gpm > highestGPM.value) {
-      highestGPM = { playerId: s.player_id, playerName: pName, heroName: s.hero_name, role, value: gpm, formattedValue: `${gpm} GPM` };
-    }
-    if (!highestKills || kills > highestKills.value) {
-      highestKills = { playerId: s.player_id, playerName: pName, heroName: s.hero_name, role, value: kills, formattedValue: `${kills} kills` };
-    }
-  }
+  const radiantStats = activePlayerStats.filter((p) => p.team_id === match.radiant_team_id);
+  const direStats = activePlayerStats.filter((p) => p.team_id === match.dire_team_id);
+  const { fantasyMVP, highestDamage, highestEconomy, highestKills } = calculateSeriesLeaders(availableSeriesGames);
 
   const renderRosterTable = (stats: PlayerStat[], teamFaction: 'radiant' | 'dire', teamName: string, isWinner: boolean) => {
     const isRadiant = teamFaction === 'radiant';
@@ -446,12 +460,12 @@ function MatchDetailInner({ params }: { params: Promise<{ id: string }> }) {
               )}
               {match.best_of && (
                 <span className="rounded border border-[var(--border)] bg-[var(--surface-raised)] px-2 py-0.5 font-mono text-[10px] text-[var(--text-secondary)]">
-                  Best of {match.best_of} · Game {match.match_number || 1}
+                  Best of {match.best_of} · Game {activeGame.match_number || 1}
                 </span>
               )}
             </div>
             <p className="font-mono text-xs text-[var(--text-muted)]">
-              {new Date(match.scheduled_at).toLocaleString([], {
+              {new Date(activeGame.scheduled_at).toLocaleString([], {
                 weekday: 'short',
                 month: 'short',
                 day: 'numeric',
@@ -491,7 +505,7 @@ function MatchDetailInner({ params }: { params: Promise<{ id: string }> }) {
               </span>
             ) : (
               <span className="rounded-full border border-[var(--border)] bg-[var(--surface-raised)] px-3 py-1 text-xs font-semibold capitalize text-[var(--text-secondary)]">
-                {match.status.replace('_', ' ')}
+                {activeGame.status.replace('_', ' ')}
               </span>
             )}
           </div>
@@ -539,7 +553,7 @@ function MatchDetailInner({ params }: { params: Promise<{ id: string }> }) {
 
           {/* Scoreboard / Timer */}
           <div className="flex flex-col items-center justify-center px-6">
-            {seriesScore && (isCompleted || isLive) ? (
+            {seriesScore && (seriesScore.radiantWins > 0 || seriesScore.direWins > 0 || isLive) ? (
               <div className="flex flex-col items-center gap-1.5">
                 <span className="text-[9px] font-bold uppercase tracking-[0.2em] text-[var(--text-muted)]">Series Score</span>
                 <div className="flex items-center gap-3 rounded-2xl border border-[var(--border)] bg-[var(--surface-raised)] px-6 py-2.5 shadow-xl shadow-cyan-950/10">
@@ -588,10 +602,10 @@ function MatchDetailInner({ params }: { params: Promise<{ id: string }> }) {
               </div>
             )}
 
-            {isCompleted && match.duration_seconds && (
+            {isCompleted && activeGame.duration_seconds && (
               <div className="mt-3 flex items-center gap-1.5 rounded-full border border-[var(--border)] bg-[var(--surface-raised)] px-3 py-1 font-mono text-xs text-[var(--text-muted)]">
                 <span>⏱ Duration:</span>
-                <span className="font-bold text-[var(--text-primary)]">{formatDuration(match.duration_seconds)}</span>
+                <span className="font-bold text-[var(--text-primary)]">{formatDuration(activeGame.duration_seconds)}</span>
               </div>
             )}
           </div>
@@ -640,20 +654,31 @@ function MatchDetailInner({ params }: { params: Promise<{ id: string }> }) {
       <MatchLeadersStrip
         fantasyMVP={fantasyMVP}
         highestDamage={highestDamage}
-        highestGPM={highestGPM}
+        highestEconomy={highestEconomy}
         highestKills={highestKills}
       />
 
       {/* User Fantasy Impact Banner */}
       <MatchFantasyImpactBanner
         impact={userFantasyImpact}
-        playerStats={playerStats}
-        fantasyPointsByPlayer={fantasyPointsByPlayer}
+        seriesGames={availableSeriesGames}
         gameweekNumber={match.gameweeks?.gameweek_number}
       />
 
       {/* Player Stats & Fantasy Breakdown Section */}
-      {playerStats.length > 0 ? (
+      {availableSeriesGames.length > 1 && (
+        <SeriesGameTabs
+          games={availableSeriesGames}
+          activeMatchId={activeGame.id}
+          onSelect={setSelectedGameId}
+        />
+      )}
+      <div
+        id={`series-game-panel-${activeGame.id}`}
+        role="tabpanel"
+        aria-labelledby={availableSeriesGames.length > 1 ? `series-game-tab-${activeGame.id}` : undefined}
+      >
+      {activePlayerStats.length > 0 ? (
         <div className="space-y-6">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
             <div>
@@ -662,7 +687,18 @@ function MatchDetailInner({ params }: { params: Promise<{ id: string }> }) {
                 <span>Player Performance &amp; Box Score</span>
               </h3>
               <p className="text-xs text-[var(--text-muted)]">
-                Official in-game statistics and calculated fantasy point impacts
+                <time suppressHydrationWarning dateTime={activeGame.scheduled_at}>
+                  Game {activeGame.match_number} · {new Date(activeGame.scheduled_at).toLocaleString([], {
+                    weekday: 'short',
+                    month: 'short',
+                    day: 'numeric',
+                    year: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  })}
+                </time>
+                {activeGame.duration_seconds ? ` · ${formatDuration(activeGame.duration_seconds)}` : ''}
+                {' · '}Official in-game statistics and fantasy points for this game
               </p>
             </div>
 
@@ -704,10 +740,11 @@ function MatchDetailInner({ params }: { params: Promise<{ id: string }> }) {
       ) : (
         <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-8 text-center shadow-sm">
           <p className="text-sm text-[var(--text-muted)]">
-            Detailed player stats and fantasy point breakdowns will populate here once match data is processed.
+            Detailed player stats and fantasy point breakdowns for Game {activeGame.match_number} will populate here once match data is processed.
           </p>
         </div>
       )}
+      </div>
     </div>
   );
 }

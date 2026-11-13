@@ -7,6 +7,7 @@ import {
   filterTournamentsToProviderIds,
   findExistingMatchByTeamsAndTime,
   fetchAllTournamentMatches,
+  getTournamentSeriesIdentity,
   preserveMatchStatus,
   requireStratzMatchProvider,
   toDatabaseMatchStatus,
@@ -25,6 +26,15 @@ function makeMatch(id: string, status: MatchData['status']): MatchData {
 }
 
 describe('match synchronization helpers', () => {
+  it('uses provider series identity and falls back to a gameweek/team-pair key', () => {
+    expect(getTournamentSeriesIdentity('stratz', 'bracket-series-7', 5, 12, 4, new Date('2026-11-12T19:00:00Z')))
+      .toBe('provider:stratz:5:bracket-series-7');
+    expect(getTournamentSeriesIdentity('opendota', undefined, 5, 12, 4, new Date('2026-11-12T19:00:00Z')))
+      .toBe('fallback:5:2026-11-12:4:12');
+    expect(getTournamentSeriesIdentity('opendota', undefined, 5, 4, 12, new Date('2026-11-12T21:00:00Z')))
+      .toBe('fallback:5:2026-11-12:4:12');
+  });
+
   it('maps STRATZ tournament timestamps and live state to status', () => {
     const now = Date.UTC(2026, 10, 3, 10);
     const nowInSeconds = now / 1000;

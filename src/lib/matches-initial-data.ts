@@ -1,5 +1,6 @@
 import { supabaseServer } from '@/lib/supabase';
 import { getTeamDisplayTag } from '@/lib/team-tag';
+import { getMatchSeriesKey } from '@/lib/match-series';
 import type { MatchData } from '@/app/(dashboard)/matches/components/MatchCard';
 
 const PAGE_SIZE = 24;
@@ -13,6 +14,7 @@ interface MatchRecord {
   status: string;
   scheduled_time: string;
   duration_minutes: number | null;
+  gameweek_id: number | null;
   series_id: number | null;
   match_number: number | null;
   team_a_id: number | null;
@@ -83,13 +85,32 @@ export async function getInitialMatchesData(): Promise<InitialMatchesData> {
   }
 
   const matches = (matchRows ?? []) as MatchRecord[];
-  const matchIds = matches.map((match) => match.id);
-  const { data: matchPlayerStats, error: matchPlayerStatsError } = matchIds.length > 0
+  const seriesIdsOnPage = [...new Set(matches.map((match) => match.series_id).filter((id): id is number => id !== null))];
+  const { data: siblingMatchRows, error: siblingMatchesError } = seriesIdsOnPage.length > 0
+    ? await supabase.from('matches')
+      .select(MATCH_COLUMNS)
+      .in('series_id', seriesIdsOnPage)
+      .order('scheduled_time', { ascending: true })
+      .order('id', { ascending: true })
+    : { data: [], error: null };
+  if (siblingMatchesError) {
+    throw new Error(`Failed to load Match Center series games: ${siblingMatchesError.message}`);
+  }
+  const pageSeriesKeys = new Set(matches.map(getMatchSeriesKey));
+  const scopedSiblingMatchRows = ((siblingMatchRows ?? []) as MatchRecord[])
+    .filter((match) => pageSeriesKeys.has(getMatchSeriesKey(match)));
+  const allMatchesById = new Map<number, MatchRecord>();
+  for (const match of [...matches, ...scopedSiblingMatchRows]) {
+    allMatchesById.set(match.id, match);
+  }
+  const seriesMatches = [...allMatchesById.values()];
+  const allMatchIds = seriesMatches.map((match) => match.id);
+  const { data: matchPlayerStats, error: matchPlayerStatsError } = allMatchIds.length > 0
     ? await (supabase
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         .from('match_player_stats') as any)
         .select('match_id, player_id')
-        .in('match_id', matchIds)
+        .in('match_id', allMatchIds)
     : { data: [], error: null };
   if (matchPlayerStatsError) {
     throw new Error(`Failed to load Match Center player participation: ${matchPlayerStatsError.message}`);
@@ -101,8 +122,8 @@ export async function getInitialMatchesData(): Promise<InitialMatchesData> {
     playerIdsByMatch.set(stat.match_id, playerIds);
   }
 
-  const teamIds = [...new Set(matches.flatMap((match) => [match.team_a_id, match.team_b_id]).filter((id): id is number => id !== null))];
-  const seriesIds = [...new Set(matches.map((match) => match.series_id).filter((id): id is number => id !== null))];
+  const teamIds = [...new Set(seriesMatches.flatMap((match) => [match.team_a_id, match.team_b_id]).filter((id): id is number => id !== null))];
+  const seriesIds = [...new Set(seriesMatches.map((match) => match.series_id).filter((id): id is number => id !== null))];
   const [
     { data: teamRows, error: teamsError },
     { data: seriesRows, error: seriesError },
@@ -130,7 +151,7 @@ export async function getInitialMatchesData(): Promise<InitialMatchesData> {
   const teamById = new Map((teams as TeamRecord[]).map((team) => [team.id, team] as const));
   const seriesById = new Map((series as SeriesRecord[]).map((item) => [item.id, item] as const));
   const tournamentById = new Map(((tournamentRows ?? []) as TournamentRecord[]).map((item) => [item.id, item] as const));
-  const mappedMatches: MatchData[] = matches.map((match) => {
+  const mappedMatches: MatchData[] = seriesMatches.map((match) => {
     const seriesInfo = match.series_id === null ? undefined : seriesById.get(match.series_id);
     const buildTeam = (teamId: number | null) => {
       if (teamId === null) return null;
@@ -141,7 +162,7 @@ export async function getInitialMatchesData(): Promise<InitialMatchesData> {
       ...match,
       player_ids: playerIdsByMatch.get(match.id) ?? [],
       status: match.status === 'in_progress' ? 'live' : match.status,
-      match_number: match.match_number || 1,
+      match_number: match.match_number ?? undefined,
       best_of: seriesInfo?.best_of || 3,
       series_number: seriesInfo?.series_number || 1,
       scheduled_at: match.scheduled_time,
@@ -153,10 +174,34 @@ export async function getInitialMatchesData(): Promise<InitialMatchesData> {
       tournaments: seriesInfo?.tournament_id != null ? tournamentById.get(seriesInfo.tournament_id) ?? null : null,
     };
   });
+  const mappedById = new Map(mappedMatches.map((match) => [match.id, match]));
+  const siblingMatchesBySeries = new Map<string, MatchData[]>();
+  for (const mappedMatch of mappedMatches) {
+    const seriesId = mappedMatch.series_id;
+    if (seriesId == null) continue;
+    const seriesKey = getMatchSeriesKey(mappedMatch);
+    const games = siblingMatchesBySeries.get(seriesKey) ?? [];
+    games.push(mappedMatch);
+    siblingMatchesBySeries.set(seriesKey, games);
+  }
+  for (const games of siblingMatchesBySeries.values()) {
+    games.sort((left, right) => left.scheduled_at.localeCompare(right.scheduled_at) || left.id - right.id);
+    games.forEach((game, index) => {
+      if (!game.match_number || game.match_number < 1) game.match_number = index + 1;
+    });
+  }
+  const pageMatches = matches.map((match) => {
+    const mappedMatch = mappedById.get(match.id);
+    if (!mappedMatch || mappedMatch.series_id == null) return mappedMatch;
+    return {
+      ...mappedMatch,
+      series_matches: siblingMatchesBySeries.get(getMatchSeriesKey(mappedMatch)) ?? [mappedMatch],
+    };
+  }).filter((match): match is MatchData => match !== undefined);
   const matchTotal = total ?? matches.length;
 
   const response: InitialMatchesData = {
-    matches: mappedMatches,
+    matches: pageMatches,
     tournaments: (tournamentOptions ?? []) as Array<{ id: number; name: string }>,
     pagination: { page: 1, limit: PAGE_SIZE, total: matchTotal, totalPages: Math.ceil(matchTotal / PAGE_SIZE) },
     counts: {

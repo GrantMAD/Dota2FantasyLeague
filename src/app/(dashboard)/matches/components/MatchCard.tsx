@@ -4,9 +4,13 @@ import Link from 'next/link';
 import { Star } from 'lucide-react';
 import { TeamLogo } from './TeamLogo';
 import type { MatchSquadPlayer } from '@/lib/match-squad-tracking';
+import { summarizeMatchSeries } from '@/lib/match-series';
 
 export interface MatchData {
   id: number;
+  series_id?: number | null;
+  gameweek_id?: number | null;
+  series_matches?: MatchData[];
   status: 'completed' | 'live' | 'scheduled' | string;
   scheduled_at: string;
   duration_seconds: number | null;
@@ -41,21 +45,43 @@ export interface MatchData {
 
 interface MatchCardProps {
   match: MatchData;
+  seriesMatches?: MatchData[];
   userSquadPlayers?: MatchSquadPlayer[];
+  getSquadPlayersForMatch?: (match: MatchData) => MatchSquadPlayer[];
 }
 
-export function MatchCard({ match, userSquadPlayers = [] }: MatchCardProps) {
-  const isRadiantWinner = match.winner_team_id === match.radiant_team_id;
-  const isDireWinner = match.winner_team_id === match.dire_team_id;
-  const isLive = match.status === 'live';
-  const isCompleted = match.status === 'completed';
-
-  const formatDuration = (seconds: number | null) => {
-    if (!seconds) return '--:--';
-    const m = Math.floor(seconds / 60);
-    const s = seconds % 60;
-    return `${m}:${s.toString().padStart(2, '0')}`;
-  };
+export function MatchCard({
+  match: initialMatch,
+  seriesMatches,
+  userSquadPlayers = [],
+  getSquadPlayersForMatch,
+}: MatchCardProps) {
+  const games = seriesMatches?.length
+    ? seriesMatches
+    : initialMatch.series_matches?.length ? initialMatch.series_matches : [initialMatch];
+  const match = initialMatch;
+  const seriesScore = summarizeMatchSeries(games, match.best_of ?? 3);
+  const isRadiantWinner = seriesScore.clinchedTeamId === match.radiant_team_id;
+  const isDireWinner = seriesScore.clinchedTeamId === match.dire_team_id;
+  const isLive = seriesScore.isLive && !seriesScore.isComplete;
+  const isCompleted = seriesScore.isComplete;
+  const completedGames = games.filter((game) => game.status === 'completed');
+  const displayGame = isCompleted
+    ? completedGames[completedGames.length - 1] ?? games[games.length - 1] ?? match
+    : games.find((game) => game.status === 'live')
+      ?? games.find((game) => game.status === 'scheduled')
+      ?? games[games.length - 1]
+      ?? match;
+  const squadPlayersById = new Map<number, MatchSquadPlayer>();
+  if (getSquadPlayersForMatch) {
+    for (const game of games) {
+      for (const player of getSquadPlayersForMatch(game)) {
+        const existing = squadPlayersById.get(player.id);
+        if (!existing || player.confirmedAppearance) squadPlayersById.set(player.id, player);
+      }
+    }
+  }
+  const squadPlayers = getSquadPlayersForMatch ? [...squadPlayersById.values()] : userSquadPlayers;
 
   // Some teams were auto-registered during ingestion with their numeric provider ID as the name.
   // Detect this and display as "Team [number]" rather than a bare number.
@@ -65,20 +91,19 @@ export function MatchCard({ match, userSquadPlayers = [] }: MatchCardProps) {
     return name;
   };
 
-  const formattedDate = new Date(match.scheduled_at).toLocaleDateString('en-US', {
+  const formattedDate = new Date(displayGame.scheduled_at).toLocaleDateString('en-US', {
     month: 'short',
     day: 'numeric',
   });
-  const formattedTime = new Date(match.scheduled_at).toLocaleTimeString('en-US', {
+  const formattedTime = new Date(displayGame.scheduled_at).toLocaleTimeString('en-US', {
     hour: '2-digit',
     minute: '2-digit',
   });
 
   return (
-    <Link
-      href={`/matches/${match.id}`}
+    <div
       className={`group relative flex flex-col rounded-2xl border transition-all duration-300 overflow-hidden ${
-        userSquadPlayers.length > 0
+        squadPlayers.length > 0
           ? 'border-amber-400/70 bg-amber-950/20 shadow-[0_0_24px_rgba(245,158,11,0.12)] hover:border-amber-300'
           : isLive
           ? 'bg-slate-900/90 border-red-500/60 shadow-[0_0_25px_rgba(239,68,68,0.15)] hover:border-red-400'
@@ -98,7 +123,7 @@ export function MatchCard({ match, userSquadPlayers = [] }: MatchCardProps) {
           </span>
           {match.best_of && (
             <span className="rounded border border-slate-700/60 bg-slate-800 px-1.5 py-0.5 text-[10px] font-mono text-slate-300">
-          Bo{match.best_of} · Game {match.match_number || 1} of {match.best_of}
+              Bo{match.best_of} Series
             </span>
           )}
         </div>
@@ -111,7 +136,11 @@ export function MatchCard({ match, userSquadPlayers = [] }: MatchCardProps) {
             </span>
           ) : isCompleted ? (
             <span suppressHydrationWarning className="text-slate-400 font-medium font-mono text-[11px]">
-              Final · {formattedDate}
+              Series Final · {formattedDate}
+            </span>
+          ) : seriesScore.completedGames > 0 ? (
+            <span suppressHydrationWarning className="text-amber-400/90 font-mono text-[11px] bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">
+              Game {seriesScore.completedGames + 1} · {formattedDate} {formattedTime}
             </span>
           ) : (
             <span suppressHydrationWarning className="text-amber-400/90 font-mono text-[11px] bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">
@@ -154,14 +183,14 @@ export function MatchCard({ match, userSquadPlayers = [] }: MatchCardProps) {
 
         {/* Center Scoreboard / VS Pill */}
         <div className="shrink-0 flex flex-col items-center justify-center px-1 sm:px-2">
-          {isCompleted ? (
+          {seriesScore.completedGames > 0 || isLive || isCompleted ? (
             <div className="match-card-score-pill flex items-center gap-1.5 rounded-xl border border-[var(--border)] bg-[var(--surface-raised)] px-3.5 py-1.5 shadow-inner dark:border-slate-700/80 dark:bg-slate-950/80">
               <span
                 className={`font-mono text-lg font-black ${
                   isRadiantWinner ? 'text-emerald-500 dark:text-emerald-400' : 'text-[var(--text-muted)]'
                 }`}
               >
-                {isRadiantWinner ? '1' : '0'}
+                {seriesScore.radiantWins}
               </span>
               <span className="text-[var(--text-muted)] font-bold">:</span>
               <span
@@ -169,14 +198,8 @@ export function MatchCard({ match, userSquadPlayers = [] }: MatchCardProps) {
                   isDireWinner ? 'text-rose-500 dark:text-rose-400' : 'text-[var(--text-muted)]'
                 }`}
               >
-                {isDireWinner ? '1' : '0'}
+                {seriesScore.direWins}
               </span>
-            </div>
-          ) : isLive ? (
-            <div className="flex flex-col items-center">
-              <div className="bg-red-950/60 border border-red-600/50 rounded-lg px-3 py-1 font-mono font-black text-red-400 text-sm tracking-widest animate-pulse">
-                LIVE
-              </div>
             </div>
           ) : (
             <div className="match-card-vs-pill w-9 h-9 rounded-full border border-[var(--border)] bg-[var(--surface-raised)] flex items-center justify-center text-xs font-black text-[var(--text-secondary)] tracking-wider dark:border-slate-700 dark:bg-slate-800/80">
@@ -184,9 +207,9 @@ export function MatchCard({ match, userSquadPlayers = [] }: MatchCardProps) {
             </div>
           )}
 
-          {isCompleted && match.duration_seconds && (
-            <span className="text-[10px] text-slate-500 font-mono mt-1.5 flex items-center gap-1">
-              ⏱ {formatDuration(match.duration_seconds)}
+          {seriesScore.completedGames > 0 && (
+            <span className="text-[10px] text-slate-500 font-mono mt-1.5">
+              {seriesScore.completedGames} {seriesScore.completedGames === 1 ? 'game' : 'games'} played
             </span>
           )}
         </div>
@@ -222,27 +245,27 @@ export function MatchCard({ match, userSquadPlayers = [] }: MatchCardProps) {
       </div>
 
       {/* Fantasy League Impact Footer */}
-      {userSquadPlayers.length > 0 && (
+      {squadPlayers.length > 0 && (
         <div className="mx-4 mb-3 rounded-xl border border-amber-500/50 bg-amber-500/10 px-3 py-2.5">
           <div className="flex items-center gap-2 text-xs font-bold text-amber-800 dark:text-amber-300">
             <Star className="h-4 w-4 shrink-0 fill-current" aria-hidden="true" />
             <span>
-              {userSquadPlayers.every((player) => player.confirmedAppearance)
-                ? 'Your players confirmed in this match'
+              {squadPlayers.every((player) => player.confirmedAppearance)
+                ? 'Your players confirmed in this series'
                 : 'Your squad team fixture · appearances unconfirmed'}
             </span>
           </div>
           <div className="mt-2 flex flex-wrap gap-1.5">
-            {userSquadPlayers.map((player) => (
+            {squadPlayers.map((player) => (
               <span key={player.id} className="rounded-full border border-amber-500/30 bg-[var(--surface)] px-2 py-1 text-[10px] font-semibold text-[var(--text-primary)]">
                 {player.name}
               </span>
             ))}
           </div>
           <span className="sr-only">
-            {userSquadPlayers.length} {userSquadPlayers.length === 1 ? 'squad player is' : 'squad players are'}
-            {userSquadPlayers.every((player) => player.confirmedAppearance)
-              ? ' confirmed to have appeared in this match.'
+            {squadPlayers.length} {squadPlayers.length === 1 ? 'squad player is' : 'squad players are'}
+            {squadPlayers.every((player) => player.confirmedAppearance)
+              ? ' confirmed to have appeared in this series.'
               : ' on a team in this fixture; their appearance is not confirmed.'}
           </span>
         </div>
@@ -255,13 +278,16 @@ export function MatchCard({ match, userSquadPlayers = [] }: MatchCardProps) {
             <span className="text-slate-500">{match.radiant_team.region} vs {match.dire_team?.region || 'INT'}</span>
           )}
         </span>
-        <span className="text-amber-400 group-hover:text-amber-300 font-medium flex items-center gap-1 transition-colors">
-          View Match Center
+        <Link
+          href={`/matches/${match.id}`}
+          className="text-amber-400 group-hover:text-amber-300 font-medium flex items-center gap-1 transition-colors"
+        >
+          {games.length > 1 ? 'View Series Details' : 'View Match Details'}
           <svg className="w-3.5 h-3.5 transition-transform group-hover:translate-x-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
           </svg>
-        </span>
+        </Link>
       </div>
-    </Link>
+    </div>
   );
 }

@@ -10,22 +10,29 @@ interface LeaderStat {
   role: string;
   value: number;
   formattedValue: string;
+  gameValues: Array<{
+    matchId: number;
+    matchNumber: number;
+    scheduledAt: string | null;
+    value: number;
+    formattedValue: string;
+  }>;
 }
 
 interface MatchLeadersStripProps {
   fantasyMVP: LeaderStat | null;
   highestDamage: LeaderStat | null;
-  highestGPM: LeaderStat | null;
+  highestEconomy: LeaderStat | null;
   highestKills: LeaderStat | null;
 }
 
 export function MatchLeadersStrip({
   fantasyMVP,
   highestDamage,
-  highestGPM,
+  highestEconomy,
   highestKills,
 }: MatchLeadersStripProps) {
-  if (!fantasyMVP && !highestDamage && !highestGPM && !highestKills) return null;
+  if (!fantasyMVP && !highestDamage && !highestEconomy && !highestKills) return null;
 
   const cards = [
     {
@@ -49,11 +56,11 @@ export function MatchLeadersStrip({
     {
       title: 'Top Economy',
       icon: Coins,
-      data: highestGPM,
+      data: highestEconomy,
       textColor: 'text-emerald-400',
       bgColor: 'bg-emerald-500/10',
       borderColor: 'border-emerald-500/30',
-      badge: 'GPM',
+      badge: 'EST. GOLD',
     },
     {
       title: 'Kill Leader',
@@ -100,10 +107,39 @@ export function MatchLeadersStrip({
             </div>
 
             <div className="relative mt-3 flex items-baseline justify-between border-t border-[var(--border)] pt-2">
-              <span className="text-[11px] text-[var(--text-muted)]">{c.title === 'Fantasy MVP' ? 'Fantasy score' : 'Match record'}</span>
+              <span className="text-[11px] text-[var(--text-muted)]">
+                {c.title === 'Fantasy MVP'
+                  ? 'Series fantasy'
+                  : 'Series total'}
+              </span>
               <span className={`font-mono text-base font-extrabold ${c.textColor}`}>
                 {c.data.formattedValue}
               </span>
+            </div>
+            <div className="relative mt-2 space-y-1 border-t border-[var(--border)] pt-2">
+              {c.data.gameValues.map((game) => (
+                <div key={game.matchId} className="flex items-center justify-between gap-2 text-[10px]">
+                  <span className="min-w-0 truncate text-[var(--text-muted)]">
+                    Game {game.matchNumber}
+                    {game.scheduledAt && (
+                      <>
+                        {' · '}
+                        <time suppressHydrationWarning dateTime={game.scheduledAt}>
+                          {new Date(game.scheduledAt).toLocaleString([], {
+                            month: 'short',
+                            day: 'numeric',
+                            hour: 'numeric',
+                            minute: '2-digit',
+                          })}
+                        </time>
+                      </>
+                    )}
+                  </span>
+                  <span className={`shrink-0 font-mono font-semibold ${c.textColor}`}>
+                    {game.formattedValue}
+                  </span>
+                </div>
+              ))}
             </div>
           </div>
         );

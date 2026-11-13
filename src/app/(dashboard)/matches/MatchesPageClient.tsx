@@ -11,6 +11,7 @@ import { DataFreshnessBadge } from '@/components/DataFreshnessBadge';
 import type { InitialMatchesData } from '@/lib/matches-initial-data';
 import { getSquadPlayersForMatch, type TrackedSquadPlayer } from '@/lib/match-squad-tracking';
 import { replaceUrlQueryParams } from '@/lib/url-query-state';
+import { groupMatchesBySeries, shouldShowMatchSeries } from '@/lib/match-series';
 
 interface UserSquadPlayer extends TrackedSquadPlayer {
   id: number;
@@ -188,8 +189,17 @@ export default function MatchesPage({ initialData }: { initialData: InitialMatch
       match.player_ids ?? [],
       userSquadPlayers,
     );
-  const liveMatches = matches.filter((match) => match.status === 'live');
-  const nonLiveMatches = matches.filter((match) => match.status !== 'live');
+  const allSeriesGroups = groupMatchesBySeries(matches);
+  const seriesGroups = allSeriesGroups.filter((group) => shouldShowMatchSeries(group.games));
+  const hiddenCompletedMatchCount = allSeriesGroups
+    .filter((group) => !shouldShowMatchSeries(group.games))
+    .reduce((count, group) => count + group.games.length, 0);
+  const showLiveSection = activeTab === 'all' || activeTab === 'live';
+  const liveSeriesGroups = showLiveSection
+    ? seriesGroups.filter((group) => group.games.some((game) => game.status === 'live'))
+    : [];
+  const liveSeriesIds = new Set(liveSeriesGroups.map((group) => group.key));
+  const nonLiveSeriesGroups = seriesGroups.filter((group) => !liveSeriesIds.has(group.key));
 
   return (
     <div className="matches-page max-w-7xl mx-auto px-4 py-10">
@@ -253,7 +263,7 @@ export default function MatchesPage({ initialData }: { initialData: InitialMatch
         </div>
       )}
 
-      {!loading && liveMatches.length > 0 && (
+      {!loading && liveSeriesGroups.length > 0 && (
         <section aria-labelledby="live-matches-heading" className="mb-8 overflow-hidden rounded-2xl border border-rose-500/35 bg-[var(--surface)] shadow-[0_12px_36px_rgba(244,63,94,0.12)]">
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-rose-500/20 bg-rose-500/5 px-5 py-4">
             <div className="flex items-center gap-3">
@@ -266,18 +276,21 @@ export default function MatchesPage({ initialData }: { initialData: InitialMatch
                 <p className="text-xs text-[var(--text-secondary)]">{counts.live} match{counts.live === 1 ? '' : 'es'} currently in progress</p>
               </div>
             </div>
-            {userSquadPlayers.length > 0 && liveMatches.some((match) => getTrackedSquadPlayersForMatch(match).length > 0) && (
+            {userSquadPlayers.length > 0 && liveSeriesGroups.some((group) => (
+              group.games.some((game) => getTrackedSquadPlayersForMatch(game).length > 0)
+            )) && (
               <span className="rounded-full border border-amber-500/40 bg-amber-500/10 px-3 py-1.5 text-xs font-bold text-amber-800 dark:text-amber-300">
                 Squad players in fixtures
               </span>
             )}
           </div>
           <div className="grid gap-4 p-4 md:grid-cols-2 xl:grid-cols-3">
-            {liveMatches.map((match) => (
+            {liveSeriesGroups.map((group) => (
               <MatchCard
-                key={`live-${match.id}`}
-                match={match}
-                userSquadPlayers={getTrackedSquadPlayersForMatch(match)}
+                key={`live-${group.key}`}
+                match={group.games.find((game) => game.status === 'live') ?? group.match}
+                seriesMatches={group.games}
+                getSquadPlayersForMatch={getTrackedSquadPlayersForMatch}
               />
             ))}
           </div>
@@ -310,19 +323,23 @@ export default function MatchesPage({ initialData }: { initialData: InitialMatch
             </div>
           ))}
         </div>
-      ) : matches.length === 0 ? (
+      ) : seriesGroups.length === 0 ? (
         /* Empty State */
         <div className="flex flex-col items-center justify-center py-20 px-4 text-center rounded-2xl border border-slate-800 bg-slate-900/40">
           <div className="w-16 h-16 rounded-2xl bg-slate-800/80 border border-slate-700 flex items-center justify-center text-2xl mb-4 text-slate-500">
             ⚔️
           </div>
-          <h3 className="text-lg font-bold text-white mb-1">No matches found</h3>
+          <h3 className="text-lg font-bold text-white mb-1">
+            {hiddenCompletedMatchCount > 0 ? 'Waiting for match stats' : 'No matches found'}
+          </h3>
           <p className="text-sm text-slate-400 max-w-sm mb-6">
-            {searchQuery || selectedTournamentId || activeTab !== 'all'
+            {hiddenCompletedMatchCount > 0
+              ? `${hiddenCompletedMatchCount} completed match${hiddenCompletedMatchCount === 1 ? '' : 'es'} will appear once player stats are available.`
+              : searchQuery || selectedTournamentId || activeTab !== 'all'
               ? 'Try resetting your filters or search terms to see more matches.'
               : 'There are currently no matches scheduled or completed.'}
           </p>
-          {(searchQuery || selectedTournamentId || activeTab !== 'all') && (
+          {hiddenCompletedMatchCount === 0 && (searchQuery || selectedTournamentId || activeTab !== 'all') && (
             <button
               onClick={() => {
                 setActiveTab('all');
@@ -340,22 +357,24 @@ export default function MatchesPage({ initialData }: { initialData: InitialMatch
       ) : viewMode === 'grid' ? (
         /* Grid Mode */
         <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {nonLiveMatches.map((match) => (
+          {nonLiveSeriesGroups.map((group) => (
             <MatchCard
-              key={match.id}
-              match={match}
-              userSquadPlayers={getTrackedSquadPlayersForMatch(match)}
+              key={group.key}
+              match={group.match}
+              seriesMatches={group.games}
+              getSquadPlayersForMatch={getTrackedSquadPlayersForMatch}
             />
           ))}
         </div>
       ) : (
         /* List Mode */
         <div className="flex flex-col gap-3">
-          {nonLiveMatches.map((match) => (
+          {nonLiveSeriesGroups.map((group) => (
             <MatchRow
-              key={match.id}
-              match={match}
-              userSquadPlayers={getTrackedSquadPlayersForMatch(match)}
+              key={group.key}
+              match={group.match}
+              seriesMatches={group.games}
+              getSquadPlayersForMatch={getTrackedSquadPlayersForMatch}
             />
           ))}
         </div>
@@ -365,6 +384,11 @@ export default function MatchesPage({ initialData }: { initialData: InitialMatch
           <p>
             Showing {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, total)} of {total} matches
           </p>
+          {hiddenCompletedMatchCount > 0 && seriesGroups.length > 0 && (
+            <p className="text-xs text-slate-500">
+              {hiddenCompletedMatchCount} completed match{hiddenCompletedMatchCount === 1 ? '' : 'es'} hidden until player stats are available
+            </p>
+          )}
           <div className="flex items-center gap-2">
             <button
               type="button"

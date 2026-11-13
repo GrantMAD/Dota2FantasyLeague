@@ -62,8 +62,32 @@ function createSupabaseMock() {
               const liveFilter = operations.some(([method, column, value]) =>
                 method === 'eq' && column === 'status' && value === 'in_progress'
               );
+              const isSeriesSiblingQuery = operations.some(([method, column]) => method === 'in' && column === 'series_id')
+                && !operations.some(([method]) => method === 'range');
               result = {
-                data: [{ ...matchRecord, status: liveFilter ? 'in_progress' : matchRecord.status }],
+                data: isSeriesSiblingQuery
+                  ? [
+                      matchRecord,
+                      {
+                        ...matchRecord,
+                        id: 202,
+                        status: 'completed',
+                        scheduled_time: '2026-10-13T13:00:00.000Z',
+                        match_number: null,
+                      },
+                      {
+                        ...matchRecord,
+                        id: 203,
+                        team_a_id: 12,
+                        team_b_id: 13,
+                      },
+                      {
+                        ...matchRecord,
+                        id: 204,
+                        gameweek_id: 5,
+                      },
+                    ]
+                  : [{ ...matchRecord, status: liveFilter ? 'in_progress' : matchRecord.status }],
                 count: 42,
                 error: null,
               };
@@ -140,6 +164,10 @@ describe('GET /api/matches server-side filtering and pagination', () => {
     expect(body.matches[0].player_ids).toEqual([501]);
     expect(body.matches[0].radiant_team.tag).toBe('TL');
     expect(body.matches[0].dire_team.tag).toBe('TS');
+    expect(body.matches[0].series_matches.map((match: { id: number; match_number: number }) => [
+      match.id,
+      match.match_number,
+    ])).toEqual([[201, 1], [202, 2]]);
   });
 
   it('maps the live filter to the database enum and normalizes in-progress records for the UI', async () => {

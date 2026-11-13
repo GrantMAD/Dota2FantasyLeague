@@ -15,6 +15,7 @@ interface MatchRecord {
   status: string;
   scheduled_time: string;
   duration_minutes: number | null;
+  match_number: number | null;
   gameweek_id: number | null;
   series_id: number | null;
   team_a_id: number | null;
@@ -41,6 +42,11 @@ interface SeriesMatchRecord {
   id: number;
   status: string;
   scheduled_time: string;
+  duration_minutes: number | null;
+  match_number: number | null;
+  gameweek_id: number | null;
+  team_a_id: number | null;
+  team_b_id: number | null;
   winner_team_id: number | null;
 }
 
@@ -72,6 +78,7 @@ interface FantasyPointsRecord {
 }
 
 interface PerformanceRecord {
+  match_id?: number;
   player_id: number;
   fantasy_points_breakdown: FantasyPointsRecord | FantasyPointsRecord[] | null;
 }
@@ -93,7 +100,7 @@ async function getHandler(request: NextRequest, context: RouteContext) {
     // Fetch match details using the current schema.
     const { data: matchData, error: matchError } = await supabase
       .from('matches')
-      .select('id, status, scheduled_time, duration_minutes, gameweek_id, series_id, team_a_id, team_b_id, winner_team_id')
+      .select('id, status, scheduled_time, duration_minutes, match_number, gameweek_id, series_id, team_a_id, team_b_id, winner_team_id')
       .eq('id', matchId)
       .maybeSingle();
     const matchRecord = matchData as MatchRecord | null;
@@ -120,6 +127,17 @@ async function getHandler(request: NextRequest, context: RouteContext) {
     ]);
       const teamRows = (teams ?? []) as TeamRecord[];
       const seriesRecord = series as SeriesRecord | null;
+      let seriesMatches: SeriesMatchRecord[] = [{
+        id: matchRecord.id,
+        status: matchRecord.status,
+        scheduled_time: matchRecord.scheduled_time,
+        duration_minutes: matchRecord.duration_minutes,
+        match_number: matchRecord.match_number ?? null,
+        gameweek_id: matchRecord.gameweek_id,
+        team_a_id: matchRecord.team_a_id,
+        team_b_id: matchRecord.team_b_id,
+        winner_team_id: matchRecord.winner_team_id,
+      }];
       let seriesScore: {
         radiantWins: number;
         direWins: number;
@@ -129,7 +147,7 @@ async function getHandler(request: NextRequest, context: RouteContext) {
       if (seriesRecord) {
         const { data: seriesMatchesData, error: seriesMatchesError } = await supabase
           .from('matches')
-          .select('id, status, scheduled_time, winner_team_id')
+          .select('id, status, scheduled_time, duration_minutes, match_number, gameweek_id, team_a_id, team_b_id, winner_team_id')
           .eq('series_id', seriesRecord.id)
           .order('scheduled_time', { ascending: true });
 
@@ -138,7 +156,20 @@ async function getHandler(request: NextRequest, context: RouteContext) {
           return NextResponse.json({ error: 'Failed to fetch match series results.' }, { status: 500 });
         }
 
-        const seriesMatches = (seriesMatchesData ?? []) as SeriesMatchRecord[];
+        const queriedSeriesMatches = (seriesMatchesData ?? []) as SeriesMatchRecord[];
+        const matchHasTeams = matchRecord.team_a_id !== null && matchRecord.team_b_id !== null;
+        const matchTeamIds = matchHasTeams
+          ? [matchRecord.team_a_id, matchRecord.team_b_id].sort((a, b) => Number(a) - Number(b))
+          : null;
+        const scopedSeriesMatches = queriedSeriesMatches.filter((seriesMatch) => {
+          if (seriesMatch.gameweek_id !== matchRecord.gameweek_id) return false;
+          if (!matchTeamIds || seriesMatch.team_a_id === null || seriesMatch.team_b_id === null) return true;
+          const seriesTeamIds = [seriesMatch.team_a_id, seriesMatch.team_b_id].sort((a, b) => a - b);
+          return seriesTeamIds[0] === matchTeamIds[0] && seriesTeamIds[1] === matchTeamIds[1];
+        });
+        seriesMatches = scopedSeriesMatches.some((seriesMatch) => seriesMatch.id === matchRecord.id)
+          ? scopedSeriesMatches
+          : seriesMatches;
         const completedMatches = seriesMatches.filter((seriesMatch) => seriesMatch.status === 'completed');
         const radiantWins = matchRecord.team_a_id === null
           ? 0
@@ -157,7 +188,9 @@ async function getHandler(request: NextRequest, context: RouteContext) {
               ? matchRecord.team_b_id
               : null,
         };
-        matchRecord.match_number = Math.max(1, seriesMatches.findIndex((seriesMatch) => seriesMatch.id === matchRecord.id) + 1);
+        const selectedGame = seriesMatches.find((seriesMatch) => seriesMatch.id === matchRecord.id);
+        matchRecord.match_number = selectedGame?.match_number
+          ?? Math.max(1, seriesMatches.findIndex((seriesMatch) => seriesMatch.id === matchRecord.id) + 1);
       }
 
         const { data: tournamentData } = seriesRecord?.tournament_id
@@ -191,33 +224,77 @@ async function getHandler(request: NextRequest, context: RouteContext) {
       gameweeks: gameweek,
     };
 
-    // Fetch per-player stats for this match
+    const seriesMatchIds = seriesMatches.map((seriesMatch) => seriesMatch.id);
     // The generated local schema does not include this table.
-    const { data: playerStats } = await (supabase
+    const { data: playerStatsData, error: playerStatsError } = await (supabase
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       .from('match_player_stats') as any)
       .select(`
         *,
         hero_name,
-      professional_players(id, name, in_game_name, primary_role, profile_image_url, data_provider_id)
+        professional_players(id, name, in_game_name, primary_role, profile_image_url, data_provider_id)
       `)
-      .eq('match_id', matchId)
+      .in('match_id', seriesMatchIds)
       .order('team_id', { ascending: true });
+    if (playerStatsError) {
+      console.error('Failed to fetch series player stats:', playerStatsError);
+      return NextResponse.json({ error: 'Failed to fetch series player stats.' }, { status: 500 });
+    }
+
+    const seriesPlayerStats = (playerStatsData ?? []).map((stat: Record<string, unknown> & {
+      match_id?: number;
+      player_id: number;
+      professional_players?: { data_provider_id?: string | null } | null;
+    }) => ({
+      ...stat,
+      match_id: stat.match_id ?? matchId,
+      series_player_key: getPlayerIdentityKeys(stat.professional_players?.data_provider_id)[0]
+        ?? `player:${stat.player_id}`,
+    }));
+    const playerStatsByMatch = new Map<number, typeof seriesPlayerStats>();
+    for (const stat of seriesPlayerStats) {
+      const gameStats = playerStatsByMatch.get(stat.match_id) ?? [];
+      gameStats.push(stat);
+      playerStatsByMatch.set(stat.match_id, gameStats);
+    }
+    const playerStats = playerStatsByMatch.get(matchId) ?? [];
 
     // fantasy_points_breakdown has no match_id column — it joins via performance_id -> player_performances.
-    // Fetch performances for this match, with nested breakdown, then flatten to player_id-keyed shape.
-    const { data: performanceData } = await supabase
+    // Fetch all series performances, then flatten them into per-game breakdowns.
+    const { data: performanceData, error: performanceError } = await supabase
       .from('player_performances')
-      .select('id, player_id, fantasy_points_breakdown(combat_points, economy_points, objective_points, teamfight_points, win_points, series_points, performance_index_points, consistency_points, penalty_points, total_points)')
-      .eq('match_id', matchId);
+      .select('id, match_id, player_id, fantasy_points_breakdown(combat_points, economy_points, objective_points, teamfight_points, win_points, series_points, performance_index_points, consistency_points, penalty_points, total_points)')
+      .in('match_id', seriesMatchIds);
+    if (performanceError) {
+      console.error('Failed to fetch series fantasy breakdowns:', performanceError);
+      return NextResponse.json({ error: 'Failed to fetch series fantasy breakdowns.' }, { status: 500 });
+    }
 
     const performances = (performanceData ?? []) as PerformanceRecord[];
-    const fantasyBreakdown = performances.flatMap((performance) => {
+    const fantasyBreakdownByMatch = new Map<number, Array<{ player_id: number } & FantasyPointsRecord>>();
+    for (const performance of performances) {
       const breakdown = Array.isArray(performance.fantasy_points_breakdown)
         ? performance.fantasy_points_breakdown[0]
         : performance.fantasy_points_breakdown;
-      return breakdown ? [{ player_id: performance.player_id, ...breakdown }] : [];
-    });
+      if (!breakdown) continue;
+      const performanceMatchId = performance.match_id ?? matchId;
+      const matchBreakdown = fantasyBreakdownByMatch.get(performanceMatchId) ?? [];
+      matchBreakdown.push({ player_id: performance.player_id, ...breakdown });
+      fantasyBreakdownByMatch.set(performanceMatchId, matchBreakdown);
+    }
+    const fantasyBreakdown = fantasyBreakdownByMatch.get(matchId) ?? [];
+    const seriesGames = seriesMatches.map((seriesMatch, index) => ({
+      id: seriesMatch.id,
+      status: seriesMatch.status === 'in_progress' ? 'live' : seriesMatch.status,
+      scheduled_at: seriesMatch.scheduled_time,
+      duration_seconds: seriesMatch.duration_minutes ? seriesMatch.duration_minutes * 60 : null,
+      winner_team_id: seriesMatch.winner_team_id,
+      radiant_team_id: seriesMatch.team_a_id,
+      dire_team_id: seriesMatch.team_b_id,
+      match_number: seriesMatch.match_number ?? index + 1,
+      playerStats: playerStatsByMatch.get(seriesMatch.id) ?? [],
+      fantasyBreakdown: fantasyBreakdownByMatch.get(seriesMatch.id) ?? [],
+    }));
 
     // Fetch substitutions
     const { data: substitutions } = await supabase
@@ -303,19 +380,20 @@ async function getHandler(request: NextRequest, context: RouteContext) {
                 getPlayerIdentityKeys(player.data_provider_id),
               ]),
             );
-            const matchPlayerIdByIdentity = new Map<string, number>();
-            for (const stat of playerStats ?? []) {
+            const matchPlayerIdsByIdentity = new Map<string, Set<number>>();
+            for (const stat of seriesPlayerStats) {
               const providerId = stat.professional_players?.data_provider_id;
               for (const identity of getPlayerIdentityKeys(providerId)) {
-                if (!matchPlayerIdByIdentity.has(identity)) {
-                  matchPlayerIdByIdentity.set(identity, Number(stat.player_id));
-                }
+                const playerIds = matchPlayerIdsByIdentity.get(identity) ?? new Set<number>();
+                playerIds.add(Number(stat.player_id));
+                matchPlayerIdsByIdentity.set(identity, playerIds);
               }
             }
             const matchedOwnedPlayerIds = ownedIds.flatMap((playerId: number) => (
-              identityByOwnedId.get(playerId) ?? []
-            )).map((identity: string) => matchPlayerIdByIdentity.get(identity))
-              .filter((playerId: number | undefined): playerId is number => playerId !== undefined);
+              (identityByOwnedId.get(playerId) ?? []).flatMap((identity: string) => (
+                [...(matchPlayerIdsByIdentity.get(identity) ?? [])]
+              ))
+            ));
 
             const lineupDetails: Array<{
               playerId: number;
@@ -366,11 +444,14 @@ async function getHandler(request: NextRequest, context: RouteContext) {
             userFantasyImpact = {
               userOwnedPlayerIds: [...new Set([...ownedIds, ...matchedOwnedPlayerIds])],
               tripleCaptainActive: fantasySeason.triple_captain_gameweek_id === matchRecord.gameweek_id,
-              lineupDetails: lineupDetails.map((detail) => {
-                const matchPlayerId = (identityByOwnedId.get(detail.playerId) ?? [])
-                  .map((identity) => matchPlayerIdByIdentity.get(identity))
-                  .find((playerId): playerId is number => playerId !== undefined);
-                return matchPlayerId === undefined ? detail : { ...detail, playerId: matchPlayerId };
+              lineupDetails: lineupDetails.flatMap((detail) => {
+                const matchingPlayerIds = new Set(
+                  (identityByOwnedId.get(detail.playerId) ?? [])
+                    .flatMap((identity) => [...(matchPlayerIdsByIdentity.get(identity) ?? [])]),
+                );
+                return matchingPlayerIds.size === 0
+                  ? [detail]
+                  : [...matchingPlayerIds].map((playerId) => ({ ...detail, playerId }));
               }),
             };
           }
@@ -384,6 +465,7 @@ async function getHandler(request: NextRequest, context: RouteContext) {
       match,
       playerStats: playerStats ?? [],
       fantasyBreakdown: fantasyBreakdown ?? [],
+      seriesGames,
       substitutions: substitutions ?? [],
       seriesScore,
       userFantasyImpact,

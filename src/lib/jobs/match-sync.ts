@@ -84,6 +84,22 @@ export function preserveMatchStatus(
     : incomingStatus;
 }
 
+export function getTournamentSeriesIdentity(
+  provider: string,
+  sourceSeriesId: string | undefined,
+  gameweekId: number,
+  teamAId: number,
+  teamBId: number,
+  scheduledAt: Date,
+): string {
+  if (sourceSeriesId) {
+    return `provider:${provider}:${gameweekId}:${sourceSeriesId}`;
+  }
+  const [teamLowId, teamHighId] = [teamAId, teamBId].sort((left, right) => left - right);
+  const scheduledDate = scheduledAt.toISOString().slice(0, 10);
+  return `fallback:${gameweekId}:${scheduledDate}:${teamLowId}:${teamHighId}`;
+}
+
 export async function fetchAllTournamentMatches(
   provider: DataProvider,
   tournamentId: string

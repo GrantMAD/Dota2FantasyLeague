@@ -51,6 +51,7 @@ describe('GET /api/matches/[id]', () => {
       status: 'completed',
       scheduled_time: '2026-10-15T10:00:00Z',
       duration_minutes: 42,
+      match_number: 3,
       gameweek_id: 2,
       series_id: 10,
       team_a_id: 1,
@@ -75,9 +76,11 @@ describe('GET /api/matches/[id]', () => {
           } else {
             query.then = (resolve: (val: unknown) => unknown) => resolve({
               data: [
-                { id: 99, status: 'completed', scheduled_time: '2026-10-15T08:00:00Z', winner_team_id: 1 },
-                { id: 100, status: 'completed', scheduled_time: '2026-10-15T09:00:00Z', winner_team_id: 2 },
-                { id: 101, status: 'completed', scheduled_time: '2026-10-15T10:00:00Z', winner_team_id: 1 },
+                { id: 99, status: 'completed', scheduled_time: '2026-10-15T08:00:00Z', duration_minutes: 40, match_number: 1, gameweek_id: 2, team_a_id: 1, team_b_id: 2, winner_team_id: 1 },
+                { id: 100, status: 'completed', scheduled_time: '2026-10-15T09:00:00Z', duration_minutes: 41, match_number: 2, gameweek_id: 2, team_a_id: 1, team_b_id: 2, winner_team_id: 2 },
+                { id: 101, status: 'completed', scheduled_time: '2026-10-15T10:00:00Z', duration_minutes: 42, match_number: 3, gameweek_id: 2, team_a_id: 1, team_b_id: 2, winner_team_id: 1 },
+                { id: 102, status: 'completed', scheduled_time: '2026-10-15T11:00:00Z', duration_minutes: 42, match_number: 4, gameweek_id: 2, team_a_id: 3, team_b_id: 4, winner_team_id: 3 },
+                { id: 103, status: 'completed', scheduled_time: '2026-10-16T08:00:00Z', duration_minutes: 42, match_number: 1, gameweek_id: 3, team_a_id: 1, team_b_id: 2, winner_team_id: 1 },
               ],
               error: null,
             });
@@ -111,7 +114,21 @@ describe('GET /api/matches/[id]', () => {
             resolve({
               data: [
                 {
+                  id: 2,
+                  match_id: 99,
+                  player_id: 10,
+                  team_id: 1,
+                  hero_name: 'Pudge',
+                  kills: 12,
+                  deaths: 1,
+                  assists: 10,
+                  gold_per_minute: 700,
+                  hero_damage: 40000,
+                  professional_players: { id: 10, name: 'Boxi', in_game_name: 'Boxi', primary_role: 'Support' },
+                },
+                {
                   id: 1,
+                  match_id: 101,
                   player_id: 10,
                   team_id: 1,
                   hero_name: 'Pudge',
@@ -134,6 +151,20 @@ describe('GET /api/matches/[id]', () => {
               data: [
                 {
                   id: 50,
+                  match_id: 99,
+                  player_id: 10,
+                  fantasy_points_breakdown: {
+                    total_points: 21.5,
+                    combat_points: 10,
+                    economy_points: 5,
+                    objective_points: 2,
+                    teamfight_points: 3,
+                    win_points: 1.5,
+                  },
+                },
+                {
+                  id: 51,
+                  match_id: 101,
                   player_id: 10,
                   fantasy_points_breakdown: {
                     total_points: 38.5,
@@ -176,6 +207,16 @@ describe('GET /api/matches/[id]', () => {
       clinchedTeamId: 1,
     });
     expect(body.match.match_number).toBe(3);
+    expect(body.seriesGames).toHaveLength(3);
+    expect(body.seriesGames.map((game: { id: number }) => game.id)).toEqual([99, 100, 101]);
+    expect(body.seriesGames[0]).toMatchObject({
+      id: 99,
+      match_number: 1,
+      scheduled_at: '2026-10-15T08:00:00Z',
+      duration_seconds: 2400,
+    });
+    expect(body.seriesGames[0].playerStats[0].kills).toBe(12);
+    expect(body.seriesGames[2].fantasyBreakdown[0].total_points).toBe(38.5);
   });
 
   it('returns triple-captain state for the authenticated match gameweek', async () => {
