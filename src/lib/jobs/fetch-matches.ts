@@ -25,12 +25,14 @@ import {
   findLastProcessedTournamentId,
   selectNextTournamentBatch,
 } from './match-tournament-batch';
+import { overlapsConfiguredGameweek } from './match-tournament-eligibility';
 
 interface FetchResult {
   fetched: number;
   updated: number;
   scheduled: number;
   skippedOutsideGameweeks: number;
+  skippedOutsideGameweekTournaments: number;
   skippedOutsideGameweeksPast: number;
   skippedOutsideGameweeksFuture: number;
   skippedOutsideGameweeksFutureExamples: OutOfGameweekDiagnostics['futureExamples'];
@@ -73,6 +75,7 @@ export async function fetchMatches(options: { tournamentLimit?: number } = {}): 
     updated: 0,
     scheduled: 0,
     skippedOutsideGameweeks: 0,
+    skippedOutsideGameweekTournaments: 0,
     skippedOutsideGameweeksPast: 0,
     skippedOutsideGameweeksFuture: 0,
     skippedOutsideGameweeksFutureExamples: [],
@@ -98,24 +101,56 @@ export async function fetchMatches(options: { tournamentLimit?: number } = {}): 
     try {
       // 1. Get active/eligible tournaments from DB
       const eligibleTournaments = await getActiveTournaments();
+      const seasonIds = [...new Set(eligibleTournaments.map((tournament) => tournament.season_id))];
+      const gameweeksBySeason = new Map<number, GameweekReference[]>();
+      if (seasonIds.length > 0) {
+        const { data: gameweekRows, error: gameweekError } = await supabase
+          .from('gameweeks')
+          .select('id, season_id, gameweek_number, start_date, end_date')
+          .in('season_id', seasonIds)
+          .order('gameweek_number', { ascending: true });
+
+        if (gameweekError) {
+          throw new Error(`Failed to load gameweek date ranges for match assignment: ${gameweekError.message}`);
+        }
+
+        for (const gameweek of (gameweekRows ?? []) as GameweekReference[]) {
+          const seasonGameweeks = gameweeksBySeason.get(gameweek.season_id) ?? [];
+          seasonGameweeks.push(gameweek);
+          gameweeksBySeason.set(gameweek.season_id, seasonGameweeks);
+        }
+      }
+
+      const inGameweekTournaments = eligibleTournaments.filter((tournament) =>
+        overlapsConfiguredGameweek(tournament, gameweeksBySeason.get(tournament.season_id) ?? [])
+      );
+      result.skippedOutsideGameweekTournaments = eligibleTournaments.length - inGameweekTournaments.length;
+      console.log(
+        `[fetchMatches] Skipping ${result.skippedOutsideGameweekTournaments} eligible tournaments whose date ranges ` +
+        'do not overlap any configured gameweek'
+      );
+
+      const providerSources = new Set<keyof typeof providers>(
+        inGameweekTournaments.map((tournament) => tournament.data_provider ?? 'stratz')
+      );
       const professionalTournamentsBySource = await Promise.all(
-        Object.entries(providers).map(async ([source, provider]) => [
-          source,
-          new Set((await provider.fetchTournaments({ limit: 100 }))
-            .map((tournament) => String(tournament.id))),
-        ] as const),
+        [...providerSources].map(async (source) => {
+          const provider = providers[source];
+          const tournaments = await provider.fetchTournaments({ limit: 100 });
+          return [source, new Set(tournaments.map((tournament) => String(tournament.id)))] as const;
+        }),
       );
       const professionalTournamentIds = new Map(professionalTournamentsBySource);
-      const activeTournaments = eligibleTournaments.filter((tournament) => {
+      const activeTournaments = inGameweekTournaments.filter((tournament) => {
         const source = tournament.data_provider ?? 'stratz';
         return professionalTournamentIds.get(source)?.has(String(tournament.data_provider_id));
       });
       console.log(
         `[fetchMatches] Found ${activeTournaments.length} eligible professional tournaments; ` +
-        `ignoring ${eligibleTournaments.length - activeTournaments.length} tournaments not present in their provider's professional feed`
+        `ignoring ${inGameweekTournaments.length - activeTournaments.length} tournaments not present in their provider's professional feed`
       );
 
-      const tournamentLimit = options.tournamentLimit ?? 1;
+      const tournamentLimit = options.tournamentLimit ?? 2;
       if (!Number.isSafeInteger(tournamentLimit) || tournamentLimit < 1 || tournamentLimit > 4) {
         throw new Error('tournamentLimit must be an integer between 1 and 4.');
       }
@@ -136,28 +171,6 @@ export async function fetchMatches(options: { tournamentLimit?: number } = {}): 
 
       if (tournamentsToProcess.length === 0) {
         console.log('[fetchMatches] No active or eligible tournaments found to sync');
-      }
-
-      // Assign each provider match by its scheduled date, not by whichever
-      // gameweek happens to be Active when this job runs.
-      const seasonIds = [...new Set(tournamentsToProcess.map((tournament) => tournament.season_id))];
-      const gameweeksBySeason = new Map<number, GameweekReference[]>();
-      if (seasonIds.length > 0) {
-        const { data: gameweekRows, error: gameweekError } = await supabase
-          .from('gameweeks')
-          .select('id, season_id, gameweek_number, start_date, end_date')
-          .in('season_id', seasonIds)
-          .order('gameweek_number', { ascending: true });
-
-        if (gameweekError) {
-          throw new Error(`Failed to load gameweek date ranges for match assignment: ${gameweekError.message}`);
-        }
-
-        for (const gameweek of (gameweekRows ?? []) as GameweekReference[]) {
-          const seasonGameweeks = gameweeksBySeason.get(gameweek.season_id) ?? [];
-          seasonGameweeks.push(gameweek);
-          gameweeksBySeason.set(gameweek.season_id, seasonGameweeks);
-        }
       }
 
       // 2. Pre-load professional teams map (by data_provider_id and id)
@@ -531,6 +544,7 @@ export async function fetchMatches(options: { tournamentLimit?: number } = {}): 
         scheduled: result.scheduled,
         lastProcessedTournamentId: tournamentBatch.lastProcessedTournamentId ?? lastProcessedTournamentId,
         skippedOutsideGameweeks: result.skippedOutsideGameweeks,
+        skippedOutsideGameweekTournaments: result.skippedOutsideGameweekTournaments,
         skippedOutsideGameweeksPast: result.skippedOutsideGameweeksPast,
         skippedOutsideGameweeksFuture: result.skippedOutsideGameweeksFuture,
         skippedOutsideGameweeksFutureExamples: result.skippedOutsideGameweeksFutureExamples,
@@ -584,11 +598,12 @@ async function getActiveTournaments(): Promise<Tournament[]> {
   const { data, error } = await supabase
     .from('tournaments')
     .select('*')
-    .or('status.eq.eligible,status.eq.provisional,eligible.eq.true');
+    .or('status.eq.eligible,status.eq.provisional,eligible.eq.true')
+    .neq('status', 'excluded')
+    .neq('status', 'archived');
 
   if (error) {
-    console.warn(`Failed to fetch active tournaments: ${error.message}`);
-    return [];
+    throw new Error(`Failed to fetch active tournaments: ${error.message}`);
   }
 
   return data || [];
