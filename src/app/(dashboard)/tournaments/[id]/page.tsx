@@ -8,6 +8,7 @@ import { TeamLogo } from '../../matches/components/TeamLogo';
 import { MatchCard, MatchData } from '../../matches/components/MatchCard';
 import { TournamentBracket } from '../components/TournamentBracket';
 import { TournamentGroupStandings } from '../components/TournamentGroupStandings';
+import { groupMatchesBySeries } from '@/lib/match-series';
 
 interface TournamentTeam {
   id: number;
@@ -61,20 +62,37 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
     upcoming: matches.filter((match) => match.status === 'scheduled').length,
     completed: matches.filter((match) => match.status === 'completed').length,
   };
-  const visibleMatches = matches
-    .filter((match) => {
-      if (matchFilter === 'live') return match.status === 'live';
-      if (matchFilter === 'upcoming') return match.status === 'scheduled';
-      if (matchFilter === 'completed') return match.status === 'completed';
-      return true;
-    })
+  const matchesFilter = (match: MatchData) => (
+    matchFilter === 'all'
+    || (matchFilter === 'upcoming' ? match.status === 'scheduled' : match.status === matchFilter)
+  );
+  const getSeriesStatus = (games: MatchData[]) => (
+    games.some((game) => game.status === 'live')
+      ? 'live'
+      : games.some((game) => game.status === 'scheduled')
+        ? 'scheduled'
+        : 'completed'
+  );
+  const getSeriesSortTime = (games: MatchData[], status: string) => {
+    const statusGames = games.filter((game) => game.status === status);
+    const sortMatch = status === 'completed'
+      ? statusGames[statusGames.length - 1] ?? games[games.length - 1]
+      : statusGames[0] ?? games[0];
+    if (!sortMatch) return 0;
+    const time = new Date(sortMatch.scheduled_at).getTime();
+    return Number.isFinite(time) ? time : 0;
+  };
+  const visibleSeriesGroups = groupMatchesBySeries(matches)
+    .filter((group) => group.games.some(matchesFilter))
     .sort((a, b) => {
+      const statusA = getSeriesStatus(a.games);
+      const statusB = getSeriesStatus(b.games);
       const statusOrder = (status: string) => status === 'live' ? 0 : status === 'scheduled' ? 1 : 2;
-      const statusDifference = statusOrder(a.status) - statusOrder(b.status);
+      const statusDifference = statusOrder(statusA) - statusOrder(statusB);
       if (statusDifference !== 0) return statusDifference;
-      const timeA = new Date(a.scheduled_at).getTime();
-      const timeB = new Date(b.scheduled_at).getTime();
-      return a.status === 'completed' ? timeB - timeA : timeA - timeB;
+      const timeA = getSeriesSortTime(a.games, statusA);
+      const timeB = getSeriesSortTime(b.games, statusB);
+      return statusA === 'completed' ? timeB - timeA : timeA - timeB;
     });
 
   useEffect(() => {
@@ -432,14 +450,18 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
                 Matches for this tournament series will appear as soon as the bracket and group stages are synced.
               </p>
             </div>
-          ) : visibleMatches.length === 0 ? (
+          ) : visibleSeriesGroups.length === 0 ? (
             <div className="rounded-2xl border border-dashed border-[var(--border)] px-5 py-10 text-center text-sm text-[var(--text-secondary)]">
               No {matchFilter === 'completed' ? 'completed' : matchFilter} matches are available.
             </div>
           ) : (
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-              {visibleMatches.map((match) => (
-                <MatchCard key={match.id} match={match} />
+              {visibleSeriesGroups.map((group) => (
+                <MatchCard
+                  key={group.key}
+                  match={group.match}
+                  seriesMatches={group.games}
+                />
               ))}
             </div>
           )}
