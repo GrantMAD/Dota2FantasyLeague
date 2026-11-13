@@ -731,6 +731,15 @@ function MatchDetailInner({ params }: { params: Promise<{ id: string }> }) {
             </div>
           </div>
 
+          {activeFantasyBreakdown.length === 0 && (
+            <p
+              role="status"
+              className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-800 dark:text-amber-200"
+            >
+              Fantasy points for this match have not been calculated yet. Please check back soon.
+            </p>
+          )}
+
           {/* Radiant Roster Stats */}
           {renderRosterTable(radiantStats, 'radiant', formatTeamName(match.radiant_team?.name, match.radiant_team_id, 'Radiant'), isRadiantWinner)}
 
