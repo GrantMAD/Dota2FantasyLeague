@@ -92,6 +92,22 @@ interface SteamPlayerSummary {
   profileurl?: string;
 }
 
+interface SteamMatchDetailsPlayer {
+  account_id?: number | string;
+  hero_id?: number | string;
+  player_slot?: number;
+  kills?: number;
+  deaths?: number;
+  assists?: number;
+  gold_per_min?: number;
+  xp_per_min?: number;
+  last_hits?: number;
+  denies?: number;
+  hero_damage?: number;
+  tower_damage?: number;
+  hero_healing?: number;
+}
+
 const STEAM_ID_64_OFFSET = BigInt('76561197960265728');
 
 export class SteamProvider extends DataProviderBase implements DataProvider {
@@ -434,10 +450,11 @@ export class SteamProvider extends DataProviderBase implements DataProvider {
         throw this.createError('STEAM_MATCH_DETAILS_FAILED', 'Invalid response from GetMatchDetails', 500, true);
       }
 
-      const radiantPlayers = m.players.filter((p: { player_slot: number }) => p.player_slot < 128);
-      const direPlayers = m.players.filter((p: { player_slot: number }) => p.player_slot >= 128);
+      const allPlayers = Array.isArray(m.players) ? (m.players as SteamMatchDetailsPlayer[]) : [];
+      const radiantPlayers = allPlayers.filter((p) => (p.player_slot ?? 0) < 128);
+      const direPlayers = allPlayers.filter((p) => (p.player_slot ?? 0) >= 128);
 
-      const mapPlayer = (p: any) => ({
+      const mapPlayer = (p: SteamMatchDetailsPlayer) => ({
         playerId: String(p.account_id ?? 'unknown'),
         heroId: String(p.hero_id ?? '0'),
         heroName: `Hero ${p.hero_id}`,
