@@ -78,6 +78,54 @@ describe('GET /api/user/profile', () => {
       },
     });
   });
+
+  it('does not return a fantasy team when the manager has a season but no squad', async () => {
+    const userQuery = {
+      select: jest.fn().mockReturnThis(),
+      eq: jest.fn().mockReturnThis(),
+      maybeSingle: jest.fn().mockResolvedValue({
+        data: {
+          id: 'manager-1',
+          username: 'manager',
+          display_name: 'Manager',
+          avatar_url: null,
+          bio: null,
+          country_code: null,
+          timezone: null,
+          theme_preference: 'dark',
+          banner_theme: null,
+          email_notifications: true,
+          push_notifications: true,
+          role: 'user',
+          is_premium: false,
+          subscription_tier: 'free',
+          created_at: '2026-01-01T00:00:00.000Z',
+          updated_at: '2026-01-01T00:00:00.000Z',
+        },
+        error: null,
+      }),
+    };
+    const seasonQuery = {
+      select: jest.fn().mockReturnThis(),
+      eq: jest.fn().mockReturnThis(),
+      maybeSingle: jest.fn().mockResolvedValue({
+        data: {
+          total_points: 0,
+          global_rank: null,
+          fantasy_squads: [],
+        },
+        error: null,
+      }),
+    };
+    mockSupabaseServer.mockReturnValue({
+      from: (table: string) => table === 'users' ? userQuery : seasonQuery,
+    });
+
+    const response = await GET(new NextRequest('http://localhost:3000/api/user/profile'));
+
+    expect(response.status).toBe(200);
+    expect((await response.json()).profile.fantasy_team).toBeNull();
+  });
 });
 
 describe('PUT /api/user/profile', () => {

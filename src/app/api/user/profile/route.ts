@@ -80,7 +80,7 @@ async function getHandler(request: NextRequest) {
         role: data.role || auth.role || 'user',
         email: auth.email,
         member_since: data.created_at,
-        fantasy_team: fantasySeason
+        fantasy_team: fantasySquad
           ? {
               name: fantasySquad?.name || 'My Fantasy Squad',
               total_points: Number(fantasySeason.total_points ?? 0),
