@@ -19,6 +19,7 @@ type QueryResult = {
 type QueryBuilder = {
   select: jest.Mock<QueryBuilder, []>;
   eq: jest.Mock<QueryBuilder, [string, number]>;
+  in: jest.Mock<QueryBuilder, [string, Array<number | string>]>;
   order: jest.Mock<QueryBuilder, [string, { ascending: boolean }]>;
   limit: jest.Mock<QueryBuilder, [number]>;
   maybeSingle: jest.Mock<Promise<QueryResult>, []>;
@@ -29,6 +30,7 @@ function createQuery(result: QueryResult, onLimit?: (limit: number) => void) {
   const query: QueryBuilder = {
     select: jest.fn<QueryBuilder, []>(() => query),
     eq: jest.fn<QueryBuilder, [string, number]>(() => query),
+    in: jest.fn<QueryBuilder, [string, Array<number | string>]>(() => query),
     order: jest.fn<QueryBuilder, [string, { ascending: boolean }]>(() => query),
     limit: jest.fn<QueryBuilder, [number]>((limit) => {
       onLimit?.(limit);
@@ -43,13 +45,18 @@ function createQuery(result: QueryResult, onLimit?: (limit: number) => void) {
 
 function createSupabase(overrides: {
   playerResult?: QueryResult;
+  relatedPlayersResult?: QueryResult;
   priceResult?: QueryResult;
   performanceResult?: QueryResult;
   pointTotalsResult?: QueryResult;
 } = {}) {
   const recentLimit = jest.fn();
   const playerQuery = createQuery(overrides.playerResult ?? {
-    data: { id: 17, name: 'Test Player' },
+    data: { id: 17, name: 'Test Player', data_provider_id: '847565596' },
+    error: null,
+  });
+  const relatedPlayersQuery = createQuery(overrides.relatedPlayersResult ?? {
+    data: [],
     error: null,
   });
   const priceQuery = createQuery(overrides.priceResult ?? {
@@ -57,7 +64,17 @@ function createSupabase(overrides: {
     error: null,
   });
   const performanceQuery = createQuery(overrides.performanceResult ?? {
-    data: [{ id: 301, gameweek_id: 8, kills: 4, deaths: 2, assists: 7 }],
+    data: [{
+      id: 301,
+      player_id: 17,
+      match_id: 801,
+      gameweek_id: 8,
+      gameweeks: { gameweek_number: 5 },
+      matches: { id: 801 },
+      kills: 4,
+      deaths: 2,
+      assists: 7,
+    }],
     error: null,
   }, recentLimit);
   const rpc = jest.fn().mockResolvedValue(overrides.pointTotalsResult ?? {
@@ -65,9 +82,13 @@ function createSupabase(overrides: {
     error: null,
   });
 
+  let professionalPlayerQueryCount = 0;
   mockSupabaseServer.mockReturnValue({
     from: (table: string) => {
-      if (table === 'professional_players') return playerQuery;
+      if (table === 'professional_players') {
+        professionalPlayerQueryCount++;
+        return professionalPlayerQueryCount === 1 ? playerQuery : relatedPlayersQuery;
+      }
       if (table === 'player_prices') return priceQuery;
       if (table === 'player_performances') return performanceQuery;
       throw new Error(`Unexpected table: ${table}`);
@@ -99,8 +120,43 @@ describe('GET /api/players/:id', () => {
     expect(body.player).toMatchObject({
       total_season_points: 123.5,
       last_gw_points: 18.5,
-      performances: [{ id: 301, gameweek_id: 8 }],
+      performances: [{ id: 301, gameweek_id: 8, gameweeks: { gameweek_number: 5 } }],
     });
+  });
+
+  it('includes recent performances stored under an equivalent Steam ID player record', async () => {
+    createSupabase({
+      playerResult: {
+        data: { id: 417, name: 'rue', data_provider_id: '847565596' },
+        error: null,
+      },
+      relatedPlayersResult: {
+        data: [{ id: 333, data_provider_id: '76561198807831324' }],
+        error: null,
+      },
+      performanceResult: {
+        data: [{
+          id: 900,
+          player_id: 333,
+          match_id: 190,
+          gameweek_id: 5,
+          gameweeks: { gameweek_number: 5 },
+          matches: { id: 190 },
+          kills: 7,
+          deaths: 3,
+          assists: 10,
+        }],
+        error: null,
+      },
+    });
+
+    const response = await GET(playerRequest('417'), { params: Promise.resolve({ id: '417' }) });
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.player.performances).toMatchObject([
+      { id: 900, player_id: 333, gameweeks: { gameweek_number: 5 } },
+    ]);
   });
 
   it.each([

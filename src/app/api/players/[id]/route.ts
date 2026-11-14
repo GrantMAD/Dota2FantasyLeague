@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase';
+import { getEquivalentProviderIds, getRelatedPlayerIds } from '@/lib/jobs/player-identity';
 import { withApiTelemetry } from '@/lib/api-telemetry';
 
 
@@ -20,7 +21,35 @@ interface PlayerPointTotals {
   last_gw_points: number | string;
 }
 
-type PlayerPerformanceRow = Record<string, unknown>;
+interface PlayerPerformanceRow extends Record<string, unknown> {
+  id: number;
+  player_id: number;
+  matches?: { id?: number } | null;
+}
+
+interface RelatedPlayerRow {
+  id: number;
+  data_provider_id: string | null;
+}
+
+function getRecentUniquePerformances(
+  rows: PlayerPerformanceRow[],
+  preferredPlayerId: number,
+): PlayerPerformanceRow[] {
+  const rowsByMatch = new Map<string, PlayerPerformanceRow>();
+
+  for (const row of rows) {
+    const matchId = typeof row.matches?.id === 'number'
+      ? String(row.matches.id)
+      : `performance:${row.id}`;
+    const existing = rowsByMatch.get(matchId);
+    if (!existing || row.player_id === preferredPlayerId) {
+      rowsByMatch.set(matchId, row);
+    }
+  }
+
+  return [...rowsByMatch.values()].slice(0, 15);
+}
 
 async function getHandler(request: NextRequest, context: RouteContext) {
   try {
@@ -47,7 +76,26 @@ async function getHandler(request: NextRequest, context: RouteContext) {
       return NextResponse.json({ error: 'Player not found.' }, { status: 404 });
     }
 
-    // 2. Fetch prices, aggregate point totals, and recent performances in parallel
+    // Include duplicate player records that represent the same Steam account in performance history.
+    const equivalentProviderIds = getEquivalentProviderIds(player.data_provider_id, player.slug);
+    const { data: relatedPlayers, error: relatedPlayersError } = equivalentProviderIds.length > 0
+      ? await supabase
+        .from('professional_players')
+        .select('id, data_provider_id')
+        .in('data_provider_id', equivalentProviderIds)
+      : { data: [], error: null };
+    if (relatedPlayersError) {
+      return NextResponse.json(
+        { error: 'Failed to resolve player identity aliases.', details: relatedPlayersError.message },
+        { status: 500 }
+      );
+    }
+    const relatedPlayerIds = getRelatedPlayerIds([
+      { id: playerId, data_provider_id: player.data_provider_id ?? null },
+      ...((relatedPlayers ?? []) as RelatedPlayerRow[]),
+    ]).get(playerId) ?? [playerId];
+
+    // 3. Fetch prices, aggregate point totals, and recent performances in parallel
     const [
       { data: prices, error: pricesError },
       { data: pointTotalsResult, error: pointTotalsError },
@@ -62,7 +110,10 @@ async function getHandler(request: NextRequest, context: RouteContext) {
       supabase.from('player_performances')
         .select(`
           id,
+          player_id,
+          match_id,
           gameweek_id,
+          gameweeks(gameweek_number),
           kills,
           deaths,
           assists,
@@ -98,9 +149,9 @@ async function getHandler(request: NextRequest, context: RouteContext) {
             total_points
           )
         `)
-        .eq('player_id', playerId)
+        .in('player_id', relatedPlayerIds)
         .order('gameweek_id', { ascending: false })
-        .limit(15),
+        .limit(15 * relatedPlayerIds.length),
     ]);
 
     if (pricesError) {
@@ -123,7 +174,10 @@ async function getHandler(request: NextRequest, context: RouteContext) {
     }
 
     const priceRows = (prices ?? []) as unknown as PlayerPriceRow[];
-    const performanceRows = (performances ?? []) as unknown as PlayerPerformanceRow[];
+    const performanceRows = getRecentUniquePerformances(
+      (performances ?? []) as unknown as PlayerPerformanceRow[],
+      playerId,
+    );
     const pointTotals = Array.isArray(pointTotalsResult)
       ? pointTotalsResult[0] as PlayerPointTotals | undefined
       : pointTotalsResult as PlayerPointTotals | null;

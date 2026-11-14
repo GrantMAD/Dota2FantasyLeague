@@ -13,6 +13,7 @@ import { canOptimizeImage } from '@/lib/optimized-image';
 type PlayerPerformance = {
   id: number;
   gameweek_id: number;
+  gameweeks?: { gameweek_number: number } | null;
   kills: number;
   deaths: number;
   assists: number;
@@ -239,7 +240,7 @@ export function PlayerDetailModal({ player, loading, onClose, scoreBreakdown }: 
             <h3 className="text-xs font-bold uppercase tracking-widest text-[var(--text-muted)]">
               Recent Performances
             </h3>
-            <span className="text-xs text-[var(--text-muted)]">Last 5 Gameweeks</span>
+            <span className="text-xs text-[var(--text-muted)]">Last 5 Performances</span>
           </div>
 
           {player.performances?.length ? (
@@ -251,7 +252,7 @@ export function PlayerDetailModal({ player, loading, onClose, scoreBreakdown }: 
                 >
                   <div className="flex items-center gap-3">
                     <span className="rounded-md border border-[var(--border)] bg-[var(--surface-muted)] px-2 py-0.5 text-xs font-bold text-[var(--text-secondary)]">
-                      GW {perf.gameweek_id}
+                      GW {perf.gameweeks?.gameweek_number ?? '—'}
                     </span>
                     <span className="text-xs text-[var(--text-secondary)]">
                       {perf.kills} K / {perf.deaths} D / {perf.assists} A

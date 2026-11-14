@@ -148,6 +148,9 @@ export function FriendProgressModal({
             <h3 className="mb-3 flex items-center gap-2 font-semibold text-[var(--text-primary)]">
               <Award className="h-4 w-4 text-[var(--accent-primary)]" /> Gameweek history
             </h3>
+            <p className="mb-3 text-xs text-[var(--text-muted)]">
+              Only closed gameweeks are shown here. The active gameweek will appear once it closes.
+            </p>
             {progress.season.gameweeks.length ? (
               <div className="overflow-x-auto rounded-xl border border-[var(--border)]">
                 <table className="w-full min-w-[420px] text-left text-sm">

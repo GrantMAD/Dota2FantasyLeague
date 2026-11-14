@@ -41,6 +41,7 @@ type FantasyBreakdown = {
 type PerformanceRecord = {
   id: number;
   gameweek_id: number;
+  gameweeks?: { gameweek_number: number } | null;
   kills: number;
   deaths: number;
   assists: number;
@@ -305,7 +306,7 @@ export default function PlayerDetailPage() {
 
         return {
           id: perf.id,
-          gameweek: `GW ${perf.gameweek_id}`,
+          gameweek: `GW ${perf.gameweeks?.gameweek_number ?? '—'}`,
           gameweek_id: perf.gameweek_id,
           opponent: `vs ${oppName}`,
           opponent_name: oppName,
