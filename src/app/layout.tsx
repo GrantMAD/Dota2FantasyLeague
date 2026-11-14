@@ -8,10 +8,8 @@ import { PageGuideModal } from "@/components/PageGuideModal";
 import { TourTriggerButton } from "@/components/TourTriggerButton";
 import { TelemetryPageTracker } from "@/components/TelemetryPageTracker";
 import { TourProvider } from "@/context/TourContext";
-import { HeaderDataProvider } from "@/context/HeaderDataContext";
 import { ToastProvider } from "@/components/Toast/ToastContext";
 import { ToastContainer } from "@/components/Toast/ToastContainer";
-import { DataFreshnessProvider } from "@/context/DataFreshnessContext";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -57,19 +55,15 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         <ThemeProvider>
           <SessionProvider>
             <ToastProvider>
-              <HeaderDataProvider>
-                <DataFreshnessProvider>
-                  <TourProvider>
-                    {children}
-                    <Suspense fallback={null}>
-                      <TelemetryPageTracker />
-                      <PageTour />
-                      <PageGuideModal />
-                      <TourTriggerButton />
-                    </Suspense>
-                  </TourProvider>
-                </DataFreshnessProvider>
-              </HeaderDataProvider>
+              <TourProvider>
+                {children}
+                <Suspense fallback={null}>
+                  <TelemetryPageTracker />
+                  <PageTour />
+                  <PageGuideModal />
+                  <TourTriggerButton />
+                </Suspense>
+              </TourProvider>
               <ToastContainer />
             </ToastProvider>
           </SessionProvider>
