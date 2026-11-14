@@ -43,10 +43,16 @@ export async function fetchMatchDetails(options?: JobRunOptions): Promise<FetchD
   };
 
   try {
-    const { getMatchDataProvider, getOpenDotaProvider } = await import('../data-providers/provider-config');
-    const providers: Record<'stratz' | 'opendota', DataProvider> = {
+    const { getMatchDataProvider, getOpenDotaProvider, getSteamProvider } = await import('../data-providers/provider-config');
+    let steamProvider: DataProvider | undefined;
+    try {
+      steamProvider = getSteamProvider();
+    } catch {}
+
+    const providers: Partial<Record<string, DataProvider>> = {
       stratz: await getMatchDataProvider(),
       opendota: getOpenDotaProvider(),
+      steam: steamProvider,
     };
 
     console.log('[fetchMatchDetails] Starting match detail fetch');
@@ -71,11 +77,46 @@ export async function fetchMatchDetails(options?: JobRunOptions): Promise<FetchD
         for (const match of batch) {
           try {
             const providerSource = providerSources.get(match.series_id) ?? 'stratz';
-            const provider = providers[providerSource];
+            const primaryProvider = providers[providerSource] || providers.stratz || providers.opendota;
+            if (!primaryProvider) {
+              throw new Error(`No data provider available for source "${providerSource}"`);
+            }
             const externalId = match.external_match_id || match.id.toString();
-            // Fetch detailed stats from provider
-            const details = await provider.fetchMatchDetails(externalId);
-            console.log(`[fetchMatchDetails] Fetched details for match ${match.id} (external: ${externalId})`);
+
+            // Fetch detailed stats from provider with graceful fallback
+            let details;
+            let effectiveProvider = primaryProvider;
+            let lastError: Error | null = null;
+
+            try {
+              details = await primaryProvider.fetchMatchDetails(externalId);
+            } catch (primaryErr) {
+              lastError = primaryErr as Error;
+              // If primary was steam (Valve returns 500 on GetMatchDetails) or failed, fall back
+              const fallbackCandidates = ['stratz', 'opendota', 'steam'].filter((s) => s !== providerSource);
+              for (const candidate of fallbackCandidates) {
+                const fallback = providers[candidate];
+                if (!fallback) continue;
+                try {
+                  console.log(
+                    `[fetchMatchDetails] ${primaryProvider.name} failed for match ${match.id} (${(primaryErr as Error).message}), ` +
+                    `trying fallback ${fallback.name}...`
+                  );
+                  details = await fallback.fetchMatchDetails(externalId);
+                  effectiveProvider = fallback;
+                  lastError = null;
+                  break;
+                } catch (fallbackErr) {
+                  lastError = fallbackErr as Error;
+                }
+              }
+            }
+
+            if (!details) {
+              throw lastError || new Error(`Failed to fetch details for match ${match.id} from any provider`);
+            }
+
+            console.log(`[fetchMatchDetails] Fetched details for match ${match.id} (external: ${externalId}) via ${effectiveProvider.name}`);
 
             // Extract player stats from nested teams structure and store in match_player_stats table
             const statsToInsert: MatchPlayerStatsInsert[] = [];
@@ -93,7 +134,7 @@ export async function fetchMatchDetails(options?: JobRunOptions): Promise<FetchD
                   let logoUrl: string | undefined = undefined;
 
                   try {
-                    const fetchedTeam = await provider.fetchTeam(teamProviderId);
+                    const fetchedTeam = await effectiveProvider.fetchTeam(teamProviderId);
                     if (fetchedTeam?.name && fetchedTeam.name.trim().length > 0 && !/^\d+$/.test(fetchedTeam.name)) {
                       teamName = fetchedTeam.name.trim();
                       logoUrl = fetchedTeam.logoUrl;
@@ -383,19 +424,28 @@ async function getEntityLookupMaps(): Promise<{
   for (const t of teamsRes.data || []) {
     if (t.data_provider_id) {
       const providerId = String(t.data_provider_id);
-      teamMap.set(
-        providerId.startsWith('opendota:')
-          ? providerId
-          : `stratz:${providerId}`,
-        t.id,
-      );
+      if (providerId.startsWith('opendota:')) {
+        teamMap.set(providerId, t.id);
+        const rawId = providerId.replace('opendota:', '');
+        teamMap.set(`steam:${rawId}`, t.id);
+        teamMap.set(`stratz:${rawId}`, t.id);
+      } else if (providerId.startsWith('steam:')) {
+        teamMap.set(providerId, t.id);
+        const rawId = providerId.replace('steam:', '');
+        teamMap.set(`stratz:${rawId}`, t.id);
+        teamMap.set(`opendota:${rawId}`, t.id);
+      } else {
+        teamMap.set(`stratz:${providerId}`, t.id);
+        teamMap.set(`steam:${providerId}`, t.id);
+        teamMap.set(`opendota:${providerId}`, t.id);
+      }
     }
   }
 
   return { playerMap, teamMap };
 }
 
-async function getMatchProviderSources(matches: Match[]): Promise<Map<number, 'stratz' | 'opendota'>> {
+async function getMatchProviderSources(matches: Match[]): Promise<Map<number, string>> {
   const seriesIds = [...new Set(matches.map((match) => match.series_id))];
   if (seriesIds.length === 0) return new Map();
 
@@ -418,10 +468,10 @@ async function getMatchProviderSources(matches: Match[]): Promise<Map<number, 's
     throw new Error(`Failed to load tournament sources for pending matches: ${tournamentError.message}`);
   }
 
-  const sourceByTournamentId = new Map<number, 'stratz' | 'opendota'>();
+  const sourceByTournamentId = new Map<number, string>();
   for (const tournament of (tournamentRows ?? []) as Array<{
     id: number;
-    data_provider: 'stratz' | 'opendota' | null;
+    data_provider: 'stratz' | 'opendota' | 'steam' | null;
   }>) {
     sourceByTournamentId.set(tournament.id, tournament.data_provider ?? 'stratz');
   }

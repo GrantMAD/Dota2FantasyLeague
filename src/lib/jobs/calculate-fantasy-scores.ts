@@ -424,7 +424,7 @@ export class FantasyScoreCalculator {
       }
 
       // Score only matches with player stats and at least one missing performance breakdown.
-      const matchLimit = options.matchLimit ?? 15;
+      const matchLimit = options.matchLimit ?? 50;
       const pendingMatches: typeof matches = [];
       const scanBatchSize = 50;
       for (let offset = 0; offset < matches.length && pendingMatches.length <= matchLimit; offset += scanBatchSize) {

@@ -87,10 +87,18 @@ export async function fetchMatches(options: { tournamentLimit?: number } = {}): 
   };
 
   try {
-    const { getMatchDataProvider, getOpenDotaProvider } = await import('../data-providers/provider-config');
-    const providers = {
+    const { getMatchDataProvider, getOpenDotaProvider, getSteamProvider } = await import('../data-providers/provider-config');
+    let steamProvider: ReturnType<typeof getSteamProvider> | undefined;
+    try {
+      steamProvider = getSteamProvider();
+    } catch (err) {
+      console.warn('[fetchMatches] Steam provider not initialized:', (err as Error).message);
+    }
+
+    const providers: Record<string, import('../data-providers/provider-interface').DataProvider | undefined> = {
       stratz: await getMatchDataProvider(),
       opendota: getOpenDotaProvider(),
+      steam: steamProvider,
     };
     const supabase = getSupabaseServerClient();
 
@@ -130,19 +138,25 @@ export async function fetchMatches(options: { tournamentLimit?: number } = {}): 
         'do not overlap any configured gameweek'
       );
 
-      const providerSources = new Set<keyof typeof providers>(
+      const providerSources = new Set<string>(
         inGameweekTournaments.map((tournament) => tournament.data_provider ?? 'stratz')
       );
       const professionalTournamentsBySource = await Promise.all(
-        [...providerSources].map(async (source) => {
-          const provider = providers[source];
-          const tournaments = await provider.fetchTournaments({ limit: 100 });
-          return [source, new Set(tournaments.map((tournament) => String(tournament.id)))] as const;
-        }),
+        [...providerSources]
+          .filter((source) => source !== 'steam')
+          .map(async (source) => {
+            const provider = providers[source];
+            if (!provider) return [source, new Set<string>()] as const;
+            const tournaments = await provider.fetchTournaments({ limit: 100 });
+            return [source, new Set(tournaments.map((tournament) => String(tournament.id)))] as const;
+          }),
       );
       const professionalTournamentIds = new Map(professionalTournamentsBySource);
       const activeTournaments = inGameweekTournaments.filter((tournament) => {
         const source = tournament.data_provider ?? 'stratz';
+        if (source === 'steam') {
+          return true;
+        }
         return professionalTournamentIds.get(source)?.has(String(tournament.data_provider_id));
       });
       console.log(
@@ -185,8 +199,13 @@ export async function fetchMatches(options: { tournamentLimit?: number } = {}): 
           const providerTeamId = String(t.data_provider_id);
           if (providerTeamId.startsWith('opendota:')) {
             teamIdMap.set(providerTeamId, t.id);
+            const rawId = providerTeamId.replace('opendota:', '');
+            teamIdMap.set(`steam:${rawId}`, t.id);
+            teamIdMap.set(`stratz:${rawId}`, t.id);
           } else {
             teamIdMap.set(`stratz:${providerTeamId}`, t.id);
+            teamIdMap.set(`steam:${providerTeamId}`, t.id);
+            teamIdMap.set(`opendota:${providerTeamId}`, t.id);
           }
         }
         teamNameMap.set(t.id, t.name ?? '');
@@ -360,6 +379,41 @@ export async function fetchMatches(options: { tournamentLimit?: number } = {}): 
                 }
               }
 
+              if (!seriesRecord) {
+                const candidateSeries = [...seriesByIdentity.values()].find((series) => {
+                  if (series.gameweek_id !== targetGameweek.id) return false;
+                  if (series.team_a_id === null || series.team_b_id === null) return false;
+                  const recorded = [series.team_a_id, series.team_b_id]
+                    .sort((a, b) => Number(a) - Number(b))
+                    .join(':');
+                  return recorded === teamPair.join(':');
+                });
+
+                if (candidateSeries) {
+                  if (!providerSeriesId) {
+                    seriesRecord = candidateSeries;
+                  } else if (
+                    candidateSeries.source_series_id?.startsWith('fallback:')
+                    || !candidateSeries.source_series_id
+                  ) {
+                    const { error: promoteSeriesError } = await supabase
+                      .from('tournament_series')
+                      .update({ source_series_id: providerSeriesId })
+                      .eq('id', candidateSeries.id);
+                    if (promoteSeriesError) {
+                      throw new Error(`Failed to add provider identity to series ${candidateSeries.id}: ${promoteSeriesError.message}`);
+                    }
+                    if (candidateSeries.source_series_id) {
+                      seriesByIdentity.delete(candidateSeries.source_series_id);
+                    }
+                    seriesRecord = { ...candidateSeries, source_series_id: providerSeriesId };
+                    seriesByIdentity.set(providerSeriesId, seriesRecord);
+                  } else if (candidateSeries.source_series_id === providerSeriesId) {
+                    seriesRecord = candidateSeries;
+                  }
+                }
+              }
+
               if (seriesRecord && seriesRecord.team_a_id !== null && seriesRecord.team_b_id !== null) {
                 const recordedTeams = [seriesRecord.team_a_id, seriesRecord.team_b_id].sort((a, b) => a - b);
                 if (recordedTeams[0] !== teamPair[0] || recordedTeams[1] !== teamPair[1]) {
@@ -426,6 +480,7 @@ export async function fetchMatches(options: { tournamentLimit?: number } = {}): 
                   }
                 }
 
+                const oldSeriesId = existing.series_id;
                 const { error: updateError } = await supabase
                   .from('matches')
                   .update({
@@ -448,6 +503,19 @@ export async function fetchMatches(options: { tournamentLimit?: number } = {}): 
                 existing.gameweek_id = targetGameweek.id;
                 existing.scheduled_time = scheduledTime;
                 reconciledMatchIds.add(existing.id);
+
+                if (oldSeriesId && oldSeriesId !== seriesRecord.id) {
+                  const { count: remainingCount } = await supabase
+                    .from('matches')
+                    .select('id', { count: 'exact', head: true })
+                    .eq('series_id', oldSeriesId);
+                  if (remainingCount === 0) {
+                    await supabase.from('tournament_series').delete().eq('id', oldSeriesId);
+                    for (const [key, s] of seriesByIdentity.entries()) {
+                      if (s.id === oldSeriesId) seriesByIdentity.delete(key);
+                    }
+                  }
+                }
                 if (existing.external_match_id !== match.id.toString()) {
                   const previousExternalId = existing.external_match_id;
                   if (previousExternalId) {
@@ -682,7 +750,7 @@ async function checkMatchDetails(matchId: string): Promise<boolean> {
 async function resolveOrCreateTeam(
   teamProviderId: string | number | undefined,
   teamNameFromMatch: string | undefined,
-  providerSource: 'stratz' | 'opendota',
+  providerSource: string,
   teamIdMap: Map<string, number>,
   teamNameMap: Map<number, string>,
   provider: import('../data-providers/provider-interface').DataProvider
@@ -744,6 +812,9 @@ async function resolveOrCreateTeam(
 
   if (existingByName) {
     teamIdMap.set(providerKey, existingByName.id);
+    teamIdMap.set(`stratz:${pIdStr}`, existingByName.id);
+    teamIdMap.set(`steam:${pIdStr}`, existingByName.id);
+    teamIdMap.set(`opendota:${pIdStr}`, existingByName.id);
     return existingByName.id;
   }
 
@@ -761,6 +832,9 @@ async function resolveOrCreateTeam(
 
   if (newTeam) {
     teamIdMap.set(providerKey, newTeam.id);
+    teamIdMap.set(`stratz:${pIdStr}`, newTeam.id);
+    teamIdMap.set(`steam:${pIdStr}`, newTeam.id);
+    teamIdMap.set(`opendota:${pIdStr}`, newTeam.id);
     return newTeam.id;
   }
 
@@ -773,6 +847,9 @@ async function resolveOrCreateTeam(
     const retryTeam = retryTeamData as { id: number } | null;
     if (retryTeam) {
       teamIdMap.set(providerKey, retryTeam.id);
+      teamIdMap.set(`stratz:${pIdStr}`, retryTeam.id);
+      teamIdMap.set(`steam:${pIdStr}`, retryTeam.id);
+      teamIdMap.set(`opendota:${pIdStr}`, retryTeam.id);
       return retryTeam.id;
     }
   }

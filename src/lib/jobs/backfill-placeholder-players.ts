@@ -155,6 +155,15 @@ function normaliseRole(raw: string | number | null | undefined): string | null {
   return null;
 }
 
+interface PlaceholderPlayerRow {
+  id: number;
+  name: string | null;
+  in_game_name: string | null;
+  slug: string;
+  data_provider_id: string | null;
+  primary_role: string | null;
+}
+
 export async function backfillPlaceholderPlayers(): Promise<BackfillPlayersResult> {
   const startedAt = new Date();
   const result: BackfillPlayersResult = {
@@ -195,9 +204,33 @@ export async function backfillPlaceholderPlayers(): Promise<BackfillPlayersResul
       throw new Error(`Failed to query placeholder players: ${dbError.message}`);
     }
 
-    const playersToProcess = placeholderPlayers || [];
+    const playersToProcess = (placeholderPlayers || []) as PlaceholderPlayerRow[];
     result.totalPlaceholders = playersToProcess.length;
     console.log(`[backfillPlaceholderPlayers] Found ${playersToProcess.length} placeholder players to backfill`);
+
+    // Pre-fetch Steam summaries for all placeholder players in 100-player batches if Steam is available
+    const steamSummaries = new Map<string, { personaname?: string; avatarfull?: string; avatarmedium?: string; avatar?: string }>();
+    if (process.env.STEAM_API_KEY && playersToProcess.length > 0) {
+      try {
+        const { getSteamProvider } = await import('../data-providers/provider-config');
+        const steam = getSteamProvider();
+        const steamIds = playersToProcess
+          .map((p) => p.data_provider_id || p.slug)
+          .filter((id): id is string => Boolean(id && !isNaN(Number(id))))
+          .map((id) => steam.toSteamId64(id));
+
+        for (let i = 0; i < steamIds.length; i += 100) {
+          const chunk = steamIds.slice(i, i + 100);
+          const chunkMap = await steam.fetchPlayerSummariesBatch(chunk);
+          for (const [k, v] of chunkMap.entries()) {
+            steamSummaries.set(k, v);
+          }
+        }
+        console.log(`[backfillPlaceholderPlayers] Fetched ${steamSummaries.size} player summaries from Steam in batch`);
+      } catch (err) {
+        console.warn('[backfillPlaceholderPlayers] Steam batch fetch failed, falling back:', errorMessage(err));
+      }
+    }
 
     // 3. Process each player with rate-limiting (to respect OpenDota 60 req/min limit)
     for (let i = 0; i < playersToProcess.length; i++) {
@@ -215,12 +248,22 @@ export async function backfillPlaceholderPlayers(): Promise<BackfillPlayersResul
         let avatarUrl: string | null = null;
         let resolvedRole: string | null = null;
 
+        // Check if Steam batch returned summary
+        const steamId64 = (BigInt(accountId) + BigInt('76561197960265728')).toString();
+        const steamSummary = steamSummaries.get(steamId64);
+        if (steamSummary) {
+          if (steamSummary.personaname && steamSummary.personaname.trim() && steamSummary.personaname !== 'Unknown') {
+            realName = steamSummary.personaname.trim();
+          }
+          avatarUrl = steamSummary.avatarfull || steamSummary.avatarmedium || steamSummary.avatar || null;
+        }
+
         // Check if proPlayers list has this player
         const proEntry = proMap.get(String(accountId));
         if (proEntry) {
-          realName = proEntry.name || proEntry.personaname || null;
+          if (!realName) realName = proEntry.name || proEntry.personaname || null;
           realCountry = proEntry.country_code || proEntry.loccountrycode || null;
-          avatarUrl = proEntry.avatarfull || proEntry.avatarmedium || null;
+          if (!avatarUrl) avatarUrl = proEntry.avatarfull || proEntry.avatarmedium || null;
           const roleId = proEntry.fantasy_role;
           if (roleId === 1) resolvedRole = 'Carry';
           else if (roleId === 2) resolvedRole = 'Support';
@@ -228,7 +271,7 @@ export async function backfillPlaceholderPlayers(): Promise<BackfillPlayersResul
           else if (roleId === 4) resolvedRole = 'Mid';
         }
 
-        // If not in pro list, query individual OpenDota /players/{account_id}
+        // If not in Steam or pro list, query individual OpenDota /players/{account_id}
         if (!realName) {
           const openDotaUrl = process.env.OPENDOTA_API_URL || 'https://api.opendota.com/api';
           const resp = await fetch(`${openDotaUrl}/players/${accountId}`);

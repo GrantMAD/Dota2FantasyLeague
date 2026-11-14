@@ -8,9 +8,10 @@
 import { DataProvider } from './provider-interface';
 import { StratzProvider } from './stratz-provider';
 import { OpenDotaProvider } from './opendota-provider';
+import { SteamProvider } from './steam-provider';
 import { ResilientDataProvider } from './resilient-provider';
 
-export type ProviderType = 'stratz' | 'opendota';
+export type ProviderType = 'stratz' | 'opendota' | 'steam';
 
 interface ProviderConfig {
   primary: ProviderType;
@@ -20,6 +21,10 @@ interface ProviderConfig {
     apiUrl?: string;
   };
   opendota?: {
+    apiUrl?: string;
+  };
+  steam?: {
+    apiKey?: string;
     apiUrl?: string;
   };
 }
@@ -119,6 +124,18 @@ export function getOpenDotaProvider(): DataProvider {
   });
 }
 
+export function getSteamProvider(): SteamProvider {
+  const apiKey = process.env.STEAM_API_KEY;
+  if (!apiKey) {
+    throw new Error('STEAM_API_KEY is required for Steam provider.');
+  }
+
+  return new SteamProvider({
+    apiKey,
+    apiUrl: process.env.STEAM_API_URL || 'https://api.steampowered.com',
+  });
+}
+
 /**
  * Manually set provider health status
  * Used after failed provider operations to trigger fallback on next call
@@ -163,14 +180,18 @@ function buildProviderConfig(): ProviderConfig {
   ).toLowerCase() as ProviderType;
 
   // Validate primary provider
-  if (!['stratz', 'opendota'].includes(primaryProvider)) {
+  if (!['stratz', 'opendota', 'steam'].includes(primaryProvider)) {
     throw new Error(
-      `Invalid NEXT_PUBLIC_DATA_PROVIDER: ${primaryProvider}. Must be 'stratz' or 'opendota'`
+      `Invalid NEXT_PUBLIC_DATA_PROVIDER: ${primaryProvider}. Must be 'stratz', 'opendota', or 'steam'`
     );
   }
 
   // Determine fallback provider (opposite of primary)
-  const fallback: ProviderType = primaryProvider === 'stratz' ? 'opendota' : 'stratz';
+  const fallback: ProviderType = primaryProvider === 'stratz'
+    ? 'opendota'
+    : primaryProvider === 'steam'
+      ? 'opendota'
+      : 'stratz';
 
   return {
     primary: primaryProvider,
@@ -181,6 +202,10 @@ function buildProviderConfig(): ProviderConfig {
     },
     opendota: {
       apiUrl: process.env.OPENDOTA_API_URL || 'https://api.opendota.com/api',
+    },
+    steam: {
+      apiKey: process.env.STEAM_API_KEY,
+      apiUrl: process.env.STEAM_API_URL || 'https://api.steampowered.com',
     },
   };
 }
@@ -201,6 +226,18 @@ function createProvider(providerType: ProviderType, config: ProviderConfig): Dat
   if (providerType === 'opendota') {
     return new OpenDotaProvider({
       apiUrl: config.opendota?.apiUrl || 'https://api.opendota.com/api',
+    });
+  }
+
+  if (providerType === 'steam') {
+    if (!config.steam?.apiKey) {
+      throw new Error(
+        'STEAM_API_KEY environment variable is required for Steam provider'
+      );
+    }
+    return new SteamProvider({
+      apiKey: config.steam.apiKey,
+      apiUrl: config.steam.apiUrl || 'https://api.steampowered.com',
     });
   }
 

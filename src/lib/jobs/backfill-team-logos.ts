@@ -28,12 +28,16 @@ const RETRY_DELAY_MS = 3000; // Extra wait before retrying a null result
 const BATCH_LOG_SIZE = 20;
 
 export function parseTeamLogoProviderId(dataProviderId: string): {
-  provider: 'opendota' | 'stratz';
+  provider: 'opendota' | 'stratz' | 'steam';
   teamId: string;
 } {
-  const prefix = 'opendota:';
-  if (dataProviderId.startsWith(prefix)) {
-    return { provider: 'opendota', teamId: dataProviderId.slice(prefix.length) };
+  const opendotaPrefix = 'opendota:';
+  if (dataProviderId.startsWith(opendotaPrefix)) {
+    return { provider: 'opendota', teamId: dataProviderId.slice(opendotaPrefix.length) };
+  }
+  const steamPrefix = 'steam:';
+  if (dataProviderId.startsWith(steamPrefix)) {
+    return { provider: 'steam', teamId: dataProviderId.slice(steamPrefix.length) };
   }
   return { provider: 'stratz', teamId: dataProviderId };
 }
@@ -77,6 +81,19 @@ async function fetchLogoFromStratz(teamId: string): Promise<string | null> {
     const stratz = new StratzProvider({ apiKey, apiUrl });
     const teamData = await stratz.fetchTeam(teamId);
     return teamData.logoUrl ?? null;
+  } catch {
+    return null;
+  }
+}
+
+async function fetchLogoFromSteam(teamId: string): Promise<string | null> {
+  const apiKey = process.env.STEAM_API_KEY;
+  if (!apiKey) return null;
+
+  try {
+    const { getSteamProvider } = await import('../data-providers/provider-config');
+    const steam = getSteamProvider();
+    return await steam.fetchTeamLogo(teamId);
   } catch {
     return null;
   }
@@ -152,6 +169,12 @@ export async function backfillTeamLogos(options: { batchSize?: number; afterId?:
       logoUrl = await fetchLogoFromStratz(providerIdentity.teamId);
     }
 
+    // 3. Fall back to Steam if OpenDota and Stratz couldn't find one
+    if (!logoUrl) {
+      console.log(`[backfillTeamLogos] Trying Steam for ${team.name} (teamId: ${providerIdentity.teamId})...`);
+      logoUrl = await fetchLogoFromSteam(providerIdentity.teamId);
+    }
+
     if (logoUrl) {
       const { error: updateErr } = await supabase
         .from('professional_teams')
@@ -164,11 +187,11 @@ export async function backfillTeamLogos(options: { batchSize?: number; afterId?:
         console.error(`[backfillTeamLogos] ✗ ${msg}`);
       } else {
         updated++;
-        console.log(`[backfillTeamLogos] ✓ ${team.name} → logo backfilled`);
+        console.log(`[backfillTeamLogos] ✓ ${team.name} → logo backfilled from ${logoUrl.includes('steam') ? 'Steam' : 'API'}`);
       }
     } else {
       skipped++;
-      console.log(`[backfillTeamLogos] — ${team.name}: no logo found on OpenDota or Stratz`);
+      console.log(`[backfillTeamLogos] — ${team.name}: no logo found on OpenDota, Stratz, or Steam`);
     }
 
     if ((i + 1) % BATCH_LOG_SIZE === 0) {

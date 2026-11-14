@@ -92,7 +92,7 @@ export interface Tournament {
   end_date: string;
   eligible: boolean;
   data_provider_id?: string | null;
-  data_provider?: 'stratz' | 'opendota';
+  data_provider?: 'stratz' | 'opendota' | 'steam';
   date_basis?: 'official' | 'observed';
   last_synced_at?: string | null;
   created_at: string;

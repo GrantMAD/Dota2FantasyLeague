@@ -46,8 +46,19 @@ describe('getProviderConfigurationStatus', () => {
     process.env.NEXT_PUBLIC_DATA_PROVIDER = 'unknown';
 
     expect(() => getProviderConfigurationStatus()).toThrow(
-      "Invalid NEXT_PUBLIC_DATA_PROVIDER: unknown. Must be 'stratz' or 'opendota'"
+      "Invalid NEXT_PUBLIC_DATA_PROVIDER: unknown. Must be 'stratz', 'opendota', or 'steam'"
     );
+  });
+
+  it('allows steam as a configured primary provider', () => {
+    process.env.NEXT_PUBLIC_DATA_PROVIDER = 'steam';
+    process.env.ENABLE_PROVIDER_FALLBACK = 'false';
+
+    expect(getProviderConfigurationStatus()).toEqual({
+      primary: 'steam',
+      fallback: null,
+      fallbackEnabled: false,
+    });
   });
 
   it('creates a dedicated STRATZ provider for match ingestion regardless of global primary', async () => {

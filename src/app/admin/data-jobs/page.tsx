@@ -388,6 +388,50 @@ export default function DataJobsPage() {
         }
 
         toast.success('Job Complete', `Logo backfill finished: ${updated} updated, ${skipped} still unavailable.`);
+      } else if (jobName === 'calculate-fantasy-scores') {
+        let hasMore = true;
+        let totalProcessed = 0;
+        let totalScored = 0;
+
+        while (hasMore) {
+          const response = await fetchWithAuth('/api/admin/jobs/run', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              ...authHeaders,
+            },
+            body: JSON.stringify({ job_name: jobName, matchLimit: 50 }),
+          });
+          const data = await response.json().catch(() => ({}));
+          if (!response.ok) {
+            throw new Error(data.error || `Job ${jobName} execution returned an error.`);
+          }
+
+          const batchResult = data.result?.result as {
+            success?: boolean;
+            matchesProcessed?: number;
+            scoresCalculated?: number;
+            hasMore?: boolean;
+            errors?: string[];
+          } | undefined;
+
+          if (!batchResult?.success) {
+            throw new Error(batchResult?.errors?.join('; ') || `Job ${jobName} batch failed.`);
+          }
+
+          totalProcessed += batchResult.matchesProcessed ?? 0;
+          totalScored += batchResult.scoresCalculated ?? 0;
+          hasMore = Boolean(batchResult.hasMore);
+
+          if (!batchResult.matchesProcessed || batchResult.matchesProcessed === 0) {
+            break;
+          }
+        }
+
+        toast.success(
+          'Scoring Complete',
+          `Fantasy scores calculated: ${totalProcessed} matches processed, ${totalScored} player scores saved.`
+        );
       } else {
         const response = await fetchWithAuth('/api/admin/jobs/run', {
           method: 'POST',

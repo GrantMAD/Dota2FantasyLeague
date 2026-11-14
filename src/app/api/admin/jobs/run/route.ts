@@ -66,6 +66,11 @@ async function postHandler(request: Request) {
         ? {
             tournamentLimit: typeof body.tournamentLimit === 'number' ? body.tournamentLimit : undefined,
           }
+      : jobName === 'calculate-fantasy-scores'
+        ? {
+            matchLimit: typeof body.matchLimit === 'number' ? body.matchLimit : undefined,
+            skipRecalculateChain: typeof body.skipRecalculateChain === 'boolean' ? body.skipRecalculateChain : undefined,
+          }
       : {};
     const result = await runJob(jobName, jobOptions);
 

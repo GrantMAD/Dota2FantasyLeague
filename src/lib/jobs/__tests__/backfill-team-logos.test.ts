@@ -8,6 +8,13 @@ describe('parseTeamLogoProviderId', () => {
     });
   });
 
+  it('strips the steam namespace before API lookups', () => {
+    expect(parseTeamLogoProviderId('steam:10322861')).toEqual({
+      provider: 'steam',
+      teamId: '10322861',
+    });
+  });
+
   it('preserves unnamespaced provider IDs for the STRATZ fallback', () => {
     expect(parseTeamLogoProviderId('67890')).toEqual({
       provider: 'stratz',
