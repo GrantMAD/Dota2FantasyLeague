@@ -78,13 +78,17 @@ export function MatchRow({
             {isLive ? (
               <span className="text-red-400 font-bold uppercase">Live Now</span>
             ) : isCompleted ? (
-              <span>Series Final · {formattedDate}</span>
+              <span>{match.best_of && match.best_of > 1 ? 'Series Final' : 'Final'} · {formattedDate}</span>
             ) : seriesScore.completedGames > 0 ? (
               <span>Game {seriesScore.completedGames + 1} · {formattedDate} {formattedTime}</span>
             ) : (
               <span>{formattedDate} {formattedTime}</span>
             )}
-            {match.best_of && ` · Bo${match.best_of} · ${seriesScore.completedGames} played`}
+            {match.best_of === 1
+              ? ' · Bo1'
+              : match.best_of && match.best_of > 1
+                ? ` · Bo${match.best_of} · ${seriesScore.completedGames} played`
+                : ''}
           </div>
           </div>
         </div>

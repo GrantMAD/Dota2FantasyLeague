@@ -109,6 +109,19 @@ describe('groupMatchesBySeries', () => {
         isLive: false,
       });
     });
+
+    it('clinches a Best-of-1 match after 1 game', () => {
+      expect(summarizeMatchSeries([
+        { id: 1, series_id: 9, scheduled_at: '2026-11-12T10:00:00', status: 'completed', winner_team_id: 1, radiant_team_id: 1, dire_team_id: 2 },
+      ], 1)).toEqual({
+        radiantWins: 1,
+        direWins: 0,
+        completedGames: 1,
+        clinchedTeamId: 1,
+        isComplete: true,
+        isLive: false,
+      });
+    });
   });
 
   it('keeps matches without a series ID separate', () => {

@@ -177,7 +177,9 @@ async function getHandler(request: NextRequest, context: RouteContext) {
         const direWins = matchRecord.team_b_id === null
           ? 0
           : completedMatches.filter((seriesMatch) => seriesMatch.winner_team_id === matchRecord.team_b_id).length;
-        const clinchThreshold = Math.floor((seriesRecord.best_of || 3) / 2) + 1;
+        const clinchThreshold = seriesRecord.best_of && seriesRecord.best_of <= 1
+          ? 1
+          : Math.floor((seriesRecord.best_of || 3) / 2) + 1;
 
         seriesScore = {
           radiantWins,
@@ -212,7 +214,7 @@ async function getHandler(request: NextRequest, context: RouteContext) {
     const match = {
       ...matchRecord,
       status: matchRecord.status === 'in_progress' ? 'live' : matchRecord.status,
-      best_of: seriesRecord?.best_of || 3,
+      best_of: seriesRecord?.best_of ?? undefined,
       series_number: seriesRecord?.series_number || 1,
       scheduled_at: matchRecord.scheduled_time,
       duration_seconds: matchRecord.duration_minutes ? matchRecord.duration_minutes * 60 : null,

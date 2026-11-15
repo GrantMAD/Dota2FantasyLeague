@@ -459,11 +459,15 @@ function MatchDetailInner({ params }: { params: Promise<{ id: string }> }) {
                   {match.tournaments.tier}
                 </span>
               )}
-              {match.best_of && (
+              {match.best_of === 1 ? (
+                <span className="rounded border border-[var(--border)] bg-[var(--surface-raised)] px-2 py-0.5 font-mono text-[10px] text-[var(--text-secondary)]">
+                  Best of 1
+                </span>
+              ) : match.best_of && match.best_of > 1 ? (
                 <span className="rounded border border-[var(--border)] bg-[var(--surface-raised)] px-2 py-0.5 font-mono text-[10px] text-[var(--text-secondary)]">
                   Best of {match.best_of} · Game {activeGame.match_number || 1}
                 </span>
-              )}
+              ) : null}
             </div>
             <p className="font-mono text-xs text-[var(--text-muted)]">
               {new Date(activeGame.scheduled_at).toLocaleString([], {
@@ -697,7 +701,7 @@ function MatchDetailInner({ params }: { params: Promise<{ id: string }> }) {
               </h3>
               <p className="text-xs text-[var(--text-muted)]">
                 <time suppressHydrationWarning dateTime={activeGame.scheduled_at}>
-                  Game {activeGame.match_number} · {new Date(activeGame.scheduled_at).toLocaleString([], {
+                  {availableSeriesGames.length > 1 && activeGame.match_number ? `Game ${activeGame.match_number} · ` : ''}{new Date(activeGame.scheduled_at).toLocaleString([], {
                     weekday: 'short',
                     month: 'short',
                     day: 'numeric',

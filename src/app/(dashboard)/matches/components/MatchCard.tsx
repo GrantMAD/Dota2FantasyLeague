@@ -122,11 +122,15 @@ export function MatchCard({
           <span className="font-semibold text-slate-300 truncate" title={match.tournaments?.name || 'Tournament'}>
             {match.tournaments?.name || 'Tournament'}
           </span>
-          {match.best_of && (
+          {match.best_of === 1 ? (
+            <span className="rounded border border-slate-700/60 bg-slate-800 px-1.5 py-0.5 text-[10px] font-mono text-slate-300">
+              Bo1
+            </span>
+          ) : match.best_of && match.best_of > 1 ? (
             <span className="rounded border border-slate-700/60 bg-slate-800 px-1.5 py-0.5 text-[10px] font-mono text-slate-300">
               Bo{match.best_of} Series
             </span>
-          )}
+          ) : null}
         </div>
 
         <div>
@@ -137,7 +141,7 @@ export function MatchCard({
             </span>
           ) : isCompleted ? (
             <span suppressHydrationWarning className="text-slate-400 font-medium font-mono text-[11px]">
-              Series Final · {formattedDate}
+              {match.best_of && match.best_of > 1 ? 'Series Final' : 'Final'} · {formattedDate}
             </span>
           ) : seriesScore.completedGames > 0 ? (
             <span suppressHydrationWarning className="text-amber-400/90 font-mono text-[11px] bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">

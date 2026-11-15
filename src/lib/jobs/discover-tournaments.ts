@@ -130,12 +130,7 @@ export async function discoverTournaments(): Promise<DiscoveryResult> {
               start_date: startDateString,
               end_date: endDateString,
             });
-            addTournamentIndexEntry(existingTournaments.byProviderId, `${source}:${providerId}`, existing);
-            addTournamentIndexEntry(
-              existingTournaments.byIdentity,
-              tournamentIdentity(existing.name, new Date(existing.start_date)),
-              existing,
-            );
+            addTournamentToIndex(existingTournaments, existing);
             result.updated++;
           } else {
             // Create new tournament
@@ -200,16 +195,7 @@ export async function discoverTournaments(): Promise<DiscoveryResult> {
 
             if (error) throw error;
             const inserted = insertedTournament as Tournament;
-            addTournamentIndexEntry(
-              existingTournaments.byProviderId,
-              `${source}:${providerId}`,
-              inserted,
-            );
-            addTournamentIndexEntry(
-              existingTournaments.byIdentity,
-              tournamentIdentity(inserted.name, new Date(inserted.start_date)),
-              inserted,
-            );
+            addTournamentToIndex(existingTournaments, inserted);
             result.discovered++;
             console.log(`[discoverTournaments] Discovered new tournament: ${tournament.name}`);
           }
@@ -252,14 +238,19 @@ export async function discoverTournaments(): Promise<DiscoveryResult> {
 
 type TournamentProvider = 'stratz' | 'opendota';
 
+function normalizeTournamentName(name: string): string {
+  return name.toLowerCase().replace(/[^a-z0-9]+/g, '');
+}
+
 function tournamentIdentity(name: string, startDate: Date): string {
-  const normalizedName = name.toLowerCase().replace(/[^a-z0-9]+/g, '');
-  return `name:${normalizedName}:${startDate.getUTCFullYear()}`;
+  return `name:${normalizeTournamentName(name)}:${startDate.getUTCFullYear()}`;
 }
 
 interface ExistingTournamentIndex {
   byProviderId: Map<string, Tournament[]>;
+  byRawLeagueId: Map<string, Tournament[]>;
   byIdentity: Map<string, Tournament[]>;
+  byNormalizedName: Map<string, Tournament[]>;
 }
 
 function findExistingTournament(
@@ -268,13 +259,32 @@ function findExistingTournament(
   providerId: string,
   tournament: TournamentData
 ): { tournament: Tournament | null; ambiguous: boolean } {
+  // 1. Exact match by provider and provider ID
   const providerMatches = existingTournaments.byProviderId.get(`${source}:${providerId}`) ?? [];
   if (providerMatches.length > 1) return { tournament: null, ambiguous: true };
   if (providerMatches.length === 1) return { tournament: providerMatches[0], ambiguous: false };
 
+  // 2. Match by raw numeric Dota 2 league ID (Valve league IDs are identical across STRATZ, OpenDota, Steam)
+  if (/^\d+$/.test(providerId)) {
+    const rawMatches = existingTournaments.byRawLeagueId.get(providerId) ?? [];
+    if (rawMatches.length > 1) return { tournament: null, ambiguous: true };
+    if (rawMatches.length === 1) return { tournament: rawMatches[0], ambiguous: false };
+  }
+
+  // 3. Exact identity match (normalized name + start year)
   const identityMatches = existingTournaments.byIdentity.get(tournamentIdentity(tournament.name, tournament.startDate)) ?? [];
   if (identityMatches.length > 1) return { tournament: null, ambiguous: true };
-  return { tournament: identityMatches[0] ?? null, ambiguous: false };
+  if (identityMatches.length === 1) return { tournament: identityMatches[0], ambiguous: false };
+
+  // 4. Normalized name match (handles start date discrepancies between provider official dates and observed match dates)
+  const normalizedName = normalizeTournamentName(tournament.name);
+  if (normalizedName) {
+    const nameMatches = existingTournaments.byNormalizedName.get(normalizedName) ?? [];
+    if (nameMatches.length > 1) return { tournament: null, ambiguous: true };
+    if (nameMatches.length === 1) return { tournament: nameMatches[0], ambiguous: false };
+  }
+
+  return { tournament: null, ambiguous: false };
 }
 
 function validDate(value: Date, field: string, tournament: TournamentData): Date {
@@ -307,6 +317,35 @@ function removeTournamentIndexEntry(
   else index.set(key, remainingMatches);
 }
 
+function addTournamentToIndex(
+  index: ExistingTournamentIndex,
+  tournament: Tournament,
+): void {
+  if (tournament.data_provider_id) {
+    addTournamentIndexEntry(
+      index.byProviderId,
+      `${tournament.data_provider ?? 'stratz'}:${tournament.data_provider_id}`,
+      tournament,
+    );
+    if (/^\d+$/.test(tournament.data_provider_id)) {
+      addTournamentIndexEntry(index.byRawLeagueId, tournament.data_provider_id, tournament);
+    }
+  }
+  if (tournament.name) {
+    const norm = normalizeTournamentName(tournament.name);
+    if (norm) {
+      addTournamentIndexEntry(index.byNormalizedName, norm, tournament);
+    }
+    if (tournament.start_date) {
+      addTournamentIndexEntry(
+        index.byIdentity,
+        tournamentIdentity(tournament.name, new Date(tournament.start_date)),
+        tournament,
+      );
+    }
+  }
+}
+
 async function getExistingTournaments(): Promise<ExistingTournamentIndex> {
   const supabase = getSupabaseServerClient();
 
@@ -320,23 +359,12 @@ async function getExistingTournaments(): Promise<ExistingTournamentIndex> {
 
   const tournamentMap: ExistingTournamentIndex = {
     byProviderId: new Map(),
+    byRawLeagueId: new Map(),
     byIdentity: new Map(),
+    byNormalizedName: new Map(),
   };
   for (const tournament of data || []) {
-    if (tournament.data_provider_id) {
-      addTournamentIndexEntry(
-        tournamentMap.byProviderId,
-        `${tournament.data_provider ?? 'stratz'}:${tournament.data_provider_id}`,
-        tournament,
-      );
-    }
-    if (tournament.name && tournament.start_date) {
-      addTournamentIndexEntry(
-        tournamentMap.byIdentity,
-        tournamentIdentity(tournament.name, new Date(tournament.start_date)),
-        tournament
-      );
-    }
+    addTournamentToIndex(tournamentMap, tournament);
   }
 
   return tournamentMap;

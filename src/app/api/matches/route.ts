@@ -348,7 +348,7 @@ async function getHandler(request: NextRequest) {
           player_ids: playerIdsByMatch.get(match.id) ?? [],
           status: match.status === 'in_progress' ? 'live' : match.status,
           match_number: match.match_number ?? undefined,
-          best_of: seriesInfo?.best_of || 3,
+          best_of: seriesInfo?.best_of ?? undefined,
           series_number: seriesInfo?.series_number || 1,
           scheduled_at: match.scheduled_time,
           duration_seconds: match.duration_minutes ? match.duration_minutes * 60 : null,

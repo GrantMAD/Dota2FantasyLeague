@@ -67,6 +67,7 @@ interface OpenDotaProMatch {
   match_id: number;
   leagueid?: number | null;
   series_id?: number | null;
+  series_type?: number | null;
   league_name?: string | null;
   series_name?: string | null;
   radiant_team_id?: number | null;
@@ -443,20 +444,31 @@ export class OpenDotaProvider extends DataProviderBase implements DataProvider {
       const response = await this.request<OpenDotaProMatch[]>('/proMatches');
       const filteredMatches = (response || [])
         .filter((match) => !tournamentId || String(match.leagueid) === tournamentId || String(match.series_id) === tournamentId)
-        .map((m) => ({
-          id: String(m.match_id),
-          tournamentId: String(m.leagueid || m.series_id || tournamentId || '0'),
-          team1Id: String(m.radiant_team_id),
-          team1Name: m.radiant_name || undefined,
-          team2Id: String(m.dire_team_id),
-          team2Name: m.dire_name || undefined,
-          scheduledAt: new Date(m.start_time * 1000),
-          startedAt: m.start_time ? new Date(m.start_time * 1000) : undefined,
-          endedAt: m.start_time && m.duration ? new Date((m.start_time + m.duration) * 1000) : undefined,
-          status: m.radiant_win !== undefined ? 'concluded' as const : 'scheduled' as const,
-          seriesStatus: undefined,
-          lastUpdated: new Date(),
-        }));
+        .map((m) => {
+          let bestOfSeries: number | undefined;
+          if (typeof m.series_type === 'number') {
+            if (m.series_type === 0) bestOfSeries = 1;
+            else if (m.series_type === 1) bestOfSeries = 3;
+            else if (m.series_type === 2) bestOfSeries = 5;
+            else if (m.series_type === 3) bestOfSeries = 2;
+          }
+          return {
+            id: String(m.match_id),
+            tournamentId: String(m.leagueid || m.series_id || tournamentId || '0'),
+            sourceSeriesId: m.series_id ? String(m.series_id) : undefined,
+            bestOfSeries,
+            team1Id: String(m.radiant_team_id),
+            team1Name: m.radiant_name || undefined,
+            team2Id: String(m.dire_team_id),
+            team2Name: m.dire_name || undefined,
+            scheduledAt: new Date(m.start_time * 1000),
+            startedAt: m.start_time ? new Date(m.start_time * 1000) : undefined,
+            endedAt: m.start_time && m.duration ? new Date((m.start_time + m.duration) * 1000) : undefined,
+            status: m.radiant_win !== undefined ? ('concluded' as const) : ('scheduled' as const),
+            seriesStatus: undefined,
+            lastUpdated: new Date(),
+          };
+        });
       const offset = filters?.offset ?? 0;
       const limit = filters?.limit ?? filteredMatches.length;
       return filteredMatches.slice(offset, offset + limit);

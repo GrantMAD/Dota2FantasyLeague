@@ -373,6 +373,21 @@ export async function fetchMatches(options: { tournamentLimit?: number } = {}): 
                 existing = reconciliation.match ?? undefined;
               }
 
+              if (!existing && /^\d+$/.test(match.id)) {
+                const { data: globalMatch } = await supabase
+                  .from('matches')
+                  .select('id, series_id, external_match_id')
+                  .eq('external_match_id', match.id)
+                  .maybeSingle();
+                if (globalMatch) {
+                  console.log(
+                    `[fetchMatches] Skipping match ${match.id} for tournament ${tournament.id}: ` +
+                    `already recorded under series ${globalMatch.series_id} (match ${globalMatch.id})`
+                  );
+                  continue;
+                }
+              }
+
               const teamPair = [teamAId, teamBId].sort((a, b) => a - b);
               const seriesIdentity = getTournamentSeriesIdentity(
                 providerSource,
@@ -476,7 +491,7 @@ export async function fetchMatches(options: { tournamentLimit?: number } = {}): 
                     tournament_id: tournament.id,
                     gameweek_id: targetGameweek.id,
                     series_number: seriesNumber,
-                    best_of: match.bestOfSeries ?? 3,
+                    best_of: match.bestOfSeries ?? (match.sourceSeriesId ? 3 : 1),
                     team_a_id: teamAId,
                     team_b_id: teamBId,
                     source_series_id: seriesIdentity,
