@@ -5,6 +5,7 @@ import {
   acquireDistributedJobLock,
   releaseDistributedJobLock,
   renewDistributedJobLock,
+  JOB_LOCK_LEASE_SECONDS,
 } from '../job-lock';
 
 jest.mock('@/lib/db/supabase-server', () => ({
@@ -26,7 +27,7 @@ describe('distributed job locks', () => {
     expect(rpc).toHaveBeenCalledWith('acquire_job_execution_lock', {
       p_job_name: 'sync-players',
       p_execution_id: 'execution-1',
-      p_lease_seconds: 7200,
+      p_lease_seconds: JOB_LOCK_LEASE_SECONDS,
     });
   });
 
@@ -54,7 +55,7 @@ describe('distributed job locks', () => {
     expect(rpc).toHaveBeenCalledWith('renew_job_execution_lock', {
       p_job_name: 'sync-players',
       p_execution_id: 'execution-1',
-      p_lease_seconds: 7200,
+      p_lease_seconds: JOB_LOCK_LEASE_SECONDS,
     });
   });
 

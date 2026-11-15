@@ -164,7 +164,7 @@ export async function fetchMatches(options: { tournamentLimit?: number } = {}): 
         `ignoring ${inGameweekTournaments.length - activeTournaments.length} tournaments not present in their provider's professional feed`
       );
 
-      const tournamentLimit = options.tournamentLimit ?? 4;
+      const tournamentLimit = options.tournamentLimit ?? 2;
       if (!Number.isSafeInteger(tournamentLimit) || tournamentLimit < 1 || tournamentLimit > 10) {
         throw new Error('tournamentLimit must be an integer between 1 and 10.');
       }
@@ -214,7 +214,16 @@ export async function fetchMatches(options: { tournamentLimit?: number } = {}): 
       for (const tournament of tournamentsToProcess) {
         try {
           const providerSource = tournament.data_provider ?? 'stratz';
-          const provider = providers[providerSource];
+          let provider = providers[providerSource];
+          if (!provider) {
+            // Gracefully fall back to OpenDota or STRATZ if primary provider (e.g. steam) is not configured
+            provider = providers.opendota || providers.stratz;
+            if (provider) {
+              console.warn(
+                `[fetchMatches] Provider "${providerSource}" unavailable for tournament ${tournament.id} (${tournament.name}); falling back to ${provider.name}`
+              );
+            }
+          }
           if (!provider) {
             result.errors.push(`Unsupported data provider "${providerSource}" for tournament ${tournament.id}`);
             continue;

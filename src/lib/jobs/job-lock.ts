@@ -1,6 +1,6 @@
 import { getSupabaseServerClient } from '@/lib/db/supabase-server';
 
-const JOB_LOCK_LEASE_SECONDS = 2 * 60 * 60;
+export const JOB_LOCK_LEASE_SECONDS = 3 * 60; // 3 minutes (renewed every 30s by scheduler heartbeat; fails open quickly on hard crash)
 
 interface JobLockRpcClient {
   rpc(

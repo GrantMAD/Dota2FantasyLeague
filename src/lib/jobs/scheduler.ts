@@ -128,7 +128,7 @@ const JOBS: JobDefinition[] = [
     schedule: '0 * * * *', // Every hour
     handler: fetchMatches,
     enabled: process.env.ENABLE_MATCH_FETCH !== 'false',
-    timeout: 10 * 60 * 1000,
+    timeout: 50 * 1000, // 50 seconds to complete cleanly before Vercel serverless 60s hard timeout
   },
   {
     name: 'fetch-match-details',
@@ -471,20 +471,25 @@ export async function runJob(jobName: JobName, options?: JobRunOptions): Promise
   const outcome = await Promise.race([settledHandler, timeoutPromise]);
 
   if (outcome.status === 'timed-out') {
+    stopLockHeartbeat();
     result.status = 'failed';
     result.error =
-      `Job exceeded timeout after ${jobDef.timeout}ms; execution was not cancelled and its distributed lock remains held until it settles or expires.`;
+      `Job exceeded timeout after ${jobDef.timeout}ms; execution was stopped and its distributed lock was released.`;
     result.completedAt = new Date();
     result.duration = result.completedAt.getTime() - result.startedAt.getTime();
-    console.error(`[Scheduler] Job ${jobName} timed out; underlying work was not cancelled`);
+    console.error(`[Scheduler] Job ${jobName} timed out`);
     runningJobs.set(jobName, result);
     recordJobHistory({ ...result });
     await persistJobExecution(result);
     await maybeDispatchAlert(result);
+    try {
+      await releaseDistributedJobLock(jobName, executionId);
+    } catch (error) {
+      console.error(`[Scheduler] Failed to release lock for timed-out job ${jobName}:`, error);
+    }
 
     void settledHandler.then(async (lateOutcome) => {
       console.warn(`[Scheduler] Timed-out job ${jobName} settled later with status ${lateOutcome.status}`);
-      stopLockHeartbeat();
       try {
         await releaseDistributedJobLock(jobName, executionId);
       } catch (error) {
