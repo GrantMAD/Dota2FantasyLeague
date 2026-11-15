@@ -178,7 +178,7 @@ export async function fetchMatches(options: { tournamentLimit?: number } = {}): 
         `ignoring ${inGameweekTournaments.length - activeTournaments.length} tournaments not present in their provider's professional feed`
       );
 
-      const tournamentLimit = options.tournamentLimit ?? 2;
+      const tournamentLimit = options.tournamentLimit ?? 4;
       if (!Number.isSafeInteger(tournamentLimit) || tournamentLimit < 1 || tournamentLimit > 10) {
         throw new Error('tournamentLimit must be an integer between 1 and 10.');
       }
@@ -189,19 +189,7 @@ export async function fetchMatches(options: { tournamentLimit?: number } = {}): 
         lastProcessedTournamentId,
       );
       const tournamentsToProcess = tournamentBatch.tournaments;
-      // Fix 3: If the batch contains a Steam tournament, process it alone.
-      // Steam tournaments can have 80+ matches and always need solo processing.
-      const hasSteamTournament = tournamentsToProcess.some(
-        (t) => (t.data_provider ?? 'stratz') === 'steam'
-      );
-      const effectiveTournamentsToProcess = hasSteamTournament
-        ? tournamentsToProcess.slice(0, 1)
-        : tournamentsToProcess;
-      if (hasSteamTournament && tournamentsToProcess.length > 1) {
-        console.log(
-          "[fetchMatches] Batch contains a Steam tournament; reducing batch to 1 tournament to avoid timeout"
-        );
-      }
+      const effectiveTournamentsToProcess = tournamentsToProcess;
       result.hasMore = tournamentBatch.hasMore;
       if (tournamentsToProcess.length > 0) {
         console.log(
@@ -278,6 +266,51 @@ export async function fetchMatches(options: { tournamentLimit?: number } = {}): 
               matches = await fetchAllTournamentMatches(providers.opendota, leagueExternalId);
             } else {
               throw fetchErr;
+            }
+          }
+
+          // 2. Real-Time Steam Overlay (for any tournament with a numeric Valve League ID)
+          // Steam API provides zero-lag live games (with draft picks & live series score)
+          // and instant concluded matches directly from Valve's servers.
+          if (providers.steam && /^\d+$/.test(leagueExternalId) && providerSource !== 'steam') {
+            try {
+              const steamMatches = await providers.steam.fetchMatches(leagueExternalId);
+              if (steamMatches.length > 0) {
+                const matchesMap = new Map<string, MatchData>();
+                for (const m of matches) {
+                  matchesMap.set(m.id, m);
+                }
+                let overlayCount = 0;
+                for (const sm of steamMatches) {
+                  const existing = matchesMap.get(sm.id);
+                  if (existing) {
+                    // Update existing match with real-time status and series score from Steam
+                    matchesMap.set(sm.id, {
+                      ...existing,
+                      status: sm.status,
+                      startedAt: sm.startedAt ?? existing.startedAt,
+                      endedAt: sm.endedAt ?? existing.endedAt,
+                      seriesStatus: sm.seriesStatus ?? existing.seriesStatus,
+                      sourceSeriesId: sm.sourceSeriesId ?? existing.sourceSeriesId,
+                      bestOfSeries: sm.bestOfSeries ?? existing.bestOfSeries,
+                    });
+                    overlayCount++;
+                  } else {
+                    // Newly discovered live or just-concluded match from Steam
+                    matchesMap.set(sm.id, sm);
+                    overlayCount++;
+                  }
+                }
+                matches = Array.from(matchesMap.values());
+                console.log(
+                  `[fetchMatches] Steam real-time overlay: ${steamMatches.length} matches fetched ` +
+                  `(${overlayCount} overlayed/added) for ${tournament.name}`
+                );
+              }
+            } catch (steamErr) {
+              console.warn(
+                `[fetchMatches] Steam overlay unavailable for tournament ${tournament.id} (${(steamErr as Error).message}); proceeding with ${providerSource} feed`
+              );
             }
           }
 
