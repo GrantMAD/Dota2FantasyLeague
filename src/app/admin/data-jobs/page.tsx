@@ -432,6 +432,48 @@ export default function DataJobsPage() {
           'Scoring Complete',
           `Fantasy scores calculated: ${totalProcessed} matches processed, ${totalScored} player scores saved.`
         );
+      } else if (jobName === 'fetch-matches') {
+        let hasMore = true;
+        let totalFetched = 0;
+        let totalUpdated = 0;
+        let iterations = 0;
+        const maxIterations = 10;
+
+        while (hasMore && iterations < maxIterations) {
+          iterations++;
+          const response = await fetchWithAuth('/api/admin/jobs/run', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              ...authHeaders,
+            },
+            body: JSON.stringify({ job_name: jobName, tournamentLimit: 4 }),
+          });
+          const data = await response.json().catch(() => ({}));
+          if (!response.ok) {
+            throw new Error(data.error || `Job ${jobName} failed to start.`);
+          }
+
+          const batchResult = data.result?.result as {
+            fetched?: number;
+            updated?: number;
+            hasMore?: boolean;
+            errors?: string[];
+          } | undefined;
+
+          if (batchResult?.errors && batchResult.errors.length > 0) {
+            console.warn(`[fetch-matches] batch errors:`, batchResult.errors);
+          }
+
+          totalFetched += batchResult?.fetched ?? 0;
+          totalUpdated += batchResult?.updated ?? 0;
+          hasMore = Boolean(batchResult?.hasMore);
+        }
+
+        toast.success(
+          'Matches Ingestion Complete',
+          `Tournaments synced: ${totalFetched} matches fetched, ${totalUpdated} matches updated across ${iterations} batches.`
+        );
       } else {
         const response = await fetchWithAuth('/api/admin/jobs/run', {
           method: 'POST',

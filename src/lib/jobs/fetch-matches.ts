@@ -164,9 +164,9 @@ export async function fetchMatches(options: { tournamentLimit?: number } = {}): 
         `ignoring ${inGameweekTournaments.length - activeTournaments.length} tournaments not present in their provider's professional feed`
       );
 
-      const tournamentLimit = options.tournamentLimit ?? 2;
-      if (!Number.isSafeInteger(tournamentLimit) || tournamentLimit < 1 || tournamentLimit > 4) {
-        throw new Error('tournamentLimit must be an integer between 1 and 4.');
+      const tournamentLimit = options.tournamentLimit ?? 4;
+      if (!Number.isSafeInteger(tournamentLimit) || tournamentLimit < 1 || tournamentLimit > 10) {
+        throw new Error('tournamentLimit must be an integer between 1 and 10.');
       }
       const lastProcessedTournamentId = await getLastProcessedTournamentId(supabase);
       const tournamentBatch = selectNextTournamentBatch(
