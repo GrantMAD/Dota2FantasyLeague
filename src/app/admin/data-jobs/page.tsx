@@ -447,7 +447,7 @@ export default function DataJobsPage() {
               'Content-Type': 'application/json',
               ...authHeaders,
             },
-            body: JSON.stringify({ job_name: jobName, tournamentLimit: 4 }),
+            body: JSON.stringify({ job_name: jobName, tournamentLimit: 2 }),
           });
           const data = await response.json().catch(() => ({}));
           if (!response.ok) {
