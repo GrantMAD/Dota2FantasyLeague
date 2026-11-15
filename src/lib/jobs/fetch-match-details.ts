@@ -18,13 +18,16 @@ import {
 import type { JobRunOptions } from './scheduler';
 import type { DataProvider } from '../data-providers/provider-interface';
 
-interface FetchDetailsResult {
+export interface FetchDetailsResult {
   fetched: number;
   scored: number;
   errors: string[];
   duration: number;
   startedAt: Date;
   completedAt: Date;
+  processedCount?: number;
+  remainingCount?: number;
+  hasMore?: boolean;
 }
 
 type MatchPlayerStatsInsert = Omit<MatchPlayerStats, 'id' | 'created_at' | 'updated_at' | 'hero_id'> & {
@@ -61,8 +64,24 @@ export async function fetchMatchDetails(options?: JobRunOptions): Promise<FetchD
 
     try {
       // Get pending matches (concluded but no details yet)
-      const pendingMatches = await getPendingMatches(options?.matchId);
-      console.log(`[fetchMatchDetails] Found ${pendingMatches.length} matches pending details`);
+      const allPendingMatches = await getPendingMatches(options?.matchId);
+      console.log(`[fetchMatchDetails] Found ${allPendingMatches.length} matches pending details`);
+
+      const matchLimit = options?.matchLimit && options.matchLimit > 0
+        ? options.matchLimit
+        : (options?.matchId !== undefined ? 1 : 15);
+
+      const pendingMatches = allPendingMatches.slice(0, matchLimit);
+      const remainingCount = Math.max(0, allPendingMatches.length - pendingMatches.length);
+      result.processedCount = pendingMatches.length;
+      result.remainingCount = remainingCount;
+      result.hasMore = remainingCount > 0;
+
+      if (pendingMatches.length > 0) {
+        console.log(
+          `[fetchMatchDetails] Processing batch of ${pendingMatches.length} matches (matchLimit=${matchLimit}, remaining=${remainingCount})`
+        );
+      }
 
       const providerSources = await getMatchProviderSources(pendingMatches);
 
@@ -401,23 +420,29 @@ async function getEntityLookupMaps(): Promise<{
   const supabase = getSupabaseServerClient();
 
   const [playersRes, teamsRes] = await Promise.all([
-    supabase.from('professional_players').select('id, data_provider_id'),
+    supabase.from('professional_players').select('id, data_provider_id, slug'),
     supabase.from('professional_teams').select('id, data_provider_id'),
   ]);
 
   const playerMap = new Map<string, number>();
-  const playerRows: Array<{ id: number; data_provider_id: string | null }> = playersRes.data || [];
+  const playerRows: Array<{ id: number; data_provider_id: string | null; slug: string | null }> = playersRes.data || [];
   const prioritizedPlayers = [
     ...playerRows.filter((player) => hasCanonicalSteamId(player.data_provider_id)),
     ...playerRows.filter((player) => !hasCanonicalSteamId(player.data_provider_id)),
   ];
   for (const player of prioritizedPlayers) {
-    if (!player.data_provider_id) continue;
-
-    const providerId = String(player.data_provider_id);
-    const identity = normalizePlayerIdentity(providerId);
-    if (identity && !playerMap.has(identity)) playerMap.set(identity, player.id);
-    playerMap.set(providerId, player.id);
+    if (player.data_provider_id) {
+      const providerId = String(player.data_provider_id);
+      const identity = normalizePlayerIdentity(providerId);
+      if (identity && !playerMap.has(identity)) playerMap.set(identity, player.id);
+      playerMap.set(providerId, player.id);
+    }
+    if (player.slug) {
+      const slugId = String(player.slug);
+      const identity = normalizePlayerIdentity(slugId);
+      if (identity && !playerMap.has(identity)) playerMap.set(identity, player.id);
+      playerMap.set(slugId, player.id);
+    }
   }
 
   const teamMap = new Map<string, number>();

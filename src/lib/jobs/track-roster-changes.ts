@@ -41,12 +41,15 @@ export async function trackRosterChanges(): Promise<TrackingResult> {
     const jobExecutionId = await logJobExecution('track-roster-changes', 'started');
 
     try {
-      // If provider is OpenDota, use the single bulk /proPlayers endpoint to detect team transfers
-      // rather than spamming 500 individual teammate HTTP requests that hit rate limits.
-      if (provider.name === 'OpenDota') {
+      // Always prefer the single bulk OpenDota /proPlayers endpoint to detect team transfers
+      // in 1-2 seconds rather than spamming 500 individual GraphQL requests that hit serverless timeouts.
+      let usedBulkFeed = false;
+      try {
         const { fetchRawOpenDotaProPlayers } = await import('../data-providers/opendota-provider');
         const rawPlayers = await fetchRawOpenDotaProPlayers();
-        const supabase = getSupabaseServerClient();
+        if (rawPlayers && rawPlayers.length > 0) {
+          usedBulkFeed = true;
+          const supabase = getSupabaseServerClient();
 
         // Get all DB teams for mapping provider team_id -> DB team id
         const { data: dbTeams } = await supabase
@@ -113,8 +116,13 @@ export async function trackRosterChanges(): Promise<TrackingResult> {
             }
           }
         }
-      } else {
-        // STRATZ provider per-player history
+      }
+    } catch (bulkError) {
+        console.warn('[trackRosterChanges] Bulk pro player feed failed, falling back to per-player history:', bulkError);
+      }
+
+      if (!usedBulkFeed) {
+        // Fallback per-player history
         const players = await getActivePlayers();
         console.log(`[trackRosterChanges] Checking ${players.length} players for changes`);
 

@@ -101,6 +101,31 @@ class CalculateGlobalRankings {
     }
     const latestGameweek = latestGameweekData as GameweekIdRow | null;
 
+    const lineupPointsBySeason = new Map<number, number>();
+    if (latestGameweek) {
+      const { data: allLineups, error: lineupError } = await this.supabase
+        .from('fantasy_lineups')
+        .select('fantasy_season_id, total_points')
+        .eq('gameweek_id', latestGameweek.id);
+      if (lineupError) {
+        throw new Error(`Failed to fetch gameweek points: ${lineupError.message}`);
+      }
+      for (const l of (allLineups ?? []) as Array<{ fantasy_season_id: number | null; total_points: number | null }>) {
+        if (l.fantasy_season_id != null) {
+          lineupPointsBySeason.set(l.fantasy_season_id, Number(l.total_points ?? 0));
+        }
+      }
+    }
+
+    const standingsToUpsert: Array<{
+      fantasy_season_id: number;
+      gameweek_id: number;
+      rank: number;
+      total_points: number;
+      gameweek_points: number;
+      league_id: null;
+    }> = [];
+
     for (const fs of seasonsToProcess) {
       if (fs.total_points === prevPoints) {
         tieCount++;
@@ -122,39 +147,28 @@ class CalculateGlobalRankings {
       }
 
       if (latestGameweek) {
-        const { data: latestLineupData, error: lineupError } = await this.supabase
-          .from('fantasy_lineups')
-          .select('total_points')
-          .eq('fantasy_season_id', fs.id)
-          .eq('gameweek_id', latestGameweek.id)
-          .maybeSingle();
-        if (lineupError) {
-          throw new Error(`Failed to fetch gameweek points for fantasy season ${fs.id}: ${lineupError.message}`);
-        }
-        const latestLineup = latestLineupData as { total_points: number | null } | null;
-
-        const standingUpsert = this.supabase.from('season_standings') as unknown as UpsertTable<{
-          fantasy_season_id: number;
-          gameweek_id: number;
-          rank: number;
-          total_points: number;
-          gameweek_points: number;
-          league_id: null;
-        }>;
-        const { error: standingError } = await standingUpsert.upsert({
+        standingsToUpsert.push({
           fantasy_season_id: fs.id,
           gameweek_id: latestGameweek.id,
           rank,
           total_points: fs.total_points,
-          gameweek_points: latestLineup?.total_points ?? 0,
+          gameweek_points: lineupPointsBySeason.get(fs.id) ?? 0,
           league_id: null,
-        }, { onConflict: 'fantasy_season_id,gameweek_id' });
-        if (standingError) {
-          throw new Error(`Failed to save leaderboard snapshot for fantasy season ${fs.id}: ${standingError.message}`);
-        }
+        });
       }
 
       ranked++;
+    }
+
+    if (standingsToUpsert.length > 0) {
+      const standingUpsert = this.supabase.from('season_standings') as unknown as UpsertTable<typeof standingsToUpsert>;
+      const { error: standingError } = await standingUpsert.upsert(
+        standingsToUpsert,
+        { onConflict: 'fantasy_season_id,gameweek_id' }
+      );
+      if (standingError) {
+        throw new Error(`Failed to save leaderboard snapshot: ${standingError.message}`);
+      }
     }
 
     return { ranked, hasMore };
@@ -210,21 +224,22 @@ class CalculateGlobalRankings {
 
        if (!currentGameweek) return 0;
 
-       // Update player_prices with ownership %
-       for (const [playerIdStr, count] of Object.entries(playerCounts)) {
-         const playerId = parseInt(playerIdStr, 10);
-         const ownershipPercentage = Math.round((count / totalSquads) * 10000) / 100; // e.g., 25.45%
-
-         // We assume player_prices row for current gameweek already exists from update-player-prices job
-         // If not, we might need to upsert.
-         await this.supabase
-           .from('player_prices')
-         const priceUpdate = this.supabase.from('player_prices') as unknown as FilteredMutationTable<{ ownership_percentage: number }>;
-         await priceUpdate.update({ ownership_percentage: ownershipPercentage })
-           .eq('player_id', playerId)
-           .eq('gameweek_id', currentGameweek.id);
-         
-         updated++;
+       // Update player_prices with ownership % concurrently in batches
+       const priceEntries = Object.entries(playerCounts);
+       const batchSize = 20;
+       for (let i = 0; i < priceEntries.length; i += batchSize) {
+         const batch = priceEntries.slice(i, i + batchSize);
+         await Promise.all(
+           batch.map(async ([playerIdStr, count]) => {
+             const playerId = parseInt(playerIdStr, 10);
+             const ownershipPercentage = Math.round((count / totalSquads) * 10000) / 100; // e.g., 25.45%
+             const priceUpdate = this.supabase.from('player_prices') as unknown as FilteredMutationTable<{ ownership_percentage: number }>;
+             await priceUpdate.update({ ownership_percentage: ownershipPercentage })
+               .eq('player_id', playerId)
+               .eq('gameweek_id', currentGameweek.id);
+             updated++;
+           })
+         );
        }
 
        // What about players with 0 ownership?

@@ -37,10 +37,6 @@ interface H2HMatchupRow {
   participant_b: MatchupParticipant | null;
 }
 
-interface LineupPointsRow {
-  total_points: number | null;
-}
-
 interface LeagueRow {
   id: number;
   scoring_type: string;
@@ -101,14 +97,21 @@ class RecalculateLeagues {
         return pointsB - pointsA;
       });
 
-      // Update ranks and points in league_participants
+      // Update ranks and points in league_participants concurrently in batches
+      const batchSize = 25;
       let rank = 1;
-      for (const p of sortedParticipants) {
-        const points = p.fantasy_seasons?.total_points || 0;
-        await this.table('league_participants')
-          .update({ rank, points })
-          .eq('id', p.id);
-        rank++;
+      for (let i = 0; i < sortedParticipants.length; i += batchSize) {
+        const batch = sortedParticipants.slice(i, i + batchSize);
+        await Promise.all(
+          batch.map((p, idx) => {
+            const currentRank = rank + idx;
+            const points = p.fantasy_seasons?.total_points || 0;
+            return this.table('league_participants')
+              .update({ rank: currentRank, points })
+              .eq('id', p.id);
+          })
+        );
+        rank += batch.length;
       }
 
       return true;
@@ -226,6 +229,21 @@ class RecalculateLeagues {
 
       let resultsCalculated = 0;
 
+      // Pre-fetch all gameweek lineups into a map to eliminate 2 queries per matchup
+      const { data: lineupData } = await this.supabase
+        .from('fantasy_lineups')
+        .select('fantasy_season_id, total_points')
+        .eq('gameweek_id', gameweekId);
+
+      const lineupPointsMap = new Map<number, number>();
+      if (lineupData) {
+        for (const row of lineupData as Array<{ fantasy_season_id: number | null; total_points: number | null }>) {
+          if (row.fantasy_season_id != null) {
+            lineupPointsMap.set(row.fantasy_season_id, Number(row.total_points ?? 0));
+          }
+        }
+      }
+
       for (const matchup of matchups) {
         const fantasySeasonA = matchup.participant_a?.fantasy_season_id;
         const fantasySeasonB = matchup.participant_b?.fantasy_season_id;
@@ -234,25 +252,8 @@ class RecalculateLeagues {
 
         if (!fantasySeasonA || !fantasySeasonB) continue;
 
-        // Get points for both participants in this gameweek
-        const { data: lineupAData } = await this.supabase
-          .from('fantasy_lineups')
-          .select('total_points')
-          .eq('fantasy_season_id', fantasySeasonA)
-          .eq('gameweek_id', gameweekId)
-          .single();
-        const lineupA = lineupAData as LineupPointsRow | null;
-
-        const { data: lineupBData } = await this.supabase
-          .from('fantasy_lineups')
-          .select('total_points')
-          .eq('fantasy_season_id', fantasySeasonB)
-          .eq('gameweek_id', gameweekId)
-          .single();
-        const lineupB = lineupBData as LineupPointsRow | null;
-
-        const pointsA = lineupA?.total_points || 0;
-        const pointsB = lineupB?.total_points || 0;
+        const pointsA = lineupPointsMap.get(fantasySeasonA) ?? 0;
+        const pointsB = lineupPointsMap.get(fantasySeasonB) ?? 0;
 
         let winnerId = null;
         let isDraw = false;

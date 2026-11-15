@@ -474,6 +474,49 @@ export default function DataJobsPage() {
           'Matches Ingestion Complete',
           `Tournaments synced: ${totalFetched} matches fetched, ${totalUpdated} matches updated across ${iterations} batches.`
         );
+      } else if (jobName === 'fetch-match-details') {
+        let hasMore = true;
+        let totalFetched = 0;
+        let totalScored = 0;
+        let iterations = 0;
+        const maxIterations = 20;
+
+        while (hasMore && iterations < maxIterations) {
+          iterations++;
+          const response = await fetchWithAuth('/api/admin/jobs/run', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              ...authHeaders,
+            },
+            body: JSON.stringify({ job_name: jobName, matchLimit: 15 }),
+          });
+          const data = await response.json().catch(() => ({}));
+          if (!response.ok) {
+            throw new Error(data.error || `Job ${jobName} failed to start.`);
+          }
+
+          const batchResult = data.result?.result as {
+            fetched?: number;
+            scored?: number;
+            hasMore?: boolean;
+            remainingCount?: number;
+            errors?: string[];
+          } | undefined;
+
+          if (batchResult?.errors && batchResult.errors.length > 0) {
+            console.warn(`[fetch-match-details] batch errors:`, batchResult.errors);
+          }
+
+          totalFetched += batchResult?.fetched ?? 0;
+          totalScored += batchResult?.scored ?? 0;
+          hasMore = Boolean(batchResult?.hasMore);
+        }
+
+        toast.success(
+          'Match Details Sync Complete',
+          `Match details synced: ${totalFetched} matches processed, ${totalScored} player stats recorded across ${iterations} batches.`
+        );
       } else {
         const response = await fetchWithAuth('/api/admin/jobs/run', {
           method: 'POST',

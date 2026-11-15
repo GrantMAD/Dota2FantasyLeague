@@ -360,16 +360,23 @@ class UpdatePlayerPrices {
             throw new Error(`Bulk upsert failed at offset ${offset}: ${upsertError.message}`);
           }
           result.pricesUpdated += upsertRows.length;
-          const playerPriceUpdates = await Promise.all(upsertRows.map((row) =>
-            // The generated Supabase client types this update payload as `never`.
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            (this.supabase.from('professional_players') as any)
-              .update({ current_price: row.price })
-              .eq('id', row.player_id),
-          ));
-          const failedPlayerUpdate = playerPriceUpdates.find((update) => update.error);
-          if (failedPlayerUpdate) {
-            throw new Error(`Failed to sync a player's current price: ${failedPlayerUpdate.error.message}`);
+
+          // Only sync current_price for players whose price actually changed, chunked in batches of 25
+          const changedRows = upsertRows.filter((row) => row.price_change !== 0);
+          const updateChunkSize = 25;
+          for (let i = 0; i < changedRows.length; i += updateChunkSize) {
+            const chunk = changedRows.slice(i, i + updateChunkSize);
+            const playerPriceUpdates = await Promise.all(chunk.map((row) =>
+              // The generated Supabase client types this update payload as `never`.
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              (this.supabase.from('professional_players') as any)
+                .update({ current_price: row.price })
+                .eq('id', row.player_id),
+            ));
+            const failedPlayerUpdate = playerPriceUpdates.find((update) => update.error);
+            if (failedPlayerUpdate) {
+              throw new Error(`Failed to sync a player's current price: ${failedPlayerUpdate.error.message}`);
+            }
           }
         }
 

@@ -115,123 +115,131 @@ class SendDeadlineNotifications {
         }
 
         const timeUntilDeadlineMs = new Date(gw.deadline).getTime() - now.getTime();
-        for (const season of fantasySeasons as FantasySeasonOwnerRow[]) {
-          const userId = season.user_id;
-          if (!userId) continue;
+        const seasonRows = (fantasySeasons as FantasySeasonOwnerRow[]).filter((s) => Boolean(s.user_id));
+        const batchSize = 10;
 
-          if (timeUntilDeadlineMs <= TWO_HOURS_MS) {
-            const { data: lineupData, error: lineupError } = await this.supabase
-              .from('fantasy_lineups')
-              .select('carry_id, mid_id, offlane_id, support_id, hard_support_id, captain_player_id')
-              .eq('fantasy_season_id', season.id)
-              .eq('gameweek_id', gw.id)
-              .maybeSingle();
+        for (let i = 0; i < seasonRows.length; i += batchSize) {
+          const batch = seasonRows.slice(i, i + batchSize);
+          await Promise.all(
+            batch.map(async (season) => {
+              const userId = season.user_id;
+              if (!userId) return;
 
-            if (lineupError) {
-              result.errors.push(`Failed to check lineup for user ${userId} in GW ${gw.id}: ${lineupError.message}`);
-              result.success = false;
-              continue;
-            }
-            if (hasCompleteLineup((lineupData ?? null) as FantasyLineupRow | null)) continue;
+              if (timeUntilDeadlineMs <= TWO_HOURS_MS) {
+                const { data: lineupData, error: lineupError } = await this.supabase
+                  .from('fantasy_lineups')
+                  .select('carry_id, mid_id, offlane_id, support_id, hard_support_id, captain_player_id')
+                  .eq('fantasy_season_id', season.id)
+                  .eq('gameweek_id', gw.id)
+                  .maybeSingle();
 
-            const { data: existingLineupReminder, error: reminderCheckError } = await this.supabase
-              .from('user_notifications')
-              .select('id')
-              .eq('user_id', userId)
-              .eq('type', 'deadline_reminder')
-              .contains('metadata', { gameweek_id: gw.id, reminder_stage: 'lineup_2h' })
-              .limit(1)
-              .maybeSingle();
+                if (lineupError) {
+                  result.errors.push(`Failed to check lineup for user ${userId} in GW ${gw.id}: ${lineupError.message}`);
+                  result.success = false;
+                  return;
+                }
+                if (hasCompleteLineup((lineupData ?? null) as FantasyLineupRow | null)) return;
 
-            if (reminderCheckError) {
-              result.errors.push(`Failed to check lineup reminder for user ${userId}: ${reminderCheckError.message}`);
-              result.success = false;
-              continue;
-            }
-            if (existingLineupReminder) continue;
+                const { data: existingLineupReminder, error: reminderCheckError } = await this.supabase
+                  .from('user_notifications')
+                  .select('id')
+                  .eq('user_id', userId)
+                  .eq('type', 'deadline_reminder')
+                  .contains('metadata', { gameweek_id: gw.id, reminder_stage: 'lineup_2h' })
+                  .limit(1)
+                  .maybeSingle();
 
-            const title = `Gameweek ${gw.gameweek_number} lineup deadline within 2 hours`;
-            const message = `Your Gameweek ${gw.gameweek_number} lineup is not set or is incomplete. The deadline is within 2 hours. Set your lineup now.`;
-            const notificationTable = this.supabase.from('user_notifications') as unknown as {
-              insert(values: DeadlineNotificationInsert): PromiseLike<{ error: { message: string } | null }>;
-            };
-            const { error: insertError } = await notificationTable.insert({
-              user_id: userId,
-              type: 'deadline_reminder',
-              title,
-              message,
-              metadata: {
-                gameweek_id: gw.id,
-                gameweek_number: gw.gameweek_number,
-                reminder_stage: 'lineup_2h',
-              },
-            });
+                if (reminderCheckError) {
+                  result.errors.push(`Failed to check lineup reminder for user ${userId}: ${reminderCheckError.message}`);
+                  result.success = false;
+                  return;
+                }
+                if (existingLineupReminder) return;
 
-            if (insertError) {
-              result.errors.push(`Failed to create lineup reminder for user ${userId}: ${insertError.message}`);
-              result.success = false;
-              continue;
-            }
+                const title = `Gameweek ${gw.gameweek_number} lineup deadline within 2 hours`;
+                const message = `Your Gameweek ${gw.gameweek_number} lineup is not set or is incomplete. The deadline is within 2 hours. Set your lineup now.`;
+                const notificationTable = this.supabase.from('user_notifications') as unknown as {
+                  insert(values: DeadlineNotificationInsert): PromiseLike<{ error: { message: string } | null }>;
+                };
+                const { error: insertError } = await notificationTable.insert({
+                  user_id: userId,
+                  type: 'deadline_reminder',
+                  title,
+                  message,
+                  metadata: {
+                    gameweek_id: gw.id,
+                    gameweek_number: gw.gameweek_number,
+                    reminder_stage: 'lineup_2h',
+                  },
+                });
 
-            result.notificationsGenerated++;
-            pushCandidates.push({
-              userId,
-              type: 'deadline_reminder',
-              metadata: { gameweek_id: gw.id, gameweek_number: gw.gameweek_number },
-              title,
-              body: message,
-            });
-            continue;
-          }
+                if (insertError) {
+                  result.errors.push(`Failed to create lineup reminder for user ${userId}: ${insertError.message}`);
+                  result.success = false;
+                  return;
+                }
 
-          // The regular reminder is sent once per gameweek before the targeted two-hour lineup check.
-          const { data: existingNotif, error: checkError } = await this.supabase
-            .from('user_notifications')
-            .select('id')
-            .eq('user_id', userId)
-            .eq('type', 'deadline_reminder')
-            .contains('metadata', { gameweek_id: gw.id })
-            .limit(1)
-            .maybeSingle();
+                result.notificationsGenerated++;
+                pushCandidates.push({
+                  userId,
+                  type: 'deadline_reminder',
+                  metadata: { gameweek_id: gw.id, gameweek_number: gw.gameweek_number },
+                  title,
+                  body: message,
+                });
+                return;
+              }
 
-          if (checkError) {
-            result.errors.push(`Failed to check existing notification for user ${userId}: ${checkError.message}`);
-            result.success = false;
-            continue;
-          }
+              // The regular reminder is sent once per gameweek before the targeted two-hour lineup check.
+              const { data: existingNotif, error: checkError } = await this.supabase
+                .from('user_notifications')
+                .select('id')
+                .eq('user_id', userId)
+                .eq('type', 'deadline_reminder')
+                .contains('metadata', { gameweek_id: gw.id })
+                .limit(1)
+                .maybeSingle();
 
-          if (existingNotif) {
-            // Already notified
-            continue;
-          }
+              if (checkError) {
+                result.errors.push(`Failed to check existing notification for user ${userId}: ${checkError.message}`);
+                result.success = false;
+                return;
+              }
 
-          // 4. Create Notification
-          const title = `Gameweek ${gw.gameweek_number} Deadline Approaching!`;
-          const message = `The deadline for Gameweek ${gw.gameweek_number} is less than 24 hours away. Finalize your transfers and set your captain!`;
-          
-          const notificationTable = this.supabase.from('user_notifications') as unknown as {
-            insert(values: DeadlineNotificationInsert): PromiseLike<{ error: { message: string } | null }>;
-          };
-          const { error: insertError } = await notificationTable.insert({
-            user_id: userId,
-            type: 'deadline_reminder',
-            title,
-            message,
-            metadata: { gameweek_id: gw.id, gameweek_number: gw.gameweek_number },
-          });
+              if (existingNotif) {
+                // Already notified
+                return;
+              }
 
-          if (insertError) {
-            result.errors.push(`Failed to create notification for user ${userId}: ${insertError.message}`);
-            result.success = false;
-            continue;
-          }
+              // 4. Create Notification
+              const title = `Gameweek ${gw.gameweek_number} Deadline Approaching!`;
+              const message = `The deadline for Gameweek ${gw.gameweek_number} is less than 24 hours away. Finalize your transfers and set your captain!`;
+              
+              const notificationTable = this.supabase.from('user_notifications') as unknown as {
+                insert(values: DeadlineNotificationInsert): PromiseLike<{ error: { message: string } | null }>;
+              };
+              const { error: insertError } = await notificationTable.insert({
+                user_id: userId,
+                type: 'deadline_reminder',
+                title,
+                message,
+                metadata: { gameweek_id: gw.id, gameweek_number: gw.gameweek_number },
+              });
 
-          result.notificationsGenerated++;
-          pushCandidates.push({
-            userId,
-            type: 'deadline_reminder',
-            metadata: { gameweek_id: gw.id, gameweek_number: gw.gameweek_number },
-          });
+              if (insertError) {
+                result.errors.push(`Failed to create notification for user ${userId}: ${insertError.message}`);
+                result.success = false;
+                return;
+              }
+
+              result.notificationsGenerated++;
+              pushCandidates.push({
+                userId,
+                type: 'deadline_reminder',
+                metadata: { gameweek_id: gw.id, gameweek_number: gw.gameweek_number },
+              });
+            })
+          );
         }
       }
 

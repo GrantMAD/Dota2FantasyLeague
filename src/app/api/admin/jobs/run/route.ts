@@ -66,6 +66,11 @@ async function postHandler(request: Request) {
         ? {
             tournamentLimit: typeof body.tournamentLimit === 'number' ? body.tournamentLimit : undefined,
           }
+      : jobName === 'fetch-match-details'
+        ? {
+            matchId: typeof body.matchId === 'number' ? body.matchId : undefined,
+            matchLimit: typeof body.matchLimit === 'number' ? body.matchLimit : undefined,
+          }
       : jobName === 'calculate-fantasy-scores'
         ? {
             matchLimit: typeof body.matchLimit === 'number' ? body.matchLimit : undefined,

@@ -101,76 +101,78 @@ interface JobResult {
   isDeadLetter?: boolean;
 }
 
+const SERVERLESS_JOB_TIMEOUT_MS = 50 * 1000; // 50 seconds to complete cleanly before Vercel serverless 60s hard timeout
+
 const JOBS: JobDefinition[] = [
   {
     name: 'sync-players',
     schedule: '0 3 * * *', // Daily at 3 AM UTC
     handler: syncPlayers,
     enabled: process.env.ENABLE_PLAYER_SYNC !== 'false',
-    timeout: 30 * 60 * 1000, // 30 minutes
+    timeout: SERVERLESS_JOB_TIMEOUT_MS,
   },
   {
     name: 'sync-teams',
     schedule: '15 3 * * *', // Daily at 3:15 AM UTC
     handler: syncTeams,
     enabled: process.env.ENABLE_TEAM_SYNC !== 'false',
-    timeout: 15 * 60 * 1000,
+    timeout: SERVERLESS_JOB_TIMEOUT_MS,
   },
   {
     name: 'discover-tournaments',
     schedule: '0 */6 * * *', // Every 6 hours
     handler: discoverTournaments,
     enabled: process.env.ENABLE_TOURNAMENT_DISCOVERY !== 'false',
-    timeout: 5 * 60 * 1000,
+    timeout: SERVERLESS_JOB_TIMEOUT_MS,
   },
   {
     name: 'fetch-matches',
     schedule: '0 * * * *', // Every hour
     handler: fetchMatches,
     enabled: process.env.ENABLE_MATCH_FETCH !== 'false',
-    timeout: 50 * 1000, // 50 seconds to complete cleanly before Vercel serverless 60s hard timeout
+    timeout: SERVERLESS_JOB_TIMEOUT_MS,
   },
   {
     name: 'fetch-match-details',
     schedule: '*/30 * * * *', // Every 30 minutes
     handler: fetchMatchDetails,
     enabled: process.env.ENABLE_MATCH_DETAILS !== 'false',
-    timeout: 15 * 60 * 1000,
+    timeout: SERVERLESS_JOB_TIMEOUT_MS,
   },
   {
     name: 'track-roster-changes',
     schedule: '0 2 * * *', // Daily at 2 AM UTC
     handler: trackRosterChanges,
     enabled: process.env.ENABLE_ROSTER_TRACKING !== 'false',
-    timeout: 5 * 60 * 1000,
+    timeout: SERVERLESS_JOB_TIMEOUT_MS,
   },
   {
     name: 'process-completed-matches',
     schedule: '45 * * * *', // Hourly at :45, after match details fetch
     handler: processCompletedMatches,
     enabled: process.env.ENABLE_SCORE_CALCULATION !== 'false',
-    timeout: 10 * 60 * 1000,
+    timeout: SERVERLESS_JOB_TIMEOUT_MS,
   },
   {
     name: 'calculate-fantasy-scores',
     schedule: '50 * * * *', // Hourly at :50, after processing matches
     handler: calculateFantasyScores,
     enabled: process.env.ENABLE_SCORE_CALCULATION !== 'false',
-    timeout: 15 * 60 * 1000,
+    timeout: SERVERLESS_JOB_TIMEOUT_MS,
   },
   {
     name: 'recalculate-gameweeks',
     schedule: '55 * * * *', // Hourly at :55, after calculating scores
     handler: recalculateGameweeks,
     enabled: process.env.ENABLE_SCORE_CALCULATION !== 'false',
-    timeout: 10 * 60 * 1000,
+    timeout: SERVERLESS_JOB_TIMEOUT_MS,
   },
   {
     name: 'recalculate-leagues',
     schedule: '0 * * * *', // Hourly at :00
     handler: recalculateLeagues,
     enabled: process.env.ENABLE_LEAGUE_RECALCULATION !== 'false',
-    timeout: 15 * 60 * 1000,
+    timeout: SERVERLESS_JOB_TIMEOUT_MS,
   },
   {
     name: 'calculate-global-rankings',
@@ -178,98 +180,98 @@ const JOBS: JobDefinition[] = [
     schedule: '5 * * * *', // Hourly at :05, after gameweek and league recalculation
     handler: calculateGlobalRankings,
     enabled: process.env.ENABLE_GLOBAL_RANKINGS !== 'false',
-    timeout: 15 * 60 * 1000,
+    timeout: SERVERLESS_JOB_TIMEOUT_MS,
   },
   {
     name: 'update-player-prices',
     schedule: '*/10 * * * *', // Every 10 minutes after the scoring sequence
     handler: updatePlayerPrices,
     enabled: process.env.ENABLE_PRICE_UPDATES !== 'false',
-    timeout: 10 * 60 * 1000,
+    timeout: SERVERLESS_JOB_TIMEOUT_MS,
   },
   {
     name: 'send-deadline-notifications',
     schedule: '*/15 * * * *', // Check approaching deadlines and lineup status every 15 minutes
     handler: sendDeadlineNotifications,
     enabled: process.env.ENABLE_NOTIFICATIONS !== 'false',
-    timeout: 5 * 60 * 1000,
+    timeout: SERVERLESS_JOB_TIMEOUT_MS,
   },
   {
     name: 'send-price-change-notifications',
     schedule: '*/15 * * * *', // Shortly after price updates
     handler: sendPriceChangeNotifications,
     enabled: process.env.ENABLE_NOTIFICATIONS !== 'false',
-    timeout: 5 * 60 * 1000,
+    timeout: SERVERLESS_JOB_TIMEOUT_MS,
   },
   {
     name: 'send-rank-notifications',
     schedule: '10 * * * *', // Hourly at :10, after global rankings calculation
     handler: sendRankNotifications,
     enabled: process.env.ENABLE_NOTIFICATIONS !== 'false',
-    timeout: 5 * 60 * 1000,
+    timeout: SERVERLESS_JOB_TIMEOUT_MS,
   },
   {
     name: 'send-unavailable-player-notifications',
     schedule: '*/30 * * * *', // Check for unavailable players every 30 minutes
     handler: sendUnavailablePlayerNotifications,
     enabled: process.env.ENABLE_NOTIFICATIONS !== 'false',
-    timeout: 5 * 60 * 1000,
+    timeout: SERVERLESS_JOB_TIMEOUT_MS,
   },
   {
     name: 'process-push-receipts',
     schedule: '*/15 * * * *', // Remove device tokens Expo reports as permanently invalid
     handler: processPushReceipts,
     enabled: process.env.ENABLE_NOTIFICATIONS !== 'false',
-    timeout: 5 * 60 * 1000,
+    timeout: SERVERLESS_JOB_TIMEOUT_MS,
   },
   {
     name: 'transition-gameweeks',
     schedule: '*/5 * * * *', // Every 5 minutes to exactly enforce deadlines
     handler: transitionGameweeks,
     enabled: process.env.ENABLE_SCORE_CALCULATION !== 'false',
-    timeout: 10 * 60 * 1000,
+    timeout: SERVERLESS_JOB_TIMEOUT_MS,
   },
   {
     name: 'backfill-placeholder-players',
     schedule: '0 6 * * *', // Daily at 6 AM UTC
     handler: backfillPlaceholderPlayers,
     enabled: true,
-    timeout: 15 * 60 * 1000, // 15 minutes
+    timeout: SERVERLESS_JOB_TIMEOUT_MS,
   },
   {
     name: 'backfill-team-logos',
     schedule: '30 5 * * *', // Daily at 5:30 AM UTC (runs before player backfill at 6 AM UTC)
     handler: backfillTeamLogos,
     enabled: process.env.ENABLE_LOGO_BACKFILL !== 'false',
-    timeout: 30 * 60 * 1000, // 30 minutes
+    timeout: SERVERLESS_JOB_TIMEOUT_MS,
   },
   {
     name: 'purge-inactive-data',
     schedule: '0 4 * * 0', // Weekly Sunday at 4:00 AM UTC
     handler: purgeInactiveData,
     enabled: process.env.ENABLE_DATA_PURGE !== 'false',
-    timeout: 15 * 60 * 1000, // 15 minutes
+    timeout: SERVERLESS_JOB_TIMEOUT_MS,
   },
   {
     name: 'purge-interaction-telemetry',
     schedule: '15 4 * * *', // Daily at 4:15 AM UTC
     handler: purgeInteractionTelemetry,
     enabled: process.env.ENABLE_TELEMETRY !== 'false',
-    timeout: 5 * 60 * 1000,
+    timeout: SERVERLESS_JOB_TIMEOUT_MS,
   },
   {
     name: 'auto-resolve-conflicts',
     schedule: '45 3 * * *', // Daily at 3:45 AM UTC — after sync-players (3:00) and sync-teams (3:15)
     handler: autoResolveConflicts,
     enabled: true,
-    timeout: 5 * 60 * 1000, // 5 minutes
+    timeout: SERVERLESS_JOB_TIMEOUT_MS,
   },
 ];
 
 const runningJobs = new Map<JobName, JobResult>();
 const jobHistory: JobResult[] = [];
 const MAX_JOB_HISTORY = 50;
-const STALE_JOB_TIMEOUT_MS = 30 * 60 * 1000;
+const STALE_JOB_TIMEOUT_MS = 5 * 60 * 1000;
 
 async function persistJobExecution(result: JobResult): Promise<void> {
   try {

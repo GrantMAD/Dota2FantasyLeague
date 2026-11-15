@@ -246,12 +246,14 @@ class ProcessCompletedMatches {
     };
 
     try {
-      // Get all completed matches that have detailed stats
+      // Get completed matches that have detailed stats fetched recently (within the last 7 days)
+      const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
       const { data: matches, error: matchError } = await this.supabase
         .from('matches')
         .select('id, gameweek_id, status, detailed_stats_fetched_at')
         .eq('status', 'completed')
-        .not('detailed_stats_fetched_at', 'is', null);
+        .not('detailed_stats_fetched_at', 'is', null)
+        .gte('detailed_stats_fetched_at', sevenDaysAgo);
 
       if (matchError) {
         result.errors.push(`Failed to fetch matches: ${matchError.message}`);
