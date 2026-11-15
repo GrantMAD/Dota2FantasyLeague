@@ -4,7 +4,7 @@
  * Fetches matches for active tournaments from data provider
  * and syncs them to the database
  * 
- * Run schedule: Every 1 hour during active season
+ * Run schedule: Every 15min during active season
  */
 
 import { getSupabaseServerClient } from '@/lib/db/supabase-server';
@@ -175,6 +175,19 @@ export async function fetchMatches(options: { tournamentLimit?: number } = {}): 
         lastProcessedTournamentId,
       );
       const tournamentsToProcess = tournamentBatch.tournaments;
+      // Fix 3: If the batch contains a Steam tournament, process it alone.
+      // Steam tournaments can have 80+ matches and always need solo processing.
+      const hasSteamTournament = tournamentsToProcess.some(
+        (t) => (t.data_provider ?? 'stratz') === 'steam'
+      );
+      const effectiveTournamentsToProcess = hasSteamTournament
+        ? tournamentsToProcess.slice(0, 1)
+        : tournamentsToProcess;
+      if (hasSteamTournament && tournamentsToProcess.length > 1) {
+        console.log(
+          "[fetchMatches] Batch contains a Steam tournament; reducing batch to 1 tournament to avoid timeout"
+        );
+      }
       result.hasMore = tournamentBatch.hasMore;
       if (tournamentsToProcess.length > 0) {
         console.log(
@@ -183,7 +196,7 @@ export async function fetchMatches(options: { tournamentLimit?: number } = {}): 
         );
       }
 
-      if (tournamentsToProcess.length === 0) {
+      if (effectiveTournamentsToProcess.length === 0) {
         console.log('[fetchMatches] No active or eligible tournaments found to sync');
       }
 
@@ -193,7 +206,7 @@ export async function fetchMatches(options: { tournamentLimit?: number } = {}): 
         .from('professional_teams')
         .select('id, name, data_provider_id');
       const teamIdMap = new Map<string, number>();
-      const teamNameMap = new Map<number, string>(); // id → current name
+      const teamNameMap = new Map<number, string>(); // id -> current name
       for (const t of dbTeams || []) {
         if (t.data_provider_id) {
           const providerTeamId = String(t.data_provider_id);
@@ -211,7 +224,7 @@ export async function fetchMatches(options: { tournamentLimit?: number } = {}): 
         teamNameMap.set(t.id, t.name ?? '');
       }
 
-      for (const tournament of tournamentsToProcess) {
+      for (const tournament of effectiveTournamentsToProcess) {
         try {
           const providerSource = tournament.data_provider ?? 'stratz';
           let provider = providers[providerSource];
@@ -263,10 +276,22 @@ export async function fetchMatches(options: { tournamentLimit?: number } = {}): 
             continue;
           }
 
-          const { existingMatches, allMatches, seriesByIdentity } = await getTournamentMatchState(supabase, tournament.id);
+          const { existingMatches, allMatches, seriesByIdentity, detailedMatchIds } = await getTournamentMatchState(supabase, tournament.id);
           const routedMatchIds = new Set<string>();
           const reconciledMatchIds = new Set<number>();
           let skippedOutsideGameweeks = 0;
+          const matchesToInsert: Array<{
+            series_id: number;
+            gameweek_id: number;
+            team_a_id: number;
+            team_b_id: number;
+            status: Match['status'];
+            scheduled_time: string;
+            start_time?: string;
+            end_time?: string;
+            external_match_id: string;
+            last_synced_at: string;
+          }> = [];
 
           // Process matches
           for (const match of matches) {
@@ -373,7 +398,7 @@ export async function fetchMatches(options: { tournamentLimit?: number } = {}): 
                 if (
                   fallbackSeries
                   && [fallbackSeries.team_a_id, fallbackSeries.team_b_id].sort((a, b) => Number(a) - Number(b)).join(':')
-                    === teamPair.join(':')
+                  === teamPair.join(':')
                 ) {
                   const { error: promoteSeriesError } = await supabase
                     .from('tournament_series')
@@ -490,22 +515,36 @@ export async function fetchMatches(options: { tournamentLimit?: number } = {}): 
                 }
 
                 const oldSeriesId = existing.series_id;
-                const { error: updateError } = await supabase
-                  .from('matches')
-                  .update({
-                    external_match_id: match.id.toString(),
-                    series_id: seriesRecord.id,
-                    gameweek_id: targetGameweek.id,
-                    status,
-                    team_a_id: teamAId,
-                    team_b_id: teamBId,
-                    scheduled_time: scheduledTime,
-                    ...matchTimes,
-                    last_synced_at: new Date().toISOString(),
-                  })
-                  .eq('id', existing.id);
-                if (updateError) {
-                  throw new Error(`Failed to update match ${existing.id}: ${updateError.message}`);
+                const needsUpdate =
+                  existing.external_match_id !== match.id.toString() ||
+                  existing.series_id !== seriesRecord.id ||
+                  existing.gameweek_id !== targetGameweek.id ||
+                  existing.status !== status ||
+                  existing.team_a_id !== teamAId ||
+                  existing.team_b_id !== teamBId ||
+                  existing.scheduled_time !== scheduledTime ||
+                  (matchTimes.start_time !== undefined && existing.start_time !== matchTimes.start_time) ||
+                  (matchTimes.end_time !== undefined && existing.end_time !== matchTimes.end_time);
+
+                if (needsUpdate) {
+                  const { error: updateError } = await supabase
+                    .from('matches')
+                    .update({
+                      external_match_id: match.id.toString(),
+                      series_id: seriesRecord.id,
+                      gameweek_id: targetGameweek.id,
+                      status,
+                      team_a_id: teamAId,
+                      team_b_id: teamBId,
+                      scheduled_time: scheduledTime,
+                      ...matchTimes,
+                      last_synced_at: new Date().toISOString(),
+                    })
+                    .eq('id', existing.id);
+                  if (updateError) {
+                    throw new Error(`Failed to update match ${existing.id}: ${updateError.message}`);
+                  }
+                  result.updated++;
                 }
 
                 existing.series_id = seriesRecord.id;
@@ -538,40 +577,54 @@ export async function fetchMatches(options: { tournamentLimit?: number } = {}): 
                   if (!currentRows.some((row) => row.id === existing.id)) currentRows.push(existing);
                   existingMatches.set(match.id, currentRows);
                 }
-                result.updated++;
               } else {
-                // Insert new match into database
-                const { data: insertedMatch, error } = await supabase
-                  .from('matches')
-                  .insert({
-                    series_id: seriesRecord.id,
-                    gameweek_id: targetGameweek.id,
-                    team_a_id: teamAId,
-                    team_b_id: teamBId,
-                    status,
-                    scheduled_time: scheduledTime,
-                    ...matchTimes,
-                    external_match_id: match.id.toString(),
-                    last_synced_at: new Date().toISOString(),
-                  })
-                  .select('*')
-                  .single();
-
-                if (error) {
-                  throw error;
-                }
-                const matchesForId = existingMatches.get(match.id) ?? [];
-                matchesForId.push(insertedMatch as Match);
-                existingMatches.set(match.id, matchesForId);
-                allMatches.push(insertedMatch as Match);
-                reconciledMatchIds.add((insertedMatch as Match).id);
-                result.fetched++;
+                // Queue new match for batch insert
+                matchesToInsert.push({
+                  series_id: seriesRecord.id,
+                  gameweek_id: targetGameweek.id,
+                  team_a_id: teamAId,
+                  team_b_id: teamBId,
+                  status,
+                  scheduled_time: scheduledTime,
+                  ...matchTimes,
+                  external_match_id: match.id.toString(),
+                  last_synced_at: new Date().toISOString(),
+                });
               }
               routedMatchIds.add(match.id);
             } catch (error) {
               result.errors.push(
                 `Failed to process match ${match.id}: ${(error as Error).message}`
               );
+            }
+          }
+
+          // Batch flush newly inserted matches for this tournament
+          if (matchesToInsert.length > 0) {
+            const BATCH_SIZE = 50;
+            for (let i = 0; i < matchesToInsert.length; i += BATCH_SIZE) {
+              const chunk = matchesToInsert.slice(i, i + BATCH_SIZE);
+              const { data: insertedMatches, error: insertError } = await supabase
+                .from('matches')
+                .insert(chunk)
+                .select('*');
+
+              if (insertError) {
+                result.errors.push(
+                  `Failed to batch insert matches for tournament ${tournament.id}: ${insertError.message}`
+                );
+              } else {
+                for (const insertedMatch of (insertedMatches ?? []) as Match[]) {
+                  if (insertedMatch.external_match_id) {
+                    const matchesForId = existingMatches.get(insertedMatch.external_match_id) ?? [];
+                    matchesForId.push(insertedMatch);
+                    existingMatches.set(insertedMatch.external_match_id, matchesForId);
+                  }
+                  allMatches.push(insertedMatch);
+                  reconciledMatchIds.add(insertedMatch.id);
+                  result.fetched++;
+                }
+              }
             }
           }
 
@@ -583,29 +636,25 @@ export async function fetchMatches(options: { tournamentLimit?: number } = {}): 
             );
           }
 
-          // Concluded matches queue for detailed fantasy breakdown
-          const concludedMatches = matches.filter(
-            (match) => match.status === 'concluded' && routedMatchIds.has(match.id),
-          );
-          for (const match of concludedMatches) {
-            try {
-              const hasDetails = await checkMatchDetails(match.id);
-              if (!hasDetails) {
-                const { error } = await supabase
-                  .from('matches')
-                  .update({
-                    status: 'completed',
-                    last_synced_at: new Date().toISOString(),
-                  })
-                  .eq('external_match_id', match.id.toString())
-                  .is('detailed_stats_fetched_at', null);
+          // Concluded matches: queue any that don't yet have detailed stats
+          // Uses the pre-loaded Set so we avoid one DB round-trip per match.
+          const concludedMatchIds = matches
+            .filter((match) => match.status === 'concluded' && routedMatchIds.has(match.id))
+            .map((match) => match.id.toString())
+            .filter((id) => !detailedMatchIds.has(id));
 
-                if (!error) {
-                  result.scheduled++;
-                }
-              }
-            } catch {
-              // Non-critical, continue
+          if (concludedMatchIds.length > 0) {
+            const { error } = await supabase
+              .from('matches')
+              .update({
+                status: 'completed',
+                last_synced_at: new Date().toISOString(),
+              })
+              .in('external_match_id', concludedMatchIds)
+              .is('detailed_stats_fetched_at', null);
+
+            if (!error) {
+              result.scheduled += concludedMatchIds.length;
             }
           }
         } catch (error) {
@@ -615,11 +664,18 @@ export async function fetchMatches(options: { tournamentLimit?: number } = {}): 
         }
       }
 
+      const nextCursor = effectiveTournamentsToProcess.length > 0
+        ? effectiveTournamentsToProcess[effectiveTournamentsToProcess.length - 1].id
+        : (tournamentBatch.lastProcessedTournamentId ?? lastProcessedTournamentId);
+
+      result.hasMore = activeTournaments.length > 0 &&
+        (tournamentBatch.hasMore || effectiveTournamentsToProcess.length < tournamentsToProcess.length);
+
       await logJobExecution('fetch-matches', 'completed', {
         fetched: result.fetched,
         updated: result.updated,
         scheduled: result.scheduled,
-        lastProcessedTournamentId: tournamentBatch.lastProcessedTournamentId ?? lastProcessedTournamentId,
+        lastProcessedTournamentId: nextCursor,
         skippedOutsideGameweeks: result.skippedOutsideGameweeks,
         skippedOutsideGameweekTournaments: result.skippedOutsideGameweekTournaments,
         skippedOutsideGameweeksPast: result.skippedOutsideGameweeksPast,
@@ -628,7 +684,6 @@ export async function fetchMatches(options: { tournamentLimit?: number } = {}): 
         errors: result.errors.length,
       }, jobExecutionId);
 
-      const nextCursor = tournamentBatch.lastProcessedTournamentId ?? lastProcessedTournamentId;
       if (nextCursor !== null) result.lastProcessedTournamentId = nextCursor;
       console.log('[fetchMatches] Completed successfully');
     } catch (error) {
@@ -693,6 +748,7 @@ async function getTournamentMatchState(
   existingMatches: Map<string, Match[]>;
   allMatches: Match[];
   seriesByIdentity: Map<string, SeriesReference>;
+  detailedMatchIds: Set<string>;
 }> {
   const { data: rawSeriesRows, error: seriesError } = await supabase
     .from('tournament_series')
@@ -713,7 +769,8 @@ async function getTournamentMatchState(
   const existingMatches = new Map<string, Match[]>();
   const allMatches: Match[] = [];
   if (seriesIds.length === 0) {
-    return { existingMatches, allMatches, seriesByIdentity };
+    const detailedMatchIds = await preloadDetailedMatchIds(supabase, tournamentId);
+    return { existingMatches, allMatches, seriesByIdentity, detailedMatchIds };
   }
 
   const { data: matchRows, error: matchesError } = await supabase
@@ -734,23 +791,30 @@ async function getTournamentMatchState(
     }
   }
 
-  return { existingMatches, allMatches, seriesByIdentity };
+  const detailedMatchIds = await preloadDetailedMatchIds(supabase, tournamentId);
+  return { existingMatches, allMatches, seriesByIdentity, detailedMatchIds };
 }
 
-async function checkMatchDetails(matchId: string): Promise<boolean> {
-  const supabase = getSupabaseServerClient();
-
-  const { data, error } = await supabase
+/**
+ * Pre-loads the set of external match IDs that already have detailed stats
+ * for a given tournament (by joining through series). One query per tournament
+ * instead of one query per concluded match.
+ */
+async function preloadDetailedMatchIds(
+  supabase: ReturnType<typeof getSupabaseServerClient>,
+  tournamentId: number,
+): Promise<Set<string>> {
+  const { data } = await supabase
     .from('matches')
-    .select('detailed_stats_fetched_at')
-    .eq('external_match_id', matchId.toString())
-    .single();
+    .select('external_match_id, tournament_series!inner(tournament_id)')
+    .eq('tournament_series.tournament_id', tournamentId)
+    .not('detailed_stats_fetched_at', 'is', null);
 
-  if (error || !data) {
-    return false;
+  const ids = new Set<string>();
+  for (const row of data ?? []) {
+    if (row.external_match_id) ids.add(row.external_match_id);
   }
-
-  return data.detailed_stats_fetched_at !== null;
+  return ids;
 }
 
 /**
@@ -776,10 +840,10 @@ async function resolveOrCreateTeam(
     const currentName = teamNameMap.get(existingDbId) ?? '';
     const isPlaceholder = /^Team \d+$/.test(currentName) || currentName === 'Team null' || currentName === '';
     if (!isPlaceholder) {
-      // Name is fine — return immediately
+      // Name is fine - return immediately
       return existingDbId;
     }
-    // Name is a placeholder — fall through to provider lookup and update
+    // Name is a placeholder - fall through to provider lookup and update
   }
 
   const supabase = getSupabaseServerClient();
