@@ -9,6 +9,7 @@
 
 import { getSupabaseServerClient } from '@/lib/db/supabase-server';
 import type { Match, Tournament } from '@/types/database';
+import type { MatchData } from '../data-providers/provider-interface';
 import {
   resolveGameweekForMatch,
   summarizeOutOfGameweekMatches,
@@ -146,9 +147,17 @@ export async function fetchMatches(options: { tournamentLimit?: number } = {}): 
           .filter((source) => source !== 'steam')
           .map(async (source) => {
             const provider = providers[source];
-            if (!provider) return [source, new Set<string>()] as const;
-            const tournaments = await provider.fetchTournaments({ limit: 100 });
-            return [source, new Set(tournaments.map((tournament) => String(tournament.id)))] as const;
+            if (!provider) return [source, null] as const;
+            try {
+              const tournaments = await provider.fetchTournaments({ limit: 100 });
+              return [source, new Set(tournaments.map((tournament) => String(tournament.id)))] as const;
+            } catch (error) {
+              console.warn(
+                `[fetchMatches] Failed to refresh active tournament feed from ${source}: ${(error as Error).message}. ` +
+                `Falling back to trusting configured database tournaments for ${source}.`
+              );
+              return [source, null] as const;
+            }
           }),
       );
       const professionalTournamentIds = new Map(professionalTournamentsBySource);
@@ -157,7 +166,12 @@ export async function fetchMatches(options: { tournamentLimit?: number } = {}): 
         if (source === 'steam') {
           return true;
         }
-        return professionalTournamentIds.get(source)?.has(String(tournament.data_provider_id));
+        const verifiedIds = professionalTournamentIds.get(source);
+        // If provider feed verification threw or returned null, preserve database tournament rather than crashing or dropping
+        if (!verifiedIds) {
+          return true;
+        }
+        return verifiedIds.has(String(tournament.data_provider_id));
       });
       console.log(
         `[fetchMatches] Found ${activeTournaments.length} eligible professional tournaments; ` +
@@ -253,7 +267,19 @@ export async function fetchMatches(options: { tournamentLimit?: number } = {}): 
             || (tournament.slug ? tournament.slug.split('-')[0] : tournament.id.toString());
 
           // Fetch matches for this tournament
-          const matches = await fetchAllTournamentMatches(provider, leagueExternalId);
+          let matches: MatchData[] = [];
+          try {
+            matches = await fetchAllTournamentMatches(provider, leagueExternalId);
+          } catch (fetchErr) {
+            if (providerSource === 'stratz' && providers.opendota) {
+              console.warn(
+                `[fetchMatches] STRATZ match fetch failed for tournament ${tournament.id} (${(fetchErr as Error).message}); falling back to OpenDota`
+              );
+              matches = await fetchAllTournamentMatches(providers.opendota, leagueExternalId);
+            } else {
+              throw fetchErr;
+            }
+          }
 
           console.log(
             `[fetchMatches] Tournament ${tournament.name} (${leagueExternalId}): ${matches.length} matches returned`
