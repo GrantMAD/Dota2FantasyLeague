@@ -46,6 +46,16 @@ function formatCountdown(targetString: string | null): string {
   return `in <1m`;
 }
 
+function formatLocalTime(dateString: string, timeZone: string): string {
+  return new Intl.DateTimeFormat(undefined, {
+    hour: 'numeric',
+    minute: '2-digit',
+    second: '2-digit',
+    timeZone,
+    timeZoneName: 'short',
+  }).format(new Date(dateString));
+}
+
 export function DataFreshnessBadge({
   page,
   className = '',
@@ -94,6 +104,8 @@ export function DataFreshnessBadge({
 
   const lastUpdatedText = formatRelativeTime(data?.lastUpdated ?? null);
   const nextUpdateText = formatCountdown(data?.nextUpdate ?? null);
+  const userTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'local time';
+  const nextJobTitle = data?.jobs?.find((job) => job.jobName === data.jobName)?.title ?? data?.jobName;
   void tick;
 
   return (
@@ -183,7 +195,7 @@ export function DataFreshnessBadge({
                     </span>
                   </h3>
                   <p className="text-xs data-freshness-modal-subtitle">
-                    Background jobs powering data on this page
+                    Schedules use UTC; clock times use {userTimeZone}
                   </p>
                 </div>
               </div>
@@ -214,7 +226,7 @@ export function DataFreshnessBadge({
                 </p>
                 {data?.lastUpdated && (
                   <p className="data-freshness-card-sub text-[10px] mt-0.5">
-                    {new Date(data.lastUpdated).toLocaleTimeString()}
+                    {formatLocalTime(data.lastUpdated, userTimeZone)}
                   </p>
                 )}
               </div>
@@ -228,9 +240,16 @@ export function DataFreshnessBadge({
                   {nextUpdateText}
                 </p>
                 {data?.nextUpdate && (
-                  <p className="data-freshness-card-sub text-[10px] mt-0.5">
-                    {new Date(data.nextUpdate).toLocaleTimeString()}
-                  </p>
+                  <>
+                    <p className="data-freshness-card-sub text-[10px] mt-0.5">
+                      {formatLocalTime(data.nextUpdate, userTimeZone)}
+                    </p>
+                    {nextJobTitle && (
+                      <p className="data-freshness-card-sub text-[10px] mt-0.5">
+                        Next job: {nextJobTitle}
+                      </p>
+                    )}
+                  </>
                 )}
               </div>
             </div>
@@ -253,7 +272,7 @@ export function DataFreshnessBadge({
                           {job.title}
                         </span>
                         <code className="data-freshness-job-code text-[10px] px-1.5 py-0.5 rounded font-mono">
-                          {job.schedule}
+                          {job.schedule} UTC
                         </code>
                       </div>
                       <span className={`data-freshness-status text-[10px] px-2 py-0.5 rounded-full font-medium ${

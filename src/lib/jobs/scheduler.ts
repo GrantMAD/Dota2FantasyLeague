@@ -127,7 +127,7 @@ const JOBS: JobDefinition[] = [
   },
   {
     name: 'fetch-matches',
-    schedule: '0 * * * *', // Every hour
+    schedule: '*/15 * * * *', // Every 15 minutes
     handler: fetchMatches,
     enabled: process.env.ENABLE_MATCH_FETCH !== 'false',
     timeout: SERVERLESS_JOB_TIMEOUT_MS,

@@ -25,6 +25,7 @@ interface JobDetailItem {
 export interface FreshnessData {
   lastUpdated: string | null;
   nextUpdate: string | null;
+  /** Job name associated with the page's earliest upcoming scheduled run. */
   jobName?: string;
   serverTime: string;
   jobs?: JobDetailItem[];

@@ -10,6 +10,11 @@ describe('scheduled job cadence', () => {
       .toBe('*/15 * * * *');
   });
 
+  it('fetches matches every 15 minutes to match the external cron schedule', () => {
+    expect(getJobs().find((job) => job.name === 'fetch-matches')?.schedule)
+      .toBe('*/15 * * * *');
+  });
+
   it('allows every configured job to run via cron-jobs.org (Vercel cron removed)', () => {
     // The Vercel built-in cron was removed from vercel.json — all jobs are now triggered
     // individually by cron-jobs.org, which calls /api/cron/[job] on each job's own schedule.

@@ -128,7 +128,7 @@ async function getHandler(request: NextRequest) {
 
     let latestUpdatedDate: Date | null = null;
     let nextScheduledRun: Date | null = null;
-    let mostFrequentJobName: string = targetJobNames[0];
+    let nextScheduledJobName: string = targetJobNames[0];
 
     const jobsDetailList: JobDetailItem[] = [];
 
@@ -152,7 +152,7 @@ async function getHandler(request: NextRequest) {
         jobNextRun = nextDate.toISOString();
         if (!nextScheduledRun || nextDate.getTime() < nextScheduledRun.getTime()) {
           nextScheduledRun = nextDate;
-          mostFrequentJobName = jobDef.name;
+          nextScheduledJobName = jobDef.name;
         }
       } catch {
         // Fallback or ignore cron parse error
@@ -179,7 +179,7 @@ async function getHandler(request: NextRequest) {
       page,
       lastUpdated: latestUpdatedDate ? latestUpdatedDate.toISOString() : null,
       nextUpdate: nextScheduledRun ? nextScheduledRun.toISOString() : null,
-      jobName: mostFrequentJobName,
+      jobName: nextScheduledJobName,
       serverTime: now.toISOString(),
       jobs: jobsDetailList,
     };
