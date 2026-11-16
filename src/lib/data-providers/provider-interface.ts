@@ -57,6 +57,7 @@ export interface TournamentData {
 export interface MatchData {
   id: string;
   tournamentId: string;
+  playerAccountIds?: string[];
   team1Id: string;
   team1Name?: string;
   team2Id: string;

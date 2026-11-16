@@ -186,6 +186,12 @@ export class SteamProvider extends DataProviderBase implements DataProvider {
                 team1Name,
                 team2Id,
                 team2Name,
+                playerAccountIds: (g.players ?? [])
+                  .map((player) => player.account_id)
+                  .filter((accountId): accountId is number =>
+                    typeof accountId === 'number' && Number.isSafeInteger(accountId) && accountId > 0
+                  )
+                  .map(String),
                 sourceSeriesId: g.series_id ? String(g.series_id) : undefined,
                 bestOfSeries: bestOf,
                 seriesStatus: (typeof g.radiant_series_wins === 'number' && typeof g.dire_series_wins === 'number')

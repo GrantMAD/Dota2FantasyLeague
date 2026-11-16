@@ -403,7 +403,7 @@ async function fetchWhatsNew(userId: string): Promise<WhatsNewData | null> {
         .select('id, type, title, message, created_at, metadata')
         .eq('user_id', userId)
         .eq('is_read', false)
-        .in('type', ['price_change', 'system', 'h2h_result', 'league_result', 'player_removed', 'player_unavailable'])
+        .in('type', ['price_change', 'system', 'h2h_result', 'league_result', 'player_removed', 'player_unavailable', 'live_squad_match'])
         .order('created_at', { ascending: false })
         .limit(20),
     ]);
@@ -450,9 +450,12 @@ async function fetchWhatsNew(userId: string): Promise<WhatsNewData | null> {
       const meta = n.metadata as Record<string, unknown> | null;
       const playerId = meta?.player_id ? Number(meta.player_id) : 0;
       const leagueId = meta?.league_id ? Number(meta.league_id) : 0;
+      const matchId = meta?.match_id ? Number(meta.match_id) : 0;
 
       let href = '/dashboard';
-      if (leagueId > 0) {
+      if (n.type === 'live_squad_match') {
+        href = Number.isSafeInteger(matchId) && matchId > 0 ? `/matches/${matchId}` : '/matches';
+      } else if (leagueId > 0) {
         href = `/leagues?leagueId=${leagueId}`;
       } else if (n.type === 'player_removed') {
         href = '/transfers';
@@ -461,7 +464,9 @@ async function fetchWhatsNew(userId: string): Promise<WhatsNewData | null> {
       }
 
       let kind: WhatsNewUpdate['kind'] = 'availability';
-      if (n.type === 'price_change') {
+      if (n.type === 'live_squad_match') {
+        kind = 'live_match';
+      } else if (n.type === 'price_change') {
         kind = 'price_change';
       } else if (leagueId > 0 || n.type === 'h2h_result' || n.type === 'league_result') {
         kind = 'league';

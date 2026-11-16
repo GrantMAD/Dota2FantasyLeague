@@ -1,6 +1,6 @@
 import type { NotificationRecord } from '@/types/fantasy';
 
-export type NotificationCategory = 'all' | 'unread' | 'deadline' | 'market' | 'scoring' | 'league';
+export type NotificationCategory = 'all' | 'unread' | 'deadline' | 'market' | 'scoring' | 'league' | 'live';
 
 export const NOTIFICATION_CATEGORY_CACHE_TTL_MS = 60_000;
 

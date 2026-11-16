@@ -13,6 +13,11 @@ function notificationHref(notification: HeaderNotification) {
     return `/leagues?leagueId=${leagueId}`;
   }
 
+  if (notification.type === 'live_squad_match') {
+    const matchId = Number(notification.metadata?.match_id);
+    return Number.isSafeInteger(matchId) && matchId > 0 ? `/matches/${matchId}` : '/matches';
+  }
+
   const gameweekId = Number(notification.metadata?.gameweek_id);
   if (
     ['gameweek_result', 'score_posted'].includes(notification.type) &&

@@ -12,6 +12,7 @@ import {
   CheckCircle2,
   Clock,
   Info,
+  Radio,
   Sparkles,
   TrendingDown,
   TrendingUp,
@@ -37,6 +38,7 @@ const categories: Array<{ key: NotificationCategory; label: string; countKey?: s
   { key: 'market', label: 'Market' },
   { key: 'scoring', label: 'Scoring' },
   { key: 'league', label: 'Leagues' },
+  { key: 'live', label: 'Live' },
 ];
 
 export default function NotificationsPage() {
@@ -234,6 +236,8 @@ function NotificationsPageContent() {
     switch (type) {
       case 'issue_report_status':
         return <div className="flex h-11 w-11 items-center justify-center rounded-full border border-violet-500/30 bg-violet-500/15 text-violet-300"><Bug className="h-5 w-5" /></div>;
+      case 'live_squad_match':
+        return <div className="flex h-11 w-11 items-center justify-center rounded-full border border-teal-500/30 bg-teal-500/15 text-teal-300"><Radio className="h-5 w-5" /></div>;
       case 'gameweek_deadline':
       case 'lineup_deadline':
       case 'deadline_reminder':
@@ -318,6 +322,8 @@ function NotificationsPageContent() {
         return '/leagues';
       case 'issue_report_status':
         return '/report-issue';
+      case 'live_squad_match':
+        return '/matches';
       default:
         return '/dashboard';
     }
@@ -351,6 +357,8 @@ function NotificationsPageContent() {
         return 'Open League';
       case 'issue_report_status':
         return 'View Report';
+      case 'live_squad_match':
+        return 'View Match';
       default:
         return 'View Feed';
     }
@@ -366,6 +374,15 @@ function NotificationsPageContent() {
         iconTone: 'text-violet-700 dark:text-violet-300',
         iconSurface: 'border-violet-500/30 bg-violet-500/10',
         rowTone: 'border-l-violet-500',
+      };
+    }
+    if (type === 'live_squad_match') {
+      return {
+        Icon: Radio,
+        label: 'Live match',
+        iconTone: 'text-cyan-700 dark:text-cyan-300',
+        iconSurface: 'border-cyan-500/30 bg-cyan-500/10',
+        rowTone: 'border-l-cyan-500',
       };
     }
     if (type === 'player_removed' || type === 'player_unavailable' || (type === 'system' && notification.metadata?.player_id)) {
@@ -455,6 +472,13 @@ function NotificationsPageContent() {
         label: 'View Report',
       };
     }
+    if (type === 'live_squad_match') {
+      const matchId = Number(metadata?.match_id);
+      return {
+        href: Number.isSafeInteger(matchId) && matchId > 0 ? `/matches/${matchId}` : '/matches',
+        label: 'View Match',
+      };
+    }
     return { href: getActionHref(type), label: getActionLabel(type) };
   };
 
@@ -498,6 +522,15 @@ function NotificationsPageContent() {
           actionHref: '/leagues',
           actionText: 'Go to Leagues',
         };
+      case 'live':
+        return {
+          icon: Radio,
+          color: 'text-cyan-700 border-cyan-500/30 bg-cyan-500/10 dark:text-cyan-300',
+          title: 'No live squad match alerts',
+          description: 'Live match alerts for players in your squad will appear here when the feature is enabled in Settings.',
+          actionHref: '/settings?section=notifications',
+          actionText: 'Manage Alerts',
+        };
       case 'unread':
         return {
           icon: CheckCircle2,
@@ -532,7 +565,7 @@ function NotificationsPageContent() {
             Fantasy Alert Center
           </div>
           <h1 className="text-3xl font-black text-[var(--text-primary)]">Notifications</h1>
-          <p className="mt-2 text-sm text-[var(--text-secondary)]">Deadline alerts, market moves, league updates, and gameweek score changes.</p>
+          <p className="mt-2 text-sm text-[var(--text-secondary)]">Live match, deadline, market, league, and gameweek score alerts.</p>
         </div>
 
         <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-2">

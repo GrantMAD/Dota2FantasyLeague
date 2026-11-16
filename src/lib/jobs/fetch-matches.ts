@@ -8,6 +8,7 @@
  */
 
 import { getSupabaseServerClient } from '@/lib/db/supabase-server';
+import { notifyLiveSquadMembers } from './live-squad-match-notifications';
 import type { Match, Tournament } from '@/types/database';
 import type { MatchData } from '../data-providers/provider-interface';
 import {
@@ -43,6 +44,8 @@ interface FetchResult {
   completedAt: Date;
   hasMore?: boolean;
   lastProcessedTournamentId?: number;
+  liveSquadNotificationsCreated: number;
+  pushNotificationsSent: number;
 }
 
 interface GameweekReference {
@@ -85,6 +88,8 @@ export async function fetchMatches(options: { tournamentLimit?: number } = {}): 
     startedAt,
     completedAt: new Date(),
     hasMore: false,
+    liveSquadNotificationsCreated: 0,
+    pushNotificationsSent: 0,
   };
 
   try {
@@ -288,6 +293,9 @@ export async function fetchMatches(options: { tournamentLimit?: number } = {}): 
                     matchesMap.set(sm.id, {
                       ...existing,
                       status: sm.status,
+                      playerAccountIds: sm.playerAccountIds?.length
+                        ? sm.playerAccountIds
+                        : existing.playerAccountIds,
                       startedAt: sm.startedAt ?? existing.startedAt,
                       endedAt: sm.endedAt ?? existing.endedAt,
                       seriesStatus: sm.seriesStatus ?? existing.seriesStatus,
@@ -702,6 +710,34 @@ export async function fetchMatches(options: { tournamentLimit?: number } = {}): 
             }
           }
 
+          const liveMatchNotifications = matches.flatMap((match) => {
+            if (match.status !== 'live' || !match.playerAccountIds?.length) return [];
+            const persistedMatch = (existingMatches.get(match.id) ?? [])
+              .find((candidate) =>
+                reconciledMatchIds.has(candidate.id) && candidate.status === 'in_progress'
+              );
+            if (!persistedMatch) return [];
+            return [{
+              id: persistedMatch.id,
+              externalMatchId: match.id,
+              playerAccountIds: match.playerAccountIds,
+            }];
+          });
+          if (liveMatchNotifications.length > 0) {
+            try {
+              const notificationResult = await notifyLiveSquadMembers(supabase, liveMatchNotifications);
+              result.liveSquadNotificationsCreated += notificationResult.notificationsCreated;
+              result.pushNotificationsSent += notificationResult.pushNotificationsSent;
+              result.errors.push(...notificationResult.errors);
+            } catch (notificationError: unknown) {
+              result.errors.push(
+                `Failed to create live squad match notifications: ${
+                  notificationError instanceof Error ? notificationError.message : 'Unknown notification error'
+                }`
+              );
+            }
+          }
+
           if (skippedOutsideGameweeks > 0) {
             console.log(
               `[fetchMatches] Skipped ${skippedOutsideGameweeks} matches outside configured gameweeks ` +
@@ -749,6 +785,8 @@ export async function fetchMatches(options: { tournamentLimit?: number } = {}): 
         fetched: result.fetched,
         updated: result.updated,
         scheduled: result.scheduled,
+        liveSquadNotificationsCreated: result.liveSquadNotificationsCreated,
+        pushNotificationsSent: result.pushNotificationsSent,
         lastProcessedTournamentId: nextCursor,
         skippedOutsideGameweeks: result.skippedOutsideGameweeks,
         skippedOutsideGameweekTournaments: result.skippedOutsideGameweekTournaments,

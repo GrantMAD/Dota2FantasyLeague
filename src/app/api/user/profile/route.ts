@@ -16,6 +16,7 @@ type UserProfileRecord = {
   banner_theme?: string | null;
   email_notifications?: boolean | null;
   push_notifications?: boolean | null;
+  live_squad_match_notifications?: boolean | null;
   role?: string | null;
   is_premium: boolean;
   subscription_tier: string | null;
@@ -50,7 +51,7 @@ async function getHandler(request: NextRequest) {
 
     const users = supabase.from('users') as unknown as UserQuery;
     const { data, error } = await users
-      .select('id, username, display_name, avatar_url, bio, country_code, timezone, theme_preference, banner_theme, email_notifications, push_notifications, role, is_premium, subscription_tier, created_at, updated_at')
+      .select('id, username, display_name, avatar_url, bio, country_code, timezone, theme_preference, banner_theme, email_notifications, push_notifications, live_squad_match_notifications, role, is_premium, subscription_tier, created_at, updated_at')
       .eq('id', userId)
       .maybeSingle();
 
@@ -77,6 +78,7 @@ async function getHandler(request: NextRequest) {
         ...data,
         email_notifications: data.email_notifications ?? true,
         push_notifications: data.push_notifications ?? true,
+        live_squad_match_notifications: data.live_squad_match_notifications ?? true,
         role: data.role || auth.role || 'user',
         email: auth.email,
         member_since: data.created_at,
@@ -151,6 +153,11 @@ async function putHandler(request: NextRequest) {
       payload.push_notifications = pushNotifications;
     }
 
+    const liveSquadMatchNotifications = body.live_squad_match_notifications ?? body.liveSquadMatchNotifications;
+    if (typeof liveSquadMatchNotifications === 'boolean') {
+      payload.live_squad_match_notifications = liveSquadMatchNotifications;
+    }
+
     if (Object.keys(payload).length === 0) {
       return NextResponse.json({ error: 'No valid profile fields provided.' }, { status: 400 });
     }
@@ -159,7 +166,7 @@ async function putHandler(request: NextRequest) {
     const { data, error } = await users
       .update({ ...payload, updated_at: new Date().toISOString() })
       .eq('id', userId)
-      .select('id, username, display_name, avatar_url, bio, country_code, timezone, theme_preference, banner_theme, email_notifications, push_notifications, created_at, updated_at')
+      .select('id, username, display_name, avatar_url, bio, country_code, timezone, theme_preference, banner_theme, email_notifications, push_notifications, live_squad_match_notifications, created_at, updated_at')
       .maybeSingle();
 
     if (error) {
@@ -171,6 +178,7 @@ async function putHandler(request: NextRequest) {
         ...data,
         email_notifications: data?.email_notifications ?? true,
         push_notifications: data?.push_notifications ?? true,
+        live_squad_match_notifications: data?.live_squad_match_notifications ?? true,
         email: auth.email,
         member_since: data?.created_at,
       },

@@ -81,6 +81,7 @@ function SettingsContent() {
     timezone: 'UTC',
     emailNotifications: true,
     pushNotifications: true,
+    liveSquadMatchNotifications: true,
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -111,6 +112,7 @@ function SettingsContent() {
           timezone?: string | null;
           email_notifications?: boolean | null;
           push_notifications?: boolean | null;
+          live_squad_match_notifications?: boolean | null;
         };
       };
       const profile = data.profile;
@@ -126,6 +128,7 @@ function SettingsContent() {
         timezone: profile.timezone || 'UTC',
         emailNotifications: profile.email_notifications ?? true,
         pushNotifications: profile.push_notifications ?? true,
+        liveSquadMatchNotifications: profile.live_squad_match_notifications ?? true,
       }));
     } catch (err: unknown) {
       const errMsg = err instanceof Error ? err.message : 'Unable to load profile preferences';
@@ -156,6 +159,7 @@ function SettingsContent() {
             timezone?: string | null;
             email_notifications?: boolean | null;
             push_notifications?: boolean | null;
+            live_squad_match_notifications?: boolean | null;
           };
         };
         const profile = data.profile;
@@ -172,6 +176,7 @@ function SettingsContent() {
             timezone: profile.timezone || 'UTC',
             emailNotifications: profile.email_notifications ?? true,
             pushNotifications: profile.push_notifications ?? true,
+            liveSquadMatchNotifications: profile.live_squad_match_notifications ?? true,
           }));
         }
       } catch (err: unknown) {
@@ -283,23 +288,30 @@ function SettingsContent() {
     }
   };
 
-  const handleNotificationToggle = async (key: 'pushNotifications' | 'emailNotifications', nextVal: boolean) => {
+  const handleNotificationToggle = async (
+    key: 'pushNotifications' | 'emailNotifications' | 'liveSquadMatchNotifications',
+    nextVal: boolean,
+  ) => {
     setFormData((current) => ({ ...current, [key]: nextVal }));
     setSavingNotificationPreference(true);
 
-    const isPushPreference = key === 'pushNotifications';
-    const label = isPushPreference ? 'Push alerts' : 'Email summaries';
+    const preferenceFields = {
+      pushNotifications: { field: 'push_notifications', label: 'Push alerts' },
+      emailNotifications: { field: 'email_notifications', label: 'Email summaries' },
+      liveSquadMatchNotifications: { field: 'live_squad_match_notifications', label: 'Live squad match alerts' },
+    } as const;
+    const preference = preferenceFields[key];
     try {
       const res = await fetchWithAuth('/api/user/profile', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          [isPushPreference ? 'push_notifications' : 'email_notifications']: nextVal,
+          [preference.field]: nextVal,
         }),
       });
 
       if (!res.ok) throw new Error('Failed to save notification preference');
-      toast.info('Notification Preference', `${label} ${nextVal ? 'enabled' : 'disabled'}.`);
+      toast.info('Notification Preference', `${preference.label} ${nextVal ? 'enabled' : 'disabled'}.`);
     } catch (error: unknown) {
       setFormData((current) => ({ ...current, [key]: formData[key] }));
       const errMsg = error instanceof Error ? error.message : 'Failed to save preference';
@@ -967,6 +979,15 @@ function SettingsContent() {
                   'Choose whether supported fantasy alerts are sent to your registered iOS or Android app devices. Browser push is not supported.',
                   formData.pushNotifications,
                   () => void handleNotificationToggle('pushNotifications', !formData.pushNotifications)
+                )}
+                {renderToggle(
+                  'Live squad match alerts',
+                  'Show an alert in Notifications and What’s New when a player you own appears in a live match. Mobile push is also sent when push notifications are enabled and a device is registered.',
+                  formData.liveSquadMatchNotifications,
+                  () => void handleNotificationToggle(
+                    'liveSquadMatchNotifications',
+                    !formData.liveSquadMatchNotifications,
+                  ),
                 )}
                 {renderToggle(
                   'Email summaries',

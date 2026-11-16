@@ -14,13 +14,14 @@ interface NotificationRecord {
   metadata: Record<string, unknown> | null;
 }
 
-type NotificationCategory = 'all' | 'unread' | 'deadline' | 'market' | 'scoring' | 'league';
+type NotificationCategory = 'all' | 'unread' | 'deadline' | 'market' | 'scoring' | 'league' | 'live';
 
 const notificationTypesByCategory: Partial<Record<NotificationCategory, string[]>> = {
   deadline: ['gameweek_deadline', 'lineup_deadline', 'deadline_reminder', 'deadline'],
   market: ['price_change', 'transfer_market', 'wildcard_used', 'player_removed'],
   scoring: ['score_posted', 'gameweek_result', 'rank_movement', 'rank_update'],
   league: ['league_invite', 'league_activity', 'league_result', 'h2h_result'],
+  live: ['live_squad_match'],
 };
 
 interface NotificationCursor {
@@ -62,7 +63,7 @@ async function getHandler(request: NextRequest) {
     const user = await verifyAuth(request);
     const { searchParams } = new URL(request.url);
     const rawCategory = searchParams.get('category') ?? 'all';
-    const validCategories: NotificationCategory[] = ['all', 'unread', 'deadline', 'market', 'scoring', 'league'];
+    const validCategories: NotificationCategory[] = ['all', 'unread', 'deadline', 'market', 'scoring', 'league', 'live'];
     if (!validCategories.includes(rawCategory as NotificationCategory)) {
       return NextResponse.json({ error: 'Invalid notification category.' }, { status: 400 });
     }

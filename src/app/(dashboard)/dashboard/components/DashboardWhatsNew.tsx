@@ -44,7 +44,7 @@ export interface WhatsNewGameweek {
 
 export interface WhatsNewUpdate {
   id: number;
-  kind: 'price_change' | 'availability' | 'league';
+  kind: 'price_change' | 'availability' | 'league' | 'live_match';
   title: string;
   message: string;
   createdAt: string;
@@ -69,7 +69,7 @@ type FeedItem =
   | { type: 'tournament'; data: WhatsNewEvent }
   | {
       type: 'overflow_notice';
-      category: 'price_change' | 'availability' | 'tournament' | 'friend';
+      category: 'price_change' | 'availability' | 'live_match' | 'tournament' | 'friend';
       count: number;
       label: string;
       targetFilter: FeedFilter;
@@ -160,6 +160,7 @@ export function DashboardWhatsNew({ whatsNew }: DashboardWhatsNewProps) {
 
     const priceChanges: WhatsNewUpdate[] = [];
     const availabilityUpdates: WhatsNewUpdate[] = [];
+    const liveMatchUpdates: WhatsNewUpdate[] = [];
     const leagueUpdates: WhatsNewUpdate[] = [];
     const tournamentEvents: WhatsNewEvent[] = [];
     const friends: FriendActivity[] = [];
@@ -172,6 +173,8 @@ export function DashboardWhatsNew({ whatsNew }: DashboardWhatsNewProps) {
       } else if (item.type === 'update') {
         if (item.data.kind === 'price_change') {
           priceChanges.push(item.data);
+        } else if (item.data.kind === 'live_match') {
+          liveMatchUpdates.push(item.data);
         } else if (item.data.kind === 'league') {
           leagueUpdates.push(item.data);
         } else {
@@ -185,7 +188,7 @@ export function DashboardWhatsNew({ whatsNew }: DashboardWhatsNewProps) {
     // Helper: add up to cap or replace with 4 items + overflow note
     const appendCategory = (
       items: FeedItem[],
-      category: 'price_change' | 'availability' | 'tournament' | 'friend',
+      category: 'price_change' | 'availability' | 'live_match' | 'tournament' | 'friend',
       label: string,
       targetFilter: FeedFilter,
     ) => {
@@ -214,6 +217,12 @@ export function DashboardWhatsNew({ whatsNew }: DashboardWhatsNewProps) {
       availabilityUpdates.map((u) => ({ type: 'update' as const, data: u })),
       'availability',
       'squad availability alerts',
+      'squad',
+    );
+    appendCategory(
+      liveMatchUpdates.map((u) => ({ type: 'update' as const, data: u })),
+      'live_match',
+      'live squad match alerts',
       'squad',
     );
     appendCategory(
@@ -529,7 +538,16 @@ export function DashboardWhatsNew({ whatsNew }: DashboardWhatsNewProps) {
                               accent: 'text-rose-600 dark:text-rose-400',
                               icon: AlertTriangle,
                             }
-                          : notice.category === 'tournament'
+                          : notice.category === 'live_match'
+                            ? {
+                                border: 'border-l-cyan-500/80',
+                                bgGradient: 'from-cyan-500/[0.06] to-transparent',
+                                hoverBg: 'hover:bg-cyan-500/[0.10]',
+                                badge: 'bg-cyan-500/15 text-cyan-600 dark:text-cyan-400',
+                                accent: 'text-cyan-600 dark:text-cyan-400',
+                                icon: Radio,
+                              }
+                            : notice.category === 'tournament'
                             ? {
                                 border: 'border-l-amber-500/80',
                                 bgGradient: 'from-amber-500/[0.06] to-transparent',
@@ -722,11 +740,12 @@ export function DashboardWhatsNew({ whatsNew }: DashboardWhatsNewProps) {
                     );
                   }
 
-                  // Updates (Price Change, Squad Availability Alert, or League Result)
+                  // Updates (Price Change, Squad Alert, Live Match, or League Result)
                   const update = item.data;
                   const isAvailability = update.kind === 'availability';
                   const isLeague = update.kind === 'league';
-                  const Icon = isLeague ? Trophy : isAvailability ? AlertTriangle : TrendingUp;
+                  const isLiveMatch = update.kind === 'live_match';
+                  const Icon = isLeague ? Trophy : isAvailability ? AlertTriangle : isLiveMatch ? Radio : TrendingUp;
 
                   const updateTheme = isLeague
                     ? {
@@ -745,6 +764,15 @@ export function DashboardWhatsNew({ whatsNew }: DashboardWhatsNewProps) {
                         badge: 'bg-rose-500/10 dark:bg-rose-500/15 text-rose-600 dark:text-rose-400',
                         text: 'text-rose-600 dark:text-rose-400',
                         label: 'Squad Alert',
+                      }
+                    : isLiveMatch
+                    ? {
+                        border: 'border-l-cyan-500/80',
+                        bgGradient: 'from-cyan-500/[0.04] to-transparent',
+                        hoverBg: 'hover:bg-cyan-500/[0.07]',
+                        badge: 'bg-cyan-500/10 dark:bg-cyan-500/15 text-cyan-600 dark:text-cyan-400',
+                        text: 'text-cyan-600 dark:text-cyan-400',
+                        label: 'Live Match',
                       }
                     : {
                         border: 'border-l-emerald-500/80',

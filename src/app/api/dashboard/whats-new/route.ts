@@ -22,7 +22,7 @@ interface AnnouncementEvent {
 
 interface AnnouncementUpdate {
   id: number;
-  kind: 'price_change' | 'availability' | 'league';
+  kind: 'price_change' | 'availability' | 'league' | 'live_match';
   title: string;
   message: string;
   createdAt: string;
@@ -140,69 +140,83 @@ async function getHandler(request: NextRequest) {
       .select('id, type, title, message, created_at, metadata')
       .eq('user_id', userId)
       .eq('is_read', false)
-      .in('type', ['price_change', 'system', 'h2h_result', 'league_result', 'player_removed', 'player_unavailable'])
+      .in('type', ['price_change', 'system', 'h2h_result', 'league_result', 'player_removed', 'player_unavailable', 'live_squad_match'])
       .order('created_at', { ascending: false })
       .limit(20);
     if (notificationsError) {
       throw new Error(`Failed to fetch player updates: ${notificationsError.message}`);
     }
 
-        for (const notification of (notifications ?? []) as NotificationRow[]) {
-          const leagueId = Number(notification.metadata?.league_id);
-          if (Number.isSafeInteger(leagueId) && leagueId > 0) {
-            updates.push({
-              id: notification.id,
-              kind: 'league',
-              title: notification.title,
-              message: notification.message,
-              createdAt: notification.created_at,
-              href: `/leagues?leagueId=${leagueId}`,
-            });
-            if (updates.length === 20) break;
-            continue;
-          }
+    for (const notification of (notifications ?? []) as NotificationRow[]) {
+      if (notification.type === 'live_squad_match') {
+        const matchId = Number(notification.metadata?.match_id);
+        updates.push({
+          id: notification.id,
+          kind: 'live_match',
+          title: notification.title,
+          message: notification.message,
+          createdAt: notification.created_at,
+          href: Number.isSafeInteger(matchId) && matchId > 0 ? `/matches/${matchId}` : '/matches',
+        });
+        if (updates.length === 20) break;
+        continue;
+      }
 
-          const playerId = Number(notification.metadata?.player_id);
-          if (notification.type === 'player_removed') {
-            updates.push({
-              id: notification.id,
-              kind: 'availability',
-              title: notification.title,
-              message: notification.message,
-              createdAt: notification.created_at,
-              href: '/transfers',
-            });
-            if (updates.length === 20) break;
-            continue;
-          }
+      const leagueId = Number(notification.metadata?.league_id);
+      if (Number.isSafeInteger(leagueId) && leagueId > 0) {
+        updates.push({
+          id: notification.id,
+          kind: 'league',
+          title: notification.title,
+          message: notification.message,
+          createdAt: notification.created_at,
+          href: `/leagues?leagueId=${leagueId}`,
+        });
+        if (updates.length === 20) break;
+        continue;
+      }
 
-          if (!Number.isInteger(playerId) || !ownedPlayerIds.has(playerId)) continue;
+      const playerId = Number(notification.metadata?.player_id);
+      if (notification.type === 'player_removed') {
+        updates.push({
+          id: notification.id,
+          kind: 'availability',
+          title: notification.title,
+          message: notification.message,
+          createdAt: notification.created_at,
+          href: '/transfers',
+        });
+        if (updates.length === 20) break;
+        continue;
+      }
 
-          if (notification.type === 'price_change') {
-            updates.push({
-              id: notification.id,
-              kind: 'price_change',
-              title: notification.title,
-              message: notification.message,
-              createdAt: notification.created_at,
-              href: `/players/${playerId}`,
-            });
-          } else if (
-            notification.type === 'system'
-            && notification.metadata?.action === 'swap_required'
-          ) {
-            updates.push({
-              id: notification.id,
-              kind: 'availability',
-              title: notification.title,
-              message: notification.message,
-              createdAt: notification.created_at,
-              href: `/players/${playerId}`,
-            });
-          }
+      if (!Number.isInteger(playerId) || !ownedPlayerIds.has(playerId)) continue;
 
-          if (updates.length === 20) break;
-        }
+      if (notification.type === 'price_change') {
+        updates.push({
+          id: notification.id,
+          kind: 'price_change',
+          title: notification.title,
+          message: notification.message,
+          createdAt: notification.created_at,
+          href: `/players/${playerId}`,
+        });
+      } else if (
+        notification.type === 'system'
+        && notification.metadata?.action === 'swap_required'
+      ) {
+        updates.push({
+          id: notification.id,
+          kind: 'availability',
+          title: notification.title,
+          message: notification.message,
+          createdAt: notification.created_at,
+          href: `/players/${playerId}`,
+        });
+      }
+
+      if (updates.length === 20) break;
+    }
 
     return NextResponse.json({ events, gameweek, updates });
   } catch (error: unknown) {

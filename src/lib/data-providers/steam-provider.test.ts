@@ -40,6 +40,10 @@ describe('SteamProvider', () => {
                   league_id: 20486,
                   radiant_team_id: 10291652,
                   dire_team_id: 2163,
+                  players: [
+                    { account_id: 317880638, name: 'Owned Carry', hero_id: 1, team: 0 },
+                    { account_id: 441234567, name: 'Other Player', hero_id: 2, team: 1 },
+                  ],
                   radiant_team: { team_name: 'LEGION', team_id: 10291652 },
                   dire_team: { team_name: 'Team Liquid', team_id: 2163 },
                   series_id: 1168375,
@@ -93,6 +97,7 @@ describe('SteamProvider', () => {
     expect(live?.sourceSeriesId).toBe('1168375');
     expect(live?.team1Name).toBe('LEGION');
     expect(live?.team2Name).toBe('Team Liquid');
+    expect(live?.playerAccountIds).toEqual(['317880638', '441234567']);
   });
 
   it('resolves team info and logo UGC URL', async () => {
