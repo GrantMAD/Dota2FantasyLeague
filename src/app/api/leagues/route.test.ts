@@ -140,6 +140,78 @@ describe('/api/leagues data isolation and atomic joins', () => {
       expect(json.count).toBe(0);
       expect(leaguesQueryCalled).toBe(false);
     });
+
+    it('returns H2H standings ranked by league points and score tie-breakers', async () => {
+      const h2hLeague = {
+        id: 201,
+        name: 'H2H Test',
+        league_type: 'head_to_head',
+        privacy_level: 'private',
+        description: null,
+        max_participants: 10,
+        current_participants: 3,
+        invite_code: 'H2H-1234',
+        status: 'active',
+        created_at: '2026-10-01T00:00:00Z',
+        league_participants: [
+          { id: 10, user_id: 'manager-1', points: 400, rank: null, wins: 0, losses: 0, draws: 0, users: { username: 'alpha', display_name: 'Alpha', avatar_url: null, bio: null }, fantasy_seasons: { gameweek_points_latest: 0 } },
+          { id: 20, user_id: 'manager-2', points: 300, rank: null, wins: 0, losses: 0, draws: 0, users: { username: 'beta', display_name: 'Beta', avatar_url: null, bio: null }, fantasy_seasons: { gameweek_points_latest: 0 } },
+          { id: 30, user_id: 'manager-3', points: 200, rank: null, wins: 0, losses: 0, draws: 0, users: { username: 'gamma', display_name: 'Gamma', avatar_url: null, bio: null }, fantasy_seasons: { gameweek_points_latest: 0 } },
+        ],
+        head_to_head_matchups: [
+          { id: 1, gameweek_id: 4, participant_a_id: 20, participant_b_id: 10, points_a: 110, points_b: 100, winner_id: 20, is_bye: false, is_resolved: true, participant_a: null, participant_b: null },
+          { id: 2, gameweek_id: 5, participant_a_id: 20, participant_b_id: 30, points_a: 90, points_b: 80, winner_id: 20, is_bye: false, is_resolved: true, participant_a: null, participant_b: null },
+        ],
+      };
+      const leaguesQuery = {
+        select: jest.fn().mockReturnThis(),
+        eq: jest.fn().mockReturnThis(),
+        order: jest.fn().mockReturnThis(),
+        in: jest.fn().mockReturnThis(),
+        then: (resolve: (value: unknown) => void) => resolve({ data: [h2hLeague], error: null }),
+      };
+      const mockFrom = jest.fn((table: string) => {
+        if (table === 'league_participants') {
+          return {
+            select: jest.fn().mockReturnThis(),
+            eq: jest.fn().mockResolvedValue({ data: [{ league_id: 201 }], error: null }),
+          };
+        }
+        if (table === 'leagues') return leaguesQuery;
+        if (table === 'job_execution_log') {
+          return {
+            select: jest.fn().mockReturnThis(),
+            eq: jest.fn().mockReturnThis(),
+            not: jest.fn().mockReturnThis(),
+            order: jest.fn().mockReturnThis(),
+            limit: jest.fn().mockReturnThis(),
+            maybeSingle: jest.fn().mockResolvedValue({ data: null, error: null }),
+          };
+        }
+        throw new Error(`Unexpected table: ${table}`);
+      });
+      mockSupabaseServer.mockReturnValue({ from: mockFrom });
+
+      const response = await GET(new NextRequest('http://localhost:3000/api/leagues?privacy=private'));
+      expect(response.status).toBe(200);
+      const json = await response.json();
+
+      expect(json.leagues[0].standings.map((standing: {
+        manager: string;
+        rank: number;
+        wins: number;
+        leaguePoints: number;
+      }) => ({
+        manager: standing.manager,
+        rank: standing.rank,
+        wins: standing.wins,
+        leaguePoints: standing.leaguePoints,
+      }))).toEqual([
+        { manager: 'Beta', rank: 1, wins: 2, leaguePoints: 6 },
+        { manager: 'Alpha', rank: 2, wins: 0, leaguePoints: 0 },
+        { manager: 'Gamma', rank: 3, wins: 0, leaguePoints: 0 },
+      ]);
+    });
   });
 
   describe('POST /api/leagues action=join atomic RPC', () => {

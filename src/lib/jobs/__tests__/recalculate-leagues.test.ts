@@ -81,6 +81,8 @@ describe('Recalculate Leagues Job', () => {
       { data: [], error: null },
       { data: [{ id: 201 }, { id: 202 }, { id: 203 }], error: null },
       { data: null, error: null },
+      { data: [], error: null },
+      { data: [], error: null },
     );
 
     const result = await recalculateLeagues();
@@ -101,6 +103,8 @@ describe('Recalculate Leagues Job', () => {
       },
       { data: [{ id: 201 }, { id: 202 }, { id: 203 }, { id: 204 }], error: null },
       { data: null, error: null },
+      { data: [], error: null },
+      { data: [], error: null },
     );
 
     const result = await recalculateLeagues();
@@ -118,5 +122,63 @@ describe('Recalculate Leagues Job', () => {
     ]);
     const insertedFixture = mockSupabase.insert.mock.calls[0][0][0];
     expect([insertedFixture.participant_a_id, insertedFixture.participant_b_id].sort()).toEqual([203, 204]);
+  });
+
+  it('resolves draws once and rebuilds H2H records and positions from resolved fixtures', async () => {
+    queryResults.push(
+      { data: [{ id: 4, scoring_type: 'weekly_wins' }], error: null },
+      { data: [{ id: 5, status: 'closed' }], error: null },
+      {
+        data: [{
+          id: 71,
+          league_id: 4,
+          participant_a_id: 11,
+          participant_b_id: 12,
+          participant_a: { user_id: '', fantasy_season_id: 101 },
+          participant_b: { user_id: '', fantasy_season_id: 102 },
+        }],
+        error: null,
+      },
+      {
+        data: [
+          { fantasy_season_id: 101, total_points: 55 },
+          { fantasy_season_id: 102, total_points: 55 },
+        ],
+        error: null,
+      },
+      { data: null, error: null },
+      { data: [{ id: 11 }, { id: 12 }], error: null },
+      {
+        data: [{
+          participant_a_id: 11,
+          participant_b_id: 12,
+          points_a: 55,
+          points_b: 55,
+          is_bye: false,
+          is_resolved: true,
+        }],
+        error: null,
+      },
+      { data: null, error: null },
+      { data: null, error: null },
+    );
+
+    const result = await recalculateLeagues();
+
+    expect(result.success).toBe(true);
+    expect(result.h2hResultsCalculated).toBe(1);
+    expect(mockSupabase.update).toHaveBeenCalledWith({
+      points_a: 55,
+      points_b: 55,
+      winner_id: null,
+      is_resolved: true,
+    });
+    expect(mockSupabase.update).toHaveBeenCalledWith({
+      rank: 1,
+      wins: 0,
+      losses: 0,
+      draws: 1,
+    });
+    expect(mockSupabase.eq).toHaveBeenCalledWith('is_resolved', false);
   });
 });

@@ -204,8 +204,8 @@ function LeaguesPageContent() {
   const standings = visibleLeagues.flatMap((l) => l.standings ?? []).sort((a, b) => (a.rank ?? 999) - (b.rank ?? 999));
   const fixtures = visibleLeagues.flatMap((l) => l.fixtures ?? []);
 
-  // Pick the hero league: first sorted by most participants
-  const heroLeague = [...leagues].sort((a, b) => b.currentParticipants - a.currentParticipants)[0] ?? null;
+  const heroLeague = [...visibleLeagues]
+    .sort((a, b) => b.currentParticipants - a.currentParticipants)[0] ?? null;
 
   const onCreateLeague = async (form: {
     name: string;
@@ -661,20 +661,24 @@ function LeaguesPageContent() {
                 {(!selectedLeague.standings || selectedLeague.standings.length === 0) ? (
                   <p className="text-sm text-[var(--text-muted)]">No participants registered yet.</p>
                 ) : (
-                  <div className="overflow-hidden rounded-2xl border border-slate-700 bg-slate-900/60 shadow-xs">
-                    <table className="w-full text-left text-sm">
+                  <div className="overflow-x-auto rounded-2xl border border-slate-700 bg-slate-900/60 shadow-xs">
+                    <table className="min-w-[35rem] w-full text-left text-sm">
                       <thead className="border-b border-slate-700 bg-slate-900 text-xs uppercase text-white font-semibold">
                         <tr>
                           <th className="px-4 py-3 text-white">Rank</th>
                           <th className="px-4 py-3 text-white">Manager</th>
                           {selectedLeague.type === 'h2h' && <th className="px-4 py-3 text-center text-white">W-L-D</th>}
+                          {selectedLeague.type === 'h2h' && <th className="px-4 py-3 text-right text-white">League Pts</th>}
                           <th className="px-4 py-3 text-right text-white">GW Pts</th>
-                          <th className="px-4 py-3 text-right text-white">Total</th>
+                          <th className="px-4 py-3 text-right text-white">{selectedLeague.type === 'h2h' ? 'Fantasy Total' : 'Total'}</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-800/60 bg-slate-900/40">
                         {[...selectedLeague.standings]
-                          .sort((a, b) => (a.rank ?? 999) - (b.rank ?? 999))
+                          .sort((a, b) => (a.rank ?? 999) - (b.rank ?? 999)
+                            || (b.scoreDifference ?? 0) - (a.scoreDifference ?? 0)
+                            || (b.h2hPointsFor ?? 0) - (a.h2hPointsFor ?? 0)
+                            || a.manager.localeCompare(b.manager))
                           .map((p, idx) => {
                             const rank = p.rank ?? idx + 1;
                             return (
@@ -696,6 +700,9 @@ function LeaguesPageContent() {
                                 <td className="px-4 py-3 font-semibold text-white group-hover:text-amber-400 transition-colors">{p.manager}</td>
                                 {selectedLeague.type === 'h2h' && (
                                   <td className="px-4 py-3 text-center font-mono text-xs text-slate-300">{p.wins}W-{p.losses}L-{p.draws}D</td>
+                                )}
+                                {selectedLeague.type === 'h2h' && (
+                                  <td className="px-4 py-3 text-right font-mono font-bold text-violet-300">{p.leaguePoints ?? 0}</td>
                                 )}
                                 <td className="px-4 py-3 text-right font-mono text-slate-300">{p.gwPoints ?? 0}</td>
                                 <td className="px-4 py-3 text-right font-mono font-bold text-white">{p.points} pts</td>

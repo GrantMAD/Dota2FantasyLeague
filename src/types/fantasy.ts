@@ -233,6 +233,9 @@ export interface StandingEntry {
   wins: number;
   losses: number;
   draws: number;
+  leaguePoints?: number;
+  h2hPointsFor?: number;
+  scoreDifference?: number;
   form: string[];
 }
 

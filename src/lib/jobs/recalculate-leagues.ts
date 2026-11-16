@@ -3,6 +3,7 @@ import {
   deliverPushNotifications,
   type PushNotificationCandidate,
 } from '@/lib/push-notifications';
+import { calculateH2HStandings } from '@/lib/h2h-standings';
 
 interface JobResult {
   success: boolean;
@@ -33,8 +34,22 @@ interface H2HMatchupRow {
   league_id: number;
   participant_a_id: number;
   participant_b_id: number;
+  is_bye: boolean;
   participant_a: MatchupParticipant | null;
   participant_b: MatchupParticipant | null;
+}
+
+interface H2HStandingParticipantRow {
+  id: number;
+}
+
+interface H2HStandingMatchupRow {
+  participant_a_id: number;
+  participant_b_id: number;
+  points_a: number | null;
+  points_b: number | null;
+  is_bye: boolean;
+  is_resolved: boolean;
 }
 
 interface LeagueRow {
@@ -46,8 +61,6 @@ interface GameweekRow {
   id: number;
   status: string;
 }
-
-type ParticipantRecordField = 'wins' | 'losses' | 'draws';
 
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
@@ -186,6 +199,7 @@ class RecalculateLeagues {
             participant_a_id: participantA.id,
             participant_b_id: participantA.id,
             is_bye: true,
+            is_resolved: true,
             winner_id: participantA.id,
           });
         }
@@ -202,12 +216,9 @@ class RecalculateLeagues {
     }
   }
 
-  /**
-   * Calculate results for unresolved H2H matchups in a closed gameweek
-   */
+  /** Calculate results for unresolved H2H matchups in a closed gameweek. */
   private async calculateH2HResults(gameweekId: number): Promise<number> {
     try {
-      // Find open matchups for this gameweek
       const { data: matchupData, error: matchupsError } = await this.supabase
         .from('head_to_head_matchups')
         .select(`
@@ -219,21 +230,22 @@ class RecalculateLeagues {
           participant_b:league_participants!participant_b_id(user_id, fantasy_season_id)
         `)
         .eq('gameweek_id', gameweekId)
-        .is('winner_id', null)
+        .eq('is_resolved', false)
         .eq('is_bye', false);
+      if (matchupsError) throw new Error(`Failed to fetch unresolved H2H matchups: ${matchupsError.message}`);
       const matchups = (matchupData ?? []) as H2HMatchupRow[];
 
-      if (matchupsError || !matchups || matchups.length === 0) {
+      if (matchups.length === 0) {
         return 0;
       }
 
       let resultsCalculated = 0;
 
-      // Pre-fetch all gameweek lineups into a map to eliminate 2 queries per matchup
-      const { data: lineupData } = await this.supabase
+      const { data: lineupData, error: lineupError } = await this.supabase
         .from('fantasy_lineups')
         .select('fantasy_season_id, total_points')
         .eq('gameweek_id', gameweekId);
+      if (lineupError) throw new Error(`Failed to fetch H2H gameweek lineups: ${lineupError.message}`);
 
       const lineupPointsMap = new Map<number, number>();
       if (lineupData) {
@@ -266,26 +278,15 @@ class RecalculateLeagues {
           isDraw = true;
         }
 
-        // Update matchup
-        await this.table('head_to_head_matchups')
+        const { error: updateError } = await this.table('head_to_head_matchups')
           .update({
             points_a: pointsA,
             points_b: pointsB,
-            winner_id: winnerId
+            winner_id: winnerId,
+            is_resolved: true,
           })
           .eq('id', matchup.id);
-
-        // Update participant records
-        if (winnerId === matchup.participant_a_id) {
-          await this.incrementParticipantRecord(matchup.participant_a_id, 'wins');
-          await this.incrementParticipantRecord(matchup.participant_b_id, 'losses');
-        } else if (winnerId === matchup.participant_b_id) {
-          await this.incrementParticipantRecord(matchup.participant_b_id, 'wins');
-          await this.incrementParticipantRecord(matchup.participant_a_id, 'losses');
-        } else if (isDraw) {
-          await this.incrementParticipantRecord(matchup.participant_a_id, 'draws');
-          await this.incrementParticipantRecord(matchup.participant_b_id, 'draws');
-        }
+        if (updateError) throw new Error(`Failed to resolve H2H matchup ${matchup.id}: ${updateError.message}`);
 
         // Dispatch notifications to both managers
         try {
@@ -343,30 +344,44 @@ class RecalculateLeagues {
         resultsCalculated++;
       }
 
-      // Re-rank H2H leagues based on wins/draws (3 pts for win, 1 for draw) - Simplified logic
-      // In a real scenario, this would be a separate pass per H2H league.
-
       return resultsCalculated;
     } catch (err: unknown) {
-      console.error(`Error calculating H2H results for gameweek ${gameweekId}:`, err);
-      return 0;
+      throw new Error(`Error calculating H2H results for gameweek ${gameweekId}: ${errorMessage(err)}`);
     }
   }
 
-  private async incrementParticipantRecord(participantId: number, field: ParticipantRecordField) {
-     // Fetch current, then increment to avoid race conditions if multiple jobs run,
-     // though RPC is better.
-     const { data: participantData } = await this.table('league_participants')
-       .select(field)
-       .eq('id', participantId)
-       .single();
-     const data = participantData as Record<ParticipantRecordField, number | null> | null;
-     
-     if (data) {
-       await this.table('league_participants')
-         .update({ [field]: (data[field] || 0) + 1 })
-         .eq('id', participantId);
-     }
+  private async recalculateH2HLeague(leagueId: number): Promise<void> {
+    const [{ data: participantData, error: participantsError }, { data: matchupData, error: matchupsError }] = await Promise.all([
+      this.table('league_participants')
+        .select('id')
+        .eq('league_id', leagueId),
+      this.table('head_to_head_matchups')
+        .select('participant_a_id, participant_b_id, points_a, points_b, is_bye, is_resolved')
+        .eq('league_id', leagueId)
+        .eq('is_resolved', true),
+    ]);
+
+    if (participantsError) throw new Error(`Failed to fetch H2H participants for league ${leagueId}: ${participantsError.message}`);
+    if (matchupsError) throw new Error(`Failed to fetch resolved H2H matchups for league ${leagueId}: ${matchupsError.message}`);
+
+    const standings = calculateH2HStandings(
+      (participantData ?? []) as H2HStandingParticipantRow[],
+      (matchupData ?? []) as H2HStandingMatchupRow[],
+    );
+    const updates = await Promise.all(standings.map(async (standing) => {
+      const { error } = await this.table('league_participants')
+        .update({
+          rank: standing.rank,
+          wins: standing.wins,
+          losses: standing.losses,
+          draws: standing.draws,
+        })
+        .eq('id', standing.participantId);
+      return error;
+    }));
+
+    const updateError = updates.find((error) => error !== null);
+    if (updateError) throw new Error(`Failed to update H2H standings for league ${leagueId}: ${updateError.message}`);
   }
 
 
@@ -398,10 +413,15 @@ class RecalculateLeagues {
       }
 
       // 2. Fetch current active gameweek and recently closed gameweeks
-      const { data: gameweekData } = await this.supabase
+      const { data: gameweekData, error: gameweeksError } = await this.supabase
         .from('gameweeks')
         .select('id, status')
         .in('status', ['active', 'closed']);
+      if (gameweeksError) {
+        result.errors.push(`Failed to fetch active and closed gameweeks: ${gameweeksError.message}`);
+        result.duration = Date.now() - startTime;
+        return result;
+      }
       const gameweeks = (gameweekData ?? []) as GameweekRow[];
       
       const activeGameweek = gameweeks.find((gameweek) => gameweek.status === 'active');
@@ -416,22 +436,31 @@ class RecalculateLeagues {
             const success = await this.recalculateClassicLeague(league.id);
             if (success) result.classicLeaguesUpdated++;
           } else if (league.scoring_type === 'weekly_wins') {
-             // H2H League
-             if (activeGameweek) {
-               const generated = await this.generateH2HFixtures(league.id, activeGameweek.id);
-               result.h2hFixturesGenerated += generated;
-             }
+            if (activeGameweek) {
+              const generated = await this.generateH2HFixtures(league.id, activeGameweek.id);
+              result.h2hFixturesGenerated += generated;
+            }
           }
-          } catch (err: unknown) {
-            result.errors.push(`Error processing league ${league.id}: ${errorMessage(err)}`);
+        } catch (err: unknown) {
+          result.errors.push(`Error processing league ${league.id}: ${errorMessage(err)}`);
         }
       }
 
-      // Calculate results for the most recent closed H2H gameweek (historical ones are already finalized)
-      const targetClosedGws = closedGameweeks.slice(-1);
-      for (const closedGw of targetClosedGws) {
+      for (const closedGw of closedGameweeks) {
+        try {
           const calculated = await this.calculateH2HResults(closedGw.id);
           result.h2hResultsCalculated += calculated;
+        } catch (err: unknown) {
+          result.errors.push(`Error processing closed gameweek ${closedGw.id}: ${errorMessage(err)}`);
+        }
+      }
+
+      for (const league of leagues.filter((item) => item.scoring_type === 'weekly_wins')) {
+        try {
+          await this.recalculateH2HLeague(league.id);
+        } catch (err: unknown) {
+          result.errors.push(`Error recalculating H2H league ${league.id}: ${errorMessage(err)}`);
+        }
       }
 
       if (this.pushCandidates.length > 0) {

@@ -731,7 +731,7 @@ export default function RulesPage() {
           <article className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5">
             <h3 className="text-lg font-bold text-[var(--text-primary)]">Head-to-head leagues</h3>
             <p className="mt-2 text-sm leading-relaxed text-[var(--text-secondary)]">
-              Each gameweek, your lineup total is compared with your scheduled opponent&apos;s. The higher score earns a win; equal scores are a draw. H2H standings track wins, losses, draws, and points.
+              Each gameweek, your lineup total is compared with your scheduled opponent&apos;s. The higher score earns a win; equal scores are a draw. Standings award 3 league points per win and 1 per draw, then break ties by cumulative H2H score difference and points scored. Managers still tied share a rank.
             </p>
           </article>
         </div>

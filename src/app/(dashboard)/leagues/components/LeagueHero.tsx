@@ -14,8 +14,12 @@ export function LeagueHero({ league, onOpen }: LeagueHeroProps) {
   const toast = useToast();
   const [copied, setCopied] = useState(false);
 
-  const topEntry = league.standings?.sort((a: StandingEntry, b: StandingEntry) => (a.rank ?? 999) - (b.rank ?? 999))[0];
   const isH2H = league.type === 'h2h';
+  const topEntry = [...(league.standings ?? [])]
+    .sort((a: StandingEntry, b: StandingEntry) => (a.rank ?? 999) - (b.rank ?? 999)
+      || (b.scoreDifference ?? 0) - (a.scoreDifference ?? 0)
+      || (b.h2hPointsFor ?? 0) - (a.h2hPointsFor ?? 0)
+      || a.manager.localeCompare(b.manager))[0];
 
   const handleCopy = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -109,9 +113,14 @@ export function LeagueHero({ league, onOpen }: LeagueHeroProps) {
 
         {topEntry && (
           <div className="rounded-2xl border border-amber-500/30 bg-white dark:bg-amber-500/[0.08] p-4 shadow-sm">
-            <div className="text-[10px] uppercase tracking-[0.2em] font-semibold text-amber-700 dark:text-amber-400/90">League Leader</div>
+            <div className="text-[10px] uppercase tracking-[0.2em] font-semibold text-amber-700 dark:text-amber-400/90">
+              {isH2H ? 'League Leader · League Points' : 'League Leader · Total Points'}
+            </div>
             <div className="mt-2 truncate text-base font-bold text-slate-900 dark:text-white">{topEntry.manager}</div>
-            <div className="mt-0.5 font-mono text-2xl font-black text-amber-600 dark:text-amber-400">{topEntry.points}<span className="ml-1 text-xs font-sans text-amber-700 dark:text-amber-300/80">pts</span></div>
+            <div className="mt-0.5 font-mono text-2xl font-black text-amber-600 dark:text-amber-400">
+              {isH2H ? topEntry.leaguePoints ?? 0 : topEntry.points}
+              <span className="ml-1 text-xs font-sans text-amber-700 dark:text-amber-300/80">pts</span>
+            </div>
           </div>
         )}
       </div>

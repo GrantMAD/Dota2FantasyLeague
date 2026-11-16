@@ -13,7 +13,10 @@ interface LeagueCardProps {
 export function LeagueCard({ league, onClick }: LeagueCardProps) {
   const isH2H = league.type === 'h2h';
   const topEntries = [...(league.standings ?? [])]
-    .sort((a: StandingEntry, b: StandingEntry) => (a.rank ?? 999) - (b.rank ?? 999))
+    .sort((a: StandingEntry, b: StandingEntry) => (a.rank ?? 999) - (b.rank ?? 999)
+      || (b.scoreDifference ?? 0) - (a.scoreDifference ?? 0)
+      || (b.h2hPointsFor ?? 0) - (a.h2hPointsFor ?? 0)
+      || a.manager.localeCompare(b.manager))
     .slice(0, 3);
   const fillPct = Math.min(100, (league.currentParticipants / league.maxParticipants) * 100);
   const accent = isH2H ? '#a78bfa' : '#f59e0b';
@@ -85,7 +88,7 @@ export function LeagueCard({ league, onClick }: LeagueCardProps) {
       <div className="border-t border-[var(--border)] pt-3">
         <div className="mb-2 flex items-center justify-between">
           <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)]">Top managers</span>
-          <span className="text-[10px] text-[var(--text-muted)]">Total points</span>
+          <span className="text-[10px] text-[var(--text-muted)]">{isH2H ? 'League points' : 'Total points'}</span>
         </div>
         {topEntries.length > 0 ? (
           <ol className="space-y-1.5">
@@ -108,7 +111,9 @@ export function LeagueCard({ league, onClick }: LeagueCardProps) {
                   )}
                 </div>
                 <span className="min-w-0 flex-1 truncate text-xs font-medium text-[var(--text-primary)]">{entry.manager}</span>
-                <span className="shrink-0 font-mono text-xs font-bold text-[var(--text-secondary)]">{entry.points} pts</span>
+                <span className="shrink-0 font-mono text-xs font-bold text-[var(--text-secondary)]">
+                  {isH2H ? entry.leaguePoints ?? 0 : entry.points} pts
+                </span>
               </li>
             ))}
           </ol>

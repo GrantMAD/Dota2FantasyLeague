@@ -4,6 +4,7 @@ import { supabaseServer } from '@/lib/supabase';
 import { getOrCreateFantasySeason } from '@/lib/fantasy-season';
 import { deliverPushNotifications } from '@/lib/push-notifications';
 import { withApiTelemetry } from '@/lib/api-telemetry';
+import { calculateH2HStandings } from '@/lib/h2h-standings';
 
 
 interface LeagueRow {
@@ -31,28 +32,29 @@ interface LeagueRow {
   head_to_head_matchups: Array<{
     id: number;
     gameweek_id: number;
+    participant_a_id: number;
+    participant_b_id: number;
     points_a: number;
     points_b: number;
     winner_id: number | null;
     is_bye: boolean;
+    is_resolved: boolean;
     participant_a: { users: { username: string; display_name: string | null; avatar_url: string | null } | null } | null;
     participant_b: { users: { username: string; display_name: string | null; avatar_url: string | null } | null } | null;
   }>;
 }
 
 function serializeLeague(league: LeagueRow) {
-  return {
-    id: league.id,
-    name: league.name,
-    type: league.league_type === 'head_to_head' || league.league_type === 'h2h' ? 'h2h' : 'classic',
-    privacyLevel: league.privacy_level,
-    description: league.description ?? '',
-    maxParticipants: league.max_participants ?? 32,
-    currentParticipants: league.current_participants,
-    inviteCode: league.invite_code ?? '',
-    status: league.status,
-    createdAt: league.created_at ?? new Date().toISOString(),
-    standings: league.league_participants.map((participant) => ({
+  const isH2H = league.league_type === 'head_to_head' || league.league_type === 'h2h';
+  const h2hStandings = isH2H
+    ? new Map(calculateH2HStandings(
+      league.league_participants.map(({ id }) => ({ id })),
+      league.head_to_head_matchups,
+    ).map((standing) => [standing.participantId, standing]))
+    : null;
+  const standings = league.league_participants.map((participant) => {
+    const h2hStanding = h2hStandings?.get(participant.id);
+    return {
       userId: participant.user_id,
       manager: participant.users?.display_name || participant.users?.username || 'Manager',
       username: participant.users?.username || 'Manager',
@@ -61,12 +63,30 @@ function serializeLeague(league: LeagueRow) {
       bio: participant.users?.bio || null,
       points: Number(participant.points ?? 0),
       gwPoints: Number(participant.fantasy_seasons?.gameweek_points_latest ?? 0),
-      rank: participant.rank,
-      wins: participant.wins ?? 0,
-      losses: participant.losses ?? 0,
-      draws: participant.draws ?? 0,
+      rank: h2hStanding?.rank ?? participant.rank,
+      wins: h2hStanding?.wins ?? participant.wins ?? 0,
+      losses: h2hStanding?.losses ?? participant.losses ?? 0,
+      draws: h2hStanding?.draws ?? participant.draws ?? 0,
+      leaguePoints: h2hStanding?.leaguePoints,
+      h2hPointsFor: h2hStanding?.pointsFor,
+      scoreDifference: h2hStanding?.scoreDifference,
       form: [],
-    })),
+    };
+  }).sort((a, b) => (a.rank ?? 999) - (b.rank ?? 999)
+    || a.manager.localeCompare(b.manager));
+
+  return {
+    id: league.id,
+    name: league.name,
+    type: isH2H ? 'h2h' : 'classic',
+    privacyLevel: league.privacy_level,
+    description: league.description ?? '',
+    maxParticipants: league.max_participants ?? 32,
+    currentParticipants: league.current_participants,
+    inviteCode: league.invite_code ?? '',
+    status: league.status,
+    createdAt: league.created_at ?? new Date().toISOString(),
+    standings,
     fixtures: league.head_to_head_matchups.map((matchup) => ({
       id: matchup.id,
       leagueId: league.id,
@@ -115,7 +135,7 @@ async function getHandler(request: NextRequest) {
     }
 
     let query = supabase.from('leagues')
-      .select('id, name, league_type, privacy_level, description, max_participants, current_participants, invite_code, status, created_at, league_participants(id, user_id, points, rank, wins, losses, draws, users(id, username, display_name, avatar_url, bio), fantasy_seasons(gameweek_points_latest)), head_to_head_matchups(id, gameweek_id, points_a, points_b, winner_id, is_bye, participant_a:league_participants!participant_a_id(users(id, username, display_name, avatar_url, bio)), participant_b:league_participants!participant_b_id(users(id, username, display_name, avatar_url, bio)))')
+      .select('id, name, league_type, privacy_level, description, max_participants, current_participants, invite_code, status, created_at, league_participants(id, user_id, points, rank, wins, losses, draws, users(id, username, display_name, avatar_url, bio), fantasy_seasons(gameweek_points_latest)), head_to_head_matchups(id, gameweek_id, participant_a_id, participant_b_id, points_a, points_b, winner_id, is_bye, is_resolved, participant_a:league_participants!participant_a_id(users(id, username, display_name, avatar_url)), participant_b:league_participants!participant_b_id(users(id, username, display_name, avatar_url)))')
       .eq('status', 'active')
       .order('created_at', { ascending: false });
 
