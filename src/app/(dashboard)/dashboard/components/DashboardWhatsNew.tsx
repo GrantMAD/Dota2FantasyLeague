@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { fetchWithAuth } from '@/lib/fetch-with-auth';
 import type { FriendActivity } from '@/types/friends';
+import { keepLatestGameweekScoreActivities } from './friend-activity';
 
 export interface WhatsNewEvent {
   kind: 'tournament';
@@ -104,7 +105,7 @@ export function DashboardWhatsNew({ whatsNew }: DashboardWhatsNewProps) {
         const response = await fetchWithAuth('/api/friends/feed?limit=6');
         const data = (await response.json()) as { activities?: FriendActivity[]; error?: string };
         if (response.ok && !cancelled && data.activities) {
-          setFriendActivities(data.activities.slice(0, 6));
+          setFriendActivities(keepLatestGameweekScoreActivities(data.activities).slice(0, 6));
         }
       } catch {
         // Silently keep empty list if friends feed fails or user is offline
