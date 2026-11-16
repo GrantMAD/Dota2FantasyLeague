@@ -1,6 +1,7 @@
 import {
   getCompletedGamesAwaitingPlayerStats,
   getDefaultSeriesGame,
+  getEffectiveBestOf,
   groupMatchesBySeries,
   shouldShowMatchSeries,
   summarizeMatchSeries,
@@ -12,6 +13,13 @@ describe('getDefaultSeriesGame', () => {
     const gameOne = { id: 1, match_number: 1 };
 
     expect(getDefaultSeriesGame([gameThree, gameOne])).toBe(gameOne);
+  });
+
+  describe('getEffectiveBestOf', () => {
+    it('assumes best-of-three for an unconfigured series and best-of-one for a standalone match', () => {
+      expect(getEffectiveBestOf([{ id: 1, series_id: 9 }], null)).toBe(3);
+      expect(getEffectiveBestOf([{ id: 2, series_id: null }], undefined)).toBe(1);
+    });
   });
 
   it('falls back to the first game when game numbers are unavailable', () => {
@@ -95,6 +103,29 @@ describe('groupMatchesBySeries', () => {
   });
 
   describe('summarizeMatchSeries', () => {
+    it('does not mark a series final merely because all currently known games are completed', () => {
+      const gameOne = {
+        id: 1,
+        series_id: 9,
+        status: 'completed',
+        winner_team_id: 1,
+        radiant_team_id: 1,
+        dire_team_id: 2,
+      };
+      const gameTwo = {
+        id: 2,
+        series_id: 9,
+        status: 'completed',
+        winner_team_id: 2,
+        radiant_team_id: 1,
+        dire_team_id: 2,
+      };
+
+      expect(summarizeMatchSeries([gameOne], 3).isComplete).toBe(false);
+      expect(summarizeMatchSeries([gameOne, gameTwo], 3).isComplete).toBe(false);
+      expect(summarizeMatchSeries([gameOne], null).isComplete).toBe(false);
+    });
+
     it('counts completed game wins and recognizes a clinched best-of series', () => {
       expect(summarizeMatchSeries([
         { id: 1, series_id: 9, scheduled_at: '2026-11-12T10:00:00', status: 'completed', winner_team_id: 1, radiant_team_id: 1, dire_team_id: 2 },

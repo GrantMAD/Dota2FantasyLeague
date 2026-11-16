@@ -1,3 +1,5 @@
+import { resolveHeroName } from '@/lib/constants/dota-heroes';
+
 export interface SeriesPlayerStat {
   player_id: number;
   hero_name?: string | null;
@@ -162,7 +164,7 @@ export function calculateSeriesFantasyImpact(
       playersByKey.set(key, {
         playerId: stat.player_id,
         playerName: getPlayerName(stat),
-        heroName: stat.hero_name ?? undefined,
+        heroName: stat.hero_name ? resolveHeroName(undefined, stat.hero_name) : undefined,
         role: stat.professional_players?.primary_role || 'Core',
         fantasyPoints,
         effectivePoints: 0,
@@ -243,7 +245,7 @@ export function calculateSeriesLeaders(games: SeriesGameStatistics[]): {
         totals = {
           playerId: stat.player_id,
           playerName: getPlayerName(stat),
-          heroName: stat.hero_name,
+          heroName: stat.hero_name ? resolveHeroName(undefined, stat.hero_name) : stat.hero_name,
           role: stat.professional_players?.primary_role || 'Core',
           fantasyPoints: 0,
           heroDamage: 0,

@@ -9,7 +9,7 @@
 
 import { getSupabaseServerClient } from '@/lib/db/supabase-server';
 import type { Match, MatchPlayerStats } from '@/types/database';
-import { getRoleByHeroName } from '@/lib/constants/dota-heroes';
+import { getRoleByHeroName, resolveHeroName } from '@/lib/constants/dota-heroes';
 import {
   getCanonicalSteamId,
   hasCanonicalSteamId,
@@ -196,6 +196,9 @@ export async function fetchMatchDetails(options?: JobRunOptions): Promise<FetchD
               }
 
               for (const player of team.players || []) {
+                const parsedHeroId = parseInt(String(player.heroId || '0'), 10);
+                const heroId = Number.isNaN(parsedHeroId) ? 0 : parsedHeroId;
+                const heroName = resolveHeroName(heroId, player.heroName);
                 const playerProviderId = String(player.playerId || '');
                 const playerIdentity = normalizePlayerIdentity(playerProviderId);
                 let dbPlayerId = (playerIdentity && playerMap.get(playerIdentity))
@@ -228,10 +231,10 @@ export async function fetchMatchDetails(options?: JobRunOptions): Promise<FetchD
                     playerMap.set(playerProviderId, matchedPlayer.id);
                   } else {
                     // Auto-register player if genuinely not in database
-                    const playerName = (player.heroName && player.heroName !== 'Unknown')
-                      ? `Player (${player.heroName})`
+                    const playerName = heroName !== 'Unknown'
+                      ? `Player (${heroName})`
                       : `Player #${playerProviderId}`;
-                    const initialRole = getRoleByHeroName(player.heroName) || 'Carry';
+                    const initialRole = getRoleByHeroName(heroName) || 'Carry';
                     const { data: newPlayer } = await supabase.from('professional_players')
                       .insert({
                         name: playerName,
@@ -275,14 +278,12 @@ export async function fetchMatchDetails(options?: JobRunOptions): Promise<FetchD
                   return 0;
                 };
 
-                const heroIdInt = parseInt(String(player.heroId || '0'), 10);
-
                 statsToInsert.push({
                   match_id: match.id,
                   player_id: dbPlayerId,
                   team_id: dbTeamId,
-                  hero_id: isNaN(heroIdInt) ? 0 : heroIdInt,
-                  hero_name: player.heroName || `Hero ${player.heroId}`,
+                  hero_id: heroId,
+                  hero_name: heroName,
                   kills: parseNum(player.kills),
                   deaths: parseNum(player.deaths),
                   assists: parseNum(player.assists),

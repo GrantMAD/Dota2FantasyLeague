@@ -80,11 +80,11 @@ export function MatchFantasyImpactBanner({
         </div>
       </div>
 
-      <div className="relative grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="relative grid grid-cols-1 items-stretch gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {matchedPlayers.map((player) => (
           <div
             key={player.playerId}
-            className="flex flex-col gap-3 rounded-xl border border-[var(--border)] bg-[var(--surface-raised)] p-3 transition hover:border-amber-500/40 hover:shadow-lg hover:shadow-amber-500/5"
+            className="flex h-full flex-col gap-3 rounded-xl border border-[var(--border)] bg-[var(--surface-raised)] p-3 transition hover:border-amber-500/40 hover:shadow-lg hover:shadow-amber-500/5"
           >
             <div className="flex items-center justify-between gap-3">
               <div className="min-w-0">
@@ -130,7 +130,7 @@ export function MatchFantasyImpactBanner({
                 )}
               </div>
             </div>
-            <div className="space-y-1 border-t border-[var(--border)] pt-2">
+            <div className="mt-auto space-y-1 border-t border-[var(--border)] pt-2">
               {player.gameValues.map((game) => {
                 const effectivePoints = game.fantasyPoints * player.multiplier;
                 return (

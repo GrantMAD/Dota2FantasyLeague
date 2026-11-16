@@ -129,6 +129,7 @@ export function DashboardClient({ initialData, initialWhatsNew }: DashboardClien
     let whatsNewPollTimer: number | null = null;
     let liveRequestInFlight = false;
     let whatsNewRequestInFlight = false;
+    let refreshWhatsNewAfterCurrentRequest = false;
     let hasLiveMatches = false;
 
     const clearLivePoll = () => {
@@ -198,8 +199,22 @@ export function DashboardClient({ initialData, initialWhatsNew }: DashboardClien
         }
       } finally {
         whatsNewRequestInFlight = false;
+        if (!cancelled && refreshWhatsNewAfterCurrentRequest) {
+          refreshWhatsNewAfterCurrentRequest = false;
+          void fetchWhatsNew();
+          return;
+        }
         scheduleWhatsNewPoll();
       }
+    };
+
+    const handleWhatsNewRefresh = () => {
+      clearWhatsNewPoll();
+      if (whatsNewRequestInFlight) {
+        refreshWhatsNewAfterCurrentRequest = true;
+        return;
+      }
+      void fetchWhatsNew();
     };
 
     // ── Live match polling ──
@@ -254,6 +269,7 @@ export function DashboardClient({ initialData, initialWhatsNew }: DashboardClien
     };
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('fantasy:whats-new-refresh', handleWhatsNewRefresh);
 
     const loadDashboard = async () => {
       try {
@@ -290,6 +306,7 @@ export function DashboardClient({ initialData, initialWhatsNew }: DashboardClien
       clearLivePoll();
       clearWhatsNewPoll();
       document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('fantasy:whats-new-refresh', handleWhatsNewRefresh);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router]);

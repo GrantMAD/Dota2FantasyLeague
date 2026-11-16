@@ -11,6 +11,7 @@ describe('calculateSeriesFantasyImpact', () => {
         playerStats: [{
           player_id: 1,
           series_player_key: 'steam-account:1',
+          hero_name: 'Hero 155',
           professional_players: { in_game_name: 'Player A' },
         }],
         fantasyBreakdown: [{ player_id: 1, total_points: 10 }],
@@ -48,6 +49,7 @@ describe('calculateSeriesFantasyImpact', () => {
     expect(result).toHaveLength(1);
     expect(result[0]).toMatchObject({
       playerId: 1,
+      heroName: 'Largo',
       fantasyPoints: 25,
       effectivePoints: 75,
       multiplier: 3,
@@ -61,6 +63,26 @@ describe('calculateSeriesFantasyImpact', () => {
 });
 
 describe('calculateSeriesLeaders', () => {
+  it('resolves a known hero ID placeholder before returning leader details', () => {
+    const result = calculateSeriesLeaders([{
+      id: 101,
+      match_number: 1,
+      scheduled_at: '2026-11-10T12:00:00Z',
+      duration_seconds: 2400,
+      playerStats: [{
+        player_id: 1,
+        hero_name: 'Hero 155',
+        kills: 5,
+        gold_per_minute: 600,
+        hero_damage: 20000,
+        professional_players: { in_game_name: 'Player A', primary_role: 'Carry' },
+      }],
+      fantasyBreakdown: [{ player_id: 1, total_points: 12 }],
+    }]);
+
+    expect(result.fantasyMVP?.heroName).toBe('Largo');
+  });
+
   it('totals fantasy points, damage, estimated gold and kills across games', () => {
     const result = calculateSeriesLeaders([
       {

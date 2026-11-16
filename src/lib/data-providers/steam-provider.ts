@@ -18,6 +18,7 @@ import {
   MatchDetailsData,
   RosterChangeData,
 } from './provider-interface';
+import { resolveHeroName } from '@/lib/constants/dota-heroes';
 
 interface SteamConfig {
   apiKey: string;
@@ -463,7 +464,7 @@ export class SteamProvider extends DataProviderBase implements DataProvider {
       const mapPlayer = (p: SteamMatchDetailsPlayer) => ({
         playerId: String(p.account_id ?? 'unknown'),
         heroId: String(p.hero_id ?? '0'),
-        heroName: `Hero ${p.hero_id}`,
+        heroName: resolveHeroName(p.hero_id),
         kills: Number(p.kills ?? 0),
         deaths: Number(p.deaths ?? 0),
         assists: Number(p.assists ?? 0),

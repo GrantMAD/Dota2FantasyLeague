@@ -63,6 +63,10 @@ function notificationHref(notification: HeaderNotification) {
   }
 }
 
+function refreshDashboardWhatsNew() {
+  window.dispatchEvent(new Event('fantasy:whats-new-refresh'));
+}
+
 export function NotificationDropdown({
   isOpen,
   onToggle,
@@ -110,6 +114,7 @@ export function NotificationDropdown({
       try {
         const response = await fetchWithAuth(`/api/notifications/${notification.id}/read`, { method: 'PUT' });
         if (!response.ok) throw new Error(`Mark notification read failed (${response.status}).`);
+        refreshDashboardWhatsNew();
       } catch (error) {
         console.error('Failed to mark notification read:', error);
       }
@@ -123,6 +128,7 @@ export function NotificationDropdown({
     try {
       const response = await fetchWithAuth(`/api/notifications/${id}/read`, { method: 'PUT' });
       if (!response.ok) throw new Error(`Mark notification read failed (${response.status}).`);
+      refreshDashboardWhatsNew();
     } catch (error) {
       console.error('Failed to mark notification read:', error);
     }
@@ -143,6 +149,7 @@ export function NotificationDropdown({
     try {
       const response = await fetchWithAuth('/api/notifications', { method: 'PUT' });
       if (!response.ok) throw new Error(`Mark all notifications read failed (${response.status}).`);
+      refreshDashboardWhatsNew();
     } catch (error) {
       console.error('Failed to mark all notifications read:', error);
     } finally {

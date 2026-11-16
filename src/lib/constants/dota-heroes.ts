@@ -129,6 +129,7 @@ export const DOTA2_HEROES: Record<number, string> = {
   137: 'Primal Beast',
   138: 'Muerta',
   145: 'Kez',
+  155: 'Largo',
 };
 
 export function getHeroNameById(heroId: number | string | undefined | null): string {
@@ -136,6 +137,22 @@ export function getHeroNameById(heroId: number | string | undefined | null): str
   const idNum = typeof heroId === 'string' ? parseInt(heroId, 10) : heroId;
   if (isNaN(idNum) || idNum <= 0) return 'Unknown';
   return DOTA2_HEROES[idNum] || `Hero ${idNum}`;
+}
+
+export function resolveHeroName(
+  heroId: number | string | undefined | null,
+  providedName?: string | null,
+): string {
+  const name = providedName?.trim();
+  const placeholderId = name?.match(/^(?:hero\s*)?(\d+)$/i)?.[1];
+  if (name && name.toLowerCase() !== 'unknown' && !placeholderId) {
+    return name;
+  }
+  const numericHeroId = Number(heroId);
+  const resolvedId = Number.isInteger(numericHeroId) && numericHeroId > 0
+    ? heroId
+    : placeholderId;
+  return getHeroNameById(resolvedId);
 }
 
 export const HERO_ROLE_MAP: Record<string, string> = {
@@ -165,6 +182,7 @@ export const HERO_ROLE_MAP: Record<string, string> = {
   'Skywrath Mage': 'Support',
   'Keeper of the Light': 'Support',
   'Dark Willow': 'Support',
+  'Largo': 'Support',
   'Hoodwink': 'Support',
   'Ringmaster': 'Support',
   'Marci': 'Support',

@@ -17,6 +17,7 @@ import {
   MatchDetailsData,
   RosterChangeData,
 } from './provider-interface';
+import { resolveHeroName } from '@/lib/constants/dota-heroes';
 
 interface StratzConfig {
   apiUrl: string;
@@ -868,7 +869,7 @@ export class StratzProvider extends DataProviderBase implements DataProvider {
             players: radiantPlayers.map((p) => ({
               playerId: String(p.steamAccountId),
               heroId: String(p.heroId),
-              heroName: p.hero?.displayName || p.hero?.shortName || (p.heroId ? String(p.heroId) : 'Hero'),
+              heroName: resolveHeroName(p.heroId, p.hero?.displayName || p.hero?.shortName),
               kills: p.kills,
               deaths: p.deaths,
               assists: p.assists,
@@ -890,7 +891,7 @@ export class StratzProvider extends DataProviderBase implements DataProvider {
             players: direPlayers.map((p) => ({
               playerId: String(p.steamAccountId),
               heroId: String(p.heroId),
-              heroName: p.hero?.displayName || p.hero?.shortName || (p.heroId ? String(p.heroId) : 'Hero'),
+              heroName: resolveHeroName(p.heroId, p.hero?.displayName || p.hero?.shortName),
               kills: p.kills,
               deaths: p.deaths,
               assists: p.assists,

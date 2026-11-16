@@ -13,6 +13,7 @@ import { MatchLeadersStrip } from '../components/MatchLeadersStrip';
 import { SeriesGameTabs } from '../components/SeriesGameTabs';
 import { getCompletedGamesAwaitingPlayerStats, getDefaultSeriesGame } from '@/lib/match-series';
 import { calculateSeriesLeaders } from '@/lib/match-series-stats';
+import { resolveHeroName } from '@/lib/constants/dota-heroes';
 
 type MatchDetail = {
   id: number;
@@ -342,7 +343,7 @@ function MatchDetailInner({ params }: { params: Promise<{ id: string }> }) {
                         </Link>
                         {stat.hero_name && (
                           <span className="rounded border border-[var(--border)] bg-[var(--surface-raised)] px-1.5 py-0.5 text-[10px] font-normal text-[var(--text-muted)]">
-                            {stat.hero_name}
+                            {resolveHeroName(undefined, stat.hero_name)}
                           </span>
                         )}
                         {lineupDetail?.isCaptain && (
@@ -592,7 +593,7 @@ function MatchDetailInner({ params }: { params: Promise<{ id: string }> }) {
                 </div>
               ) : (
                 <div className="flex items-center gap-2 rounded-2xl border border-[var(--border)] bg-[var(--surface-raised)] px-5 py-2 shadow-2xl">
-                  <span className="font-mono text-xl font-black tracking-wider text-[var(--text-secondary)]">FT</span>
+                  <span className="font-mono text-xl font-black tracking-wider text-[var(--text-secondary)]">Completed</span>
                 </div>
               )
             ) : isLive ? (

@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { Star, ChevronRight } from 'lucide-react';
 import { TeamLogo } from './TeamLogo';
 import type { MatchSquadPlayer } from '@/lib/match-squad-tracking';
-import { getCompletedGamesAwaitingPlayerStats, summarizeMatchSeries } from '@/lib/match-series';
+import { getCompletedGamesAwaitingPlayerStats, getEffectiveBestOf, summarizeMatchSeries } from '@/lib/match-series';
 
 export interface MatchData {
   id: number;
@@ -120,7 +120,7 @@ export function MatchCard({
     : (initialMatch.series_matches?.length ? initialMatch.series_matches : [initialMatch]);
 
   const match = initialMatch;
-  const bestOf = match.best_of ?? 1;
+  const bestOf = getEffectiveBestOf(games, match.best_of);
   const isSeries = bestOf > 1;
 
   const seriesScore = summarizeMatchSeries(games, bestOf);
@@ -208,7 +208,7 @@ export function MatchCard({
             </span>
           ) : isCompleted ? (
             <span className="text-[11px] font-semibold text-[var(--text-muted)] bg-[var(--surface-raised)] border border-[var(--border)] px-2 py-0.5 rounded-full">
-              {bestOf > 1 ? 'Final' : 'FT'}
+              {bestOf > 1 ? 'Series complete' : 'Completed'}
             </span>
           ) : (
             <span suppressHydrationWarning className="text-[11px] font-semibold text-[var(--accent-primary)] bg-[var(--surface-raised)] border border-[var(--border)] px-2 py-0.5 rounded-full">
@@ -320,7 +320,7 @@ export function MatchCard({
       {gamesAwaitingPlayerStats.length > 0 && (
         <p
           role="status"
-          className="mx-4 mb-3 rounded-lg border border-[var(--border)] bg-[var(--surface-raised)] px-3 py-2 text-[11px] text-[var(--text-muted)]"
+          className="mx-4 mb-3 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-[11px] text-amber-800 dark:text-amber-200"
         >
           Player stats for {gamesAwaitingPlayerStats.length}{' '}
           {gamesAwaitingPlayerStats.length === 1 ? 'game' : 'games'} still processing.

@@ -27,6 +27,14 @@ export interface MatchSeriesScore {
   isLive: boolean;
 }
 
+export function getEffectiveBestOf(
+  games: MatchSeriesRow[],
+  bestOf: number | null | undefined,
+): number {
+  if (typeof bestOf === 'number' && Number.isFinite(bestOf) && bestOf > 0) return bestOf;
+  return games.length > 1 || games.some((game) => game.series_id != null) ? 3 : 1;
+}
+
 export function getCompletedGamesAwaitingPlayerStats<
   T extends {
     status: string;
@@ -114,7 +122,7 @@ export function summarizeMatchSeries(
   const direWins = firstGame?.dire_team_id == null
     ? 0
     : completed.filter((game) => game.winner_team_id === firstGame.dire_team_id).length;
-  const effectiveBestOf = typeof bestOf === 'number' && bestOf > 0 ? bestOf : (games.length > 1 ? 3 : 1);
+  const effectiveBestOf = getEffectiveBestOf(games, bestOf);
   const clinchThreshold = effectiveBestOf <= 1 ? 1 : Math.floor(effectiveBestOf / 2) + 1;
   const clinchedTeamId = radiantWins >= clinchThreshold
     ? firstGame?.radiant_team_id ?? null
@@ -127,7 +135,8 @@ export function summarizeMatchSeries(
     direWins,
     completedGames: completed.length,
     clinchedTeamId,
-    isComplete: clinchedTeamId !== null || (games.length > 0 && completed.length === games.length),
+    isComplete: clinchedTeamId !== null
+      || (games.length >= effectiveBestOf && completed.length === games.length),
     isLive: games.some((game) => game.status === 'live' || game.status === 'in_progress'),
   };
 }

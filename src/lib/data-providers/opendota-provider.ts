@@ -20,7 +20,7 @@ import {
   MatchDetailsData,
   RosterChangeData,
 } from './provider-interface';
-import { getHeroNameById } from '@/lib/constants/dota-heroes';
+import { resolveHeroName } from '@/lib/constants/dota-heroes';
 
 interface OpenDotaConfig {
   apiUrl?: string;
@@ -519,7 +519,7 @@ export class OpenDotaProvider extends DataProviderBase implements DataProvider {
         .map((p) => ({
           playerId: String(p.account_id || 'unknown'),
           heroId: String(p.hero_id),
-          heroName: p.hero_name || getHeroNameById(p.hero_id),
+          heroName: resolveHeroName(p.hero_id, p.hero_name),
           kills: parseNumeric(p.kills),
           deaths: parseNumeric(p.deaths),
           assists: parseNumeric(p.assists),
@@ -541,7 +541,7 @@ export class OpenDotaProvider extends DataProviderBase implements DataProvider {
         .map((p) => ({
           playerId: String(p.account_id || 'unknown'),
           heroId: String(p.hero_id),
-          heroName: p.hero_name || getHeroNameById(p.hero_id),
+          heroName: resolveHeroName(p.hero_id, p.hero_name),
           kills: parseNumeric(p.kills),
           deaths: parseNumeric(p.deaths),
           assists: parseNumeric(p.assists),

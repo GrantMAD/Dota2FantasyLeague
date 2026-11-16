@@ -5,7 +5,7 @@ import { Star, ChevronRight } from 'lucide-react';
 import { TeamLogo } from './TeamLogo';
 import { formatTeamName, type MatchData } from './MatchCard';
 import type { MatchSquadPlayer } from '@/lib/match-squad-tracking';
-import { getCompletedGamesAwaitingPlayerStats, summarizeMatchSeries } from '@/lib/match-series';
+import { getCompletedGamesAwaitingPlayerStats, getEffectiveBestOf, summarizeMatchSeries } from '@/lib/match-series';
 
 interface MatchRowProps {
   match: MatchData;
@@ -66,7 +66,7 @@ export function MatchRow({
     : (initialMatch.series_matches?.length ? initialMatch.series_matches : [initialMatch]);
 
   const match = initialMatch;
-  const bestOf = match.best_of ?? 1;
+  const bestOf = getEffectiveBestOf(games, match.best_of);
   const isSeries = bestOf > 1;
 
   const seriesScore = summarizeMatchSeries(games, bestOf);
@@ -113,7 +113,7 @@ export function MatchRow({
     ? 'bg-[var(--surface-raised)] border-r border-[var(--border)]'
     : 'bg-[var(--surface-raised)] border-r border-[var(--border)]';
 
-  const statusLabel = isLive ? 'LIVE' : isCompleted ? (bestOf > 1 ? 'FINAL' : 'FT') : formattedTime;
+  const statusLabel = isLive ? 'LIVE' : isCompleted ? (bestOf > 1 ? 'SERIES\nCOMPLETE' : 'COMPLETED') : formattedTime;
   const statusSub = isLive ? null : isCompleted ? formattedDate : formattedDate;
   const statusTextColor = isLive ? 'text-rose-500' : isCompleted ? 'text-[var(--text-muted)]' : 'text-[var(--accent-primary)]';
 
@@ -143,7 +143,7 @@ export function MatchRow({
               <span className="relative inline-flex rounded-full h-2 w-2 bg-rose-500" />
             </span>
           )}
-          <span className={`text-[10px] font-black uppercase tracking-wide leading-none ${statusTextColor}`}>
+          <span className={`text-center text-[10px] font-black uppercase tracking-wide leading-tight whitespace-pre-line ${statusTextColor}`}>
             {statusLabel}
           </span>
           {statusSub && (
@@ -269,7 +269,7 @@ export function MatchRow({
       {gamesAwaitingPlayerStats.length > 0 && (
         <p
           role="status"
-          className="px-4 py-2 border-t border-[var(--border)] bg-[var(--surface-raised)] text-[11px] text-[var(--text-muted)]"
+          className="px-4 py-2 border-t border-amber-500/30 bg-amber-500/10 text-[11px] text-amber-800 dark:text-amber-200"
         >
           Player stats for {gamesAwaitingPlayerStats.length}{' '}
           {gamesAwaitingPlayerStats.length === 1 ? 'game' : 'games'} still processing.

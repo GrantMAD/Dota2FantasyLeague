@@ -27,7 +27,7 @@ export function SeriesGameTabs({ games, activeMatchId, onSelect }: SeriesGameTab
         const number = game.match_number ?? index + 1;
         const status = game.status === 'live' || game.status === 'in_progress'
           ? 'Live'
-          : game.status === 'completed' ? 'Final' : 'Scheduled';
+          : game.status === 'completed' ? 'Completed' : 'Scheduled';
         const scheduledAt = new Date(game.scheduled_at);
         const timeLabel = scheduledAt.toLocaleString([], {
           month: 'short',

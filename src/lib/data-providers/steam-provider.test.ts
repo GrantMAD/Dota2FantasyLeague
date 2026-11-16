@@ -27,6 +27,26 @@ describe('SteamProvider', () => {
     );
   });
 
+  it('resolves known hero IDs to their display names in match details', async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        result: {
+          duration: 1800,
+          radiant_win: true,
+          radiant_team_id: 1,
+          dire_team_id: 2,
+          players: [{ account_id: 317880638, hero_id: 155, player_slot: 0 }],
+        },
+      }),
+    });
+
+    const provider = new SteamProvider({ apiKey: 'TEST_KEY' });
+    const details = await provider.fetchMatchDetails('12345');
+
+    expect(details.teams[0].players[0]?.heroName).toBe('Largo');
+  });
+
   it('fetches and normalizes matches for a league combining live and completed', async () => {
     global.fetch = jest.fn().mockImplementation((url: string) => {
       if (url.includes('GetLiveLeagueGames')) {
