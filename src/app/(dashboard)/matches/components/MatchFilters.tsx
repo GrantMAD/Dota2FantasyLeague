@@ -134,7 +134,7 @@ export function MatchFilters({
             placeholder="Search teams or tournaments (e.g. Spirit, Liquid, TI)..."
             value={searchQuery}
             onChange={(e) => onSearchChange(e.target.value)}
-            className="w-full bg-slate-900/90 border border-slate-800 rounded-xl pl-9 pr-4 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-500 transition-colors"
+            className="w-full bg-[var(--surface-raised)] border border-[var(--border)] rounded-xl pl-9 pr-4 py-2 text-xs text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--accent-primary)] transition-colors"
           />
           {searchQuery && (
             <button
@@ -155,7 +155,7 @@ export function MatchFilters({
               aria-label="Filter by tournament"
               value={selectedTournamentId}
               onChange={(e) => onTournamentChange(e.target.value)}
-              className="w-full bg-slate-900/90 border border-slate-800 text-slate-300 text-xs rounded-xl px-3 py-2 focus:outline-none focus:border-amber-500"
+              className="w-full bg-[var(--surface-raised)] border border-[var(--border)] text-[var(--text-primary)] text-xs rounded-xl px-3 py-2 focus:outline-none focus:border-[var(--accent-primary)]"
             >
               <option value="">All Tournaments</option>
               {tournaments.map((t) => (

@@ -264,23 +264,23 @@ export default function MatchesPage({ initialData }: { initialData: InitialMatch
       )}
 
       {!loading && liveSeriesGroups.length > 0 && (
-        <section aria-labelledby="live-matches-heading" className="mb-8 overflow-hidden rounded-2xl border border-rose-500/35 bg-[var(--surface)] shadow-[0_12px_36px_rgba(244,63,94,0.12)]">
-          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-rose-500/20 bg-rose-500/5 px-5 py-4">
+        <section aria-labelledby="live-matches-heading" className="mb-8 overflow-hidden rounded-2xl border border-rose-500/30 bg-[var(--surface)] shadow-[0_8px_32px_rgba(244,63,94,0.10)]">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-rose-500/15 bg-rose-500/[0.04] px-5 py-4">
             <div className="flex items-center gap-3">
               <span className="relative flex h-3 w-3">
-                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-rose-500 opacity-70" />
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-rose-500 opacity-60" />
                 <span className="relative inline-flex h-3 w-3 rounded-full bg-rose-500" />
               </span>
               <div>
-                <h2 id="live-matches-heading" className="text-lg font-black text-[var(--text-primary)]">Live Now</h2>
-                <p className="text-xs text-[var(--text-secondary)]">{counts.live} match{counts.live === 1 ? '' : 'es'} currently in progress</p>
+                <h2 id="live-matches-heading" className="text-base font-black tracking-tight text-[var(--text-primary)]">Live Now</h2>
+                <p className="text-xs text-[var(--text-muted)]">{counts.live} match{counts.live === 1 ? '' : 'es'} in progress</p>
               </div>
             </div>
             {userSquadPlayers.length > 0 && liveSeriesGroups.some((group) => (
               group.games.some((game) => getTrackedSquadPlayersForMatch(game).length > 0)
             )) && (
-              <span className="rounded-full border border-amber-500/40 bg-amber-500/10 px-3 py-1.5 text-xs font-bold text-amber-800 dark:text-amber-300">
-                Squad players in fixtures
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-400/30 bg-amber-400/10 px-3 py-1 text-xs font-bold text-amber-500 dark:text-amber-300">
+                ⭐ Squad players active
               </span>
             )}
           </div>

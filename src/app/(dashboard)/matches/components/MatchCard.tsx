@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { Star } from 'lucide-react';
+import { Star, ChevronRight } from 'lucide-react';
 import { TeamLogo } from './TeamLogo';
 import type { MatchSquadPlayer } from '@/lib/match-squad-tracking';
 import { getCompletedGamesAwaitingPlayerStats, summarizeMatchSeries } from '@/lib/match-series';
@@ -50,6 +50,65 @@ interface MatchCardProps {
   getSquadPlayersForMatch?: (match: MatchData) => MatchSquadPlayer[];
 }
 
+export function formatTeamName(name: string | undefined | null, fallback: string): string {
+  if (!name) return fallback;
+  if (/^\d+$/.test(name)) return `Team ${name}`;
+  return name;
+}
+
+/**
+ * Row of small coloured dots showing each game's outcome in a Best-of series.
+ * Emerald = Radiant won that game, Rose = Dire won, pulsing white = live game, ghost = not yet played.
+ */
+function SeriesDots({
+  games,
+  bestOf,
+  radiantTeamId,
+  size = 'md',
+}: {
+  games: MatchData[];
+  bestOf: number;
+  radiantTeamId: number;
+  size?: 'sm' | 'md';
+}) {
+  const dotSize = size === 'sm' ? 'w-1.5 h-1.5' : 'w-2 h-2';
+  const slots: (MatchData | null)[] = Array.from({ length: bestOf }, (_, i) => games[i] ?? null);
+
+  return (
+    <span className="inline-flex items-center gap-1.5" aria-label="Series game results">
+      {slots.map((game, i) => {
+        const key = game?.id ?? `empty-${i}`;
+        if (!game || game.status === 'scheduled') {
+          return (
+            <span
+              key={key}
+              aria-label={`Game ${i + 1}: not yet played`}
+              className={`${dotSize} rounded-full border border-[var(--border)] opacity-30`}
+            />
+          );
+        }
+        if (game.status === 'live' || game.status === 'in_progress') {
+          return (
+            <span key={key} aria-label={`Game ${i + 1}: live`} className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-50" />
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-white" />
+            </span>
+          );
+        }
+        // completed — colour by who won relative to the representative match's radiant side
+        const radiantWon = game.winner_team_id === radiantTeamId;
+        return (
+          <span
+            key={key}
+            aria-label={`Game ${i + 1}: ${radiantWon ? 'Radiant' : 'Dire'} won`}
+            className={`${dotSize} rounded-full ${radiantWon ? 'bg-emerald-400' : 'bg-rose-400'}`}
+          />
+        );
+      })}
+    </span>
+  );
+}
+
 export function MatchCard({
   match: initialMatch,
   seriesMatches,
@@ -58,21 +117,21 @@ export function MatchCard({
 }: MatchCardProps) {
   const games = seriesMatches?.length
     ? seriesMatches
-    : initialMatch.series_matches?.length ? initialMatch.series_matches : [initialMatch];
+    : (initialMatch.series_matches?.length ? initialMatch.series_matches : [initialMatch]);
+
   const match = initialMatch;
-  const seriesScore = summarizeMatchSeries(games, match.best_of ?? 3);
+  const bestOf = match.best_of ?? 1;
+  const isSeries = bestOf > 1;
+
+  const seriesScore = summarizeMatchSeries(games, bestOf);
   const gamesAwaitingPlayerStats = getCompletedGamesAwaitingPlayerStats(games);
   const isRadiantWinner = seriesScore.clinchedTeamId === match.radiant_team_id;
   const isDireWinner = seriesScore.clinchedTeamId === match.dire_team_id;
   const isLive = seriesScore.isLive && !seriesScore.isComplete;
   const isCompleted = seriesScore.isComplete;
-  const completedGames = games.filter((game) => game.status === 'completed');
-  const displayGame = isCompleted
-    ? completedGames[completedGames.length - 1] ?? games[games.length - 1] ?? match
-    : games.find((game) => game.status === 'live')
-      ?? games.find((game) => game.status === 'scheduled')
-      ?? games[games.length - 1]
-      ?? match;
+  const hasScore = seriesScore.completedGames > 0 || isLive || isCompleted;
+
+  // Squad players
   const squadPlayersById = new Map<number, MatchSquadPlayer>();
   if (getSquadPlayersForMatch) {
     for (const game of games) {
@@ -83,14 +142,14 @@ export function MatchCard({
     }
   }
   const squadPlayers = getSquadPlayersForMatch ? [...squadPlayersById.values()] : userSquadPlayers;
+  const hasSquad = squadPlayers.length > 0;
 
-  // Some teams were auto-registered during ingestion with their numeric provider ID as the name.
-  // Detect this and display as "Team [number]" rather than a bare number.
-  const formatTeamName = (name: string | undefined | null, fallback: string) => {
-    if (!name) return fallback;
-    if (/^\d+$/.test(name)) return `Team ${name}`;
-    return name;
-  };
+  const displayGame = isCompleted
+    ? games.filter((g) => g.status === 'completed').at(-1) ?? games.at(-1) ?? match
+    : games.find((g) => g.status === 'live') ??
+      games.find((g) => g.status === 'scheduled') ??
+      games.at(-1) ??
+      match;
 
   const formattedDate = new Date(displayGame.scheduled_at).toLocaleDateString('en-US', {
     month: 'short',
@@ -101,205 +160,214 @@ export function MatchCard({
     minute: '2-digit',
   });
 
+  // ── Card border + accent line colour by state ──────────────────────────────
+  const cardBorder = hasSquad
+    ? 'border-amber-400/40'
+    : isLive
+    ? 'border-rose-500/35'
+    : 'border-[var(--border)]';
+
+  const accentLine = isLive
+    ? 'bg-rose-500'
+    : isCompleted
+    ? 'bg-[var(--border)]'
+    : hasSquad
+    ? 'bg-amber-400'
+    : 'bg-[var(--accent-primary)]';
+
+  // ── Loser dim ──────────────────────────────────────────────────────────────
+  const radiantDim = isCompleted && !isRadiantWinner;
+  const direDim = isCompleted && !isDireWinner;
+
   return (
     <div
-      className={`group relative flex flex-col rounded-2xl border transition-all duration-300 overflow-hidden ${
-        squadPlayers.length > 0
-          ? 'border-amber-400/70 bg-amber-950/20 shadow-[0_0_24px_rgba(245,158,11,0.12)] hover:border-amber-300'
-          : isLive
-          ? 'bg-slate-900/90 border-red-500/60 shadow-[0_0_25px_rgba(239,68,68,0.15)] hover:border-red-400'
-          : 'bg-slate-900/60 border-slate-800/90 hover:border-slate-700 hover:bg-slate-800/50 hover:shadow-xl hover:-translate-y-1'
-      }`}
+      className={`group relative flex flex-col rounded-2xl border overflow-hidden transition-all duration-200 hover:-translate-y-0.5 hover:shadow-2xl bg-[var(--surface)] ${cardBorder}`}
     >
-      {/* Radiant and Dire ambient glows */}
-      <div className="absolute top-0 left-0 w-32 h-32 bg-emerald-500/5 rounded-full blur-2xl pointer-events-none" />
-      <div className="absolute top-0 right-0 w-32 h-32 bg-rose-500/5 rounded-full blur-2xl pointer-events-none" />
+      {/* ── Coloured top accent line ── */}
+      <div className={`h-[3px] w-full ${accentLine} ${isLive ? 'animate-pulse' : ''}`} />
 
-      {/* Card Header: Tournament, Series & Status */}
-      <div className="flex items-center justify-between px-5 pt-4 pb-3 border-b border-slate-800/70 text-xs">
-        <div className="flex items-center gap-2 truncate max-w-[65%]">
-          <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0" />
-          <span className="font-semibold text-slate-300 truncate" title={match.tournaments?.name || 'Tournament'}>
-            {match.tournaments?.name || 'Tournament'}
+      {/* ── Header: tournament name + status chip ── */}
+      <div className="flex items-center justify-between gap-2 px-4 pt-3 pb-2.5">
+        <span
+          className="text-[11px] font-semibold text-[var(--text-muted)] truncate"
+          title={match.tournaments?.name ?? 'Tournament'}
+        >
+          {match.tournaments?.name ?? 'Tournament'}
+        </span>
+
+        <div className="flex items-center gap-1.5 shrink-0">
+          {/* Bo badge */}
+          <span className="text-[10px] font-mono font-bold text-[var(--text-muted)] bg-[var(--surface-raised)] border border-[var(--border)] px-1.5 py-0.5 rounded-md">
+            {bestOf === 1 ? 'Bo1' : `Bo${bestOf}`}
           </span>
-          {match.best_of === 1 ? (
-            <span className="rounded border border-slate-700/60 bg-slate-800 px-1.5 py-0.5 text-[10px] font-mono text-slate-300">
-              Bo1
-            </span>
-          ) : match.best_of && match.best_of > 1 ? (
-            <span className="rounded border border-slate-700/60 bg-slate-800 px-1.5 py-0.5 text-[10px] font-mono text-slate-300">
-              Bo{match.best_of} Series
-            </span>
-          ) : null}
-        </div>
-
-        <div>
+          {/* Status chip */}
           {isLive ? (
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold tracking-wide uppercase bg-red-500/20 text-red-400 border border-red-500/40 animate-pulse">
-              <span className="w-1.5 h-1.5 rounded-full bg-red-500" />
+            <span className="inline-flex items-center gap-1 text-[11px] font-black uppercase tracking-wide px-2 py-0.5 rounded-full bg-rose-500/15 text-rose-500 border border-rose-500/30">
+              <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse" />
               Live
             </span>
           ) : isCompleted ? (
-            <span suppressHydrationWarning className="text-slate-400 font-medium font-mono text-[11px]">
-              {match.best_of && match.best_of > 1 ? 'Series Final' : 'Final'} · {formattedDate}
-            </span>
-          ) : seriesScore.completedGames > 0 ? (
-            <span suppressHydrationWarning className="text-amber-400/90 font-mono text-[11px] bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">
-              Game {seriesScore.completedGames + 1} · {formattedDate} {formattedTime}
+            <span className="text-[11px] font-semibold text-[var(--text-muted)] bg-[var(--surface-raised)] border border-[var(--border)] px-2 py-0.5 rounded-full">
+              {bestOf > 1 ? 'Final' : 'FT'}
             </span>
           ) : (
-            <span suppressHydrationWarning className="text-amber-400/90 font-mono text-[11px] bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">
-              {formattedDate} {formattedTime}
+            <span suppressHydrationWarning className="text-[11px] font-semibold text-[var(--accent-primary)] bg-[var(--surface-raised)] border border-[var(--border)] px-2 py-0.5 rounded-full">
+              {formattedDate}
             </span>
           )}
         </div>
       </div>
 
-      {/* Main Matchup Arena */}
-      <div className="px-4 py-5 flex items-stretch justify-between gap-2 sm:px-5 sm:py-6 sm:gap-3">
-        {/* Radiant Side */}
-        <div className="flex-1 flex flex-col items-center justify-center rounded-xl border border-emerald-500/25 bg-emerald-500/5 py-3 text-center group/rad">
+      {/* ── Main matchup ── */}
+      <div className="flex items-center px-4 pb-4 gap-2">
+
+        {/* Radiant team */}
+        <div className={`flex-1 flex flex-col items-center gap-2.5 py-4 transition-opacity duration-200 ${radiantDim ? 'opacity-35' : ''}`}>
           <TeamLogo
-            name={match.radiant_team?.name || 'Radiant'}
+            name={match.radiant_team?.name ?? 'Radiant'}
             logoUrl={match.radiant_team?.logo_url}
             tag={match.radiant_team?.tag}
-            size="md"
+            size="lg"
             faction="radiant"
             isWinner={isRadiantWinner}
           />
-          <div className="mt-2.5 max-w-30">
+          <div className="text-center space-y-0.5">
             <div
-              className={`match-card-team-name text-sm font-bold truncate transition-colors ${
-                isRadiantWinner
-                  ? 'text-white drop-shadow-[0_0_8px_rgba(255,255,255,0.3)]'
-                  : isCompleted
-                  ? 'text-slate-400'
-                  : 'text-slate-200'
-              }`}
-              title={match.radiant_team?.name || 'Radiant'}
+              className={`text-[13px] font-black tracking-tight leading-none truncate max-w-[88px] ${isRadiantWinner ? 'text-[var(--text-primary)]' : isCompleted ? 'text-[var(--text-secondary)]' : 'text-[var(--text-primary)]'}`}
+              title={match.radiant_team?.name ?? 'Radiant'}
             >
               {formatTeamName(match.radiant_team?.name, 'Radiant')}
             </div>
-            <div className="text-[10px] text-emerald-400/70 font-semibold tracking-wide uppercase mt-0.5">
+            <div className="text-[9px] font-bold tracking-widest uppercase text-emerald-500/60">
               Radiant
             </div>
           </div>
         </div>
 
-        {/* Center Scoreboard / VS Pill */}
-        <div className="shrink-0 flex flex-col items-center justify-center px-1 sm:px-2">
-          {seriesScore.completedGames > 0 || isLive || isCompleted ? (
-            <div className="match-card-score-pill flex items-center gap-1.5 rounded-xl border border-[var(--border)] bg-[var(--surface-raised)] px-3.5 py-1.5 shadow-inner dark:border-slate-700/80 dark:bg-slate-950/80">
+        {/* Centre: score + series dots */}
+        <div className="shrink-0 flex flex-col items-center gap-2 px-1">
+          {hasScore ? (
+            /* Score */
+            <div className="flex items-baseline gap-1">
               <span
-                className={`font-mono text-lg font-black ${
-                  isRadiantWinner ? 'text-emerald-500 dark:text-emerald-400' : 'text-[var(--text-muted)]'
-                }`}
+                className={`text-[42px] font-black tabular-nums leading-none ${isRadiantWinner ? 'text-emerald-400' : isCompleted ? 'text-[var(--text-muted)]' : 'text-[var(--text-primary)]'}`}
               >
                 {seriesScore.radiantWins}
               </span>
-              <span className="text-[var(--text-muted)] font-bold">:</span>
+              <span className="text-2xl font-bold text-[var(--border)] pb-0.5">:</span>
               <span
-                className={`font-mono text-lg font-black ${
-                  isDireWinner ? 'text-rose-500 dark:text-rose-400' : 'text-[var(--text-muted)]'
-                }`}
+                className={`text-[42px] font-black tabular-nums leading-none ${isDireWinner ? 'text-rose-400' : isCompleted ? 'text-[var(--text-muted)]' : 'text-[var(--text-primary)]'}`}
               >
                 {seriesScore.direWins}
               </span>
             </div>
           ) : (
-            <div className="match-card-vs-pill w-9 h-9 rounded-full border border-[var(--border)] bg-[var(--surface-raised)] flex items-center justify-center text-xs font-black text-[var(--text-secondary)] tracking-wider dark:border-slate-700 dark:bg-slate-800/80">
-              VS
+            /* VS pill — no games started yet */
+            <div className="w-12 h-12 rounded-full border-2 border-[var(--border)] bg-[var(--surface-raised)] flex items-center justify-center">
+              <span className="text-xs font-black tracking-widest text-[var(--text-muted)]">VS</span>
             </div>
           )}
 
-          {seriesScore.completedGames > 0 && (
-            <span className="text-[10px] text-slate-500 font-mono mt-1.5">
-              {seriesScore.completedGames} {seriesScore.completedGames === 1 ? 'game' : 'games'} played
+          {/* Bo3/Bo5 game dots */}
+          {isSeries && (
+            <SeriesDots
+              games={games}
+              bestOf={bestOf}
+              radiantTeamId={match.radiant_team_id}
+            />
+          )}
+
+          {/* Bo1 — scheduled time below VS */}
+          {!isSeries && !hasScore && (
+            <span suppressHydrationWarning className="text-[10px] text-[var(--text-muted)] font-mono">
+              {formattedTime}
+            </span>
+          )}
+
+          {/* Games played count for in-progress series */}
+          {isSeries && !isCompleted && seriesScore.completedGames > 0 && (
+            <span className="text-[10px] text-[var(--text-muted)] font-mono leading-none">
+              G{seriesScore.completedGames + 1} of {bestOf}
             </span>
           )}
         </div>
 
-        {/* Dire Side */}
-        <div className="flex-1 flex flex-col items-center justify-center rounded-xl border border-rose-500/25 bg-rose-500/5 py-3 text-center group/dire">
+        {/* Dire team */}
+        <div className={`flex-1 flex flex-col items-center gap-2.5 py-4 transition-opacity duration-200 ${direDim ? 'opacity-35' : ''}`}>
           <TeamLogo
-            name={match.dire_team?.name || 'Dire'}
+            name={match.dire_team?.name ?? 'Dire'}
             logoUrl={match.dire_team?.logo_url}
             tag={match.dire_team?.tag}
-            size="md"
+            size="lg"
             faction="dire"
             isWinner={isDireWinner}
           />
-          <div className="mt-2.5 max-w-30">
+          <div className="text-center space-y-0.5">
             <div
-              className={`match-card-team-name text-sm font-bold truncate transition-colors ${
-                isDireWinner
-                  ? 'text-white drop-shadow-[0_0_8px_rgba(255,255,255,0.3)]'
-                  : isCompleted
-                  ? 'text-slate-400'
-                  : 'text-slate-200'
-              }`}
-              title={match.dire_team?.name || 'Dire'}
+              className={`text-[13px] font-black tracking-tight leading-none truncate max-w-[88px] ${isDireWinner ? 'text-[var(--text-primary)]' : isCompleted ? 'text-[var(--text-secondary)]' : 'text-[var(--text-primary)]'}`}
+              title={match.dire_team?.name ?? 'Dire'}
             >
               {formatTeamName(match.dire_team?.name, 'Dire')}
             </div>
-            <div className="text-[10px] text-rose-400/70 font-semibold tracking-wide uppercase mt-0.5">
+            <div className="text-[9px] font-bold tracking-widest uppercase text-rose-500/60">
               Dire
             </div>
           </div>
         </div>
       </div>
 
+      {/* ── Stats processing notice ── */}
       {gamesAwaitingPlayerStats.length > 0 && (
         <p
           role="status"
-          className="mx-4 mb-3 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-800 dark:text-amber-200"
+          className="mx-4 mb-3 rounded-lg border border-[var(--border)] bg-[var(--surface-raised)] px-3 py-2 text-[11px] text-[var(--text-muted)]"
         >
-          Player stats for {gamesAwaitingPlayerStats.length} completed {gamesAwaitingPlayerStats.length === 1 ? 'game are' : 'games are'} still being processed.
+          Player stats for {gamesAwaitingPlayerStats.length}{' '}
+          {gamesAwaitingPlayerStats.length === 1 ? 'game' : 'games'} still processing.
         </p>
       )}
 
-      {/* Fantasy League Impact Footer */}
-      {squadPlayers.length > 0 && (
-        <div className="mx-4 mb-3 rounded-xl border border-amber-500/50 bg-amber-500/10 px-3 py-2.5">
-          <div className="flex items-center gap-2 text-xs font-bold text-amber-800 dark:text-amber-300">
-            <Star className="h-4 w-4 shrink-0 fill-current" aria-hidden="true" />
-            <span>
-              {squadPlayers.every((player) => player.confirmedAppearance)
-                ? 'Your players confirmed in this series'
-                : 'Your squad team fixture · appearances unconfirmed'}
+      {/* ── Footer — left side shows squad info when present, date otherwise ── */}
+      <div className={`mt-auto flex items-center justify-between gap-2 px-4 py-2.5 border-t ${
+        hasSquad
+          ? 'border-amber-400/30 bg-amber-400/[0.09]'
+          : 'border-[var(--border)] bg-[var(--surface-raised)]'
+      }`}>
+
+        {hasSquad ? (
+          /* Squad info replaces the date — same single-line height, no extra row */
+          <div className="flex items-center gap-1.5 min-w-0">
+            <Star className="h-3 w-3 shrink-0 text-amber-400 fill-current" aria-hidden />
+            <span className="text-[11px] font-bold text-amber-500 dark:text-amber-300 truncate">
+              {squadPlayers.every((p) => p.confirmedAppearance) ? 'Appeared' : 'Fixture'}
+              {' · '}
+              <span className="font-semibold text-amber-600/80 dark:text-amber-400/80">
+                {squadPlayers.map((p) => p.name).join(', ')}
+              </span>
             </span>
           </div>
-          <div className="mt-2 flex flex-wrap gap-1.5">
-            {squadPlayers.map((player) => (
-              <span key={player.id} className="rounded-full border border-amber-500/30 bg-[var(--surface)] px-2 py-1 text-[10px] font-semibold text-[var(--text-primary)]">
-                {player.name}
-              </span>
-            ))}
-          </div>
-          <span className="sr-only">
-            {squadPlayers.length} {squadPlayers.length === 1 ? 'squad player is' : 'squad players are'}
-            {squadPlayers.every((player) => player.confirmedAppearance)
-              ? ' confirmed to have appeared in this series.'
-              : ' on a team in this fixture; their appearance is not confirmed.'}
+        ) : (
+          <span suppressHydrationWarning className="text-[11px] text-[var(--text-muted)]">
+            {isCompleted
+              ? formattedDate
+              : !hasScore
+              ? formattedTime
+              : isLive
+              ? 'In progress'
+              : `${formattedDate} · ${formattedTime}`}
           </span>
-        </div>
-      )}
+        )}
 
-      {/* Hover action footer */}
-      <div className="match-card-footer mt-auto px-5 py-2.5 bg-[var(--surface-raised)] border-t border-[var(--border)] dark:bg-slate-950/40 dark:border-slate-800/60 flex items-center justify-between text-xs text-[var(--text-secondary)]">
-        <span className="match-card-footer-meta flex items-center gap-1 text-[11px]">
-          {match.radiant_team?.region && (
-            <span className="text-slate-500">{match.radiant_team.region} vs {match.dire_team?.region || 'INT'}</span>
-          )}
-        </span>
         <Link
           href={`/matches/${match.id}`}
-          className="text-amber-400 group-hover:text-amber-300 font-medium flex items-center gap-1 transition-colors"
+          className={`shrink-0 inline-flex items-center gap-0.5 text-[11px] font-semibold transition-colors group/link ${
+            hasSquad
+              ? 'text-amber-600 dark:text-amber-400 hover:text-amber-500 dark:hover:text-amber-300'
+              : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+          }`}
         >
-          {games.length > 1 ? 'View Series Details' : 'View Match Details'}
-          <svg className="w-3.5 h-3.5 transition-transform group-hover:translate-x-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
-          </svg>
+          {games.length > 1 ? 'View Series' : 'View Match'}
+          <ChevronRight className="w-3.5 h-3.5 transition-transform group-hover/link:translate-x-0.5" />
         </Link>
       </div>
     </div>
