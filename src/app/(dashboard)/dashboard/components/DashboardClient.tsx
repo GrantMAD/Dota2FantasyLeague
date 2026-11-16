@@ -431,6 +431,17 @@ export function DashboardClient({ initialData, initialWhatsNew }: DashboardClien
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
           {/* Primary Column */}
           <div className="lg:col-span-2 space-y-8">
+           {/* Live Matches In Progress */}
+           <DashboardLiveMatches
+             matches={liveMatches}
+             loading={liveMatchesLoading}
+             userSquadTeamIds={
+               dashboardData?.starters
+                 ?.map((s) => s.team_id)
+                 .filter((id): id is number => typeof id === 'number') ?? []
+             }
+           />
+
             {/* Transfer Deadline Rush Widget */}
             <DashboardTransferRush />
 
@@ -574,17 +585,6 @@ export function DashboardClient({ initialData, initialWhatsNew }: DashboardClien
                 )}
               </div>
             )}
-
-            {/* Live Matches In Progress */}
-            <DashboardLiveMatches
-              matches={liveMatches}
-              loading={liveMatchesLoading}
-              userSquadTeamIds={
-                dashboardData?.starters
-                  ?.map((s) => s.team_id)
-                  .filter((id): id is number => typeof id === 'number') ?? []
-              }
-            />
 
             {/* Next Moves / Quick Actions */}
             {loading ? (
