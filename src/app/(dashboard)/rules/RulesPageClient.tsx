@@ -16,6 +16,7 @@ import {
   ScrollText,
   Shield,
   Sparkles,
+  Swords,
   Trophy,
   Users
 } from 'lucide-react';
@@ -721,28 +722,133 @@ export default function RulesPage() {
           </div>
           <ChevronDown className="mt-3 h-5 w-5 shrink-0 text-[var(--text-muted)] transition-transform group-open:rotate-180" aria-hidden="true" />
         </summary>
-        <div className="grid gap-4 md:grid-cols-2">
-          <article className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5">
-            <h3 className="text-lg font-bold text-[var(--text-primary)]">Classic leagues</h3>
-            <p className="mt-2 text-sm leading-relaxed text-[var(--text-secondary)]">
-              Managers are ranked by cumulative fantasy points across the season. Each gameweek&apos;s lineup score contributes to the season total.
+        <div className="grid gap-4 lg:grid-cols-2">
+          <article className="relative overflow-hidden rounded-2xl border border-amber-500/25 bg-gradient-to-br from-amber-500/10 via-[var(--surface)] to-[var(--surface)] p-5 shadow-sm sm:p-6">
+            <span className="absolute inset-y-0 left-0 w-1 bg-amber-500" aria-hidden="true" />
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-amber-500/25 bg-amber-500/10 text-amber-700 dark:text-amber-300">
+                  <Trophy className="h-5 w-5" aria-hidden="true" />
+                </span>
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-amber-700 dark:text-amber-300">Classic</p>
+                  <h3 className="mt-0.5 text-lg font-bold text-[var(--text-primary)]">Season-long points race</h3>
+                </div>
+              </div>
+              <span className="shrink-0 rounded-full border border-amber-500/25 bg-amber-500/10 px-2.5 py-1 text-[10px] font-semibold text-amber-800 dark:text-amber-200">
+                Total points
+              </span>
+            </div>
+            <p className="mt-4 text-sm leading-relaxed text-[var(--text-secondary)]">
+              Every manager competes against the full league. Each gameweek&apos;s lineup score adds to your season total.
             </p>
+            <div className="mt-5 flex items-center justify-between gap-3 rounded-xl border border-amber-500/15 bg-[var(--surface)] px-4 py-3">
+              <div>
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-[var(--text-muted)]">Your rank follows</p>
+                <p className="mt-1 text-sm font-bold text-[var(--text-primary)]">Cumulative fantasy points</p>
+              </div>
+              <Trophy className="h-5 w-5 shrink-0 text-amber-500" aria-hidden="true" />
+            </div>
           </article>
-          <article className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5">
-            <h3 className="text-lg font-bold text-[var(--text-primary)]">Head-to-head leagues</h3>
-            <p className="mt-2 text-sm leading-relaxed text-[var(--text-secondary)]">
-              Each gameweek, your lineup total is compared with your scheduled opponent&apos;s. The higher score earns a win; equal scores are a draw. Standings award 3 league points per win and 1 per draw, then break ties by cumulative H2H score difference and points scored. Managers still tied share a rank.
+
+          <article className="relative overflow-hidden rounded-2xl border border-violet-500/25 bg-gradient-to-br from-violet-500/10 via-[var(--surface)] to-[var(--surface)] p-5 shadow-sm sm:p-6">
+            <span className="absolute inset-y-0 left-0 w-1 bg-violet-500" aria-hidden="true" />
+            <div className="flex items-start gap-3">
+              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-violet-500/25 bg-violet-500/10 text-violet-700 dark:text-violet-300">
+                <Swords className="h-5 w-5" aria-hidden="true" />
+              </span>
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-violet-700 dark:text-violet-300">Head-to-head</p>
+                <h3 className="mt-0.5 text-lg font-bold text-[var(--text-primary)]">One opponent each gameweek</h3>
+              </div>
+            </div>
+            <p className="mt-4 text-sm leading-relaxed text-[var(--text-secondary)]">
+              Your lineup total is compared with your scheduled opponent&apos;s. The higher score wins; equal scores are a draw.
             </p>
+            <div className="mt-4 grid grid-cols-3 gap-2">
+              {[
+                { label: 'Win', points: '3 pts', color: 'emerald' },
+                { label: 'Draw', points: '1 pt', color: 'amber' },
+                { label: 'Loss', points: '0 pts', color: 'slate' },
+              ].map((result) => (
+                <div
+                  key={result.label}
+                  className={`rounded-xl border p-3 text-center ${
+                    result.color === 'emerald'
+                      ? 'border-emerald-500/20 bg-emerald-500/5'
+                      : result.color === 'amber'
+                        ? 'border-amber-500/20 bg-amber-500/5'
+                        : 'border-[var(--border)] bg-[var(--surface)]'
+                  }`}
+                >
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)]">{result.label}</p>
+                  <p className={`mt-1 text-sm font-black ${
+                    result.color === 'emerald'
+                      ? 'text-emerald-700 dark:text-emerald-300'
+                      : result.color === 'amber'
+                        ? 'text-amber-700 dark:text-amber-300'
+                        : 'text-[var(--text-primary)]'
+                  }`}>
+                    {result.points}
+                  </p>
+                </div>
+              ))}
+            </div>
+            <div className="mt-4 rounded-xl border border-violet-500/15 bg-[var(--surface)] p-4">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)]">Tie-break order</p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                <span className="rounded-lg bg-violet-500/10 px-2.5 py-1.5 text-xs font-semibold text-violet-800 dark:text-violet-200">
+                  1 · H2H score difference
+                </span>
+                <span className="rounded-lg bg-violet-500/10 px-2.5 py-1.5 text-xs font-semibold text-violet-800 dark:text-violet-200">
+                  2 · H2H points scored
+                </span>
+              </div>
+              <p className="mt-2 text-xs text-[var(--text-secondary)]">Managers still tied share a rank.</p>
+            </div>
           </article>
         </div>
-        <div className="mt-4 rounded-2xl border border-[var(--border)] bg-[var(--surface-raised)] p-5">
-          <h3 className="text-sm font-bold text-[var(--text-primary)]">League size and byes</h3>
-          <p className="mt-2 text-sm leading-relaxed text-[var(--text-secondary)]">
-            Create a league for 4–32 managers (10 by default). In an H2H league with an odd number of participants, one manager receives a bye and an automatic win for that round.
-          </p>
-          <p className="mt-2 text-sm leading-relaxed text-[var(--text-secondary)]">
-            Private leagues can be joined with the league&apos;s invite code. Public and private leagues are available from the <Link href="/leagues" className="font-semibold text-cyan-600 underline-offset-2 hover:underline dark:text-cyan-400">Leagues page</Link>.
-          </p>
+
+        <div className="mt-4 grid gap-4 md:grid-cols-2">
+          <article className="rounded-2xl border border-[var(--border)] bg-[var(--surface-raised)] p-5">
+            <div className="flex items-center gap-2">
+              <Users className="h-4 w-4 text-cyan-600 dark:text-cyan-400" aria-hidden="true" />
+              <h3 className="text-sm font-bold text-[var(--text-primary)]">League size and byes</h3>
+            </div>
+            <div className="mt-4 grid grid-cols-2 gap-3">
+              <div className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3">
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-[var(--text-muted)]">League size</p>
+                <p className="mt-1 text-lg font-black text-[var(--text-primary)]">4–32</p>
+                <p className="text-xs text-[var(--text-secondary)]">managers</p>
+              </div>
+              <div className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3">
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-[var(--text-muted)]">Default size</p>
+                <p className="mt-1 text-lg font-black text-[var(--text-primary)]">10</p>
+                <p className="text-xs text-[var(--text-secondary)]">managers</p>
+              </div>
+            </div>
+            <p className="mt-3 text-sm leading-relaxed text-[var(--text-secondary)]">
+              With an odd number of participants in H2H, one manager receives a bye and an automatic win that round.
+            </p>
+          </article>
+          <article className="flex flex-col justify-between rounded-2xl border border-[var(--border)] bg-[var(--surface-raised)] p-5">
+            <div>
+              <div className="flex items-center gap-2">
+                <Shield className="h-4 w-4 text-cyan-600 dark:text-cyan-400" aria-hidden="true" />
+                <h3 className="text-sm font-bold text-[var(--text-primary)]">Public and private leagues</h3>
+              </div>
+              <p className="mt-3 text-sm leading-relaxed text-[var(--text-secondary)]">
+                Join a private league with its invite code. Browse public leagues or create and manage your own from the Leagues page.
+              </p>
+            </div>
+            <Link
+              href="/leagues"
+              className="mt-4 inline-flex w-fit items-center gap-2 rounded-xl border border-cyan-500/25 bg-cyan-500/5 px-3 py-2 text-sm font-semibold text-cyan-700 transition-colors hover:bg-cyan-500/10 dark:text-cyan-300"
+            >
+              Open Leagues
+              <ArrowRight className="h-4 w-4" aria-hidden="true" />
+            </Link>
+          </article>
         </div>
       </details>
 

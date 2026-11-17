@@ -1,9 +1,14 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { Award, X } from 'lucide-react';
+import { Award, Info, X } from 'lucide-react';
 import { fetchWithAuth } from '@/lib/fetch-with-auth';
-import { POINT_CATEGORIES, type GameweekPointsBreakdown, type PlayerPointCategories } from '@/lib/dashboard-points';
+import {
+  POINT_CATEGORIES,
+  type GameweekPointsBreakdown,
+  type PlayerPointCategories,
+  type PointCategory,
+} from '@/lib/dashboard-points';
 import { useAccessibleDialog } from '@/components/use-accessible-dialog';
 
 interface PointsBreakdown {
@@ -11,12 +16,25 @@ interface PointsBreakdown {
   totalPoints: number;
   categoryTotals: PlayerPointCategories;
   unitemizedPoints: number;
+  currentGameweekId?: number | null;
   gameweeks: GameweekPointsBreakdown[];
 }
 
 interface TotalPointsModalProps {
   onClose: () => void;
 }
+
+const CATEGORY_ACCENTS: Record<PointCategory, string> = {
+  combat: '#fb7185',
+  economy: '#fbbf24',
+  objective: '#34d399',
+  teamfight: '#a78bfa',
+  win: '#facc15',
+  series: '#22d3ee',
+  performance: '#60a5fa',
+  consistency: '#2dd4bf',
+  penalty: '#f87171',
+};
 
 function formatPoints(points: number): string {
   return `${points > 0 ? '+' : ''}${points.toFixed(2)}`;
@@ -28,6 +46,12 @@ export function TotalPointsModal({ onClose }: TotalPointsModalProps) {
   const [loading, setLoading] = useState(true);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
   const dialogRef = useAccessibleDialog({ open: true, onClose, initialFocusRef: closeButtonRef });
+  const expandedGameweekId = breakdown?.gameweeks.find(
+    (gameweek) => gameweek.gameweekId === breakdown.currentGameweekId,
+  )?.gameweekId ?? breakdown?.gameweeks[0]?.gameweekId;
+  const categorySubtotal = breakdown
+    ? POINT_CATEGORIES.reduce((sum, [key]) => sum + breakdown.categoryTotals[key], 0)
+    : 0;
 
   useEffect(() => {
     let cancelled = false;
@@ -118,26 +142,47 @@ export function TotalPointsModal({ onClose }: TotalPointsModalProps) {
             </div>
 
             <section className="mb-7">
-              <h3 className="mb-3 text-sm font-semibold uppercase tracking-wider text-slate-300">Scoring categories</h3>
-              <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-                {POINT_CATEGORIES.map(([key, label]) => (
-                  <div key={key} className="flex items-center justify-between gap-3 rounded-lg border border-slate-800 bg-slate-950/40 px-3 py-2">
-                    <span className="text-sm text-slate-300">{label}</span>
-                    <span className="text-sm font-semibold text-white">{formatPoints(breakdown.categoryTotals[key])} pts</span>
+              <div className="rounded-2xl border border-slate-800 bg-slate-950/35 p-4 sm:p-5">
+                <header className="mb-4 flex items-center justify-between gap-4">
+                  <div>
+                    <h3 className="text-sm font-semibold uppercase tracking-wider text-slate-200">Scoring categories</h3>
+                    <p className="mt-1 text-xs text-slate-500">Category subtotal</p>
                   </div>
-                ))}
+                  <span className="shrink-0 font-mono text-lg font-bold text-white">
+                    {formatPoints(categorySubtotal)} pts
+                  </span>
+                </header>
+                <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                  {POINT_CATEGORIES.map(([key, label]) => (
+                    <div key={key} className="rounded-xl border border-slate-800/80 bg-slate-900/60 p-3">
+                      <div className="flex items-center gap-2">
+                        <span className="h-2 w-2 rounded-full" style={{ backgroundColor: CATEGORY_ACCENTS[key] }} />
+                        <span className="text-xs font-medium text-slate-400">{label}</span>
+                      </div>
+                      <div className="mt-2 font-mono text-lg font-semibold leading-none text-slate-100">
+                        {formatPoints(breakdown.categoryTotals[key])}
+                        <span className="ml-1.5 font-sans text-xs font-medium text-slate-500">pts</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
                 {Math.abs(breakdown.unitemizedPoints) >= 0.01 && (
-                  <div className="flex items-center justify-between gap-3 rounded-lg border border-amber-500/20 bg-amber-500/5 px-3 py-2">
-                    <span className="text-sm text-amber-200">Unitemized difference</span>
-                    <span className="text-sm font-semibold text-amber-100">{formatPoints(breakdown.unitemizedPoints)} pts</span>
+                  <div className="mt-4 flex flex-wrap items-start justify-between gap-3 border-t border-dashed border-slate-700/80 pt-4">
+                    <div className="flex min-w-0 items-start gap-2">
+                      <Info className="mt-0.5 h-4 w-4 shrink-0 text-slate-500" />
+                      <div>
+                        <p className="text-sm font-medium text-slate-300">Unitemized adjustment</p>
+                        <p className="mt-1 max-w-xl text-xs leading-5 text-slate-500">
+                          Keeps the category subtotal aligned with your saved season total when historical scoring details are incomplete.
+                        </p>
+                      </div>
+                    </div>
+                    <span className="shrink-0 font-mono text-sm font-semibold text-slate-200">
+                      {formatPoints(breakdown.unitemizedPoints)} pts
+                    </span>
                   </div>
                 )}
               </div>
-              {Math.abs(breakdown.unitemizedPoints) >= 0.01 && (
-                <p className="mt-2 text-xs text-slate-500">
-                  This difference keeps the category breakdown aligned with the saved season total when historical scoring details are unavailable.
-                </p>
-              )}
             </section>
 
             <section>
@@ -148,8 +193,12 @@ export function TotalPointsModal({ onClose }: TotalPointsModalProps) {
                 </p>
               ) : (
                 <div className="space-y-2">
-                  {breakdown.gameweeks.map((gameweek, index) => (
-                    <details key={gameweek.gameweekId} open={index === 0} className="group rounded-xl border border-slate-800 bg-slate-950/35">
+                  {breakdown.gameweeks.map((gameweek) => (
+                    <details
+                      key={gameweek.gameweekId}
+                      open={gameweek.gameweekId === expandedGameweekId}
+                      className="group rounded-xl border border-slate-800 bg-slate-950/35"
+                    >
                       <summary className="flex cursor-pointer list-none flex-wrap items-center justify-between gap-3 p-4">
                         <span className="font-semibold text-white">Gameweek {gameweek.gameweekNumber}</span>
                         <span className="flex items-center gap-2 text-sm font-bold text-emerald-300">

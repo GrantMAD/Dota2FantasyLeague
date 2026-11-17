@@ -3,6 +3,8 @@ import { applyRefreshedTokens, AuthError, verifyAuth } from '@/lib/auth-utils';
 import { supabaseServer } from '@/lib/supabase';
 import {
   buildGameweekPointsBreakdown,
+  getCurrentGameweekId,
+  getLineupsThroughCurrentGameweek,
   POINT_CATEGORIES,
   sumGameweekPointCategories,
   type PlayerPointCategories,
@@ -61,6 +63,7 @@ async function getHandler(request: NextRequest) {
         totalPoints: 0,
         categoryTotals: toCategories(null),
         unitemizedPoints: 0,
+        currentGameweekId: null,
         gameweeks: [],
       });
       applyRefreshedTokens(response, user);
@@ -98,28 +101,25 @@ async function getHandler(request: NextRequest) {
       lineup.bench_3_id,
     ].filter((playerId): playerId is number => playerId !== null)))];
 
-    const [gameweeksResult, playersResult, performancesResult] = gameweekIds.length > 0
-      ? await Promise.all([
-        supabase.from('gameweeks').select('id, gameweek_number').in('id', gameweekIds),
-        playerIds.length > 0
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          ? (supabase.from('professional_players') as any)
-            .select('id, name, in_game_name, primary_role')
-            .in('id', playerIds)
-          : Promise.resolve({ data: [], error: null }),
-        playerIds.length > 0
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          ? (supabase.from('player_performances') as any)
-            .select('gameweek_id, player_id, fantasy_points_breakdown(combat_points, economy_points, objective_points, teamfight_points, win_points, series_points, performance_index_points, consistency_points, penalty_points)')
-            .in('gameweek_id', gameweekIds)
-            .in('player_id', playerIds)
-          : Promise.resolve({ data: [], error: null }),
-      ])
-      : [
-        { data: [], error: null },
-        { data: [], error: null },
-        { data: [], error: null },
-      ];
+    const [gameweeksResult, playersResult, performancesResult] = await Promise.all([
+      supabase.from('gameweeks')
+        .select('id, gameweek_number, status, start_date')
+        .eq('season_id', fantasySeason.season_id)
+        .order('start_date', { ascending: true }),
+      playerIds.length > 0
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        ? (supabase.from('professional_players') as any)
+          .select('id, name, in_game_name, primary_role')
+          .in('id', playerIds)
+        : Promise.resolve({ data: [], error: null }),
+      gameweekIds.length > 0 && playerIds.length > 0
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        ? (supabase.from('player_performances') as any)
+          .select('gameweek_id, player_id, fantasy_points_breakdown(combat_points, economy_points, objective_points, teamfight_points, win_points, series_points, performance_index_points, consistency_points, penalty_points)')
+          .in('gameweek_id', gameweekIds)
+          .in('player_id', playerIds)
+        : Promise.resolve({ data: [], error: null }),
+    ]);
 
     if (gameweeksResult.error) throw new Error(`Failed to load gameweek names: ${gameweeksResult.error.message}`);
     if (playersResult.error) throw new Error(`Failed to load player names: ${playersResult.error.message}`);
@@ -127,6 +127,15 @@ async function getHandler(request: NextRequest) {
 
     const gameweekNumbers = new Map(
       (gameweeksResult.data ?? []).map((gameweek) => [gameweek.id, gameweek.gameweek_number]),
+    );
+    const currentGameweekId = getCurrentGameweekId(gameweeksResult.data ?? []);
+    const currentGameweekNumber = currentGameweekId === null
+      ? null
+      : gameweekNumbers.get(currentGameweekId) ?? null;
+    const currentSeasonLineups = getLineupsThroughCurrentGameweek(
+      lineups,
+      gameweekNumbers,
+      currentGameweekNumber,
     );
     const performances = ((performancesResult.data ?? []) as PerformanceRecord[]).map((row): PointsPerformance => {
       const breakdown = Array.isArray(row.fantasy_points_breakdown)
@@ -139,13 +148,28 @@ async function getHandler(request: NextRequest) {
       };
     });
     const gameweeks = buildGameweekPointsBreakdown({
-      lineups,
+      lineups: currentSeasonLineups,
       performances,
       players: (playersResult.data ?? []) as PointsPlayer[],
       gameweekNumbers,
+      currentGameweekId,
       tripleCaptainGameweekId: fantasySeason.triple_captain_gameweek_id ?? null,
       benchBoostGameweekId: fantasySeason.bench_boost_gameweek_id ?? null,
     });
+    if (
+      currentGameweekId !== null
+      && currentGameweekNumber !== null
+      && !gameweeks.some((gameweek) => gameweek.gameweekId === currentGameweekId)
+    ) {
+      gameweeks.unshift({
+        gameweekId: currentGameweekId,
+        gameweekNumber: currentGameweekNumber,
+        points: 0,
+        benchBoost: fantasySeason.bench_boost_gameweek_id === currentGameweekId,
+        contributors: [],
+        categories: toCategories(null),
+      });
+    }
     const categoryTotals = sumGameweekPointCategories(gameweeks);
     const totalPoints = Number(fantasySeason.total_points ?? 0);
     const categorizedTotal = POINT_CATEGORIES.reduce(
@@ -157,6 +181,7 @@ async function getHandler(request: NextRequest) {
       totalPoints,
       categoryTotals,
       unitemizedPoints: Math.round((totalPoints - categorizedTotal) * 100) / 100,
+      currentGameweekId,
       gameweeks,
     });
     applyRefreshedTokens(response, user);

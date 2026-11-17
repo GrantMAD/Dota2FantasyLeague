@@ -150,6 +150,15 @@ export default function SquadsPage() {
   };
 
   const ownedRoster = useMemo(() => buildOwnedSquadRoster(ownedPlayers, lineup), [ownedPlayers, lineup]);
+  const gridRoster = useMemo(
+    () =>
+      [...ownedRoster].sort((a, b) => {
+        const priority = (item: (typeof ownedRoster)[number]) =>
+          item.lineupEntry?.is_captain ? 0 : item.lineupEntry?.is_vice_captain ? 1 : 2;
+        return priority(a) - priority(b);
+      }),
+    [ownedRoster],
+  );
 
   // Budget calculations
   const squadValue = useMemo(() => {
@@ -890,64 +899,69 @@ export default function SquadsPage() {
               </div>
             </section>
           ) : (
-            /* Traditional Card Grid View */
+            /* Roster Card Grid View */
             <section
               data-guide="squad-pitch"
               data-tour="squad-pitch"
-              className="rounded-2xl border border-slate-700 bg-slate-900/50 p-4 shadow-xl sm:p-6"
+              className="rounded-3xl border p-4 shadow-xl sm:p-6"
+              style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}
             >
-              <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
+              <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
                 <div>
                   <span
                     data-guide="squad-starters-badge"
                     className="squad-section-label text-xs font-bold uppercase tracking-widest text-cyan-400"
                   >
-                    Owned Squad
+                    My Squad
                   </span>
-                  <h2 className="mt-1 text-xl font-bold" style={{ color: 'var(--text-primary)' }}>Roster List</h2>
+                  <h2 className="mt-1 text-xl font-bold" style={{ color: 'var(--text-primary)' }}>Squad Roster</h2>
                   <p className="mt-1 text-sm" style={{ color: 'var(--text-muted)' }}>
-                    Squad ownership is shown independently from your gameweek lineup.
+                    Select a player to view details. Squad ownership is separate from your gameweek lineup.
                   </p>
                 </div>
-                <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
-                  {loading ? '8 players' : `${ownedRoster.length} players`}
-                </span>
+                <div
+                  className="rounded-xl border px-3 py-2 text-right"
+                  style={{ background: 'var(--surface-raised)', borderColor: 'var(--border)' }}
+                >
+                  <span className="block font-mono text-lg font-bold" style={{ color: 'var(--text-primary)' }}>
+                    {loading ? '—' : `${ownedRoster.length}/8`}
+                  </span>
+                  <span className="block text-[10px] font-semibold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>
+                    Squad players
+                  </span>
+                </div>
               </div>
 
-              <div className="grid gap-3 sm:grid-cols-2">
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                 {loading ? (
                   [1, 2, 3, 4, 5, 6, 7, 8].map((item) => (
                     <div
                       key={item}
-                      className="flex min-h-24 w-full items-center gap-4 rounded-2xl border p-4 animate-pulse"
+                      className="flex min-h-64 w-full flex-col items-center rounded-2xl border p-4 animate-pulse"
                       style={{
                         background: 'var(--surface-raised)',
                         borderColor: 'var(--border)',
                       }}
                     >
-                      <div className="h-14 w-14 shrink-0 rounded-full bg-slate-700/40 dark:bg-slate-800/60" />
-                      <div className="min-w-0 flex-1 space-y-2">
-                        <div className="h-3 w-16 rounded bg-slate-700/40 dark:bg-slate-800/60" />
-                        <div className="h-4 w-32 rounded bg-slate-700/40 dark:bg-slate-800/60" />
-                        <div className="h-3 w-24 rounded bg-slate-700/40 dark:bg-slate-800/60" />
-                      </div>
-                      <div className="flex shrink-0 flex-col items-end gap-1 text-right">
-                        <div className="h-4 w-14 rounded bg-slate-700/40 dark:bg-slate-800/60" />
-                        <div className="h-3 w-12 rounded bg-slate-700/40 dark:bg-slate-800/60" />
-                      </div>
+                      <div className="mb-5 h-4 w-full rounded bg-slate-700/40 dark:bg-slate-800/60" />
+                      <div className="h-20 w-20 rounded-full bg-slate-700/40 dark:bg-slate-800/60" />
+                      <div className="mt-4 h-4 w-3/4 rounded bg-slate-700/40 dark:bg-slate-800/60" />
+                      <div className="mt-2 h-3 w-1/2 rounded bg-slate-700/40 dark:bg-slate-800/60" />
+                      <div className="mt-auto h-10 w-full rounded bg-slate-700/40 dark:bg-slate-800/60" />
                     </div>
                   ))
-                ) : ownedRoster.map(({ player, lineupEntry }, index) => {
+                ) : gridRoster.map(({ player, lineupEntry }, index) => {
                   const playerName = player.in_game_name || player.name;
-                  const lineupLabel = lineupEntry
-                    ? `${lineupEntry.slot.replace('_', ' ')} · ${lineupEntry.is_starter ? 'Starter' : 'Bench'}`
-                    : 'Not assigned to this lineup';
-                  const lineupPeriod =
-                    gameweek?.status === 'closed'
-                      ? `Last GW ${gameweek.gameweek_number}`
-                      : gameweek
-                      ? `Selected GW ${gameweek.gameweek_number}`
-                      : 'No current gameweek';
+                  const roleLabel = player.primary_role || 'Role unavailable';
+                  const isUnavailable = Boolean(
+                    player.availability_status && player.availability_status !== 'available',
+                  );
+                  const lineupStatus = lineupEntry
+                    ? lineupEntry.is_starter ? 'Starting five' : 'Bench'
+                    : 'Not in lineup';
+                  const gameweekLabel = gameweek
+                    ? `${gameweek.status === 'closed' ? 'Last' : 'Selected'} GW ${gameweek.gameweek_number}`
+                    : 'No current gameweek';
 
                   return (
                     <button
@@ -956,15 +970,49 @@ export default function SquadsPage() {
                       data-guide={index === 0 ? 'squad-first-player' : undefined}
                       data-tour={index === 0 ? 'squad-first-player' : undefined}
                       onClick={() => openPlayerDetails(player.id)}
-                      className="group relative flex min-h-24 w-full items-center gap-4 rounded-2xl border p-4 text-left shadow-md transition-all duration-200 hover:shadow-lg hover:border-cyan-500/50 cursor-pointer focus:outline-none focus:ring-2 focus:ring-cyan-400"
+                      className="group relative flex min-h-64 w-full flex-col overflow-hidden rounded-2xl border p-4 text-left shadow-sm transition-all duration-200 hover:-translate-y-1 hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-cyan-400"
                       style={{
                         background: 'var(--surface-raised)',
                         borderColor: 'var(--border)',
                       }}
                     >
-                      <div className="relative">
+                      <span
+                        className="absolute inset-x-0 top-0 h-1 transition-opacity group-hover:opacity-100"
+                        style={{
+                          background: lineupEntry?.is_captain
+                            ? 'linear-gradient(90deg, #f59e0b, #fcd34d)'
+                            : lineupEntry?.is_vice_captain
+                              ? 'linear-gradient(90deg, #06b6d4, #67e8f9)'
+                              : 'var(--accent-primary)',
+                          opacity: 0.75,
+                        }}
+                      />
+                      <div className="flex w-full items-center justify-between gap-2 pt-1">
+                        <span
+                          className="truncate text-[10px] font-bold uppercase tracking-widest"
+                          style={{ color: 'var(--accent-primary)' }}
+                        >
+                          {roleLabel}
+                        </span>
+                        <span
+                          className="shrink-0 rounded-full border px-2 py-1 text-[9px] font-semibold uppercase tracking-wider"
+                          style={{
+                            borderColor: lineupEntry?.is_starter
+                              ? 'color-mix(in srgb, var(--accent-primary) 35%, transparent)'
+                              : 'var(--border)',
+                            background: lineupEntry?.is_starter
+                              ? 'color-mix(in srgb, var(--accent-primary) 12%, transparent)'
+                              : 'var(--surface)',
+                            color: lineupEntry?.is_starter ? 'var(--accent-primary)' : 'var(--text-muted)',
+                          }}
+                        >
+                          {lineupStatus}
+                        </span>
+                      </div>
+
+                      <div className="relative mt-5">
                         <div
-                          className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-full border-2 shadow-sm"
+                          className="mx-auto flex h-20 w-20 items-center justify-center overflow-hidden rounded-full border-2 shadow-md transition-transform duration-200 group-hover:scale-105"
                           style={{
                             borderColor: 'var(--accent-primary)',
                             background: 'color-mix(in srgb, var(--accent-primary) 15%, transparent)',
@@ -974,13 +1022,13 @@ export default function SquadsPage() {
                             <Image
                               src={player.profile_image_url}
                               alt=""
-                              width={56}
-                              height={56}
+                              width={80}
+                              height={80}
                               unoptimized={!canOptimizeImage(player.profile_image_url)}
                               className="h-full w-full object-cover"
                             />
                           ) : (
-                            <span className="text-sm font-bold" style={{ color: 'var(--accent-primary)' }}>
+                            <span className="text-lg font-bold" style={{ color: 'var(--accent-primary)' }}>
                               {(playerName || 'P').substring(0, 2).toUpperCase()}
                             </span>
                           )}
@@ -989,7 +1037,7 @@ export default function SquadsPage() {
                         {lineupEntry?.is_captain && (
                           <span
                             aria-label="Captain (2x Points)"
-                            className="absolute -top-1.5 -left-1.5 z-10 flex items-center gap-0.5 rounded-full px-1.5 py-0.2 text-[9px] font-black uppercase tracking-wider shadow-md"
+                            className="absolute right-0 top-0 z-10 flex items-center gap-0.5 rounded-full px-2 py-1 text-[9px] font-black uppercase tracking-wider shadow-md"
                             style={{
                               background: 'linear-gradient(135deg, #f59e0b, #d97706)',
                               color: '#ffffff',
@@ -1004,7 +1052,7 @@ export default function SquadsPage() {
                         {lineupEntry?.is_vice_captain && !lineupEntry?.is_captain && (
                           <span
                             aria-label="Vice-captain"
-                            className="absolute -top-1.5 -left-1.5 z-10 flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-black shadow-md"
+                            className="absolute right-0 top-0 z-10 flex h-6 min-w-6 items-center justify-center rounded-full px-1 text-[9px] font-black shadow-md"
                             style={{
                               background: 'linear-gradient(135deg, #06b6d4, #0284c7)',
                               color: '#ffffff',
@@ -1016,15 +1064,8 @@ export default function SquadsPage() {
                         )}
                       </div>
 
-                      <div className="min-w-0 flex-1">
-                        <span className="block text-[11px] font-bold uppercase tracking-widest" style={{ color: 'var(--accent-primary)' }}>
-                          {player.primary_role || 'Role unavailable'}
-                        </span>
-                        <span
-                          className="block truncate text-base font-bold transition-colors group-hover:text-cyan-500"
-                          style={{ color: 'var(--text-primary)' }}
-                          title={playerName}
-                        >
+                      <div className="mt-3 w-full min-w-0 text-center">
+                        <span className="block truncate text-base font-bold transition-colors group-hover:text-cyan-500" style={{ color: 'var(--text-primary)' }} title={playerName}>
                           {playerName}
                         </span>
                         <span className="block truncate text-sm" style={{ color: 'var(--text-muted)' }}>
@@ -1032,20 +1073,31 @@ export default function SquadsPage() {
                             player.professional_teams?.name ||
                             'Free Agent'}
                         </span>
-                        <span className="mt-1 block text-xs capitalize" style={{ color: 'var(--text-muted)' }}>
-                          {gameweek ? `${lineupPeriod} · ${lineupLabel}` : `${lineupPeriod} · squad ownership`}
+                        <span className="mt-1 block text-[10px] font-medium" style={{ color: 'var(--text-muted)' }}>
+                          {gameweekLabel} · {lineupEntry ? lineupEntry.slot.replace('_', ' ') : 'Squad ownership'}
                         </span>
                       </div>
 
-                      <div className="flex shrink-0 flex-col items-end gap-1 text-right">
-                        <span className="font-mono text-sm font-bold text-amber-500 dark:text-amber-400">
-                          {formatPlayerPrice(player.current_price)}
-                        </span>
-                        <span className="rounded-full px-2 py-0.5 text-[10px] font-semibold" style={{
-                          background: 'color-mix(in srgb, var(--surface-muted) 80%, transparent)',
-                          color: 'var(--text-muted)',
-                          border: '1px solid var(--border)'
-                        }}>
+                      <div className="mt-auto flex w-full items-center justify-between gap-2 border-t pt-3" style={{ borderColor: 'var(--border)' }}>
+                        <div>
+                          <span className="block text-[9px] font-semibold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Price</span>
+                          <span className="font-mono text-sm font-bold text-amber-500 dark:text-amber-400">
+                            {formatPlayerPrice(player.current_price)}
+                          </span>
+                        </div>
+                        <span
+                          title={player.availability_reason || undefined}
+                          className="max-w-[55%] truncate rounded-full border px-2 py-1 text-[9px] font-semibold capitalize"
+                          style={{
+                            background: isUnavailable
+                              ? 'color-mix(in srgb, #f43f5e 10%, transparent)'
+                              : 'color-mix(in srgb, #10b981 10%, transparent)',
+                            borderColor: isUnavailable
+                              ? 'color-mix(in srgb, #f43f5e 30%, transparent)'
+                              : 'color-mix(in srgb, #10b981 30%, transparent)',
+                            color: isUnavailable ? '#fb7185' : '#34d399',
+                          }}
+                        >
                           {player.availability_status || 'Available'}
                         </span>
                       </div>

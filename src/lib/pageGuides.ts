@@ -104,7 +104,11 @@ const guides: Record<string, PageGuide> = {
     ],
     implications: 'Creating a league establishes a competition for its members; joining associates your team with that competition. League standings follow fantasy scoring and may update after gameweek results are recalculated.',
     tips: ['Confirm the league format before creating it.', 'Share private invite codes only with the people you intend to join.'],
-    related: [{ label: 'Global leaderboard', href: '/leaderboard' }, { label: 'Gameweeks', href: '/gameweeks' }],
+    related: [
+      { label: 'League formats and rules', href: '/rules#leagues' },
+      { label: 'Global leaderboard', href: '/leaderboard' },
+      { label: 'Gameweeks', href: '/gameweeks' },
+    ],
   },
   '/leaderboard': {
     overview: 'The leaderboard compares manager standings using the fantasy points recorded by the app.',

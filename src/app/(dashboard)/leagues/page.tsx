@@ -434,7 +434,7 @@ function LeaguesPageContent() {
                   No {tab === 'classic' ? 'classic' : 'head-to-head'} leagues found.
                 </div>
               ) : (
-                <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                <div className={`grid gap-4 ${visibleLeagues.length === 1 ? 'grid-cols-1' : 'md:grid-cols-2 xl:grid-cols-3'}`}>
                   {visibleLeagues.map((league) => (
                     <LeagueCard
                       key={league.id}
@@ -484,8 +484,28 @@ function LeaguesPageContent() {
                                   #{rank}
                                 </span>
                               </td>
-                              <td className="px-5 py-3.5 font-semibold text-white group-hover:text-amber-400 transition-colors">
-                                {entry.manager}
+                              <td className="px-5 py-3.5">
+                                <div className="flex items-center gap-3">
+                                  <span className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full border border-[var(--border)] bg-[var(--surface-raised)]">
+                                    {entry.avatarUrl ? (
+                                      <Image
+                                        src={entry.avatarUrl}
+                                        alt=""
+                                        width={32}
+                                        height={32}
+                                        unoptimized={!canOptimizeImage(entry.avatarUrl)}
+                                        className="h-full w-full object-cover"
+                                      />
+                                    ) : (
+                                      <span className="text-xs font-bold text-[var(--text-secondary)]">
+                                        {(entry.manager || '?').substring(0, 1).toUpperCase()}
+                                      </span>
+                                    )}
+                                  </span>
+                                  <span className="font-semibold text-white transition-colors group-hover:text-amber-400">
+                                    {entry.manager}
+                                  </span>
+                                </div>
                               </td>
                               <td className="px-5 py-3.5 text-right font-mono text-slate-300">{entry.gwPoints ?? 0}</td>
                               <td className="px-5 py-3.5 text-right font-mono font-bold text-white">{entry.points} pts</td>

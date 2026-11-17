@@ -371,86 +371,185 @@ export default function SquadPlannerPage() {
       </section>
 
       <div className="grid gap-6 xl:grid-cols-[1fr_0.9fr]">
-        <section className="overflow-hidden rounded-2xl border border-slate-700 bg-slate-800/40">
-          <div className="border-b border-slate-700 p-5">
-            <h2 className="text-lg font-semibold text-white">My squad availability</h2>
-            <p className="mt-1 text-sm text-slate-400">Role, status, and recent form for your owned players.</p>
+        <section
+          className="overflow-hidden rounded-3xl border shadow-sm"
+          style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}
+        >
+          <div className="flex flex-wrap items-center justify-between gap-4 border-b p-5 sm:p-6" style={{ borderColor: 'var(--border)' }}>
+            <div className="flex min-w-0 items-center gap-3">
+              <span
+                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl"
+                style={{ background: 'color-mix(in srgb, var(--accent-primary) 12%, transparent)', color: 'var(--accent-primary)' }}
+              >
+                <ShieldCheck className="h-5 w-5" />
+              </span>
+              <div className="min-w-0">
+                <h2 className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>My squad availability</h2>
+                <p className="mt-1 text-sm" style={{ color: 'var(--text-muted)' }}>
+                  Player status, lineup roles, and upcoming team schedules.
+                </p>
+              </div>
+            </div>
+            {!loading && ownedPlayers.length > 0 && (
+              <div
+                className="rounded-xl border px-3 py-2 text-right"
+                style={{ background: 'var(--surface-raised)', borderColor: 'var(--border)' }}
+              >
+                <p className="font-mono text-lg font-bold" style={{ color: 'var(--text-primary)' }}>
+                  {ownedPlayers.length - unavailableCount}/{ownedPlayers.length}
+                </p>
+                <p className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>
+                  Available
+                </p>
+              </div>
+            )}
           </div>
           {loading ? (
-            <div className="divide-y divide-slate-700/70 p-4 space-y-4 animate-pulse">
+            <div className="grid gap-3 p-4 sm:grid-cols-2">
               {[1, 2, 3, 4].map((item) => (
-                <div key={item} className="flex items-center gap-3 pt-3 first:pt-0">
-                  <div className="h-10 w-10 rounded-full bg-slate-700 shrink-0" />
-                  <div className="flex-1 space-y-1.5">
-                    <div className="h-4 w-36 rounded bg-slate-700" />
-                    <div className="h-3 w-24 rounded bg-slate-800" />
+                <div
+                  key={item}
+                  className="min-h-40 animate-pulse rounded-2xl border p-4"
+                  style={{ background: 'var(--surface-raised)', borderColor: 'var(--border)' }}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="h-12 w-12 shrink-0 rounded-full bg-[var(--surface-muted)]" />
+                    <div className="flex-1 space-y-2">
+                      <div className="h-4 w-3/4 rounded bg-[var(--surface-muted)]" />
+                      <div className="h-3 w-1/2 rounded bg-[var(--surface-muted)]" />
+                    </div>
                   </div>
+                  <div className="mt-5 h-7 w-full rounded-lg bg-[var(--surface-muted)]" />
+                  <div className="mt-3 h-3 w-2/3 rounded bg-[var(--surface-muted)]" />
                 </div>
               ))}
             </div>
           ) : ownedPlayers.length === 0 ? (
             <div className="p-8 text-center">
-              <p className="font-medium text-white">Your squad is empty</p>
-              <Link href="/transfers" className="mt-3 inline-block text-sm text-cyan-300 hover:text-cyan-200">
+              <p className="font-semibold" style={{ color: 'var(--text-primary)' }}>Your squad is empty</p>
+              <p className="mt-1 text-sm" style={{ color: 'var(--text-muted)' }}>Add players to see availability and team fixtures here.</p>
+              <Link
+                href="/transfers"
+                className="mt-4 inline-flex rounded-xl bg-cyan-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-cyan-500 dark:bg-cyan-400 dark:text-slate-950 dark:hover:bg-cyan-300"
+              >
                 Visit the transfer market
               </Link>
             </div>
           ) : (
-            <ul className="divide-y divide-slate-700/70">
+            <ul className="grid gap-3 p-4 sm:grid-cols-2">
               {ownedPlayers.map((player) => {
                 const lineupEntry = lineupByPlayer.get(player.id);
                 const available = player.availability_status === 'available';
                 const teamFixtures = player.professional_teams
                   ? matchesByTeam.get(player.professional_teams.id) ?? []
                   : [];
+                const accentColor = lineupEntry?.is_captain
+                  ? '#f59e0b'
+                  : lineupEntry?.is_vice_captain
+                    ? '#06b6d4'
+                    : 'var(--accent-primary)';
                 return (
-                  <li key={player.id} className="p-4 sm:p-5">
-                    <div className="flex flex-wrap items-start justify-between gap-3">
-                      <div className="flex min-w-0 items-center gap-3">
-                        {player.profile_image_url ? (
-                          <Image
-                            src={player.profile_image_url}
-                            alt=""
-                            width={40}
-                            height={40}
-                            unoptimized={!canOptimizeImage(player.profile_image_url)}
-                            className="h-10 w-10 rounded-full bg-slate-700 object-cover"
-                          />
-                        ) : (
-                          <span className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-700 text-xs font-bold text-slate-300">
-                            {displayName(player).slice(0, 2).toUpperCase()}
-                          </span>
-                        )}
-                        <div className="min-w-0">
-                          <Link href={`/players/${player.id}`} className="truncate font-semibold text-white hover:text-cyan-300">
-                            {displayName(player)}
-                          </Link>
-                          <p className="truncate text-xs text-slate-400">
-                            {player.professional_teams?.name || 'Free agent'} · {player.primary_role || 'Role unassigned'}
-                          </p>
-                        </div>
+                  <li
+                    key={player.id}
+                    className="relative flex min-w-0 flex-col overflow-hidden rounded-2xl border p-4 shadow-xs transition-shadow hover:shadow-md"
+                    style={{ background: 'var(--surface-raised)', borderColor: 'var(--border)' }}
+                  >
+                    <span className="absolute inset-x-0 top-0 h-1" style={{ background: accentColor }} />
+                    <div className="flex min-w-0 items-center gap-3 pt-1">
+                      {player.profile_image_url ? (
+                        <Image
+                          src={player.profile_image_url}
+                          alt=""
+                          width={48}
+                          height={48}
+                          unoptimized={!canOptimizeImage(player.profile_image_url)}
+                          className="h-12 w-12 shrink-0 rounded-full border object-cover"
+                          style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}
+                        />
+                      ) : (
+                        <span
+                          className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border text-xs font-bold"
+                          style={{
+                            borderColor: 'color-mix(in srgb, var(--accent-primary) 30%, transparent)',
+                            background: 'color-mix(in srgb, var(--accent-primary) 12%, transparent)',
+                            color: 'var(--accent-primary)',
+                          }}
+                        >
+                          {displayName(player).slice(0, 2).toUpperCase()}
+                        </span>
+                      )}
+                      <div className="min-w-0 flex-1">
+                        <Link
+                          href={`/players/${player.id}`}
+                          className="block truncate font-bold transition-colors hover:text-cyan-500"
+                          style={{ color: 'var(--text-primary)' }}
+                        >
+                          {displayName(player)}
+                        </Link>
+                        <p className="mt-0.5 truncate text-xs" style={{ color: 'var(--text-muted)' }}>
+                          {player.professional_teams?.name || 'Free agent'} · {player.primary_role || 'Role unassigned'}
+                        </p>
                       </div>
-                      <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium ${
-                        available
-                          ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300'
-                          : 'border-amber-500/30 bg-amber-500/10 text-amber-200'
-                      }`}>
-                        {!available && <CircleAlert className="h-3.5 w-3.5" />}
-                        {player.availability_status || 'Unknown'}
+                      <span
+                        className={`inline-flex shrink-0 items-center gap-1 rounded-full border px-2 py-1 text-[10px] font-semibold capitalize ${
+                          available
+                            ? 'text-emerald-700 dark:text-emerald-300'
+                            : 'text-amber-700 dark:text-amber-200'
+                        }`}
+                        style={{
+                          borderColor: available
+                            ? 'color-mix(in srgb, #10b981 30%, transparent)'
+                            : 'color-mix(in srgb, #f59e0b 35%, transparent)',
+                          background: available
+                            ? 'color-mix(in srgb, #10b981 10%, transparent)'
+                            : 'color-mix(in srgb, #f59e0b 10%, transparent)',
+                        }}
+                      >
+                        {!available && <CircleAlert className="h-3 w-3" />}
+                        {player.availability_status || 'Unconfirmed'}
                       </span>
                     </div>
 
-                    <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-400">
-                      <span>{slotLabel(lineupEntry?.slot ?? '') || 'Not in lineup'}</span>
-                      {lineupEntry?.is_captain && <span className="text-amber-300">Captain</span>}
-                      {lineupEntry?.is_vice_captain && <span className="text-amber-200">Vice-captain</span>}
-                      <span>{player.current_price ? formatPlayerPrice(player.current_price) : 'Price unavailable'}</span>
+                    <div className="mt-4 flex flex-wrap gap-2">
+                      <span
+                        className="rounded-lg border px-2.5 py-1.5 text-[11px] font-semibold"
+                        style={{
+                          borderColor: 'var(--border)',
+                          background: 'var(--surface)',
+                          color: 'var(--text-secondary)',
+                        }}
+                      >
+                        {slotLabel(lineupEntry?.slot ?? '') || 'Not in lineup'}
+                      </span>
+                      {lineupEntry?.is_captain && (
+                        <span className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-2.5 py-1.5 text-[11px] font-bold text-amber-600 dark:text-amber-300">
+                          Captain
+                        </span>
+                      )}
+                      {lineupEntry?.is_vice_captain && (
+                        <span className="rounded-lg border border-cyan-500/30 bg-cyan-500/10 px-2.5 py-1.5 text-[11px] font-bold text-cyan-700 dark:text-cyan-300">
+                          Vice-captain
+                        </span>
+                      )}
+                      <span
+                        className="ml-auto self-center text-xs font-semibold"
+                        style={{ color: 'var(--text-secondary)' }}
+                      >
+                        {player.current_price ? formatPlayerPrice(player.current_price) : 'Price unavailable'}
+                      </span>
                     </div>
                     {!available && player.availability_reason && (
-                      <p className="mt-2 text-xs text-amber-200/80">{player.availability_reason}</p>
+                      <p
+                        className="mt-3 rounded-xl border border-amber-500/20 bg-amber-500/5 px-3 py-2 text-xs leading-relaxed text-amber-700 dark:text-amber-200"
+                      >
+                        {player.availability_reason}
+                      </p>
                     )}
-                    <div className="mt-3 flex items-start gap-2 text-xs text-slate-400">
-                      <ShieldCheck className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-500" />
+                    <div
+                      className="mt-4 flex items-center gap-2 border-t pt-3 text-xs"
+                      style={{ borderColor: 'var(--border)', color: 'var(--text-muted)' }}
+                    >
+                      <CalendarDays className="h-3.5 w-3.5 shrink-0" style={{ color: 'var(--accent-primary)' }} />
                       <span>
                         {teamFixtures.length
                           ? `${teamFixtures.length} upcoming fixture${teamFixtures.length === 1 ? '' : 's'}`
@@ -464,16 +563,46 @@ export default function SquadPlannerPage() {
           )}
         </section>
 
-        <section className="overflow-hidden rounded-2xl border border-slate-700 bg-slate-800/40">
-          <div className="border-b border-slate-700 p-5">
-            <h2 className="text-lg font-semibold text-white">Upcoming squad fixtures</h2>
-            <p className="mt-1 text-sm text-slate-400">
-              Difficulty is a form-based estimate from each opponent&apos;s recent completed-match win rate, not a match prediction; roster changes may affect results.
-            </p>
+        <section
+          className="overflow-hidden rounded-3xl border shadow-sm"
+          style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}
+        >
+          <div className="flex flex-wrap items-center justify-between gap-4 border-b p-5 sm:p-6" style={{ borderColor: 'var(--border)' }}>
+            <div className="flex min-w-0 items-center gap-3">
+              <span
+                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl"
+                style={{ background: 'color-mix(in srgb, var(--accent-primary) 12%, transparent)', color: 'var(--accent-primary)' }}
+              >
+                <CalendarDays className="h-5 w-5" />
+              </span>
+              <div className="min-w-0">
+                <h2 className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>Upcoming squad fixtures</h2>
+                <p className="mt-1 text-sm" style={{ color: 'var(--text-muted)' }}>
+                  Upcoming matches for your players&apos; professional teams.
+                </p>
+              </div>
+            </div>
+            {!fixtureLoading && schedule.length > 0 && (
+              <div
+                className="rounded-xl border px-3 py-2 text-right"
+                style={{ background: 'var(--surface-raised)', borderColor: 'var(--border)' }}
+              >
+                <p className="font-mono text-lg font-bold" style={{ color: 'var(--text-primary)' }}>{schedule.length}</p>
+                <p className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Matches</p>
+              </div>
+            )}
           </div>
           {fixtureError && (
-            <div role="alert" className="flex flex-wrap items-center justify-between gap-3 border-b border-amber-500/20 bg-amber-950/20 p-4 text-sm text-amber-200">
-              <p>{fixtureError}</p>
+            <div
+              role="alert"
+              className="flex flex-wrap items-center justify-between gap-3 border-b p-4 text-sm"
+              style={{
+                borderColor: 'color-mix(in srgb, #f59e0b 25%, transparent)',
+                background: 'color-mix(in srgb, #f59e0b 8%, transparent)',
+                color: 'var(--text-primary)',
+              }}
+            >
+              <p className="min-w-0 flex-1">{fixtureError}</p>
               <button
                 type="button"
                 onClick={() => {
@@ -483,15 +612,23 @@ export default function SquadPlannerPage() {
                   void loadFixtures(teamIds);
                 }}
                 disabled={fixtureLoading}
-                className="shrink-0 rounded-lg border border-amber-400/40 px-3 py-2 font-semibold text-amber-100 transition-colors hover:bg-amber-400/10 disabled:cursor-wait disabled:opacity-60"
+                className="shrink-0 rounded-lg border border-amber-500/30 px-3 py-2 font-semibold text-amber-700 transition-colors hover:bg-amber-500/10 disabled:cursor-wait disabled:opacity-60 dark:text-amber-200"
               >
                 {fixtureLoading ? 'Retrying…' : 'Retry fixtures'}
               </button>
             </div>
           )}
           {fixtureDifficultyError && (
-            <div role="alert" className="flex flex-wrap items-center justify-between gap-3 border-b border-amber-500/20 bg-amber-950/20 p-4 text-sm text-amber-200">
-              <p>{fixtureDifficultyError}</p>
+            <div
+              role="alert"
+              className="flex flex-wrap items-center justify-between gap-3 border-b p-4 text-sm"
+              style={{
+                borderColor: 'color-mix(in srgb, #f59e0b 25%, transparent)',
+                background: 'color-mix(in srgb, #f59e0b 8%, transparent)',
+                color: 'var(--text-primary)',
+              }}
+            >
+              <p className="min-w-0 flex-1">{fixtureDifficultyError}</p>
               <button
                 type="button"
                 onClick={() => {
@@ -501,31 +638,51 @@ export default function SquadPlannerPage() {
                   void loadFixtures(teamIds);
                 }}
                 disabled={fixtureLoading || fixtureDifficultyLoading}
-                className="shrink-0 rounded-lg border border-amber-400/40 px-3 py-2 font-semibold text-amber-100 transition-colors hover:bg-amber-400/10 disabled:cursor-wait disabled:opacity-60"
+                className="shrink-0 rounded-lg border border-amber-500/30 px-3 py-2 font-semibold text-amber-700 transition-colors hover:bg-amber-500/10 disabled:cursor-wait disabled:opacity-60 dark:text-amber-200"
               >
                 Retry difficulty
               </button>
             </div>
           )}
           {fixtureDifficultyLoading && (
-            <p role="status" className="border-b border-slate-700/70 px-4 py-3 text-xs text-slate-400">
+            <p
+              role="status"
+              className="border-b px-4 py-3 text-xs"
+              style={{ borderColor: 'var(--border)', color: 'var(--text-muted)' }}
+            >
               Loading opponent form…
             </p>
           )}
           {fixtureLoading && (
-            <div role="status" aria-label="Loading upcoming fixtures" className="p-4 space-y-4 animate-pulse">
+            <div role="status" aria-label="Loading upcoming fixtures" className="grid gap-3 p-4 animate-pulse">
               {[1, 2, 3].map((i) => (
-                <div key={i} className="rounded-xl border border-[var(--border)] bg-[var(--surface-raised)] p-4 space-y-2">
-                  <div className="h-4 w-48 rounded bg-[var(--surface)]" />
-                  <div className="h-3 w-32 rounded bg-[var(--surface)]" />
+                <div
+                  key={i}
+                  className="rounded-2xl border p-4"
+                  style={{ background: 'var(--surface-raised)', borderColor: 'var(--border)' }}
+                >
+                  <div className="h-4 w-3/4 rounded bg-[var(--surface-muted)]" />
+                  <div className="mt-3 h-3 w-1/2 rounded bg-[var(--surface-muted)]" />
+                  <div className="mt-5 h-10 w-full rounded-xl bg-[var(--surface-muted)]" />
                 </div>
               ))}
             </div>
           )}
           {!fixtureLoading && schedule.length === 0 ? (
-            <div className="p-8 text-center text-sm text-slate-400">No upcoming fixtures found for your squad.</div>
-          ) : (
-            <ol className="divide-y divide-slate-700/70">
+            <div className="p-8 text-center">
+              <span
+                className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl"
+                style={{ background: 'var(--surface-raised)', color: 'var(--text-muted)' }}
+              >
+                <CalendarDays className="h-5 w-5" />
+              </span>
+              <p className="mt-3 font-semibold" style={{ color: 'var(--text-primary)' }}>No upcoming fixtures</p>
+              <p className="mt-1 text-sm" style={{ color: 'var(--text-muted)' }}>
+                There are no scheduled matches for your squad&apos;s teams right now.
+              </p>
+            </div>
+          ) : schedule.length > 0 ? (
+            <ol className="space-y-3 p-4 sm:p-5">
               {schedule.map((match) => {
                 const involvedPlayers = ownedPlayers.filter((player) =>
                   player.professional_teams?.id === match.team_a_id
@@ -547,25 +704,81 @@ export default function SquadPlannerPage() {
                   (player) => player.professional_teams?.id === side.teamId,
                 ));
                 return (
-                  <li key={match.id} className="p-4 sm:p-5">
-                    <p className="flex items-center gap-2 text-sm font-semibold text-white">
-                      <CalendarDays className="h-4 w-4 shrink-0 text-cyan-400" />
-                      {match.radiant_team?.name || 'Team TBA'} <span className="text-slate-500">vs</span> {match.dire_team?.name || 'Team TBA'}
-                    </p>
-                    <p className="mt-2 text-sm text-cyan-200">{formatDate(match.scheduled_time)}</p>
-                    {match.tournaments?.name && (
-                      <p className="mt-1 truncate text-xs text-slate-500">{match.tournaments.name}</p>
-                    )}
+                  <li
+                    key={match.id}
+                    className="overflow-hidden rounded-2xl border shadow-xs transition-shadow hover:shadow-md"
+                    style={{ background: 'var(--surface-raised)', borderColor: 'var(--border)' }}
+                  >
+                    <div className="flex items-start gap-3 p-4">
+                      <span
+                        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl"
+                        style={{
+                          background: 'color-mix(in srgb, var(--accent-primary) 12%, transparent)',
+                          color: 'var(--accent-primary)',
+                        }}
+                      >
+                        <CalendarDays className="h-4 w-4" />
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <time className="block text-xs font-semibold" style={{ color: 'var(--accent-primary)' }}>
+                          {formatDate(match.scheduled_time)}
+                        </time>
+                        <div className="mt-2 grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2">
+                          <span className="truncate text-sm font-bold" style={{ color: 'var(--text-primary)' }}>
+                            {match.radiant_team?.name || 'Team TBA'}
+                          </span>
+                          <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>
+                            vs
+                          </span>
+                          <span className="truncate text-right text-sm font-bold" style={{ color: 'var(--text-primary)' }}>
+                            {match.dire_team?.name || 'Team TBA'}
+                          </span>
+                        </div>
+                        {match.tournaments?.name && (
+                          <p className="mt-2 truncate text-xs" style={{ color: 'var(--text-muted)' }}>
+                            {match.tournaments.name}
+                          </p>
+                        )}
+                      </div>
+                    </div>
                     {involvedPlayers.length > 0 && (
-                      <p className="mt-2 text-xs text-slate-400">
-                        Your squad: {involvedPlayers.map(displayName).join(', ')}
-                      </p>
+                      <div className="border-t px-4 py-3" style={{ borderColor: 'var(--border)' }}>
+                        <p className="mb-2 text-[10px] font-bold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>
+                          Your squad in this match
+                        </p>
+                        <div className="flex flex-wrap gap-1.5">
+                          {involvedPlayers.map((player) => (
+                            <span
+                              key={player.id}
+                              className="max-w-full truncate rounded-lg border px-2 py-1 text-[11px] font-medium"
+                              style={{
+                                borderColor: 'var(--border)',
+                                background: 'var(--surface)',
+                                color: 'var(--text-secondary)',
+                              }}
+                            >
+                              {displayName(player)}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
                     )}
                     {squadSides.length > 0 && (
-                      <div className="mt-3 space-y-2">
+                      <div className="grid gap-2 border-t p-4 sm:grid-cols-2" style={{ borderColor: 'var(--border)' }}>
                         {squadSides.map((side) => (
-                          <div key={side.teamId} className="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-400">
-                            <span>{side.teamName} vs {side.opponentName}</span>
+                          <div
+                            key={side.teamId}
+                            className="flex min-w-0 items-center justify-between gap-2 rounded-xl border p-3"
+                            style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}
+                          >
+                            <div className="min-w-0">
+                              <p className="text-[9px] font-bold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>
+                                Your team vs
+                              </p>
+                              <p className="mt-1 truncate text-xs font-semibold" style={{ color: 'var(--text-primary)' }}>
+                                {side.teamName} <span style={{ color: 'var(--text-muted)' }}>·</span> {side.opponentName}
+                              </p>
+                            </div>
                             <FixtureDifficultyBadge
                               difficulty={side.opponentId === null ? undefined : fixtureDifficultyByTeam.get(side.opponentId)}
                             />
@@ -577,7 +790,7 @@ export default function SquadPlannerPage() {
                 );
               })}
             </ol>
-          )}
+          ) : null}
         </section>
       </div>
     </div>

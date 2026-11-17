@@ -1,5 +1,7 @@
 import {
   buildGameweekPointsBreakdown,
+  getCurrentGameweekId,
+  getLineupsThroughCurrentGameweek,
   type PlayerPointCategories,
   type PointsLineup,
 } from './dashboard-points';
@@ -33,6 +35,42 @@ const lineup: PointsLineup = {
 };
 
 describe('dashboard season points breakdown', () => {
+  it('selects the earliest active or upcoming gameweek as current', () => {
+    expect(getCurrentGameweekId([
+      { id: 12, status: 'active', start_date: '2026-12-01' },
+      { id: 6, status: 'upcoming', start_date: '2026-11-17' },
+      { id: 5, status: 'closed', start_date: '2026-11-10' },
+    ])).toBe(6);
+  });
+
+  it('excludes planned lineups after the current gameweek from season contributions', () => {
+    expect(getLineupsThroughCurrentGameweek(
+      [
+        { ...lineup, gameweek_id: 6 },
+        { ...lineup, id: 2, gameweek_id: 12 },
+      ],
+      new Map([[6, 6], [12, 12]]),
+      6,
+    ).map((entry) => entry.gameweek_id)).toEqual([6]);
+  });
+
+  it('puts the active gameweek first ahead of newer gameweeks', () => {
+    const gameweeks = buildGameweekPointsBreakdown({
+      lineups: [
+        { ...lineup, gameweek_id: 10 },
+        { ...lineup, id: 2, gameweek_id: 11 },
+      ],
+      performances: [],
+      players: [],
+      gameweekNumbers: new Map([[10, 3], [11, 4]]),
+      currentGameweekId: 10,
+      tripleCaptainGameweekId: null,
+      benchBoostGameweekId: null,
+    });
+
+    expect(gameweeks.map((gameweek) => gameweek.gameweekId)).toEqual([10, 11]);
+  });
+
   it('attributes lineup points to players, categories, auto-subs, and captain multipliers', () => {
     const [gameweek] = buildGameweekPointsBreakdown({
       lineups: [lineup],

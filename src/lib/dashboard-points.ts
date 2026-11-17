@@ -117,11 +117,31 @@ function roundCategories(categories: PlayerPointCategories): PlayerPointCategori
   };
 }
 
+export function getCurrentGameweekId(
+  gameweeks: Array<{ id: number; status: string; start_date: string }>,
+): number | null {
+  return [...gameweeks]
+    .filter((gameweek) => gameweek.status === 'active' || gameweek.status === 'upcoming')
+    .sort((a, b) => Date.parse(a.start_date) - Date.parse(b.start_date))[0]?.id ?? null;
+}
+
+export function getLineupsThroughCurrentGameweek(
+  lineups: PointsLineup[],
+  gameweekNumbers: Map<number, number>,
+  currentGameweekNumber: number | null,
+): PointsLineup[] {
+  if (currentGameweekNumber === null) return lineups;
+  return lineups.filter((lineup) =>
+    (gameweekNumbers.get(lineup.gameweek_id) ?? lineup.gameweek_id) <= currentGameweekNumber
+  );
+}
+
 export function buildGameweekPointsBreakdown({
   lineups,
   performances,
   players,
   gameweekNumbers,
+  currentGameweekId,
   tripleCaptainGameweekId,
   benchBoostGameweekId,
 }: {
@@ -129,6 +149,7 @@ export function buildGameweekPointsBreakdown({
   performances: PointsPerformance[];
   players: PointsPlayer[];
   gameweekNumbers: Map<number, number>;
+  currentGameweekId?: number | null;
   tripleCaptainGameweekId: number | null;
   benchBoostGameweekId: number | null;
 }): GameweekPointsBreakdown[] {
@@ -251,7 +272,11 @@ export function buildGameweekPointsBreakdown({
         .sort((a, b) => b.points - a.points),
       categories: roundCategories(categories),
     };
-  }).sort((a, b) => b.gameweekNumber - a.gameweekNumber);
+  }).sort((a, b) => {
+    if (a.gameweekId === currentGameweekId) return -1;
+    if (b.gameweekId === currentGameweekId) return 1;
+    return b.gameweekNumber - a.gameweekNumber;
+  });
 }
 
 export function sumGameweekPointCategories(
