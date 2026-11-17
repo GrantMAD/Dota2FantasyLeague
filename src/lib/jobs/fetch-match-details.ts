@@ -15,6 +15,10 @@ import {
   hasCanonicalSteamId,
   normalizePlayerIdentity,
 } from './player-identity';
+import {
+  getMatchLifecyclePlayerIds,
+  notifyMatchLifecycleMilestone,
+} from './match-lifecycle-notifications';
 import type { JobRunOptions } from './scheduler';
 import type { DataProvider } from '../data-providers/provider-interface';
 
@@ -318,6 +322,23 @@ export async function fetchMatchDetails(options?: JobRunOptions): Promise<FetchD
               if (statsError) {
                 throw statsError;
               }
+            }
+
+            if (statsToInsert.length > 0) {
+              const { data: substitutions, error: substitutionsError } = await supabase
+                .from('match_player_substitutions')
+                .select('match_id, rostered_player_id, stand_in_player_id')
+                .eq('match_id', match.id);
+              if (substitutionsError) {
+                throw new Error(`Failed to resolve match substitutions for finish notification: ${substitutionsError.message}`);
+              }
+
+              const finishNotificationResult = await notifyMatchLifecycleMilestone(supabase, [{
+                id: match.id,
+                externalMatchId: externalId,
+                playerIds: getMatchLifecyclePlayerIds(match.id, statsToInsert, substitutions ?? []),
+              }], 'finished');
+              result.errors.push(...finishNotificationResult.errors);
             }
 
             result.fetched++;

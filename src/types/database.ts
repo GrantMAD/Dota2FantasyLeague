@@ -11,6 +11,8 @@ export interface User {
   email_notifications?: boolean;
   push_notifications?: boolean;
   live_squad_match_notifications?: boolean;
+  match_data_processed_notifications?: boolean;
+  fantasy_points_calculated_notifications?: boolean;
   season_recap_sharing_consent?: boolean;
   created_at: string;
   updated_at: string;

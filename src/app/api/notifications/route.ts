@@ -21,7 +21,7 @@ const notificationTypesByCategory: Partial<Record<NotificationCategory, string[]
   market: ['price_change', 'transfer_market', 'wildcard_used', 'player_removed'],
   scoring: ['score_posted', 'gameweek_result', 'rank_movement', 'rank_update'],
   league: ['league_invite', 'league_activity', 'league_result', 'h2h_result'],
-  live: ['live_squad_match'],
+  live: ['live_squad_match', 'match_finished', 'match_data_processed', 'fantasy_points_calculated'],
 };
 
 interface NotificationCursor {

@@ -1,6 +1,10 @@
 import { createClient } from '@supabase/supabase-js';
 import { recalculateGameweeks } from './recalculate-gameweeks';
 import {
+  getMatchLifecyclePlayerIds,
+  notifyMatchLifecycleMilestone,
+} from './match-lifecycle-notifications';
+import {
   calculateDeathPenaltyPoints,
   calculateConsistencyPoints,
   calculatePerformanceBonus,
@@ -41,6 +45,7 @@ interface MatchPlayerStats {
 
 interface Match {
   id: number;
+  external_match_id: string | null;
   series_id: number;
   gameweek_id: number;
   scheduled_time: string;
@@ -129,6 +134,38 @@ export function findMatchesNeedingScores(
   }
 
   return pendingMatchIds;
+}
+
+export function findMatchesWithCompleteScores(
+  matches: Pick<Match, 'id'>[],
+  stats: Pick<MatchPlayerStats, 'match_id' | 'player_id'>[],
+  performances: PerformanceScoreStatusRow[],
+): number[] {
+  const playerIdsByMatch = new Map<number, Set<number>>();
+  for (const stat of stats) {
+    const playerIds = playerIdsByMatch.get(stat.match_id) ?? new Set<number>();
+    playerIds.add(stat.player_id);
+    playerIdsByMatch.set(stat.match_id, playerIds);
+  }
+
+  const performanceRowsByMatch = new Map<number, PerformanceScoreStatusRow[]>();
+  for (const performance of performances) {
+    const rows = performanceRowsByMatch.get(performance.match_id) ?? [];
+    rows.push(performance);
+    performanceRowsByMatch.set(performance.match_id, rows);
+  }
+
+  return matches.flatMap((match) => {
+    const expectedPlayerCount = playerIdsByMatch.get(match.id)?.size ?? 0;
+    const scoreRows = performanceRowsByMatch.get(match.id) ?? [];
+    const complete = expectedPlayerCount > 0
+      && scoreRows.length === expectedPlayerCount
+      && scoreRows.every((row) => {
+        const breakdown = row.fantasy_points_breakdown;
+        return Array.isArray(breakdown) ? breakdown.length > 0 : breakdown !== null;
+      });
+    return complete ? [match.id] : [];
+  });
 }
 
 function errorMessage(error: unknown): string {
@@ -387,6 +424,7 @@ export class FantasyScoreCalculator {
         .select(
           `
           id,
+          external_match_id,
           series_id,
           gameweek_id,
           scheduled_time,
@@ -430,11 +468,15 @@ export class FantasyScoreCalculator {
       for (let offset = 0; offset < matches.length && pendingMatches.length <= matchLimit; offset += scanBatchSize) {
         const scanBatch = matches.slice(offset, offset + scanBatchSize);
         const matchIds = scanBatch.map((match) => match.id);
-        const [statsResult, performancesResult] = await Promise.all([
-          this.supabase.from('match_player_stats').select('match_id').in('match_id', matchIds),
+        const [statsResult, performancesResult, substitutionsResult] = await Promise.all([
+          this.supabase.from('match_player_stats').select('match_id, player_id').in('match_id', matchIds),
           this.supabase
             .from('player_performances')
             .select('match_id, fantasy_points_breakdown(id)')
+            .in('match_id', matchIds),
+          this.supabase
+            .from('match_player_substitutions')
+            .select('match_id, rostered_player_id, stand_in_player_id')
             .in('match_id', matchIds),
         ]);
 
@@ -449,14 +491,44 @@ export class FantasyScoreCalculator {
           return result;
         }
 
+        const matchStats = (statsResult.data ?? []) as Pick<MatchPlayerStats, 'match_id' | 'player_id'>[];
+        const scoreStatuses = (performancesResult.data ?? []) as PerformanceScoreStatusRow[];
         const unscoredIds = findMatchesNeedingScores(
           scanBatch,
-          (statsResult.data ?? []) as Pick<MatchPlayerStats, 'match_id'>[],
-          (performancesResult.data ?? []) as PerformanceScoreStatusRow[],
+          matchStats,
+          scoreStatuses,
           matchLimit + 1 - pendingMatches.length,
         );
         const pendingIdSet = new Set(unscoredIds);
         pendingMatches.push(...scanBatch.filter((match) => pendingIdSet.has(match.id)));
+
+        const recentNotificationMatches = scanBatch.filter(
+          (match) => Date.now() - new Date(match.scheduled_time).getTime() <= 7 * 24 * 60 * 60 * 1000,
+        );
+        const fullyScoredIds = new Set(findMatchesWithCompleteScores(recentNotificationMatches, matchStats, scoreStatuses));
+        if (substitutionsResult.error) {
+          result.errors.push(`Failed to check match substitutions for score notifications: ${substitutionsResult.error.message}`);
+        } else if (fullyScoredIds.size > 0) {
+          const substitutions = substitutionsResult.data ?? [];
+          try {
+            const notificationResult = await notifyMatchLifecycleMilestone(
+              this.supabase,
+              recentNotificationMatches
+                .filter((match) => fullyScoredIds.has(match.id))
+                .map((match) => ({
+                  id: match.id,
+                  externalMatchId: match.external_match_id || String(match.id),
+                  playerIds: getMatchLifecyclePlayerIds(match.id, matchStats, substitutions),
+                })),
+              'fantasy_points_calculated',
+            );
+            result.errors.push(...notificationResult.errors);
+          } catch (notificationError: unknown) {
+            const message = errorMessage(notificationError);
+            result.errors.push(`Failed to retry match fantasy-points notifications: ${message}`);
+            console.error('[CalculateScores] Failed to retry match score notifications:', notificationError);
+          }
+        }
       }
 
       const matchesToProcess = pendingMatches.slice(0, matchLimit);
@@ -595,6 +667,58 @@ export class FantasyScoreCalculator {
             result.errors.push(`Failed to upsert breakdown chunk: ${upsertError.message}`);
           } else {
             result.scoresCalculated += breakdownsToUpsert.length;
+            const { data: rawScoreStatus, error: scoreStatusError } = await this.supabase
+              .from('player_performances')
+              .select('match_id, fantasy_points_breakdown(id)')
+              .in('match_id', matchIds);
+            if (scoreStatusError) {
+              result.errors.push(`Failed to verify completed match scores: ${scoreStatusError.message}`);
+            } else {
+              const statusByMatch = new Map<number, PerformanceScoreStatusRow[]>();
+              for (const row of (rawScoreStatus ?? []) as PerformanceScoreStatusRow[]) {
+                const rows = statusByMatch.get(row.match_id) ?? [];
+                rows.push(row);
+                statusByMatch.set(row.match_id, rows);
+              }
+
+              const playerIdsByMatch = new Map<number, Set<number>>();
+              for (const stats of playerStats) {
+                const playerIds = playerIdsByMatch.get(stats.match_id) ?? new Set<number>();
+                playerIds.add(stats.player_id);
+                playerIdsByMatch.set(stats.match_id, playerIds);
+              }
+
+              const completeMatches = chunk.flatMap((match) => {
+                const expectedPlayerCount = playerIdsByMatch.get(match.id)?.size ?? 0;
+                const scoreRows = statusByMatch.get(match.id) ?? [];
+                const fullyScored = expectedPlayerCount > 0
+                  && scoreRows.length === expectedPlayerCount
+                  && scoreRows.every((row) => {
+                    const breakdown = row.fantasy_points_breakdown;
+                    return Array.isArray(breakdown) ? breakdown.length > 0 : breakdown !== null;
+                  });
+                if (!fullyScored) return [];
+
+                return [{
+                  id: match.id,
+                  externalMatchId: match.external_match_id || String(match.id),
+                  playerIds: getMatchLifecyclePlayerIds(match.id, playerStats, substitutions),
+                }];
+              });
+
+              try {
+                const notificationResult = await notifyMatchLifecycleMilestone(
+                  this.supabase,
+                  completeMatches,
+                  'fantasy_points_calculated',
+                );
+                result.errors.push(...notificationResult.errors);
+              } catch (notificationError: unknown) {
+                const message = errorMessage(notificationError);
+                result.errors.push(`Failed to notify users that fantasy points were calculated: ${message}`);
+                console.error('[CalculateScores] Failed to notify match score calculation:', notificationError);
+              }
+            }
           }
         }
 
@@ -603,7 +727,7 @@ export class FantasyScoreCalculator {
       }
 
       result.gameweeksUpdated = updatedGameweeks.size;
-      result.success = true;
+      result.success = result.errors.length === 0;
       console.log(`[CalculateScores] Completed in ${Date.now() - startTime}ms. Calculated ${result.scoresCalculated} scores across ${result.gameweeksUpdated} gameweeks.`);
 
       // In serverless/cron deployment with strict execution time limits (e.g. Vercel 10s),

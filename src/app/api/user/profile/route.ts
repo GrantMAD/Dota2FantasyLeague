@@ -17,6 +17,8 @@ type UserProfileRecord = {
   email_notifications?: boolean | null;
   push_notifications?: boolean | null;
   live_squad_match_notifications?: boolean | null;
+  match_data_processed_notifications?: boolean | null;
+  fantasy_points_calculated_notifications?: boolean | null;
   role?: string | null;
   is_premium: boolean;
   subscription_tier: string | null;
@@ -51,7 +53,7 @@ async function getHandler(request: NextRequest) {
 
     const users = supabase.from('users') as unknown as UserQuery;
     const { data, error } = await users
-      .select('id, username, display_name, avatar_url, bio, country_code, timezone, theme_preference, banner_theme, email_notifications, push_notifications, live_squad_match_notifications, role, is_premium, subscription_tier, created_at, updated_at')
+      .select('id, username, display_name, avatar_url, bio, country_code, timezone, theme_preference, banner_theme, email_notifications, push_notifications, live_squad_match_notifications, match_data_processed_notifications, fantasy_points_calculated_notifications, role, is_premium, subscription_tier, created_at, updated_at')
       .eq('id', userId)
       .maybeSingle();
 
@@ -79,6 +81,8 @@ async function getHandler(request: NextRequest) {
         email_notifications: data.email_notifications ?? true,
         push_notifications: data.push_notifications ?? true,
         live_squad_match_notifications: data.live_squad_match_notifications ?? true,
+        match_data_processed_notifications: data.match_data_processed_notifications ?? true,
+        fantasy_points_calculated_notifications: data.fantasy_points_calculated_notifications ?? true,
         role: data.role || auth.role || 'user',
         email: auth.email,
         member_since: data.created_at,
@@ -158,6 +162,14 @@ async function putHandler(request: NextRequest) {
       payload.live_squad_match_notifications = liveSquadMatchNotifications;
     }
 
+    if (typeof body.match_data_processed_notifications === 'boolean') {
+      payload.match_data_processed_notifications = body.match_data_processed_notifications;
+    }
+
+    if (typeof body.fantasy_points_calculated_notifications === 'boolean') {
+      payload.fantasy_points_calculated_notifications = body.fantasy_points_calculated_notifications;
+    }
+
     if (Object.keys(payload).length === 0) {
       return NextResponse.json({ error: 'No valid profile fields provided.' }, { status: 400 });
     }
@@ -166,7 +178,7 @@ async function putHandler(request: NextRequest) {
     const { data, error } = await users
       .update({ ...payload, updated_at: new Date().toISOString() })
       .eq('id', userId)
-      .select('id, username, display_name, avatar_url, bio, country_code, timezone, theme_preference, banner_theme, email_notifications, push_notifications, live_squad_match_notifications, created_at, updated_at')
+      .select('id, username, display_name, avatar_url, bio, country_code, timezone, theme_preference, banner_theme, email_notifications, push_notifications, live_squad_match_notifications, match_data_processed_notifications, fantasy_points_calculated_notifications, created_at, updated_at')
       .maybeSingle();
 
     if (error) {
@@ -179,6 +191,8 @@ async function putHandler(request: NextRequest) {
         email_notifications: data?.email_notifications ?? true,
         push_notifications: data?.push_notifications ?? true,
         live_squad_match_notifications: data?.live_squad_match_notifications ?? true,
+        match_data_processed_notifications: data?.match_data_processed_notifications ?? true,
+        fantasy_points_calculated_notifications: data?.fantasy_points_calculated_notifications ?? true,
         email: auth.email,
         member_since: data?.created_at,
       },

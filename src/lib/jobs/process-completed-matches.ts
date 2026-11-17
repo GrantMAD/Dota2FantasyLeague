@@ -1,4 +1,8 @@
 import { createClient } from '@supabase/supabase-js';
+import {
+  getMatchLifecyclePlayerIds,
+  notifyMatchLifecycleMilestone,
+} from './match-lifecycle-notifications';
 
 interface JobResult {
   success: boolean;
@@ -30,6 +34,7 @@ interface MatchPlayerStats {
 
 interface CompletedMatchRow {
   id: number;
+  external_match_id: string | null;
   gameweek_id: number;
   status: string;
   detailed_stats_fetched_at: string;
@@ -250,7 +255,7 @@ class ProcessCompletedMatches {
       const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
       const { data: matches, error: matchError } = await this.supabase
         .from('matches')
-        .select('id, gameweek_id, status, detailed_stats_fetched_at')
+        .select('id, external_match_id, gameweek_id, status, detailed_stats_fetched_at')
         .eq('status', 'completed')
         .not('detailed_stats_fetched_at', 'is', null)
         .gte('detailed_stats_fetched_at', sevenDaysAgo);
@@ -265,7 +270,7 @@ class ProcessCompletedMatches {
       const matchCount = matchesList.length;
       if (matchCount === 0) {
         console.log('[ProcessMatches] No completed matches with detailed stats to process');
-        result.success = true;
+        result.success = result.errors.length === 0;
         result.duration = Date.now() - startTime;
         return result;
       }
@@ -322,6 +327,41 @@ class ProcessCompletedMatches {
             result.errors.push(`Failed to upsert performances chunk: ${upsertError.message}`);
           } else {
             result.performancesCreated += performancesToUpsert.length;
+            const statsByMatch = new Map<number, Set<number>>();
+            for (const stats of chunkStats as MatchPlayerStats[]) {
+              const playerIds = statsByMatch.get(stats.match_id) ?? new Set<number>();
+              playerIds.add(stats.player_id);
+              statsByMatch.set(stats.match_id, playerIds);
+            }
+            const matchesById = new Map(chunk.map((match) => [match.id, match]));
+            try {
+              const { data: substitutions, error: substitutionsError } = await this.supabase
+                .from('match_player_substitutions')
+                .select('match_id, rostered_player_id, stand_in_player_id')
+                .in('match_id', matchIds);
+              if (substitutionsError) {
+                throw new Error(`Failed to load match substitutions: ${substitutionsError.message}`);
+              }
+
+              const notificationResult = await notifyMatchLifecycleMilestone(
+                this.supabase,
+                [...statsByMatch].map(([matchId]) => ({
+                  id: matchId,
+                  externalMatchId: matchesById.get(matchId)?.external_match_id || String(matchId),
+                  playerIds: getMatchLifecyclePlayerIds(
+                    matchId,
+                    chunkStats as MatchPlayerStats[],
+                    substitutions ?? [],
+                  ),
+                })),
+                'data_processed',
+              );
+              result.errors.push(...notificationResult.errors);
+            } catch (notificationError: unknown) {
+              const message = errorMessage(notificationError);
+              result.errors.push(`Failed to notify users that match data was processed: ${message}`);
+              console.error('[ProcessMatches] Failed to notify match data processing:', notificationError);
+            }
           }
         }
 

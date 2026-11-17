@@ -98,7 +98,7 @@ describe('GET /api/notifications filtering and pagination', () => {
   it.each([
     ['market', ['price_change', 'transfer_market', 'wildcard_used', 'player_removed']],
     ['scoring', ['score_posted', 'gameweek_result', 'rank_movement', 'rank_update']],
-    ['live', ['live_squad_match']],
+    ['live', ['live_squad_match', 'match_finished', 'match_data_processed', 'fantasy_points_calculated']],
   ])('includes supported %s notification types in its category filter', async (category, expectedTypes) => {
     const response = await GET(makeRequest(`?category=${category}`));
     const notificationQuery = mockBuilders.find((builder) => !builder.countQuery);

@@ -13,7 +13,12 @@ function notificationHref(notification: HeaderNotification) {
     return `/leagues?leagueId=${leagueId}`;
   }
 
-  if (notification.type === 'live_squad_match') {
+  if ([
+    'live_squad_match',
+    'match_finished',
+    'match_data_processed',
+    'fantasy_points_calculated',
+  ].includes(notification.type)) {
     const matchId = Number(notification.metadata?.match_id);
     return Number.isSafeInteger(matchId) && matchId > 0 ? `/matches/${matchId}` : '/matches';
   }

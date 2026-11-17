@@ -403,7 +403,18 @@ async function fetchWhatsNew(userId: string): Promise<WhatsNewData | null> {
         .select('id, type, title, message, created_at, metadata')
         .eq('user_id', userId)
         .eq('is_read', false)
-        .in('type', ['price_change', 'system', 'h2h_result', 'league_result', 'player_removed', 'player_unavailable', 'live_squad_match'])
+        .in('type', [
+          'price_change',
+          'system',
+          'h2h_result',
+          'league_result',
+          'player_removed',
+          'player_unavailable',
+          'live_squad_match',
+          'match_finished',
+          'match_data_processed',
+          'fantasy_points_calculated',
+        ])
         .order('created_at', { ascending: false })
         .limit(20),
     ]);
@@ -453,7 +464,12 @@ async function fetchWhatsNew(userId: string): Promise<WhatsNewData | null> {
       const matchId = meta?.match_id ? Number(meta.match_id) : 0;
 
       let href = '/dashboard';
-      if (n.type === 'live_squad_match') {
+      if ([
+        'live_squad_match',
+        'match_finished',
+        'match_data_processed',
+        'fantasy_points_calculated',
+      ].includes(n.type)) {
         href = Number.isSafeInteger(matchId) && matchId > 0 ? `/matches/${matchId}` : '/matches';
       } else if (leagueId > 0) {
         href = `/leagues?leagueId=${leagueId}`;
@@ -464,7 +480,12 @@ async function fetchWhatsNew(userId: string): Promise<WhatsNewData | null> {
       }
 
       let kind: WhatsNewUpdate['kind'] = 'availability';
-      if (n.type === 'live_squad_match') {
+      if ([
+        'live_squad_match',
+        'match_finished',
+        'match_data_processed',
+        'fantasy_points_calculated',
+      ].includes(n.type)) {
         kind = 'live_match';
       } else if (n.type === 'price_change') {
         kind = 'price_change';

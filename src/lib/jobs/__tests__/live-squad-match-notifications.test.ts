@@ -16,15 +16,18 @@ interface MockQuery {
   eq: jest.Mock;
   is: jest.Mock;
   insert: jest.Mock;
+  delete: jest.Mock;
   then: (resolve: (value: unknown) => unknown, reject?: (reason: unknown) => unknown) => Promise<unknown>;
 }
 
 function createSupabase(options?: {
-  enabledUsers?: Array<{ id: string }>;
+  enabledUsers?: Array<{ id: string; live_squad_match_notifications?: boolean }>;
   existingNotifications?: Array<{ user_id: string }>;
+  failNotificationInsert?: boolean;
 }) {
   const inserted: Array<Record<string, unknown>> = [];
   const queries: MockQuery[] = [];
+  const deleted: Array<Record<string, unknown>> = [];
   const supabase = {
     from(table: string) {
       const query: MockQuery = {
@@ -53,6 +56,10 @@ function createSupabase(options?: {
           inserted.push(...(Array.isArray(value) ? value : [value]) as Array<Record<string, unknown>>);
           return query;
         }),
+        delete: jest.fn(() => {
+          deleted.push(query.filters);
+          return query;
+        }),
         then(resolve, reject) {
           let result: unknown = { data: [], error: null };
           if (table === 'professional_players') {
@@ -72,9 +79,18 @@ function createSupabase(options?: {
               error: null,
             };
           } else if (table === 'users') {
-            result = { data: options?.enabledUsers ?? [{ id: 'manager-1' }], error: null };
+            result = {
+              data: options?.enabledUsers ?? [{ id: 'manager-1', live_squad_match_notifications: true }],
+              error: null,
+            };
           } else if (table === 'user_notifications' && query.inserted === null) {
-            result = { data: options?.existingNotifications ?? [], error: null };
+            const existing = options?.existingNotifications ?? [];
+            const persisted = inserted
+              .filter((notification) => notification.type === query.filters.type)
+              .map((notification) => ({ user_id: notification.user_id }));
+            result = { data: [...existing, ...persisted], error: null };
+          } else if (table === 'user_notifications' && options?.failNotificationInsert) {
+            result = { data: null, error: { message: 'insert failed' } };
           }
           return Promise.resolve(result).then(resolve, reject);
         },
@@ -83,7 +99,7 @@ function createSupabase(options?: {
       return query;
     },
   };
-  return { supabase, inserted, queries };
+  return { supabase, inserted, queries, deleted };
 }
 
 describe('notifyLiveSquadMembers', () => {
@@ -121,6 +137,46 @@ describe('notifyLiveSquadMembers', () => {
       title: 'Your squad is in a live match',
       body: 'Carry is playing in a live match.',
     }]);
+  });
+
+  it('creates a finish alert and removes only that users unread start alert for the match', async () => {
+    const { supabase, inserted, deleted } = createSupabase();
+
+    await notifyLiveSquadMembers(supabase, [{
+      id: 200,
+      externalMatchId: '9090050956',
+      playerAccountIds: ['123'],
+    }]);
+
+    const { notifyMatchLifecycleMilestone } = await import('../match-lifecycle-notifications');
+    await notifyMatchLifecycleMilestone(supabase, [{
+      id: 200,
+      externalMatchId: '9090050956',
+      playerIds: [501],
+    }], 'finished');
+
+    expect(inserted.map((notification) => notification.type)).toEqual([
+      'live_squad_match',
+      'match_finished',
+    ]);
+    expect(deleted).toContainEqual({
+      user_id: 'manager-1',
+      type: 'live_squad_match',
+      'metadata->>match_id': '200',
+      is_read: false,
+    });
+  });
+
+  it('does not remove the start alert when finish notification persistence fails', async () => {
+    const { supabase, deleted } = createSupabase({ failNotificationInsert: true });
+    const { notifyMatchLifecycleMilestone } = await import('../match-lifecycle-notifications');
+
+    await expect(notifyMatchLifecycleMilestone(supabase, [{
+      id: 200,
+      externalMatchId: '9090050956',
+      playerIds: [501],
+    }], 'finished')).rejects.toThrow('Unable to create finished match notifications');
+    expect(deleted).toHaveLength(0);
   });
 
   it('does not create alerts for opted-out users or for a match already notified', async () => {

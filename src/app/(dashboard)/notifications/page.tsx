@@ -237,6 +237,9 @@ function NotificationsPageContent() {
       case 'issue_report_status':
         return <div className="flex h-11 w-11 items-center justify-center rounded-full border border-violet-500/30 bg-violet-500/15 text-violet-300"><Bug className="h-5 w-5" /></div>;
       case 'live_squad_match':
+      case 'match_finished':
+      case 'match_data_processed':
+      case 'fantasy_points_calculated':
         return <div className="flex h-11 w-11 items-center justify-center rounded-full border border-teal-500/30 bg-teal-500/15 text-teal-300"><Radio className="h-5 w-5" /></div>;
       case 'gameweek_deadline':
       case 'lineup_deadline':
@@ -323,6 +326,9 @@ function NotificationsPageContent() {
       case 'issue_report_status':
         return '/report-issue';
       case 'live_squad_match':
+      case 'match_finished':
+      case 'match_data_processed':
+      case 'fantasy_points_calculated':
         return '/matches';
       default:
         return '/dashboard';
@@ -358,6 +364,9 @@ function NotificationsPageContent() {
       case 'issue_report_status':
         return 'View Report';
       case 'live_squad_match':
+      case 'match_finished':
+      case 'match_data_processed':
+      case 'fantasy_points_calculated':
         return 'View Match';
       default:
         return 'View Feed';
@@ -376,10 +385,21 @@ function NotificationsPageContent() {
         rowTone: 'border-l-violet-500',
       };
     }
-    if (type === 'live_squad_match') {
+    if ([
+      'live_squad_match',
+      'match_finished',
+      'match_data_processed',
+      'fantasy_points_calculated',
+    ].includes(type)) {
       return {
         Icon: Radio,
-        label: 'Live match',
+        label: type === 'live_squad_match'
+          ? 'Live match'
+          : type === 'match_finished'
+            ? 'Match finished'
+            : type === 'match_data_processed'
+              ? 'Data processed'
+              : 'Fantasy points',
         iconTone: 'text-cyan-700 dark:text-cyan-300',
         iconSurface: 'border-cyan-500/30 bg-cyan-500/10',
         rowTone: 'border-l-cyan-500',
@@ -472,7 +492,12 @@ function NotificationsPageContent() {
         label: 'View Report',
       };
     }
-    if (type === 'live_squad_match') {
+    if ([
+      'live_squad_match',
+      'match_finished',
+      'match_data_processed',
+      'fantasy_points_calculated',
+    ].includes(type)) {
       const matchId = Number(metadata?.match_id);
       return {
         href: Number.isSafeInteger(matchId) && matchId > 0 ? `/matches/${matchId}` : '/matches',

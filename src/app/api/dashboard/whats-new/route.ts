@@ -140,7 +140,18 @@ async function getHandler(request: NextRequest) {
       .select('id, type, title, message, created_at, metadata')
       .eq('user_id', userId)
       .eq('is_read', false)
-      .in('type', ['price_change', 'system', 'h2h_result', 'league_result', 'player_removed', 'player_unavailable', 'live_squad_match'])
+      .in('type', [
+        'price_change',
+        'system',
+        'h2h_result',
+        'league_result',
+        'player_removed',
+        'player_unavailable',
+        'live_squad_match',
+        'match_finished',
+        'match_data_processed',
+        'fantasy_points_calculated',
+      ])
       .order('created_at', { ascending: false })
       .limit(20);
     if (notificationsError) {
@@ -148,7 +159,12 @@ async function getHandler(request: NextRequest) {
     }
 
     for (const notification of (notifications ?? []) as NotificationRow[]) {
-      if (notification.type === 'live_squad_match') {
+      if ([
+        'live_squad_match',
+        'match_finished',
+        'match_data_processed',
+        'fantasy_points_calculated',
+      ].includes(notification.type)) {
         const matchId = Number(notification.metadata?.match_id);
         updates.push({
           id: notification.id,

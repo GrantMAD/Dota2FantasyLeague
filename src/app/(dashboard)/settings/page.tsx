@@ -82,6 +82,8 @@ function SettingsContent() {
     emailNotifications: true,
     pushNotifications: true,
     liveSquadMatchNotifications: true,
+    matchDataProcessedNotifications: true,
+    fantasyPointsCalculatedNotifications: true,
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -113,6 +115,8 @@ function SettingsContent() {
           email_notifications?: boolean | null;
           push_notifications?: boolean | null;
           live_squad_match_notifications?: boolean | null;
+          match_data_processed_notifications?: boolean | null;
+          fantasy_points_calculated_notifications?: boolean | null;
         };
       };
       const profile = data.profile;
@@ -129,6 +133,8 @@ function SettingsContent() {
         emailNotifications: profile.email_notifications ?? true,
         pushNotifications: profile.push_notifications ?? true,
         liveSquadMatchNotifications: profile.live_squad_match_notifications ?? true,
+        matchDataProcessedNotifications: profile.match_data_processed_notifications ?? true,
+        fantasyPointsCalculatedNotifications: profile.fantasy_points_calculated_notifications ?? true,
       }));
     } catch (err: unknown) {
       const errMsg = err instanceof Error ? err.message : 'Unable to load profile preferences';
@@ -160,6 +166,8 @@ function SettingsContent() {
             email_notifications?: boolean | null;
             push_notifications?: boolean | null;
             live_squad_match_notifications?: boolean | null;
+            match_data_processed_notifications?: boolean | null;
+            fantasy_points_calculated_notifications?: boolean | null;
           };
         };
         const profile = data.profile;
@@ -177,6 +185,8 @@ function SettingsContent() {
             emailNotifications: profile.email_notifications ?? true,
             pushNotifications: profile.push_notifications ?? true,
             liveSquadMatchNotifications: profile.live_squad_match_notifications ?? true,
+            matchDataProcessedNotifications: profile.match_data_processed_notifications ?? true,
+            fantasyPointsCalculatedNotifications: profile.fantasy_points_calculated_notifications ?? true,
           }));
         }
       } catch (err: unknown) {
@@ -289,7 +299,12 @@ function SettingsContent() {
   };
 
   const handleNotificationToggle = async (
-    key: 'pushNotifications' | 'emailNotifications' | 'liveSquadMatchNotifications',
+    key:
+      | 'pushNotifications'
+      | 'emailNotifications'
+      | 'liveSquadMatchNotifications'
+      | 'matchDataProcessedNotifications'
+      | 'fantasyPointsCalculatedNotifications',
     nextVal: boolean,
   ) => {
     setFormData((current) => ({ ...current, [key]: nextVal }));
@@ -298,7 +313,15 @@ function SettingsContent() {
     const preferenceFields = {
       pushNotifications: { field: 'push_notifications', label: 'Push alerts' },
       emailNotifications: { field: 'email_notifications', label: 'Email summaries' },
-      liveSquadMatchNotifications: { field: 'live_squad_match_notifications', label: 'Live squad match alerts' },
+      liveSquadMatchNotifications: { field: 'live_squad_match_notifications', label: 'Match start and finish alerts' },
+      matchDataProcessedNotifications: {
+        field: 'match_data_processed_notifications',
+        label: 'Match data processed alerts',
+      },
+      fantasyPointsCalculatedNotifications: {
+        field: 'fantasy_points_calculated_notifications',
+        label: 'Fantasy points calculated alerts',
+      },
     } as const;
     const preference = preferenceFields[key];
     try {
@@ -981,12 +1004,30 @@ function SettingsContent() {
                   () => void handleNotificationToggle('pushNotifications', !formData.pushNotifications)
                 )}
                 {renderToggle(
-                  'Live squad match alerts',
-                  'Show an alert in Notifications and What’s New when a player you own appears in a live match. Mobile push is also sent when push notifications are enabled and a device is registered.',
+                  'Match starting and finished alerts',
+                  'Use one preference for both alerts when a player you own starts a match and when that match finishes. Mobile push is also sent when push notifications are enabled and a device is registered.',
                   formData.liveSquadMatchNotifications,
                   () => void handleNotificationToggle(
                     'liveSquadMatchNotifications',
                     !formData.liveSquadMatchNotifications,
+                  ),
+                )}
+                {renderToggle(
+                  'Match data processed alerts',
+                  'Show an alert when player statistics for a match featuring a player you own have been processed.',
+                  formData.matchDataProcessedNotifications,
+                  () => void handleNotificationToggle(
+                    'matchDataProcessedNotifications',
+                    !formData.matchDataProcessedNotifications,
+                  ),
+                )}
+                {renderToggle(
+                  'Fantasy points calculated alerts',
+                  'Show an alert when fantasy points for all eligible players in a match featuring a player you own have been calculated.',
+                  formData.fantasyPointsCalculatedNotifications,
+                  () => void handleNotificationToggle(
+                    'fantasyPointsCalculatedNotifications',
+                    !formData.fantasyPointsCalculatedNotifications,
                   ),
                 )}
                 {renderToggle(

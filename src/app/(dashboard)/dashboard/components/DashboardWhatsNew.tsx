@@ -789,7 +789,16 @@ export function DashboardWhatsNew({ whatsNew }: DashboardWhatsNewProps) {
                       key={`u-${update.id}`}
                       href={update.href}
                       onClick={() => {
-                        void fetchWithAuth(`/api/notifications/${update.id}/read`, { method: 'PATCH' }).catch(() => {});
+                        void fetchWithAuth(`/api/notifications/${update.id}/read`, { method: 'PUT' })
+                          .then((response) => {
+                            if (!response.ok) {
+                              throw new Error(`Mark notification read failed (${response.status}).`);
+                            }
+                            window.dispatchEvent(new Event('fantasy:whats-new-refresh'));
+                          })
+                          .catch((error: unknown) => {
+                            console.error('Failed to mark dashboard notification read:', error);
+                          });
                       }}
                       className={`group relative flex items-center justify-between gap-3 px-4 py-2.5 border-l-3 ${updateTheme.border} bg-linear-to-r ${updateTheme.bgGradient} ${updateTheme.hoverBg} transition-all`}
                     >
