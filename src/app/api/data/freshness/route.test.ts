@@ -63,4 +63,44 @@ describe('GET /api/data/freshness', () => {
       }),
     ]));
   });
+
+  it('keeps the previous completed time while the next run is still running', async () => {
+    jest.setSystemTime(new Date('2026-11-16T12:16:26.000Z'));
+    mockGetAllJobStatuses.mockReturnValue([
+      {
+        jobName: 'fetch-matches',
+        status: 'running',
+        startedAt: new Date('2026-11-16T12:15:00.000Z'),
+      },
+    ]);
+    mockLimit.mockResolvedValue({
+      data: [
+        {
+          job_name: 'fetch-matches',
+          status: 'running',
+          started_at: '2026-11-16T12:15:00.000Z',
+          completed_at: null,
+        },
+        {
+          job_name: 'fetch-matches',
+          status: 'completed',
+          started_at: '2026-11-16T12:00:00.000Z',
+          completed_at: '2026-11-16T12:00:08.000Z',
+        },
+      ],
+      error: null,
+    });
+
+    const response = await GET(new NextRequest('http://localhost:3000/api/data/freshness?page=matches'));
+    const body = await response.json();
+
+    expect(body.lastUpdated).toBe('2026-11-16T12:00:08.000Z');
+    expect(body.jobs).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        jobName: 'fetch-matches',
+        status: 'running',
+        lastRun: '2026-11-16T12:00:08.000Z',
+      }),
+    ]));
+  });
 });

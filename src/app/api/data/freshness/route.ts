@@ -134,13 +134,20 @@ async function getHandler(request: NextRequest) {
 
     for (const jobDef of targetJobDefs) {
       const inMem = memoryStatuses.find((s) => s.jobName === jobDef.name);
-      const dbRun = dbLogs.find((l) => l.job_name === jobDef.name);
 
-      const completedAtStr = inMem?.completedAt?.toISOString() || dbRun?.completed_at || dbRun?.started_at;
-      let jobLastRun: string | null = null;
-      if (completedAtStr) {
-        const completedDate = new Date(completedAtStr);
-        jobLastRun = completedDate.toISOString();
+      const completedDates = [
+        ...(inMem?.status === 'completed' && inMem.completedAt ? [inMem.completedAt] : []),
+        ...dbLogs
+          .filter((log) => log.job_name === jobDef.name && log.status === 'completed' && log.completed_at)
+          .map((log) => new Date(log.completed_at!)),
+      ].filter((date) => Number.isFinite(date.getTime()));
+      const completedDate = completedDates.reduce<Date | null>(
+        (latest, date) => !latest || date.getTime() > latest.getTime() ? date : latest,
+        null
+      );
+      const jobLastRun = completedDate?.toISOString() ?? null;
+
+      if (completedDate) {
         if (!latestUpdatedDate || completedDate.getTime() > latestUpdatedDate.getTime()) {
           latestUpdatedDate = completedDate;
         }
@@ -168,7 +175,7 @@ async function getHandler(request: NextRequest) {
         title: meta.title,
         description: meta.desc,
         schedule: jobDef.schedule,
-        status: inMem?.status || dbRun?.status || 'idle',
+        status: inMem?.status || dbLogs.find((log) => log.job_name === jobDef.name)?.status || 'idle',
         lastRun: jobLastRun,
         nextRun: jobNextRun,
       });
