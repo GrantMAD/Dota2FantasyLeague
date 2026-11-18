@@ -116,7 +116,7 @@ export function LeagueHero({ league, onOpen }: LeagueHeroProps) {
             <div className="text-[10px] uppercase tracking-[0.2em] font-semibold text-amber-700 dark:text-amber-400/90">
               {isH2H ? 'League Leader · League Points' : 'League Leader · Total Points'}
             </div>
-            <div className="mt-2 truncate text-base font-bold text-slate-900 dark:text-white">{topEntry.manager}</div>
+            <div className="mt-2 truncate text-base font-bold text-[var(--text-primary)]">{topEntry.manager}</div>
             <div className="mt-0.5 font-mono text-2xl font-black text-amber-600 dark:text-amber-400">
               {isH2H ? topEntry.leaguePoints ?? 0 : topEntry.points}
               <span className="ml-1 text-xs font-sans text-amber-700 dark:text-amber-300/80">pts</span>

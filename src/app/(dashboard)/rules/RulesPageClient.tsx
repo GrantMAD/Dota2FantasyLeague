@@ -283,7 +283,7 @@ export default function RulesPage() {
             </Link>
             <Link
               href="/learn"
-              className="inline-flex items-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--surface-raised)] px-5 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:border-slate-500 shadow-sm"
+              className="inline-flex items-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--surface-raised)] px-5 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:border-[var(--border)] shadow-sm"
             >
               Back to Learn Hub
             </Link>
@@ -976,7 +976,7 @@ export default function RulesPage() {
             {[
               ['Gameweek Fantasy Points','text-amber-600 dark:text-amber-300','The player’s summed fantasy points from the latest closed gameweek. Every point changes the price signal by $0.02M; negative points can pull the price down.'],
               ['Ownership %','text-cyan-600 dark:text-cyan-300','The share of active squads that own this player. Ownership adds a smaller upward signal, up to $0.10M when every squad owns the player.'],
-              ['±$0.5M Cap','text-slate-600 dark:text-slate-300','Limits the total price movement to $0.50M for a gameweek, regardless of how many times the scheduled job reruns.'],
+              ['±$0.5M Cap','text-[var(--text-secondary)]','Limits the total price movement to $0.50M for a gameweek, regardless of how many times the scheduled job reruns.'],
             ].map(([title, colour, desc]) => (
               <div key={title} className="rounded-xl border border-[var(--border)] bg-[var(--surface-raised)]/60 p-4">
                 <p className={`mb-2 text-xs font-bold ${colour}`}>{title}</p>

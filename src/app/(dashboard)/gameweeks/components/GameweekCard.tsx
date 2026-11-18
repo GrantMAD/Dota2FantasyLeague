@@ -42,7 +42,7 @@ export function GameweekCard({ gameweek, compact = false, expanded, onExpandedCh
       >
         <div className="flex min-w-0 items-center gap-3">
           <span className="inline-flex shrink-0 items-center gap-2 rounded-full border border-[var(--border)] bg-[var(--surface-raised)] px-2.5 py-1.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--text-secondary)]">
-            <span className={`h-2 w-2 rounded-full ${gameweek.status === 'active' ? 'bg-amber-400' : gameweek.status === 'upcoming' ? 'bg-sky-400' : 'bg-slate-400'}`} />
+            <span className={`h-2 w-2 rounded-full ${gameweek.status === 'active' ? 'bg-amber-400' : gameweek.status === 'upcoming' ? 'bg-sky-400' : 'bg-[var(--surface-muted)]'}`} />
             GW {gameweek.gameweek_number}
           </span>
           <span className="min-w-0">

@@ -192,7 +192,7 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
           âš ï¸
         </div>
         <h1 className="text-2xl font-bold text-white mb-2">Tournament Not Found</h1>
-        <p className="text-slate-400 text-sm mb-6">{error || 'This tournament could not be loaded.'}</p>
+        <p className="text-[var(--text-muted)] text-sm mb-6">{error || 'This tournament could not be loaded.'}</p>
         <Link
           href="/tournaments"
           className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold bg-amber-500 text-slate-950 hover:bg-amber-400 transition-colors"
@@ -242,7 +242,7 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
                 className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-[10px] font-extrabold uppercase tracking-wider ${
                   isTier1
                     ? 'border-amber-400/60 bg-gradient-to-r from-amber-400/25 to-yellow-500/10 text-amber-800 dark:text-amber-200'
-                    : 'border-cyan-400/60 bg-gradient-to-r from-slate-300/20 to-cyan-500/15 text-cyan-800 dark:text-cyan-200'
+                    : 'border-cyan-400/60 bg-gradient-to-r from-cyan-500/10 to-cyan-500/20 text-cyan-800 dark:text-cyan-200'
                 }`}
               >
                 <Trophy className="h-3.5 w-3.5" />
@@ -281,22 +281,22 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
             <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-raised)] px-3 py-3 text-center">
               <Users className="mx-auto h-4 w-4 text-cyan-700 dark:text-cyan-300" />
               <div className="tournament-detail-stat-value mt-1 text-xl font-black text-[var(--text-primary)]">{teams.length}</div>
-              <div className="tournament-detail-stat-label text-[9px] font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-400">Teams</div>
+              <div className="tournament-detail-stat-label text-[9px] font-semibold uppercase tracking-wider text-[var(--text-muted)]">Teams</div>
             </div>
             <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-raised)] px-3 py-3 text-center">
               <Trophy className="mx-auto h-4 w-4 text-amber-600 dark:text-amber-300" />
               <div className="tournament-detail-stat-value mt-1 text-xl font-black text-[var(--text-primary)]">{series?.length ?? 0}</div>
-              <div className="tournament-detail-stat-label text-[9px] font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-400">Series</div>
+              <div className="tournament-detail-stat-label text-[9px] font-semibold uppercase tracking-wider text-[var(--text-muted)]">Series</div>
             </div>
             <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-raised)] px-3 py-3 text-center">
-              <Gamepad2 className="mx-auto h-4 w-4 text-slate-600 dark:text-slate-400" />
+              <Gamepad2 className="mx-auto h-4 w-4 text-[var(--text-muted)]" />
               <div className="tournament-detail-stat-value mt-1 text-xl font-black text-[var(--text-primary)]">{matches.length}</div>
-              <div className="tournament-detail-stat-label text-[9px] font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-400">Matches</div>
+              <div className="tournament-detail-stat-label text-[9px] font-semibold uppercase tracking-wider text-[var(--text-muted)]">Matches</div>
             </div>
             <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-raised)] px-3 py-3 text-center">
               <Activity className="mx-auto h-4 w-4 text-emerald-700 dark:text-emerald-300" />
               <div className="tournament-detail-stat-value mt-1 text-xl font-black text-emerald-700 dark:text-emerald-300">{completedMatchesCount}</div>
-              <div className="tournament-detail-stat-label text-[9px] font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-400">Complete</div>
+              <div className="tournament-detail-stat-label text-[9px] font-semibold uppercase tracking-wider text-[var(--text-muted)]">Complete</div>
             </div>
           </div>
         </div>

@@ -325,7 +325,7 @@ export default function LeaderboardPageClient({ initialData }: LeaderboardPagePr
   const renderRankChange = (current: number, previous: number | null) => {
     if (!previous || current === previous) {
        const label = previous === current ? 'No rank change' : 'No previous rank available';
-       return <span role="img" aria-label={label} title={label} className="text-slate-500 font-bold text-lg select-none">-</span>;
+       return <span role="img" aria-label={label} title={label} className="text-[var(--text-muted)] font-bold text-lg select-none">-</span>;
     }
     const diff = previous - current;
     if (diff > 0) {
@@ -611,24 +611,24 @@ export default function LeaderboardPageClient({ initialData }: LeaderboardPagePr
                   {loading ? (
                      [1, 2, 3, 4, 5, 6].map((row) => (
                         <tr key={`ranking-skeleton-${row}`} className="animate-pulse">
-                           <td className="px-6 py-4 text-center"><div className="mx-auto h-8 w-8 rounded-full bg-slate-700" /></td>
-                           <td className="px-2 py-4"><div className="mx-auto h-4 w-8 rounded bg-slate-700" /></td>
+                           <td className="px-6 py-4 text-center"><div className="mx-auto h-8 w-8 rounded-full bg-[var(--surface-muted)]" /></td>
+                           <td className="px-2 py-4"><div className="mx-auto h-4 w-8 rounded bg-[var(--surface-muted)]" /></td>
                            <td className="px-6 py-4">
                               <div className="flex items-center gap-3">
-                                 <div className="h-10 w-10 shrink-0 rounded-full border border-slate-700 bg-slate-700" />
+                                 <div className="h-10 w-10 shrink-0 rounded-full border border-[var(--border)] bg-[var(--surface-muted)]" />
                                  <div className="space-y-2">
-                                    <div className="h-4 w-36 max-w-[35vw] rounded bg-slate-700" />
-                                    <div className="h-3 w-24 rounded bg-slate-800" />
+                                    <div className="h-4 w-36 max-w-[35vw] rounded bg-[var(--surface-muted)]" />
+                                    <div className="h-3 w-24 rounded bg-[var(--surface-raised)]" />
                                  </div>
                               </div>
                            </td>
-                           <td className="px-6 py-4"><div className="ml-auto h-4 w-12 rounded bg-slate-700" /></td>
-                           <td className="px-6 py-4"><div className="ml-auto h-5 w-16 rounded bg-slate-700" /></td>
+                           <td className="px-6 py-4"><div className="ml-auto h-4 w-12 rounded bg-[var(--surface-muted)]" /></td>
+                           <td className="px-6 py-4"><div className="ml-auto h-5 w-16 rounded bg-[var(--surface-muted)]" /></td>
                         </tr>
                      ))
                   ) : entries.length === 0 ? (
                      <tr>
-                        <td colSpan={5} className="px-6 py-12 text-center text-slate-400">
+                        <td colSpan={5} className="px-6 py-12 text-center text-[var(--text-muted)]">
                            No rankings found for the selected criteria.
                         </td>
                      </tr>
@@ -681,7 +681,7 @@ export default function LeaderboardPageClient({ initialData }: LeaderboardPagePr
                                     entry.rank === 2 ? 'bg-slate-300 text-slate-800 shadow-[0_0_10px_rgba(203,213,225,0.4)]' :
                                     entry.rank === 3 ? 'bg-amber-700 text-amber-100 shadow-[0_0_10px_rgba(180,83,9,0.4)]' :
                                     isCurrentUser ? 'text-teal-300 bg-teal-900/60 ring-1 ring-teal-500/40' :
-                                    'text-slate-400 bg-slate-800'
+                                    'text-[var(--text-secondary)] bg-[var(--surface-muted)]'
                                  }`}>
                                     {entry.rank}
                                  </span>
@@ -718,7 +718,7 @@ export default function LeaderboardPageClient({ initialData }: LeaderboardPagePr
                                              </span>
                                           )}
                                        </div>
-                                       <div className="text-xs text-slate-400 flex items-center gap-1.5 mt-0.5">
+                                       <div className="text-xs text-[var(--text-muted)] flex items-center gap-1.5 mt-0.5">
                                           {profile?.country && (
                                              <span className="inline-flex items-center gap-1 rounded-full border border-[var(--border)] bg-[var(--surface-raised)] px-1.5 py-0.5 text-[10px] text-[var(--text-secondary)]">
                                                 {countryFlag && <span role="img" aria-label={profile.country}>{countryFlag}</span>}
@@ -786,12 +786,12 @@ export default function LeaderboardPageClient({ initialData }: LeaderboardPagePr
             role="dialog"
             aria-modal="true"
             aria-labelledby="leaderboard-manager-title"
-            className="relative max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-slate-700 bg-slate-900 p-6 shadow-2xl no-scrollbar"
+            className="relative max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-6 shadow-2xl no-scrollbar"
             onClick={(event) => event.stopPropagation()}
           >
-            <div className="border-b border-slate-800 pb-5">
+            <div className="border-b border-[var(--border)] pb-5">
               <div className="flex items-center gap-4">
-                <div className="w-14 h-14 rounded-full bg-slate-800 border-2 border-amber-500/50 flex items-center justify-center overflow-hidden shrink-0 shadow-md">
+                <div className="w-14 h-14 rounded-full bg-[var(--surface-muted)] border-2 border-amber-500/50 flex items-center justify-center overflow-hidden shrink-0 shadow-md">
                   {(managerDetails?.manager.avatarUrl || selectedUser.avatarUrl) ? (
                     <Image
                       src={(managerDetails?.manager.avatarUrl || selectedUser.avatarUrl)!}
@@ -802,28 +802,28 @@ export default function LeaderboardPageClient({ initialData }: LeaderboardPagePr
                       className="h-full w-full object-cover"
                     />
                   ) : (
-                    <span className="text-xl font-bold text-amber-400">
+                    <span className="text-xl font-bold text-amber-600 dark:text-amber-400">
                       {(selectedUser.displayName || selectedUser.username || selectedUser.manager).substring(0, 2).toUpperCase()}
                     </span>
                   )}
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
-                    <h2 id="leaderboard-manager-title" className="text-2xl font-bold text-white">{selectedUser.manager}</h2>
+                    <h2 id="leaderboard-manager-title" className="text-2xl font-bold text-[var(--text-primary)]">{selectedUser.manager}</h2>
                     {(managerDetails?.manager.globalRank ?? selectedUser.rank) && (
-                      <span className="rounded bg-amber-500/20 px-2 py-0.5 text-xs font-bold text-amber-400 border border-amber-500/40">
+                      <span className="rounded bg-amber-500/20 px-2 py-0.5 text-xs font-bold text-amber-700 dark:text-amber-300 border border-amber-500/40">
                         Rank #{managerDetails?.manager.globalRank ?? selectedUser.rank}
                       </span>
                     )}
                   </div>
-                  <p className="text-xs text-slate-400 mt-0.5">
+                  <p className="text-xs text-[var(--text-muted)] mt-0.5">
                     @{selectedUser.username || selectedUser.manager.toLowerCase().replace(/\s+/g, '_')}
                     {(managerDetails?.manager.teamName || selectedUser.teamName) && (
-                      <span className="text-slate-500 ml-1.5">• {managerDetails?.manager.teamName || selectedUser.teamName}</span>
+                      <span className="text-[var(--text-secondary)] ml-1.5">• {managerDetails?.manager.teamName || selectedUser.teamName}</span>
                     )}
                   </p>
                   {(managerDetails?.manager.country || selectedUser.country) && (
-                    <p className="mt-1 text-xs text-slate-400">
+                    <p className="mt-1 text-xs text-[var(--text-muted)]">
                       {managerDetails?.manager.country || selectedUser.country}
                       {managerDetails?.manager.memberSince && (
                         <span> · Member since {new Date(managerDetails.manager.memberSince).toLocaleDateString()}</span>
@@ -834,35 +834,35 @@ export default function LeaderboardPageClient({ initialData }: LeaderboardPagePr
               </div>
 
               {(managerDetails?.manager.bio || selectedUser.bio) && (
-                <p className="leaderboard-manager-bio mt-4 text-sm text-slate-300 bg-slate-950/40 border border-slate-800/80 rounded-lg p-3 italic">
+                <p className="leaderboard-manager-bio mt-4 text-sm text-[var(--text-secondary)] bg-[var(--surface-raised)] border border-[var(--border)] rounded-lg p-3 italic">
                   &quot;{managerDetails?.manager.bio || selectedUser.bio}&quot;
                 </p>
               )}
             </div>
 
             <div className="my-6">
-              <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-3">Global Standing & Performance</h3>
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)] mb-3">Global Standing & Performance</h3>
               <div className="grid grid-cols-3 gap-3">
-                <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-4 text-center">
-                  <div className="leaderboard-modal-label text-xs text-slate-400 uppercase tracking-wider">Total Points</div>
-                  <div className="leaderboard-total-points text-2xl font-mono font-bold text-amber-400 mt-1">{managerDetails?.manager.totalPoints ?? selectedUser.points} <span className="text-sm font-sans text-amber-300">pts</span></div>
+                <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-raised)] p-4 text-center">
+                  <div className="leaderboard-modal-label text-xs text-[var(--text-muted)] uppercase tracking-wider">Total Points</div>
+                  <div className="leaderboard-total-points text-2xl font-mono font-bold text-amber-600 dark:text-amber-400 mt-1">{managerDetails?.manager.totalPoints ?? selectedUser.points} <span className="text-sm font-sans text-amber-700 dark:text-amber-300">pts</span></div>
                 </div>
-                <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-4 text-center">
-                  <div className="leaderboard-modal-label text-xs text-slate-400 uppercase tracking-wider">Gameweek</div>
-                  <div className="leaderboard-gameweek-points text-2xl font-mono font-bold text-slate-200 mt-1">{managerDetails?.manager.gameweekPoints ?? selectedUser.gwPoints ?? 0} <span className="leaderboard-points-label text-sm font-sans text-slate-400">pts</span></div>
+                <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-raised)] p-4 text-center">
+                  <div className="leaderboard-modal-label text-xs text-[var(--text-muted)] uppercase tracking-wider">Gameweek</div>
+                  <div className="leaderboard-gameweek-points text-2xl font-mono font-bold text-[var(--text-primary)] mt-1">{managerDetails?.manager.gameweekPoints ?? selectedUser.gwPoints ?? 0} <span className="leaderboard-points-label text-sm font-sans text-[var(--text-muted)]">pts</span></div>
                 </div>
-                <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-4 text-center">
-                  <div className="leaderboard-modal-label text-xs text-slate-400 uppercase tracking-wider">Global Rank</div>
-                  <div className="leaderboard-global-rank text-2xl font-mono font-bold text-white mt-1">#{managerDetails?.manager.globalRank ?? selectedUser.rank ?? '-'}</div>
+                <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-raised)] p-4 text-center">
+                  <div className="leaderboard-modal-label text-xs text-[var(--text-muted)] uppercase tracking-wider">Global Rank</div>
+                  <div className="leaderboard-global-rank text-2xl font-mono font-bold text-[var(--text-primary)] mt-1">#{managerDetails?.manager.globalRank ?? selectedUser.rank ?? '-'}</div>
                 </div>
               </div>
             </div>
 
             {managerDetailsLoading && (
-              <p className="py-6 text-center text-sm text-slate-400" role="status">Loading squad and gameweek history…</p>
+              <p className="py-6 text-center text-sm text-[var(--text-muted)]" role="status">Loading squad and gameweek history…</p>
             )}
             {managerDetailsError && (
-              <div className="mb-5 rounded-lg border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-200" role="alert">
+              <div className="mb-5 rounded-lg border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-800 dark:text-red-200" role="alert">
                 <p>{managerDetailsError}</p>
                 <button
                   type="button"
@@ -877,13 +877,13 @@ export default function LeaderboardPageClient({ initialData }: LeaderboardPagePr
             {managerDetails && (
               <div className="space-y-6">
                 <section>
-                  <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-slate-400">Current Squad ({managerDetails.squad.length})</h3>
+                  <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]">Current Squad ({managerDetails.squad.length})</h3>
                   {managerDetails.squad.length === 0 ? (
-                    <p className="rounded-lg border border-slate-800 bg-slate-950/40 p-4 text-sm text-slate-400">No active squad players found.</p>
+                    <p className="rounded-lg border border-[var(--border)] bg-[var(--surface-raised)] p-4 text-sm text-[var(--text-muted)]">No active squad players found.</p>
                   ) : (
                     <div className="grid gap-2 sm:grid-cols-2">
                       {managerDetails.squad.map((player) => (
-                        <div key={player.id} className="flex min-w-0 items-center gap-3 rounded-lg border border-slate-800 bg-slate-950/40 p-3">
+                        <div key={player.id} className="flex min-w-0 items-center gap-3 rounded-lg border border-[var(--border)] bg-[var(--surface-raised)] p-3">
                           {player.profileImageUrl ? (
                             <Image
                               src={player.profileImageUrl}
@@ -894,13 +894,13 @@ export default function LeaderboardPageClient({ initialData }: LeaderboardPagePr
                               className="h-9 w-9 shrink-0 rounded-full object-cover"
                             />
                           ) : (
-                            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-800 text-xs font-bold text-slate-400">
+                            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[var(--surface-muted)] text-xs font-bold text-[var(--text-secondary)]">
                               {player.name.slice(0, 1).toUpperCase()}
                             </div>
                           )}
                           <div className="min-w-0">
-                            <p className="truncate text-sm font-semibold text-slate-100">{player.name}</p>
-                            <p className="truncate text-xs text-slate-400">{player.role}{player.team ? ` · ${player.team}` : ''}</p>
+                            <p className="truncate text-sm font-semibold text-[var(--text-primary)]">{player.name}</p>
+                            <p className="truncate text-xs text-[var(--text-secondary)]">{player.role}{player.team ? ` · ${player.team}` : ''}</p>
                           </div>
                         </div>
                       ))}
@@ -909,15 +909,15 @@ export default function LeaderboardPageClient({ initialData }: LeaderboardPagePr
                 </section>
 
                 <section>
-                  <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-slate-400">Recent Gameweeks</h3>
+                  <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]">Recent Gameweeks</h3>
                   {managerDetails.recentGameweeks.length === 0 ? (
-                    <p className="rounded-lg border border-slate-800 bg-slate-950/40 p-4 text-sm text-slate-400">No gameweek results available.</p>
+                    <p className="rounded-lg border border-[var(--border)] bg-[var(--surface-raised)] p-4 text-sm text-[var(--text-muted)]">No gameweek results available.</p>
                   ) : (
                     <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
                       {managerDetails.recentGameweeks.map((gameweek, index) => (
-                        <div key={`${gameweek.gameweekNumber ?? 'week'}-${index}`} className="rounded-lg border border-slate-800 bg-slate-950/40 p-3">
-                          <p className="text-xs text-slate-400">Gameweek {gameweek.gameweekNumber ?? '—'}</p>
-                          <p className="mt-1 font-mono text-lg font-bold text-amber-300">{gameweek.points} <span className="text-xs font-sans font-medium text-slate-400">pts</span></p>
+                        <div key={`${gameweek.gameweekNumber ?? 'week'}-${index}`} className="rounded-lg border border-[var(--border)] bg-[var(--surface-raised)] p-3">
+                          <p className="text-xs text-[var(--text-secondary)]">Gameweek {gameweek.gameweekNumber ?? '—'}</p>
+                          <p className="mt-1 font-mono text-lg font-bold text-amber-500 dark:text-amber-300">{gameweek.points} <span className="text-xs font-sans font-medium text-[var(--text-muted)]">pts</span></p>
                         </div>
                       ))}
                     </div>
@@ -926,11 +926,11 @@ export default function LeaderboardPageClient({ initialData }: LeaderboardPagePr
               </div>
             )}
 
-            <div className="flex justify-end border-t border-slate-800 pt-4">
+            <div className="flex justify-end border-t border-[var(--border)] pt-4">
               <button
                 type="button"
                 onClick={closeManagerDetails}
-                className="rounded-lg bg-slate-800 px-5 py-2 text-sm font-semibold text-white hover:bg-slate-700 transition-colors"
+                className="rounded-lg border border-[var(--border)] bg-[var(--surface-raised)] px-5 py-2 text-sm font-semibold text-[var(--text-primary)] hover:bg-[var(--surface-muted)] transition-colors"
               >
                 Close
               </button>

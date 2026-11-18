@@ -144,7 +144,7 @@ export function PremiumWaitlistProvider({ children }: { children: ReactNode }) {
       {children}
       {isOpen ? (
         <div
-          className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/75 p-4 backdrop-blur-md"
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-[var(--surface)]/75 p-4 backdrop-blur-md"
           onClick={() => {
             if (!busy) setIsOpen(false);
           }}

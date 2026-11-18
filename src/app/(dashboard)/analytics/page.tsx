@@ -323,19 +323,19 @@ function AnalyticsDashboardContent() {
       <div className="mx-auto max-w-7xl px-4 py-8">
         <div className="mb-8 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
           <div>
-            <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-cyan-500/30 bg-cyan-500/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.28em] text-cyan-300">
+            <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-cyan-500/30 bg-cyan-500/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.28em] text-cyan-600 dark:text-cyan-300">
               Fantasy Intelligence
             </div>
             <h1 className="text-3xl font-black tracking-tight text-[var(--text-primary)]">Analytics Hub</h1>
             <p className="mt-2 text-sm text-[var(--text-secondary)]">Track your team form, market value, and the top scoring opportunities in the current meta.</p>
           </div>
-          <Link href="/premium" className="inline-flex items-center rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-2.5 text-sm font-semibold text-amber-300 transition hover:bg-amber-500/20">Explore Premium Tools →</Link>
+          <Link href="/premium" className="inline-flex items-center rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-2.5 text-sm font-semibold text-amber-700 hover:text-amber-800 dark:text-amber-300 dark:hover:text-amber-200 transition hover:bg-amber-500/20">Explore Premium Tools →</Link>
         </div>
 
         <div
           role="tablist"
           aria-label="Analytics views"
-          className="mb-8 flex flex-wrap gap-2 rounded-2xl border border-slate-800 bg-slate-900/70 p-2"
+          className="mb-8 flex flex-wrap gap-2 rounded-2xl border border-[var(--border)] bg-[var(--surface-raised)] p-2"
         >
           {[
             ['my', 'My Performance'],
@@ -374,7 +374,7 @@ function AnalyticsDashboardContent() {
           tabIndex={0}
         >
           {error && (
-            <div className="mb-8 flex flex-col items-start justify-between gap-4 rounded-2xl border border-red-500/30 bg-red-500/10 p-5 text-red-200 sm:flex-row sm:items-center">
+            <div className="mb-8 flex flex-col items-start justify-between gap-4 rounded-2xl border border-red-500/30 bg-red-500/10 p-5 text-red-800 dark:text-red-200 sm:flex-row sm:items-center">
               <div>
                 <p className="font-semibold text-red-100">Analytics data temporarily unavailable</p>
                 <p className="mt-1 text-sm text-red-300/90">{error}. Displaying default fallback values.</p>
@@ -392,7 +392,7 @@ function AnalyticsDashboardContent() {
           {loading ? (
             <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-4">
               {[1, 2, 3, 4].map((item) => (
-                <div key={item} className="h-32 animate-pulse rounded-2xl border border-slate-800 bg-slate-900/80" />
+                <div key={item} className="h-32 animate-pulse rounded-2xl border border-[var(--border)] bg-[var(--surface-raised)]" />
               ))}
             </div>
           ) : (
@@ -442,17 +442,17 @@ function AnalyticsDashboardContent() {
               </div>
             </div>
 
-            <div className="mb-8 rounded-3xl border border-slate-800 bg-slate-900/80 p-6">
+            <div className="mb-8 rounded-3xl border border-[var(--border)] bg-[var(--surface)] p-6">
               <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
                 <div>
-                  <p className="text-xs uppercase tracking-[0.22em] text-cyan-300">{activeTabContent.title}</p>
-                  <h2 className="mt-2 text-2xl font-bold text-white">{activeTabContent.subtitle}</h2>
+                  <p className="text-xs uppercase tracking-[0.22em] text-cyan-600 dark:text-cyan-300">{activeTabContent.title}</p>
+                  <h2 className="mt-2 text-2xl font-bold text-[var(--text-primary)]">{activeTabContent.subtitle}</h2>
                 </div>
                 <button
                   type="button"
                   disabled={loading || Boolean(error)}
                   onClick={exportAnalyticsCsv}
-                  className="rounded-lg border border-cyan-500/40 bg-cyan-500/10 px-3 py-2 text-xs font-semibold text-cyan-200 transition hover:bg-cyan-500/20 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="rounded-lg border border-cyan-500/40 bg-cyan-500/10 px-3 py-2 text-xs font-semibold text-cyan-800 hover:text-cyan-950 dark:text-cyan-200 dark:hover:text-cyan-100 transition hover:bg-cyan-500/20 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   Export Analytics CSV
                 </button>
@@ -461,25 +461,25 @@ function AnalyticsDashboardContent() {
               <div key={tab} className="animate-tab-panel">
                 {tab === 'my' && (
                   <div className="space-y-8">
-                    <div className="analytics-chart-panel rounded-2xl border border-slate-800 bg-slate-950/70 p-5">
+                    <div className="analytics-chart-panel rounded-2xl border border-[var(--border)] bg-[var(--surface-raised)] p-5">
                     <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                       <div>
-                        <h3 className="analytics-chart-heading text-lg font-bold text-white">Gameweek Trajectory</h3>
-                        <p className="text-xs text-slate-400">Your gameweek performance vs global average (left axis) and global rank trajectory (right axis)</p>
+                        <h3 className="analytics-chart-heading text-lg font-bold text-[var(--text-primary)]">Gameweek Trajectory</h3>
+                        <p className="text-xs text-[var(--text-muted)]">Your gameweek performance vs global average (left axis) and global rank trajectory (right axis)</p>
                       </div>
                       <div className="flex flex-wrap items-center gap-4">
                         <div className="flex items-center gap-4 text-xs">
                           <span className="inline-flex items-center gap-1.5 font-medium text-cyan-400">
                             <span className="h-2.5 w-2.5 rounded-full bg-cyan-400" /> Your Score
                           </span>
-                          <span className="inline-flex items-center gap-1.5 font-medium text-slate-400">
-                            <span className="h-2.5 w-2.5 rounded-full bg-slate-400" /> Global Avg
+                          <span className="inline-flex items-center gap-1.5 font-medium text-[var(--text-muted)]">
+                            <span className="h-2.5 w-2.5 rounded-full bg-[var(--text-muted)]" /> Global Avg
                           </span>
                           <span className="inline-flex items-center gap-1.5 font-medium text-amber-400">
                             <span className="h-2.5 w-2.5 rounded-full bg-amber-400" /> Global Rank
                           </span>
                         </div>
-                        <div role="group" aria-label="Gameweek trend range" className="inline-flex rounded-lg border border-slate-700 bg-slate-900 p-1">
+                        <div role="group" aria-label="Gameweek trend range" className="inline-flex rounded-lg border border-[var(--border)] bg-[var(--surface)] p-1">
                           {([
                             ['3', 'Last 3'],
                             ['6', 'Last 6'],
@@ -491,7 +491,7 @@ function AnalyticsDashboardContent() {
                               aria-pressed={trendRange === value}
                               onClick={() => setTrendRange(value)}
                               className={`rounded-md px-2.5 py-1.5 text-xs font-medium transition ${
-                                trendRange === value ? 'bg-cyan-500 text-slate-950' : 'text-slate-300 hover:bg-slate-800'
+                                trendRange === value ? 'bg-cyan-500 text-slate-950' : 'text-[var(--text-secondary)] hover:bg-[var(--surface-muted)]'
                               }`}
                             >
                               {label}
@@ -600,7 +600,7 @@ function AnalyticsDashboardContent() {
                         <div className="mt-5 overflow-x-auto">
                           <table className="w-full min-w-80 text-left text-sm">
                             <caption className="sr-only">Gameweek scores and ranks shown in the trajectory chart</caption>
-                            <thead className="border-b border-slate-700 text-xs uppercase tracking-wide text-slate-400">
+                            <thead className="border-b border-[var(--border)] text-xs uppercase tracking-wide text-[var(--text-muted)]">
                               <tr>
                                 <th scope="col" className="px-3 py-2 font-semibold">Gameweek</th>
                                 <th scope="col" className="px-3 py-2 text-right font-semibold">Your score</th>
@@ -608,10 +608,10 @@ function AnalyticsDashboardContent() {
                                 <th scope="col" className="px-3 py-2 text-right font-semibold">Global rank</th>
                               </tr>
                             </thead>
-                            <tbody className="divide-y divide-slate-800 text-slate-200">
+                            <tbody className="divide-y divide-[var(--border)] text-[var(--text-secondary)]">
                               {visibleTrend.map((row) => (
                                 <tr key={row.gameweekId}>
-                                  <th scope="row" className="px-3 py-2 font-medium text-slate-300">
+                                  <th scope="row" className="px-3 py-2 font-medium text-[var(--text-primary)]">
                                     Gameweek {row.gameweekId}
                                   </th>
                                   <td className="px-3 py-2 text-right tabular-nums">{row.userScore}</td>
@@ -626,18 +626,18 @@ function AnalyticsDashboardContent() {
                         </div>
                       </>
                     ) : (
-                      <div className="flex h-48 w-full items-center justify-center text-sm text-slate-400">
+                      <div className="flex h-48 w-full items-center justify-center text-sm text-[var(--text-muted)]">
                         No score history available yet.
                       </div>
                     )}
                   </div>
 
                   <div className="grid gap-6 lg:grid-cols-2">
-                    <div className="analytics-chart-panel rounded-2xl border border-slate-800 bg-slate-950/70 p-5">
+                    <div className="analytics-chart-panel rounded-2xl border border-[var(--border)] bg-[var(--surface-raised)] p-5">
                       <div className="mb-4 flex items-center justify-between">
                         <div>
-                          <h3 className="analytics-chart-heading text-lg font-bold text-white">Role Scoring Breakdown</h3>
-                          <p className="text-xs text-slate-400">Distribution of total fantasy points earned by position</p>
+                          <h3 className="analytics-chart-heading text-lg font-bold text-[var(--text-primary)]">Role Scoring Breakdown</h3>
+                          <p className="text-xs text-[var(--text-muted)]">Distribution of total fantasy points earned by position</p>
                         </div>
                       </div>
                       {data.roleBreakdown.length ? (
@@ -682,29 +682,29 @@ function AnalyticsDashboardContent() {
                           </ResponsiveContainer>
                         </div>
                       ) : (
-                        <div className="flex h-48 w-full items-center justify-center text-sm text-slate-400">
+                        <div className="flex h-48 w-full items-center justify-center text-sm text-[var(--text-muted)]">
                           No role breakdown data available yet.
                         </div>
                       )}
                     </div>
 
-                    <div className="analytics-chart-panel rounded-2xl border border-slate-800 bg-slate-950/70 p-5">
+                    <div className="analytics-chart-panel rounded-2xl border border-[var(--border)] bg-[var(--surface-raised)] p-5">
                       <div className="mb-4">
-                        <h3 className="analytics-chart-heading text-lg font-bold text-white">Captaincy Efficiency</h3>
-                        <p className="analytics-chart-subtitle text-xs text-slate-400">Points earned vs potential optimal captain choice</p>
+                        <h3 className="analytics-chart-heading text-lg font-bold text-[var(--text-primary)]">Captaincy Efficiency</h3>
+                        <p className="analytics-chart-subtitle text-xs text-[var(--text-muted)]">Points earned vs potential optimal captain choice</p>
                       </div>
                       <div className="space-y-4">
                         <div className="flex items-end justify-between">
-                          <span className="analytics-chart-label text-sm text-slate-400">Captain points</span>
-                          <span className="analytics-chart-value text-2xl font-bold text-white">{data.captainEfficiency.captainPoints}</span>
+                          <span className="analytics-chart-label text-sm text-[var(--text-secondary)]">Captain points</span>
+                          <span className="analytics-chart-value text-2xl font-bold text-[var(--text-primary)]">{data.captainEfficiency.captainPoints}</span>
                         </div>
                         <div className="flex items-end justify-between">
-                          <span className="analytics-chart-label text-sm text-slate-400">Ideal cap value</span>
+                          <span className="analytics-chart-label text-sm text-[var(--text-secondary)]">Ideal cap value</span>
                           <span className="text-xl font-semibold text-cyan-400">{data.captainEfficiency.idealCapPoints}</span>
                         </div>
                         <div>
                           <div className="mb-1 flex items-center justify-between text-sm">
-                            <span className="analytics-chart-label text-sm text-slate-400">Efficiency</span>
+                            <span className="analytics-chart-label text-sm text-[var(--text-secondary)]">Efficiency</span>
                             <span className={`inline-flex items-center gap-2 font-semibold ${captainEfficiencyAssessment.color}`}>
                               {data.captainEfficiency.efficiency}%
                               <span className="rounded-full border border-current/30 px-2 py-0.5 text-[10px] uppercase tracking-wider">
@@ -713,7 +713,7 @@ function AnalyticsDashboardContent() {
                             </span>
                           </div>
                           <div
-                            className="analytics-bar-track h-2.5 overflow-hidden rounded-full bg-slate-800"
+                            className="analytics-bar-track h-2.5 overflow-hidden rounded-full bg-[var(--surface-muted)]"
                             role="progressbar"
                             aria-label={`Captain efficiency: ${captainEfficiencyAssessment.label}`}
                             aria-valuemin={0}

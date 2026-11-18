@@ -31,16 +31,16 @@ interface GameweekHistoryModalProps {
 
 function PlayerList({ players, emptyMessage }: { players: HistoryPlayer[]; emptyMessage: string }) {
   if (players.length === 0) {
-    return <p className="py-4 text-sm text-slate-400">{emptyMessage}</p>;
+    return <p className="py-4 text-sm text-[var(--text-muted)]">{emptyMessage}</p>;
   }
 
   return (
-    <ul className="divide-y divide-slate-800">
+    <ul className="divide-y divide-[var(--border)]">
       {players.map((player) => (
         <li key={`${player.role}-${player.id}`} className="flex items-center justify-between gap-3 py-3">
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
-              <span className="truncate font-medium text-white">{player.name}</span>
+              <span className="truncate font-medium text-[var(--text-primary)]">{player.name}</span>
               {player.isCaptain && (
                 <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-bold uppercase text-amber-300">Captain</span>
               )}
@@ -48,7 +48,7 @@ function PlayerList({ players, emptyMessage }: { players: HistoryPlayer[]; empty
                 <span className="rounded-full bg-sky-500/15 px-2 py-0.5 text-[10px] font-bold uppercase text-sky-300">Vice</span>
               )}
             </div>
-            <span className="text-xs text-slate-400">{player.role}</span>
+            <span className="text-xs text-[var(--text-muted)]">{player.role}</span>
           </div>
           <span className="shrink-0 text-sm font-semibold text-emerald-300">{player.points.toFixed(1)} pts</span>
         </li>
@@ -89,7 +89,7 @@ export function GameweekHistoryModal({ gameweekId, gameweekNumber, onClose }: Ga
 
   return (
     <div
-      className="fixed inset-0 z-80 flex items-center justify-center bg-slate-950/75 p-4 backdrop-blur-sm"
+      className="fixed inset-0 z-80 flex items-center justify-center bg-[var(--surface)]/75 p-4 backdrop-blur-sm"
       onMouseDown={(event) => {
         if (event.target === event.currentTarget) onClose();
       }}
@@ -100,7 +100,7 @@ export function GameweekHistoryModal({ gameweekId, gameweekNumber, onClose }: Ga
         aria-modal="true"
         aria-labelledby="gameweek-history-title"
         tabIndex={-1}
-        className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-slate-700 bg-slate-900 p-5 shadow-2xl sm:p-7"
+        className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 shadow-2xl sm:p-7"
       >
         <header className="mb-5 flex items-start justify-between gap-4">
           <div>
@@ -108,9 +108,9 @@ export function GameweekHistoryModal({ gameweekId, gameweekNumber, onClose }: Ga
               <Award className="h-4 w-4" />
               Your Gameweek
             </div>
-            <h2 id="gameweek-history-title" className="text-2xl font-bold text-white">Gameweek {gameweekNumber} History</h2>
+            <h2 id="gameweek-history-title" className="text-2xl font-bold text-[var(--text-primary)]">Gameweek {gameweekNumber} History</h2>
           </div>
-          <button ref={closeButtonRef} type="button" onClick={onClose} aria-label="Close gameweek history" className="rounded-lg p-2 text-slate-400 hover:bg-slate-800 hover:text-white">
+          <button ref={closeButtonRef} type="button" onClick={onClose} aria-label="Close gameweek history" className="rounded-lg p-2 text-[var(--text-muted)] hover:bg-[var(--surface-raised)] hover:text-[var(--text-primary)]">
             <X className="h-5 w-5" />
           </button>
         </header>
@@ -118,21 +118,21 @@ export function GameweekHistoryModal({ gameweekId, gameweekNumber, onClose }: Ga
         {loading ? (
           <div role="status" aria-label="Loading gameweek history" className="space-y-4 py-2">
             <div className="grid gap-3 sm:grid-cols-2">
-              <div className="h-20 animate-pulse rounded-xl border border-slate-700/60 bg-slate-800/40 p-4">
-                <div className="h-3 w-20 rounded bg-slate-700" />
-                <div className="mt-2 h-6 w-24 rounded bg-slate-700" />
+              <div className="h-20 animate-pulse rounded-xl border border-[var(--border)]/60 bg-[var(--surface-raised)]/40 p-4">
+                <div className="h-3 w-20 rounded bg-[var(--surface-muted)]" />
+                <div className="mt-2 h-6 w-24 rounded bg-[var(--surface-muted)]" />
               </div>
-              <div className="h-20 animate-pulse rounded-xl border border-slate-700/60 bg-slate-800/40 p-4">
-                <div className="h-3 w-24 rounded bg-slate-700" />
-                <div className="mt-2 h-6 w-24 rounded bg-slate-700" />
+              <div className="h-20 animate-pulse rounded-xl border border-[var(--border)]/60 bg-[var(--surface-raised)]/40 p-4">
+                <div className="h-3 w-24 rounded bg-[var(--surface-muted)]" />
+                <div className="mt-2 h-6 w-24 rounded bg-[var(--surface-muted)]" />
               </div>
             </div>
-            <div className="h-28 animate-pulse rounded-xl border border-slate-700/60 bg-slate-800/40 p-4">
-              <div className="h-3 w-32 rounded bg-slate-700" />
+            <div className="h-28 animate-pulse rounded-xl border border-[var(--border)]/60 bg-[var(--surface-raised)]/40 p-4">
+              <div className="h-3 w-32 rounded bg-[var(--surface-muted)]" />
               <div className="mt-3 flex gap-2">
-                <div className="h-10 w-10 rounded-lg bg-slate-700" />
-                <div className="h-10 w-10 rounded-lg bg-slate-700" />
-                <div className="h-10 w-10 rounded-lg bg-slate-700" />
+                <div className="h-10 w-10 rounded-lg bg-[var(--surface-muted)]" />
+                <div className="h-10 w-10 rounded-lg bg-[var(--surface-muted)]" />
+                <div className="h-10 w-10 rounded-lg bg-[var(--surface-muted)]" />
               </div>
             </div>
           </div>
@@ -142,14 +142,14 @@ export function GameweekHistoryModal({ gameweekId, gameweekNumber, onClose }: Ga
           <>
             <div className="mb-6 grid gap-3 sm:grid-cols-2">
               <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-4">
-                <div className="text-xs uppercase tracking-wider text-slate-400">Your score</div>
+                <div className="text-xs uppercase tracking-wider text-[var(--text-muted)]">Your score</div>
                 <div className="mt-1 text-2xl font-bold text-emerald-300">
                   {history.managerScore === null ? '—' : `${history.managerScore.toFixed(1)} pts`}
                 </div>
               </div>
-              <div className="rounded-xl border border-slate-700 bg-slate-950/40 p-4">
-                <div className="text-xs uppercase tracking-wider text-slate-400">Global average</div>
-                <div className="mt-1 text-2xl font-bold text-white">
+              <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-raised)] p-4">
+                <div className="text-xs uppercase tracking-wider text-[var(--text-muted)]">Global average</div>
+                <div className="mt-1 text-2xl font-bold text-[var(--text-primary)]">
                   {history.globalAverage === null ? '—' : `${history.globalAverage.toFixed(1)} pts`}
                 </div>
                 {history.managerScore !== null && history.globalAverage !== null && (
@@ -161,18 +161,18 @@ export function GameweekHistoryModal({ gameweekId, gameweekNumber, onClose }: Ga
             </div>
 
             {history.starters.length === 0 && history.bench.length === 0 ? (
-              <p className="rounded-xl border border-slate-700 bg-slate-950/40 p-4 text-sm text-slate-300">
+              <p className="rounded-xl border border-[var(--border)] bg-[var(--surface-raised)] p-4 text-sm text-[var(--text-secondary)]">
                 No saved lineup was found for this gameweek.
               </p>
             ) : (
               <div className="space-y-6">
                 <section>
-                  <h3 className="mb-1 text-sm font-semibold uppercase tracking-wider text-slate-300">Starting 5</h3>
-                  <p className="mb-2 text-xs text-slate-500">Player rows show base points; captain and chip multipliers are reflected in your total score.</p>
+                  <h3 className="mb-1 text-sm font-semibold uppercase tracking-wider text-[var(--text-secondary)]">Starting 5</h3>
+                  <p className="mb-2 text-xs text-[var(--text-muted)]">Player rows show base points; captain and chip multipliers are reflected in your total score.</p>
                   <PlayerList players={history.starters} emptyMessage="No starting players saved." />
                 </section>
                 <section>
-                  <h3 className="mb-1 text-sm font-semibold uppercase tracking-wider text-slate-300">Bench</h3>
+                  <h3 className="mb-1 text-sm font-semibold uppercase tracking-wider text-[var(--text-secondary)]">Bench</h3>
                   <PlayerList players={history.bench} emptyMessage="No bench players saved." />
                 </section>
               </div>

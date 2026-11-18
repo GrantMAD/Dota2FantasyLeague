@@ -569,26 +569,26 @@ function TransfersPageContent() {
       <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-8 gap-4">
         <div>
           <div className="flex flex-wrap items-center gap-3 mb-2">
-            <h1 className="text-3xl font-bold text-white flex items-center gap-3">
+            <h1 className="text-3xl font-bold text-[var(--text-primary)] flex items-center gap-3">
               <ArrowLeftRight className="w-8 h-8 text-amber-400 shrink-0" />
               <span>Transfer Market</span>
             </h1>
             <DataFreshnessBadge page="transfers" />
           </div>
-          <p className="text-slate-400">Click any player to inspect full stats, form, and match performance history</p>
+          <p className="text-[var(--text-secondary)]">Click any player to inspect full stats, form, and match performance history</p>
         </div>
-        <div className="bg-slate-800 border border-slate-700 rounded-lg px-4 py-2 flex items-center gap-4 shadow-sm">
+        <div className="bg-[var(--surface-raised)] border border-[var(--border)] rounded-lg px-4 py-2 flex items-center gap-4 shadow-sm">
           <div className="text-center">
-            <div className="text-xs text-slate-400 uppercase">Bank</div>
+            <div className="text-xs text-[var(--text-muted)] uppercase">Bank</div>
             {budget === null
-              ? <div className="h-6 w-16 animate-pulse rounded bg-slate-700 mt-0.5" />
+              ? <div className="h-6 w-16 animate-pulse rounded bg-[var(--surface-muted)] mt-0.5" />
               : <div className="text-lg font-mono font-bold text-emerald-400">${(budget).toFixed(1)}M</div>
             }
           </div>
-          <div className="w-px h-8 bg-slate-700"></div>
+          <div className="w-px h-8 bg-[var(--border)]"></div>
           <div className="text-center">
-            <div className="text-xs text-slate-400 uppercase">Free Transfers</div>
-            <div className="text-lg font-bold text-white">{freeTransfers}</div>
+            <div className="text-xs text-[var(--text-muted)] uppercase">Free Transfers</div>
+            <div className="text-lg font-bold text-[var(--text-primary)]">{freeTransfers}</div>
           </div>
         </div>
       </div>
@@ -607,7 +607,7 @@ function TransfersPageContent() {
                   Ready
                 </span>
               </div>
-              <p className="text-xs text-slate-300">
+              <p className="text-xs text-[var(--text-secondary)]">
                 You can play your season Wildcard this gameweek to make unlimited free transfers with zero point deductions.
               </p>
             </div>
@@ -623,22 +623,22 @@ function TransfersPageContent() {
           </button>
         </div>
       ) : (
-        <div className="mb-6 flex flex-col gap-3 rounded-xl border border-slate-700 bg-slate-800/40 px-4 py-3 text-xs text-slate-300 sm:flex-row sm:items-center sm:justify-between">
+        <div className="mb-6 flex flex-col gap-3 rounded-xl border border-[var(--border)] bg-[var(--surface)] px-4 py-3 text-xs text-[var(--text-secondary)] sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-start gap-2">
-            <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-amber-300" />
+            <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-amber-500 dark:text-amber-300" />
             <div>
-              <p className="font-semibold text-slate-200">
+              <p className="font-semibold text-[var(--text-primary)]">
                 {wildcardUsedGameweekNumber !== null
                   ? `Wildcard used in Gameweek ${wildcardUsedGameweekNumber}.`
                   : 'Wildcard has been used this season.'}
               </p>
-              <p className="mt-1 text-slate-400">
+              <p className="mt-1 text-[var(--text-muted)]">
                 Wildcard is available once per season. You will have a new Wildcard when you join the next season.
                 Standard transfer allowances apply now.
               </p>
             </div>
           </div>
-          <span className="text-[11px] font-mono text-slate-500 uppercase tracking-wider">Used</span>
+          <span className="text-[11px] font-mono text-[var(--text-muted)] uppercase tracking-wider">Used</span>
         </div>
       )}
 
@@ -696,10 +696,10 @@ function TransfersPageContent() {
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
         {/* Squad actions */}
         <div className="lg:col-span-1 space-y-6">
-          <div className="wildcard-card bg-amber-900/20 border border-amber-700/50 rounded-xl p-5">
-            <h3 className="wildcard-card-title font-semibold text-amber-500 mb-2 text-sm">Wildcard Available</h3>
-            <p className="wildcard-card-description text-xs text-amber-200/70 mb-3">{wildcardUsed ? 'Wildcard already used this season.' : 'Play it to make unlimited transfers this week with no point deductions.'}</p>
-            <button disabled={wildcardUsed || actionLoading} onClick={activateWildcard} className="wildcard-card-action w-full bg-amber-600/20 hover:bg-amber-600/30 border border-amber-600/50 text-amber-500 text-xs font-bold py-2 rounded-lg transition-colors disabled:opacity-50">
+          <div className="wildcard-card bg-amber-500/10 border border-amber-500/30 rounded-xl p-5">
+            <h3 className="wildcard-card-title font-semibold text-amber-600 dark:text-amber-400 mb-2 text-sm">Wildcard Available</h3>
+            <p className="wildcard-card-description text-xs text-[var(--text-secondary)] mb-3">{wildcardUsed ? 'Wildcard already used this season.' : 'Play it to make unlimited transfers this week with no point deductions.'}</p>
+            <button disabled={wildcardUsed || actionLoading} onClick={activateWildcard} className="wildcard-card-action w-full bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/40 text-amber-700 dark:text-amber-300 text-xs font-bold py-2 rounded-lg transition-colors disabled:opacity-50">
               {wildcardUsed ? 'Wildcard Used' : 'Play Wildcard'}
             </button>
           </div>
@@ -753,9 +753,9 @@ function TransfersPageContent() {
 
           {isBuilding ? (
             // ── BUILDING MODE PANEL ────────────────────────────────────────────
-            <div className="bg-slate-800/50 border border-amber-600/40 rounded-xl p-5 shadow-sm">
-              <h4 className="text-sm font-semibold text-amber-400 mb-1">Build Your Squad</h4>
-              <p className="text-xs text-slate-400 mb-4">
+            <div className="bg-[var(--surface)] border border-amber-500/40 rounded-xl p-5 shadow-sm">
+              <h4 className="text-sm font-semibold text-amber-500 dark:text-amber-400 mb-1">Build Your Squad</h4>
+              <p className="text-xs text-[var(--text-secondary)] mb-4">
                 {ownedPlayerIds.length + totalSelected}/{SQUAD_MAX_SIZE} players · {spotsRemaining > 0 ? `${spotsRemaining} spot${spotsRemaining !== 1 ? 's' : ''} left` : 'Squad full!'}
               </p>
 
@@ -769,27 +769,27 @@ function TransfersPageContent() {
                   const label = role === 'Support' ? 'Support (Pos 4)' : role === 'Hard Support' ? 'Hard Support (Pos 5)' : role;
                   return (
                     <div key={role} className={`flex items-center justify-between rounded-lg px-3 py-2 text-xs ${
-                      p ? 'bg-emerald-900/30 border border-emerald-700/50' : 'bg-slate-700/30 border border-slate-600/40'
+                      p ? 'bg-emerald-500/10 border border-emerald-500/30' : 'bg-[var(--surface-raised)] border border-[var(--border)]'
                     }`}>
-                      <span className={`font-semibold uppercase tracking-wider ${p ? 'text-emerald-400' : 'text-slate-500'}`}>
+                      <span className={`font-semibold uppercase tracking-wider ${p ? 'text-emerald-700 dark:text-emerald-400' : 'text-[var(--text-muted)]'}`}>
                         {label}
                       </span>
                       {p ? (
                         <div className="flex items-center gap-2">
-                          <span className="text-white font-medium">{p.in_game_name || p.name}</span>
+                          <span className="text-[var(--text-primary)] font-medium">{p.in_game_name || p.name}</span>
                           {isOwned ? (
-                            <span className="text-[10px] text-emerald-400 font-semibold px-1.5 py-0.5 rounded bg-emerald-500/20 border border-emerald-500/30">
+                            <span className="text-[10px] text-emerald-700 dark:text-emerald-400 font-semibold px-1.5 py-0.5 rounded bg-emerald-500/20 border border-emerald-500/30">
                               Owned
                             </span>
                           ) : (
                             <button
                               onClick={() => setBuildingSelections((prev) => { const next = new Map(prev); next.delete(p.id); return next; })}
-                              className="text-slate-400 hover:text-red-400 transition-colors"
+                              className="text-[var(--text-muted)] hover:text-rose-500 transition-colors"
                             >✕</button>
                           )}
                         </div>
                       ) : (
-                        <span className="text-slate-500 italic">Needed</span>
+                        <span className="text-[var(--text-muted)] italic">Needed</span>
                       )}
                     </div>
                   );
@@ -797,10 +797,10 @@ function TransfersPageContent() {
               </div>
 
               {/* Support slot explainer */}
-              <div className="flex items-start gap-1.5 bg-slate-700/20 border border-slate-600/30 rounded-lg px-3 py-2 mb-3">
-                <span className="text-amber-400/70 text-xs mt-0.5 shrink-0">ℹ️</span>
-                <p className="text-xs text-slate-400 leading-relaxed">
-                  <span className="text-slate-300 font-medium">Support slots:</span> Pick any support-type player for both Pos 4 &amp; Pos 5 — your 1st pick fills <span className="text-slate-200">Support (Pos 4)</span>, your 2nd fills <span className="text-slate-200">Hard Support (Pos 5)</span>.
+              <div className="flex items-start gap-1.5 bg-[var(--surface-raised)] border border-[var(--border)] rounded-lg px-3 py-2 mb-3">
+                <span className="text-amber-500 dark:text-amber-400 text-xs mt-0.5 shrink-0">ℹ️</span>
+                <p className="text-xs text-[var(--text-secondary)] leading-relaxed">
+                  <span className="text-[var(--text-primary)] font-medium">Support slots:</span> Pick any support-type player for both Pos 4 &amp; Pos 5 — your 1st pick fills <span className="text-[var(--text-primary)] font-semibold">Support (Pos 4)</span>, your 2nd fills <span className="text-[var(--text-primary)] font-semibold">Hard Support (Pos 5)</span>.
                 </p>
               </div>
 
@@ -812,25 +812,25 @@ function TransfersPageContent() {
                   const isOwned = entry?.isOwned;
                   return (
                     <div key={`bench-${i}`} className={`flex items-center justify-between rounded-lg px-3 py-2 text-xs ${
-                      p ? 'bg-slate-700/50 border border-slate-600' : 'bg-slate-800/30 border border-slate-700/30'
+                      p ? 'bg-[var(--surface-raised)] border border-[var(--border)]' : 'bg-[var(--surface-muted)]/40 border border-[var(--border)]'
                     }`}>
-                      <span className="text-slate-500 font-semibold uppercase tracking-wider">Bench {i + 1}</span>
+                      <span className="text-[var(--text-muted)] font-semibold uppercase tracking-wider">Bench {i + 1}</span>
                       {p ? (
                         <div className="flex items-center gap-2">
-                          <span className="text-slate-300">{p.in_game_name || p.name}</span>
+                          <span className="text-[var(--text-primary)]">{p.in_game_name || p.name}</span>
                           {isOwned ? (
-                            <span className="text-[10px] text-emerald-400 font-semibold px-1.5 py-0.5 rounded bg-emerald-500/20 border border-emerald-500/30">
+                            <span className="text-[10px] text-emerald-700 dark:text-emerald-400 font-semibold px-1.5 py-0.5 rounded bg-emerald-500/20 border border-emerald-500/30">
                               Owned
                             </span>
                           ) : (
                             <button
                               onClick={() => setBuildingSelections((prev) => { const next = new Map(prev); next.delete(p.id); return next; })}
-                              className="text-slate-400 hover:text-red-400 transition-colors"
+                              className="text-[var(--text-muted)] hover:text-rose-500 transition-colors"
                             >✕</button>
                           )}
                         </div>
                       ) : (
-                        <span className="text-slate-600 italic">Optional</span>
+                        <span className="text-[var(--text-muted)] italic">Optional</span>
                       )}
                     </div>
                   );
@@ -840,8 +840,8 @@ function TransfersPageContent() {
               {/* Cost summary */}
               {totalSelected > 0 && (
                 <div className="flex justify-between text-xs mb-4 px-1">
-                  <span className="text-slate-400">Selection cost</span>
-                  <span className="font-mono text-amber-400 font-bold">${selectionCost.toFixed(1)}M</span>
+                  <span className="text-[var(--text-secondary)]">Selection cost</span>
+                  <span className="font-mono text-amber-500 dark:text-amber-400 font-bold">${selectionCost.toFixed(1)}M</span>
                 </div>
               )}
 
@@ -978,17 +978,17 @@ function TransfersPageContent() {
         {/* Players Table */}
         <div className="lg:col-span-3">
           {error && (
-            <div className="bg-red-900/50 border border-red-500/50 text-red-200 px-4 py-3 rounded-lg mb-6 text-sm">
+            <div className="bg-rose-500/10 border border-rose-500/30 text-rose-800 dark:text-rose-200 px-4 py-3 rounded-xl mb-6 text-sm" role="alert">
               {error}
             </div>
           )}
 
           {/* Market table */}
-          <div ref={tableContainerRef} data-tour="transfers-table" className="bg-slate-800/40 border border-slate-700 rounded-xl overflow-hidden shadow-sm">
+          <div ref={tableContainerRef} data-tour="transfers-table" className="bg-[var(--surface)] border border-[var(--border)] rounded-xl overflow-hidden shadow-sm">
             <div className="overflow-x-auto">
               <table className="w-full table-fixed text-left border-collapse xl:table-auto">
                 <thead>
-                  <tr className="bg-slate-800/90 border-b border-slate-700">
+                  <tr className="bg-[var(--surface-raised)] border-b border-[var(--border)]">
                     <th
                       scope="col"
                       onClick={() => {
@@ -996,16 +996,16 @@ function TransfersPageContent() {
                         else { setSortBy('name'); setSortDesc(false); }
                         setPage(1);
                       }}
-                      className="w-[46%] px-3 py-3 text-xs font-semibold text-slate-100 uppercase tracking-wider cursor-pointer hover:text-amber-400 transition-colors select-none xl:w-auto xl:px-4"
+                      className="w-[46%] px-3 py-3 text-xs font-semibold text-[var(--text-primary)] uppercase tracking-wider cursor-pointer hover:text-amber-500 dark:hover:text-amber-400 transition-colors select-none xl:w-auto xl:px-4"
                     >
                       <div className="flex items-center gap-1">
                         <span>Player</span>
                         {sortBy === 'name' && (
-                          sortDesc ? <ArrowDown className="h-3 w-3 text-amber-400" /> : <ArrowUp className="h-3 w-3 text-amber-400" />
+                          sortDesc ? <ArrowDown className="h-3 w-3 text-amber-500 dark:text-amber-400" /> : <ArrowUp className="h-3 w-3 text-amber-500 dark:text-amber-400" />
                         )}
                       </div>
                     </th>
-                    <th scope="col" className="hidden px-4 py-3 text-xs font-semibold text-slate-100 uppercase tracking-wider text-center xl:table-cell">Role</th>
+                    <th scope="col" className="hidden px-4 py-3 text-xs font-semibold text-[var(--text-primary)] uppercase tracking-wider text-center xl:table-cell">Role</th>
                     <th
                       scope="col"
                       onClick={() => {
@@ -1013,12 +1013,12 @@ function TransfersPageContent() {
                         else { setSortBy('price'); setSortDesc(true); }
                         setPage(1);
                       }}
-                      className="w-[28%] px-3 py-3 text-xs font-semibold text-slate-100 uppercase tracking-wider text-right cursor-pointer hover:text-amber-400 transition-colors select-none xl:w-auto xl:px-4"
+                      className="w-[28%] px-3 py-3 text-xs font-semibold text-[var(--text-primary)] uppercase tracking-wider text-right cursor-pointer hover:text-amber-500 dark:hover:text-amber-400 transition-colors select-none xl:w-auto xl:px-4"
                     >
                       <div className="flex items-center justify-end gap-1">
                         <span>Price</span>
                         {sortBy === 'price' && (
-                          sortDesc ? <ArrowDown className="h-3 w-3 text-amber-400" /> : <ArrowUp className="h-3 w-3 text-amber-400" />
+                          sortDesc ? <ArrowDown className="h-3 w-3 text-amber-500 dark:text-amber-400" /> : <ArrowUp className="h-3 w-3 text-amber-500 dark:text-amber-400" />
                         )}
                       </div>
                     </th>
@@ -1029,12 +1029,12 @@ function TransfersPageContent() {
                         else { setSortBy('points'); setSortDesc(true); }
                         setPage(1);
                       }}
-                      className="hidden px-4 py-3 text-xs font-semibold text-slate-100 uppercase tracking-wider text-right cursor-pointer hover:text-amber-400 transition-colors select-none xl:table-cell"
+                      className="hidden px-4 py-3 text-xs font-semibold text-[var(--text-primary)] uppercase tracking-wider text-right cursor-pointer hover:text-amber-500 dark:hover:text-amber-400 transition-colors select-none xl:table-cell"
                     >
                       <div className="flex items-center justify-end gap-1">
                         <span>Form (Avg)</span>
                         {sortBy === 'points' && (
-                          sortDesc ? <ArrowDown className="h-3 w-3 text-amber-400" /> : <ArrowUp className="h-3 w-3 text-amber-400" />
+                          sortDesc ? <ArrowDown className="h-3 w-3 text-amber-500 dark:text-amber-400" /> : <ArrowUp className="h-3 w-3 text-amber-500 dark:text-amber-400" />
                         )}
                       </div>
                     </th>
@@ -1045,43 +1045,43 @@ function TransfersPageContent() {
                         else { setSortBy('ownership'); setSortDesc(true); }
                         setPage(1);
                       }}
-                      className="hidden px-4 py-3 text-xs font-semibold text-slate-100 uppercase tracking-wider text-right cursor-pointer hover:text-amber-400 transition-colors select-none xl:table-cell"
+                      className="hidden px-4 py-3 text-xs font-semibold text-[var(--text-primary)] uppercase tracking-wider text-right cursor-pointer hover:text-amber-500 dark:hover:text-amber-400 transition-colors select-none xl:table-cell"
                     >
                       <div className="flex items-center justify-end gap-1">
                         <span>Own %</span>
                         {sortBy === 'ownership' && (
-                          sortDesc ? <ArrowDown className="h-3 w-3 text-amber-400" /> : <ArrowUp className="h-3 w-3 text-amber-400" />
+                          sortDesc ? <ArrowDown className="h-3 w-3 text-amber-500 dark:text-amber-400" /> : <ArrowUp className="h-3 w-3 text-amber-500 dark:text-amber-400" />
                         )}
                       </div>
                     </th>
-                    <th scope="col" className="hidden px-4 py-3 text-xs font-semibold text-slate-100 uppercase tracking-wider text-right xl:table-cell">Last GW</th>
-                    <th scope="col" className="w-[26%] px-3 py-3 text-xs font-semibold text-slate-100 uppercase tracking-wider text-center xl:w-auto xl:px-4">Action</th>
+                    <th scope="col" className="hidden px-4 py-3 text-xs font-semibold text-[var(--text-primary)] uppercase tracking-wider text-right xl:table-cell">Last GW</th>
+                    <th scope="col" className="w-[26%] px-3 py-3 text-xs font-semibold text-[var(--text-primary)] uppercase tracking-wider text-center xl:w-auto xl:px-4">Action</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-700/50">
+                <tbody className="divide-y divide-[var(--border)]">
                   {loading ? (
                     [1, 2, 3, 4, 5, 6].map((row) => (
                       <tr key={`transfer-skeleton-${row}`} className="animate-pulse">
                         <td className="px-3 py-3 xl:px-4">
                           <div className="flex items-center gap-3">
-                            <div className="h-9 w-9 shrink-0 rounded-full bg-slate-700 xl:h-10 xl:w-10" />
+                            <div className="h-9 w-9 shrink-0 rounded-full bg-[var(--surface-muted)] xl:h-10 xl:w-10" />
                             <div className="space-y-2">
-                              <div className="h-4 w-32 max-w-[30vw] rounded bg-slate-700" />
-                              <div className="h-3 w-20 rounded bg-slate-800" />
+                              <div className="h-4 w-32 max-w-[30vw] rounded bg-[var(--surface-muted)]" />
+                              <div className="h-3 w-20 rounded bg-[var(--surface-raised)]" />
                             </div>
                           </div>
                         </td>
-                        <td className="hidden px-4 py-3 xl:table-cell"><div className="mx-auto h-6 w-16 rounded-full bg-slate-700" /></td>
-                        <td className="px-3 py-3 xl:px-4"><div className="ml-auto h-4 w-16 rounded bg-slate-700" /></td>
-                        <td className="hidden px-4 py-3 xl:table-cell"><div className="ml-auto h-4 w-12 rounded bg-slate-700" /></td>
-                        <td className="hidden px-4 py-3 xl:table-cell"><div className="ml-auto h-4 w-12 rounded bg-slate-700" /></td>
-                        <td className="hidden px-4 py-3 xl:table-cell"><div className="ml-auto h-4 w-12 rounded bg-slate-700" /></td>
-                        <td className="px-3 py-3 xl:px-4"><div className="mx-auto h-8 w-8 rounded-lg bg-slate-700 xl:h-8 xl:w-20" /></td>
+                        <td className="hidden px-4 py-3 xl:table-cell"><div className="mx-auto h-6 w-16 rounded-full bg-[var(--surface-muted)]" /></td>
+                        <td className="px-3 py-3 xl:px-4"><div className="ml-auto h-4 w-16 rounded bg-[var(--surface-muted)]" /></td>
+                        <td className="hidden px-4 py-3 xl:table-cell"><div className="ml-auto h-4 w-12 rounded bg-[var(--surface-muted)]" /></td>
+                        <td className="hidden px-4 py-3 xl:table-cell"><div className="ml-auto h-4 w-12 rounded bg-[var(--surface-muted)]" /></td>
+                        <td className="hidden px-4 py-3 xl:table-cell"><div className="ml-auto h-4 w-12 rounded bg-[var(--surface-muted)]" /></td>
+                        <td className="px-3 py-3 xl:px-4"><div className="mx-auto h-8 w-8 rounded-lg bg-[var(--surface-muted)] xl:h-8 xl:w-20" /></td>
                       </tr>
                     ))
                   ) : displayedPlayers.length === 0 ? (
                     <tr>
-                      <td colSpan={7} className="px-4 py-8 text-center text-slate-400">No players found matching your criteria.</td>
+                      <td colSpan={7} className="px-4 py-8 text-center text-[var(--text-muted)]">No players found matching your criteria.</td>
                     </tr>
                   ) : (
                     displayedPlayers.map((player, index) => {
@@ -1103,41 +1103,41 @@ function TransfersPageContent() {
                               ? 'bg-amber-500/10 ring-1 ring-inset ring-amber-400/60'
                               : isOwned
                                 ? 'bg-emerald-950/20 hover:bg-emerald-950/35'
-                                : 'hover:bg-slate-800/60'
+                                : 'hover:bg-[var(--surface-raised)]'
                           }`}
                         >
                           <td className="px-3 py-3 xl:px-4">
                             <div className="flex items-center gap-2 xl:gap-3">
                               <div className={`h-9 w-9 xl:h-10 xl:w-10 rounded-full border overflow-hidden shrink-0 flex items-center justify-center ${
-                                isOwned ? 'bg-slate-800 border-emerald-500/50' : 'bg-slate-700 border-slate-600'
+                                isOwned ? 'bg-[var(--surface)] border-emerald-500/50' : 'bg-[var(--surface-raised)] border-[var(--border)]'
                               }`}>
                                 {player.profile_image_url ? (
                                   <Image src={player.profile_image_url} alt={player.in_game_name || player.name} width={40} height={40} unoptimized={!canOptimizeImage(player.profile_image_url)} className="w-full h-full object-cover" />
                                 ) : (
-                                  <span className="player-avatar-initials text-xs font-bold">
+                                  <span className="player-avatar-initials text-xs font-bold text-[var(--text-primary)]">
                                     {(player.in_game_name || player.name || '').substring(0, 2).toUpperCase()}
                                   </span>
                                 )}
                               </div>
                               <div className="min-w-0 flex-1">
-                                <div className="flex min-w-0 items-center gap-1.5 font-bold text-slate-900 transition-colors group-hover:text-amber-600 dark:text-slate-100 dark:group-hover:text-amber-400">
+                                <div className="flex min-w-0 items-center gap-1.5 font-bold text-[var(--text-primary)] transition-colors group-hover:text-amber-500">
                                   <span className="min-w-0 truncate" title={player.in_game_name || player.name}>
                                     {player.in_game_name || player.name}
                                   </span>
                                   {isOwned && (
-                                    <span className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full border border-emerald-500/30 bg-emerald-500/20 px-2 py-0.5 text-[10px] font-semibold text-emerald-400">
+                                    <span className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full border border-emerald-500/30 bg-emerald-500/20 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 dark:text-emerald-400">
                                       <CheckCircle2 className="h-3 w-3 shrink-0" />
                                       In Squad
                                     </span>
                                   )}
                                   {isSelected && (
-                                    <span className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full border border-amber-500/30 bg-amber-500/20 px-2 py-0.5 text-[10px] font-semibold text-amber-300">
+                                    <span className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full border border-amber-500/30 bg-amber-500/20 px-2 py-0.5 text-[10px] font-semibold text-amber-700 dark:text-amber-300">
                                       <CheckCircle2 className="h-3 w-3 shrink-0" />
                                       Selected
                                     </span>
                                   )}
                                 </div>
-                                <div className="truncate text-xs text-slate-500 dark:text-slate-400">{player.professional_teams?.name || 'Free Agent'}</div>
+                                <div className="truncate text-xs text-[var(--text-muted)]">{player.professional_teams?.name || 'Free Agent'}</div>
                                 <span
                                   className="transfer-role-badge mt-1 inline-block rounded border px-1.5 py-0.5 text-[9px] font-bold uppercase xl:hidden"
                                   style={{
@@ -1189,21 +1189,21 @@ function TransfersPageContent() {
                                     )}
                                   </span>
                                 ) : (
-                                  <span className="text-[10px] font-mono text-slate-500">—</span>
+                                  <span className="text-[10px] font-mono text-[var(--text-muted)]">—</span>
                                 )}
                               </div>
                             </div>
                           </td>
                           <td className="hidden px-4 py-3 text-right xl:table-cell">
-                            <div className="transfer-form-average text-sm text-slate-800 dark:text-slate-200 font-mono">{player.recent_points ?? '-'}</div>
+                            <div className="transfer-form-average text-sm text-[var(--text-primary)] font-mono">{player.recent_points ?? '-'}</div>
                           </td>
                           <td className="hidden px-4 py-3 text-right xl:table-cell">
-                            <div className="text-sm text-slate-700 dark:text-slate-300 font-mono">
+                            <div className="text-sm text-[var(--text-secondary)] font-mono">
                               {player.ownership_percentage != null ? `${Number(player.ownership_percentage).toFixed(1)}%` : '—'}
                             </div>
                           </td>
                           <td className="hidden px-4 py-3 text-right xl:table-cell">
-                            <div className="text-sm font-bold text-slate-900 dark:text-white font-mono">{player.gameweek_points ?? '-'}</div>
+                            <div className="text-sm font-bold text-[var(--text-primary)] font-mono">{player.gameweek_points ?? '-'}</div>
                           </td>
                           <td className="px-3 py-3 text-center xl:px-4" onClick={(e) => e.stopPropagation()}>
                             <button
@@ -1213,16 +1213,16 @@ function TransfersPageContent() {
                                 isOwned
                                   ? selectedPlayerOut === player.id
                                     ? 'bg-red-600 text-white ring-2 ring-red-400'
-                                    : 'bg-slate-700/80 hover:bg-red-600 text-slate-200 hover:text-white border border-slate-600/60'
+                                    : 'bg-[var(--surface-raised)] hover:bg-red-600 text-[var(--text-secondary)] hover:text-white border border-[var(--border)]'
                                   : isBuilding
                                   ? buildingSelections.has(player.id)
-                                    ? 'bg-amber-500 text-slate-900 ring-2 ring-amber-300 font-bold'
+                                    ? 'bg-amber-500 text-slate-950 ring-2 ring-amber-300 font-bold'
                                     : spotsRemaining <= 0
-                                    ? 'bg-slate-700/40 text-slate-600 cursor-not-allowed border border-slate-700'
-                                    : 'bg-slate-700/80 hover:bg-emerald-600 text-white border border-slate-600/60'
+                                    ? 'bg-[var(--surface-muted)] text-[var(--text-muted)] cursor-not-allowed border border-[var(--border)]'
+                                    : 'bg-[var(--surface-raised)] hover:bg-emerald-600 text-[var(--text-primary)] hover:text-white border border-[var(--border)]'
                                   : selectedPlayerIn === player.id
-                                  ? 'bg-amber-500 text-slate-900 ring-2 ring-amber-300 font-bold'
-                                  : 'bg-slate-700/80 hover:bg-emerald-600 text-white border border-slate-600/60'
+                                  ? 'bg-amber-500 text-slate-950 ring-2 ring-amber-300 font-bold'
+                                  : 'bg-[var(--surface-raised)] hover:bg-emerald-600 text-[var(--text-primary)] hover:text-white border border-[var(--border)]'
                               }`}
                               title={
                                 isOwned ? 'In your squad' :
@@ -1249,17 +1249,17 @@ function TransfersPageContent() {
             </div>
 
             {/* Pagination Controls */}
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 px-6 py-4 border-t border-slate-700 bg-slate-800/40">
-              <div className="text-xs text-slate-400">
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 px-6 py-4 border-t border-[var(--border)] bg-[var(--surface-raised)]">
+              <div className="text-xs text-[var(--text-secondary)]">
                 Showing{' '}
-                <span className="font-semibold text-white">
+                <span className="font-semibold text-[var(--text-primary)]">
                   {totalPlayers === 0 ? 0 : (page - 1) * pageSize + 1}
                 </span>{' '}
                 to{' '}
-                <span className="font-semibold text-white">
+                <span className="font-semibold text-[var(--text-primary)]">
                   {Math.min(page * pageSize, totalPlayers)}
                 </span>{' '}
-                of <span className="font-semibold text-white">{totalPlayers}</span> players
+                of <span className="font-semibold text-[var(--text-primary)]">{totalPlayers}</span> players
               </div>
 
               <div className="flex items-center gap-2">
@@ -1270,17 +1270,17 @@ function TransfersPageContent() {
                     setPage((p) => Math.max(1, p - 1));
                     tableContainerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
                   }}
-                  className="px-3 py-1.5 rounded-lg border border-slate-700 bg-slate-800 text-xs font-medium text-slate-300 hover:bg-slate-700 hover:text-white transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                  className="px-3 py-1.5 rounded-lg border border-[var(--border)] bg-[var(--surface)] text-xs font-medium text-[var(--text-primary)] hover:bg-[var(--surface-muted)] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   ← Previous
                 </button>
 
-                <div className="flex items-center gap-1 text-xs text-slate-300">
-                  <span className="px-2 py-1 rounded bg-slate-700/80 font-mono font-bold text-amber-400">
+                <div className="flex items-center gap-1 text-xs text-[var(--text-secondary)]">
+                  <span className="px-2 py-1 rounded bg-[var(--surface-muted)] font-mono font-bold text-amber-500 dark:text-amber-400">
                     {page}
                   </span>
-                  <span className="text-slate-500">/</span>
-                  <span className="font-mono text-slate-400">
+                  <span className="text-[var(--text-muted)]">/</span>
+                  <span className="font-mono text-[var(--text-muted)]">
                     {Math.max(1, Math.ceil(totalPlayers / pageSize))}
                   </span>
                 </div>
@@ -1292,7 +1292,7 @@ function TransfersPageContent() {
                     setPage((p) => p + 1);
                     tableContainerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
                   }}
-                  className="px-3 py-1.5 rounded-lg border border-slate-700 bg-slate-800 text-xs font-medium text-slate-300 hover:bg-slate-700 hover:text-white transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                  className="px-3 py-1.5 rounded-lg border border-[var(--border)] bg-[var(--surface)] text-xs font-medium text-[var(--text-primary)] hover:bg-[var(--surface-muted)] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   Next →
                 </button>
@@ -1322,7 +1322,7 @@ export default function TransfersPage() {
   return (
     <Suspense
       fallback={
-        <div className="mx-auto max-w-7xl px-4 py-12 text-center text-sm text-slate-400" role="status">
+        <div className="mx-auto max-w-7xl px-4 py-12 text-center text-sm text-[var(--text-muted)]" role="status">
           Loading Transfer Market…
         </div>
       }

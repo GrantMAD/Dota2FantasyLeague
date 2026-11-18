@@ -58,7 +58,7 @@ export function TournamentFilters({
                   className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono font-bold ${
                     isActive
                       ? 'bg-slate-950/20 text-slate-950'
-                      : 'bg-[var(--surface)] text-slate-600 dark:text-slate-400'
+                      : 'bg-[var(--surface)] text-[var(--text-muted)]'
                   }`}
                 >
                   {tab.count}

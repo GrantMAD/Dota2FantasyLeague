@@ -48,7 +48,7 @@ export function TournamentCard({ tournament }: TournamentCardProps) {
   const tierBadge = isTier1
     ? 'border-amber-400/60 bg-gradient-to-r from-amber-400/25 to-yellow-500/10 text-amber-800 shadow-[0_0_16px_rgba(245,158,11,0.12)] dark:text-amber-200'
     : isTier2
-      ? 'border-cyan-400/60 bg-gradient-to-r from-slate-300/20 to-cyan-500/15 text-cyan-800 shadow-[0_0_16px_rgba(34,211,238,0.1)] dark:text-cyan-200'
+      ? 'border-cyan-400/60 bg-gradient-to-r from-cyan-500/10 to-cyan-500/20 text-cyan-800 shadow-[0_0_16px_rgba(34,211,238,0.1)] dark:text-cyan-200'
       : 'border-[var(--border)] bg-[var(--surface-raised)] text-[var(--text-secondary)]';
 
   return (

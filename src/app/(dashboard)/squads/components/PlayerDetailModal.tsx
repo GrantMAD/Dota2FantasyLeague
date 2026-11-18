@@ -56,7 +56,7 @@ export function PlayerDetailModal({ player, loading, onClose, scoreBreakdown }: 
   if (loading) {
     return (
       <div
-        className="fixed inset-0 z-100 flex items-start justify-center overflow-y-auto bg-slate-950/75 p-4 py-8 backdrop-blur-sm sm:items-center animate-modal-backdrop"
+        className="fixed inset-0 z-100 flex items-start justify-center overflow-y-auto bg-black/60 p-4 py-8 backdrop-blur-sm sm:items-center animate-modal-backdrop"
         role="status"
         aria-label="Loading player details"
       >
@@ -98,7 +98,7 @@ export function PlayerDetailModal({ player, loading, onClose, scoreBreakdown }: 
 
   return (
     <div
-      className="fixed inset-0 z-100 flex items-start justify-center overflow-y-auto bg-slate-950/75 p-4 py-8 backdrop-blur-sm sm:items-center animate-modal-backdrop"
+      className="fixed inset-0 z-100 flex items-start justify-center overflow-y-auto bg-black/60 p-4 py-8 backdrop-blur-sm sm:items-center animate-modal-backdrop"
       onMouseDown={(event) => {
         if (event.target === event.currentTarget) onClose();
       }}
@@ -134,7 +134,7 @@ export function PlayerDetailModal({ player, loading, onClose, scoreBreakdown }: 
               <div className="inline-flex items-center gap-2 rounded-full border border-teal-500/30 bg-teal-500/10 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-teal-700 dark:text-teal-300">
                 {player.primary_role || 'Pro Player'}
               </div>
-              <h2 id="squad-player-title" className="mt-1 text-2xl font-bold text-white">
+              <h2 id="squad-player-title" className="mt-1 text-2xl font-bold text-[var(--text-primary)]">
                 {player.in_game_name || player.name}
               </h2>
               <p className="text-xs text-[var(--text-secondary)]">

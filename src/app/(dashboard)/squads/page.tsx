@@ -254,7 +254,7 @@ export default function SquadsPage() {
           </h1>
           {loading ? (
             <div>
-              <div className="h-5 w-28 rounded-md bg-slate-700/50 dark:bg-slate-800 animate-pulse mb-1" />
+              <div className="h-5 w-28 rounded-md bg-[var(--surface-muted)] animate-pulse mb-1" />
               <p className="mt-1 text-sm" style={{ color: 'var(--text-muted)' }}>
                 Review your owned players, budget allocation, and gameweek tactical formation.
               </p>
@@ -327,7 +327,7 @@ export default function SquadsPage() {
             <div>
               <span className="block text-[11px] font-medium uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Squad Value</span>
               {loading ? (
-                <div className="h-6 w-16 mt-1 rounded bg-slate-700/50 dark:bg-slate-800 animate-pulse ml-auto" />
+                <div className="h-6 w-16 mt-1 rounded bg-[var(--surface-muted)] animate-pulse ml-auto" />
               ) : (
                 <span className="font-mono text-lg font-bold text-cyan-400">${squadValue.toFixed(1)}M</span>
               )}
@@ -336,7 +336,7 @@ export default function SquadsPage() {
             <div>
               <span className="block text-[11px] font-medium uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>In Bank</span>
               {loading ? (
-                <div className="h-6 w-16 mt-1 rounded bg-slate-700/50 dark:bg-slate-800 animate-pulse ml-auto" />
+                <div className="h-6 w-16 mt-1 rounded bg-[var(--surface-muted)] animate-pulse ml-auto" />
               ) : (
                 <span className="font-mono text-lg font-bold text-emerald-400">${budget.toFixed(1)}M</span>
               )}
@@ -345,7 +345,7 @@ export default function SquadsPage() {
             <div>
               <span className="block text-[11px] font-medium uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Total Account Value</span>
               {loading ? (
-                <div className="h-6 w-16 mt-1 rounded bg-slate-700/50 dark:bg-slate-800 animate-pulse ml-auto" />
+                <div className="h-6 w-16 mt-1 rounded bg-[var(--surface-muted)] animate-pulse ml-auto" />
               ) : (
                 <span className="font-mono text-lg font-bold" style={{ color: 'var(--text-primary)' }}>${totalAccountValue.toFixed(1)}M</span>
               )}
@@ -357,7 +357,7 @@ export default function SquadsPage() {
         <div className="mt-4">
           <div className="relative h-3 w-full overflow-hidden rounded-full" style={{ background: 'var(--surface-muted)' }}>
             {loading ? (
-              <div className="h-full w-full bg-slate-700/40 dark:bg-slate-800/60 animate-pulse" />
+              <div className="h-full w-full bg-[var(--surface-muted)] animate-pulse" />
             ) : (
               <>
                 <div
@@ -376,8 +376,8 @@ export default function SquadsPage() {
           <div className="mt-2.5 flex items-center justify-between text-xs" style={{ color: 'var(--text-muted)' }}>
             {loading ? (
               <div className="flex items-center gap-4">
-                <div className="h-4 w-28 rounded bg-slate-700/40 dark:bg-slate-800/60 animate-pulse" />
-                <div className="h-4 w-28 rounded bg-slate-700/40 dark:bg-slate-800/60 animate-pulse" />
+                <div className="h-4 w-28 rounded bg-[var(--surface-muted)] animate-pulse" />
+                <div className="h-4 w-28 rounded bg-[var(--surface-muted)] animate-pulse" />
               </div>
             ) : (
               <div className="flex items-center gap-4">
@@ -492,48 +492,48 @@ export default function SquadsPage() {
           </div>
 
           <div className="mb-8 grid gap-4 xl:grid-cols-3">
-            <div className="rounded-xl border border-slate-800 bg-slate-950/70 p-4">
-              <span className="block text-[11px] font-medium uppercase tracking-wider text-slate-400">
+            <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-raised)] p-4">
+              <span className="block text-[11px] font-medium uppercase tracking-wider text-[var(--text-muted)]">
                 Net Budget Change
               </span>
               <span className={`mt-1 block font-mono text-2xl font-bold ${
                 transferAnalytics.netBudgetChange === null
-                  ? 'text-slate-400'
+                  ? 'text-[var(--text-muted)]'
                   : transferAnalytics.netBudgetChange > 0
                     ? 'text-emerald-400'
                     : transferAnalytics.netBudgetChange < 0
                       ? 'text-rose-400'
-                      : 'text-white'
+                      : 'text-[var(--text-primary)]'
               }`}>
                 {transferAnalytics.netBudgetChange === null
                   ? 'Unavailable'
                   : `${transferAnalytics.netBudgetChange > 0 ? '+$' : transferAnalytics.netBudgetChange < 0 ? '-$' : '$'}${Math.abs(transferAnalytics.netBudgetChange).toFixed(1)}M`}
               </span>
-              <p className="mt-1 text-xs text-slate-400">
+              <p className="mt-1 text-xs text-[var(--text-muted)]">
                 {transferAnalytics.totalTransactions === 0
                   ? 'No transfer transactions are recorded.'
                   : `Based on ${transferAnalytics.pricedTransactions} of ${transferAnalytics.totalTransactions} fully priced transactions.`}
               </p>
             </div>
 
-            <div className="rounded-xl border border-slate-800 bg-slate-950/70 p-4 xl:col-span-2">
+            <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-raised)] p-4 xl:col-span-2">
               <div className="mb-3">
-                <h3 className="text-sm font-bold text-white">Owned Squad Value</h3>
-                <p className="text-xs text-slate-400">Historical player market value by completed gameweek, excluding bank balance.</p>
+                <h3 className="text-sm font-bold text-[var(--text-primary)]">Owned Squad Value</h3>
+                <p className="text-xs text-[var(--text-muted)]">Historical player market value by completed gameweek, excluding bank balance.</p>
               </div>
               {transferAnalytics.squadValueHistory.some((point) => point.value !== null) ? (
                 <div className="h-52 w-full" role="img" aria-label="Squad market value history chart">
                   <ResponsiveContainer width="100%" height="100%">
                     <LineChart data={transferAnalytics.squadValueHistory} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
-                      <CartesianGrid stroke="#334155" strokeDasharray="3 3" />
+                      <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" />
                       <XAxis
                         dataKey="gameweekNumber"
                         tickFormatter={(value: number) => `GW ${value}`}
-                        stroke="#94a3b8"
+                        stroke="var(--text-muted)"
                         tick={{ fontSize: 11 }}
                       />
                       <YAxis
-                        stroke="#94a3b8"
+                        stroke="var(--text-muted)"
                         tick={{ fontSize: 11 }}
                         tickFormatter={(value: number) => `$${value.toFixed(0)}M`}
                         width={54}
@@ -541,8 +541,8 @@ export default function SquadsPage() {
                       <Tooltip
                         labelFormatter={(value) => `Gameweek ${value}`}
                         formatter={(value) => typeof value === 'number' ? [`$${value.toFixed(1)}M`, 'Squad value'] : ['Unavailable', 'Squad value']}
-                        contentStyle={{ backgroundColor: '#020617', border: '1px solid #334155', borderRadius: '0.75rem' }}
-                        labelStyle={{ color: '#e2e8f0' }}
+                        contentStyle={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '0.75rem' }}
+                        labelStyle={{ color: 'var(--text-primary)' }}
                       />
                       <Line
                         type="monotone"
@@ -558,12 +558,12 @@ export default function SquadsPage() {
                   </ResponsiveContainer>
                 </div>
               ) : (
-                <p className="py-8 text-center text-sm text-slate-400">
+                <p className="py-8 text-center text-sm text-[var(--text-muted)]">
                   Squad value history is unavailable until completed gameweeks have complete player price records.
                 </p>
               )}
               {transferAnalytics.squadValueHistory.some((point) => point.value === null) && (
-                <p className="mt-2 text-xs text-slate-500">Gaps indicate missing price or ownership history for that gameweek.</p>
+                <p className="mt-2 text-xs text-[var(--text-muted)]">Gaps indicate missing price or ownership history for that gameweek.</p>
               )}
             </div>
           </div>
@@ -573,24 +573,24 @@ export default function SquadsPage() {
               { title: 'Best Transfer', insight: transferAnalytics.bestTransfer, positive: true },
               { title: 'Worst Transfer', insight: transferAnalytics.worstTransfer, positive: false },
             ].map(({ title, insight, positive }) => (
-              <div key={title} className="rounded-xl border border-slate-800 bg-slate-950/70 p-4">
-                <h3 className="text-sm font-bold text-white">{title}</h3>
+              <div key={title} className="rounded-xl border border-[var(--border)] bg-[var(--surface-raised)] p-4">
+                <h3 className="text-sm font-bold text-[var(--text-primary)]">{title}</h3>
                 {insight ? (
                   <>
                     <p className="mt-2 flex flex-wrap items-center gap-2 text-sm">
                       <span className="text-rose-300">{insight.playerOut}</span>
-                      <ArrowRight className="h-3.5 w-3.5 text-slate-500" aria-hidden="true" />
+                      <ArrowRight className="h-3.5 w-3.5 text-[var(--text-muted)]" aria-hidden="true" />
                       <span className="text-emerald-300">{insight.playerIn}</span>
                     </p>
                     <p className={`mt-2 font-mono text-lg font-bold ${positive ? 'text-emerald-400' : 'text-rose-400'}`}>
                       {insight.netPoints > 0 ? '+' : ''}{insight.netPoints.toFixed(1)} pts
                     </p>
-                    <p className="text-xs text-slate-400">
+                    <p className="text-xs text-[var(--text-muted)]">
                       Net player points over GW {insight.gameweekNumbers.join(', ')}.
                     </p>
                   </>
                 ) : (
-                  <p className="mt-2 text-sm text-slate-400">
+                  <p className="mt-2 text-sm text-[var(--text-muted)]">
                     {transferHistory.length === 0
                       ? 'No transfer swaps are recorded yet.'
                       : 'No transfers have a fully completed three-gameweek scoring window yet.'}
@@ -601,18 +601,18 @@ export default function SquadsPage() {
           </div>
 
           <div className="mb-4">
-            <h2 className="text-xl font-bold text-white">Transfer Timeline</h2>
-            <p className="mt-1 text-sm text-slate-400">Chronological audit of all player transactions and penalties.</p>
+            <h2 className="text-xl font-bold text-[var(--text-primary)]">Transfer Timeline</h2>
+            <p className="mt-1 text-sm text-[var(--text-secondary)]">Chronological audit of all player transactions and penalties.</p>
           </div>
 
           {historyLoading ? (
-            <div className="py-12 text-center text-sm text-slate-400">Loading transfer history…</div>
+            <div className="py-12 text-center text-sm text-[var(--text-muted)]">Loading transfer history…</div>
           ) : historyError ? (
-            <p role="alert" className="rounded-xl border border-rose-500/30 bg-rose-500/10 p-4 text-sm text-rose-200">
+            <p role="alert" className="rounded-xl border border-rose-500/30 bg-rose-500/10 p-4 text-sm text-rose-800 dark:text-rose-200">
               {historyError}
             </p>
           ) : transferHistory.length === 0 ? (
-            <div className="rounded-xl border border-dashed border-slate-700 px-4 py-12 text-center text-sm text-slate-400">
+            <div className="rounded-xl border border-dashed border-[var(--border)] px-4 py-12 text-center text-sm text-[var(--text-muted)]">
               No transfer history is recorded yet. Completed transfers will appear here along with their points impact.
             </div>
           ) : (
@@ -630,7 +630,7 @@ export default function SquadsPage() {
                   return (
                     <div key={transfer.id} className="relative group">
                       {/* Timeline Node Dot */}
-                      <div className="absolute -left-6 sm:-left-8 top-3 h-3 w-3 rounded-full border-2 border-cyan-400 bg-slate-900 group-hover:scale-125 transition-transform" />
+                      <div className="absolute -left-6 sm:-left-8 top-3 h-3 w-3 rounded-full border-2 border-cyan-400 bg-[var(--surface)] group-hover:scale-125 transition-transform" />
 
                       <div className="rounded-xl border p-4 transition-all hover:shadow-md relative overflow-hidden" style={{ background: "var(--surface-raised)", borderColor: "var(--border)" }}>
                         <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-cyan-500 to-emerald-500" />
@@ -641,11 +641,11 @@ export default function SquadsPage() {
                                 GW {transfer.gameweekNumber}
                               </span>
                             ) : null}
-                            <span className="text-xs text-slate-400">{dateStr}</span>
+                            <span className="text-xs text-[var(--text-muted)]">{dateStr}</span>
                           </div>
                           <div className="flex flex-wrap items-center gap-2">
                             {transfer.penaltyPoints === null ? (
-                              <span className="text-xs font-medium text-slate-400">Free move</span>
+                              <span className="text-xs font-medium text-[var(--text-muted)]">Free move</span>
                             ) : transfer.penaltyPoints > 0 ? (
                               <span className="rounded-md bg-rose-500/15 border border-rose-500/30 px-2.5 py-0.5 text-xs font-bold text-rose-300">
                                 -{transfer.penaltyPoints} pts penalty
@@ -655,7 +655,7 @@ export default function SquadsPage() {
                                 Free Transfer
                               </span>
                             )}
-                            <span className="rounded-md border border-slate-700 bg-slate-800/70 px-2.5 py-0.5 text-xs font-medium text-slate-300">
+                            <span className="rounded-md border border-[var(--border)] bg-[var(--surface)] px-2.5 py-0.5 text-xs font-medium text-[var(--text-secondary)]">
                               {transfer.budgetImpact === null
                                 ? 'Budget impact unavailable'
                                 : `Budget ${transfer.budgetImpact > 0 ? '+$' : transfer.budgetImpact < 0 ? '-$' : '$'}${Math.abs(transfer.budgetImpact).toFixed(1)}M`}
@@ -667,12 +667,12 @@ export default function SquadsPage() {
                         <div className="space-y-2">
                           {transfer.moves.map((move, idx) => (
                             <div key={idx} className="flex flex-wrap items-center gap-2 text-sm">
-                              <span className="inline-flex items-center gap-1.5 rounded-lg bg-rose-950/40 border border-rose-800/40 px-2.5 py-1 text-rose-300">
+                              <span className="inline-flex items-center gap-1.5 rounded-lg bg-rose-500/15 border border-rose-500/30 px-2.5 py-1 text-rose-700 dark:text-rose-300">
                                 <TrendingDown className="h-3.5 w-3.5 text-rose-400" />
                                 <span className="font-medium">{move.playerOut ?? 'Squad addition'}</span>
                               </span>
-                              <ArrowRight className="h-4 w-4 text-slate-500" />
-                              <span className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-950/40 border border-emerald-800/40 px-2.5 py-1 text-emerald-300">
+                              <ArrowRight className="h-4 w-4 text-[var(--text-muted)]" />
+                              <span className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-500/15 border border-emerald-500/30 px-2.5 py-1 text-emerald-700 dark:text-emerald-300">
                                 <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
                                 <span className="font-medium">{move.playerIn ?? 'Squad removal'}</span>
                               </span>
@@ -696,10 +696,10 @@ export default function SquadsPage() {
           )}
 
           {!loading && ownedRoster.length === 0 ? (
-            <div className="rounded-2xl border border-dashed border-slate-700 bg-slate-900/30 px-5 py-16 text-center">
-              <Users className="mx-auto h-12 w-12 text-slate-600 mb-3" />
-              <h3 className="text-lg font-bold text-white">Your squad is currently empty</h3>
-              <p className="mt-1 text-sm text-slate-400 max-w-md mx-auto">
+            <div className="rounded-2xl border border-dashed border-[var(--border)] bg-[var(--surface)] px-5 py-16 text-center">
+              <Users className="mx-auto h-12 w-12 text-[var(--text-muted)] mb-3" />
+              <h3 className="text-lg font-bold text-[var(--text-primary)]">Your squad is currently empty</h3>
+              <p className="mt-1 text-sm text-[var(--text-secondary)] max-w-md mx-auto">
                 Sign 5 core starters and up to 3 bench players to compete in upcoming gameweeks.
               </p>
               <Link
@@ -832,11 +832,11 @@ export default function SquadsPage() {
                           border: '1px solid var(--border)',
                         }}
                       >
-                        <div className="h-11 w-11 shrink-0 rounded-full bg-slate-700/40 dark:bg-slate-800/60" />
+                        <div className="h-11 w-11 shrink-0 rounded-full bg-[var(--surface-muted)]" />
                         <div className="min-w-0 flex-1 space-y-1.5">
-                          <div className="h-2.5 w-14 rounded bg-slate-700/40 dark:bg-slate-800/60" />
-                          <div className="h-3.5 w-24 rounded bg-slate-700/40 dark:bg-slate-800/60" />
-                          <div className="h-2.5 w-16 rounded bg-slate-700/40 dark:bg-slate-800/60" />
+                          <div className="h-2.5 w-14 rounded bg-[var(--surface-muted)]" />
+                          <div className="h-3.5 w-24 rounded bg-[var(--surface-muted)]" />
+                          <div className="h-2.5 w-16 rounded bg-[var(--surface-muted)]" />
                         </div>
                       </div>
                     ))}
@@ -943,11 +943,11 @@ export default function SquadsPage() {
                         borderColor: 'var(--border)',
                       }}
                     >
-                      <div className="mb-5 h-4 w-full rounded bg-slate-700/40 dark:bg-slate-800/60" />
-                      <div className="h-20 w-20 rounded-full bg-slate-700/40 dark:bg-slate-800/60" />
-                      <div className="mt-4 h-4 w-3/4 rounded bg-slate-700/40 dark:bg-slate-800/60" />
-                      <div className="mt-2 h-3 w-1/2 rounded bg-slate-700/40 dark:bg-slate-800/60" />
-                      <div className="mt-auto h-10 w-full rounded bg-slate-700/40 dark:bg-slate-800/60" />
+                      <div className="mb-5 h-4 w-full rounded bg-[var(--surface-muted)]" />
+                      <div className="h-20 w-20 rounded-full bg-[var(--surface-muted)]" />
+                      <div className="mt-4 h-4 w-3/4 rounded bg-[var(--surface-muted)]" />
+                      <div className="mt-2 h-3 w-1/2 rounded bg-[var(--surface-muted)]" />
+                      <div className="mt-auto h-10 w-full rounded bg-[var(--surface-muted)]" />
                     </div>
                   ))
                 ) : gridRoster.map(({ player, lineupEntry }, index) => {
@@ -1112,7 +1112,7 @@ export default function SquadsPage() {
 
       {/* Loading overlay for player details */}
       {playerLoading && (
-        <div className="fixed inset-0 z-100 flex items-center justify-center bg-slate-950/75 p-4 backdrop-blur-sm" role="status" aria-label="Loading player details">
+        <div className="fixed inset-0 z-100 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm" role="status" aria-label="Loading player details">
           <div className="max-h-[90vh] w-full max-w-2xl overflow-hidden rounded-3xl border border-[var(--border)] bg-[var(--surface)] p-6 shadow-2xl animate-pulse">
             <div className="mb-6 flex items-start justify-between gap-4">
               <div className="flex items-center gap-4">
@@ -1144,7 +1144,7 @@ export default function SquadsPage() {
       {/* Player details modal */}
       {selectedPlayer && (
         <div
-          className="fixed inset-0 z-100 flex items-center justify-center bg-slate-950/75 p-4"
+          className="fixed inset-0 z-100 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
           role="dialog"
           aria-modal="true"
           aria-labelledby="squad-player-title"
@@ -1161,7 +1161,7 @@ export default function SquadsPage() {
                 <h2 id="squad-player-title" className="text-2xl font-bold" style={{ color: "var(--text-primary)" }}>
                   {selectedPlayer.in_game_name || selectedPlayer.name}
                 </h2>
-                <p className="text-sm text-slate-400">
+                <p className="text-sm text-[var(--text-secondary)]">
                   {selectedPlayer.professional_teams?.name || 'Free Agent'} ·{' '}
                   {selectedPlayer.primary_role || 'Role unavailable'}
                 </p>
@@ -1170,7 +1170,7 @@ export default function SquadsPage() {
                 type="button"
                 onClick={() => setSelectedPlayer(null)}
                 aria-label="Close player details"
-                className="rounded-lg p-2 text-slate-400 transition-colors hover:bg-slate-800 hover:text-white"
+                className="rounded-lg p-2 text-[var(--text-muted)] transition-colors hover:bg-[var(--surface-muted)] hover:text-[var(--text-primary)]"
               >
                 <X className="h-5 w-5" />
               </button>
@@ -1178,21 +1178,21 @@ export default function SquadsPage() {
 
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
               <div className="rounded-xl border p-3" style={{ background: "var(--surface-raised)", borderColor: "var(--border)" }}>
-                <p className="text-xs text-slate-500">Price</p>
+                <p className="text-xs text-[var(--text-muted)]">Price</p>
                 <p className="mt-1 font-mono font-bold text-amber-400">
                   {formatPlayerPrice(selectedPlayer.current_price)}
                 </p>
               </div>
               <div className="rounded-xl border p-3" style={{ background: "var(--surface-raised)", borderColor: "var(--border)" }}>
-                <p className="text-xs text-slate-500">Season Points</p>
+                <p className="text-xs text-[var(--text-muted)]">Season Points</p>
                 <p className="mt-1 font-bold" style={{ color: "var(--text-primary)" }}>{selectedPlayer.total_season_points ?? 0}</p>
               </div>
               <div className="rounded-xl border p-3" style={{ background: "var(--surface-raised)", borderColor: "var(--border)" }}>
-                <p className="text-xs text-slate-500">Last GW</p>
+                <p className="text-xs text-[var(--text-muted)]">Last GW</p>
                 <p className="mt-1 font-bold" style={{ color: "var(--text-primary)" }}>{selectedPlayer.last_gw_points ?? 0}</p>
               </div>
               <div className="rounded-xl border p-3" style={{ background: "var(--surface-raised)", borderColor: "var(--border)" }}>
-                <p className="text-xs text-slate-500">Availability</p>
+                <p className="text-xs text-[var(--text-muted)]">Availability</p>
                 <p className="mt-1 text-sm font-semibold capitalize text-emerald-400">
                   {selectedPlayer.availability_status || 'Unknown'}
                 </p>
@@ -1200,16 +1200,16 @@ export default function SquadsPage() {
             </div>
 
             <div className="mt-6">
-              <h3 className="mb-3 text-sm font-bold uppercase tracking-widest text-slate-400">Recent Performances</h3>
+              <h3 className="mb-3 text-sm font-bold uppercase tracking-widest text-[var(--text-secondary)]">Recent Performances</h3>
               {selectedPlayer.performances?.length ? (
                 <div className="space-y-2">
                   {selectedPlayer.performances.slice(0, 5).map((performance) => (
                     <div
                       key={performance.id}
-                      className="flex items-center justify-between rounded-lg border border-slate-700 bg-slate-800/50 px-4 py-3 text-sm"
+                      className="flex items-center justify-between rounded-lg border border-[var(--border)] bg-[var(--surface-raised)] px-4 py-3 text-sm"
                     >
-                      <span className="text-slate-300">GW {performance.gameweek_id}</span>
-                      <span className="text-slate-400">
+                      <span className="text-[var(--text-primary)]">GW {performance.gameweek_id}</span>
+                      <span className="text-[var(--text-secondary)]">
                         {performance.kills}/{performance.deaths}/{performance.assists}
                       </span>
                       <span className="font-semibold text-cyan-400">
@@ -1219,7 +1219,7 @@ export default function SquadsPage() {
                   ))}
                 </div>
               ) : (
-                <p className="text-sm text-slate-500">No performance data available yet.</p>
+                <p className="text-sm text-[var(--text-muted)]">No performance data available yet.</p>
               )}
             </div>
           </div>
@@ -1252,13 +1252,13 @@ function PitchPlayerSlot({
           background: 'var(--surface-raised)',
         }}
       >
-        <div className="h-12 w-12 shrink-0 rounded-full bg-slate-700/40 dark:bg-slate-800/60" />
+        <div className="h-12 w-12 shrink-0 rounded-full bg-[var(--surface-muted)]" />
         <div className="min-w-0 flex-1 space-y-1.5">
           <span className="text-[10px] font-bold uppercase tracking-wider block" style={{ color: 'var(--text-muted)' }}>
             {roleTitle}
           </span>
-          <div className="h-3.5 w-24 rounded bg-slate-700/40 dark:bg-slate-800/60" />
-          <div className="h-2.5 w-16 rounded bg-slate-700/40 dark:bg-slate-800/60" />
+          <div className="h-3.5 w-24 rounded bg-[var(--surface-muted)]" />
+          <div className="h-2.5 w-16 rounded bg-[var(--surface-muted)]" />
         </div>
       </div>
     );

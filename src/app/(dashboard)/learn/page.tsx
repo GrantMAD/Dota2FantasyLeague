@@ -134,7 +134,7 @@ export default function LearnPage() {
             </Link>
             <Link
               href="/rules"
-              className="inline-flex items-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--surface-raised)] px-5 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:border-slate-500 shadow-sm"
+              className="inline-flex items-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--surface-raised)] px-5 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:border-[var(--border)] shadow-sm"
             >
               <ScrollText className="h-4 w-4 text-amber-500" /> Read Rules & Scoring
             </Link>
@@ -252,7 +252,7 @@ export default function LearnPage() {
               <Link
                 key={rule.label}
                 href={rule.href}
-                className="flex items-center gap-3.5 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4.5 transition-all hover:border-slate-500/50 hover:shadow-md"
+                className="flex items-center gap-3.5 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4.5 transition-all hover:border-cyan-500/40 hover:shadow-md"
               >
                 <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[var(--surface-raised)] ${rule.color}`}>
                   <Icon className="h-5 w-5" />

@@ -128,17 +128,17 @@ export function GameweekSquadLineup({
 
   if (loading) {
     return (
-      <div className="rounded-3xl border border-slate-800 bg-slate-900/60 p-6 shadow-xl animate-pulse space-y-6">
+      <div className="rounded-3xl border border-[var(--border)] bg-[var(--surface)] p-6 shadow-sm animate-pulse space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="space-y-2">
-            <div className="h-4 w-32 rounded bg-slate-800" />
-            <div className="h-7 w-64 rounded bg-slate-800" />
+            <div className="h-4 w-32 rounded bg-[var(--surface-muted)]" />
+            <div className="h-7 w-64 rounded bg-[var(--surface-muted)]" />
           </div>
-          <div className="h-12 w-48 rounded-xl bg-slate-800" />
+          <div className="h-12 w-48 rounded-xl bg-[var(--surface-muted)]" />
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
           {[1, 2, 3, 4, 5].map((idx) => (
-            <div key={idx} className="h-44 rounded-2xl border border-slate-800 bg-slate-800/40 p-4" />
+            <div key={idx} className="h-44 rounded-2xl border border-[var(--border)] bg-[var(--surface-raised)] p-4" />
           ))}
         </div>
       </div>
@@ -187,12 +187,12 @@ export function GameweekSquadLineup({
   const benchTotal = bench.reduce((sum, p) => sum + (p.points || 0), 0);
 
   return (
-    <div className="relative overflow-hidden rounded-3xl border border-slate-800 bg-gradient-to-br from-slate-900 via-slate-950 to-slate-900 p-6 md:p-8 shadow-2xl space-y-6">
+    <div className="relative overflow-hidden rounded-3xl border border-[var(--border)] bg-[var(--surface)] p-6 md:p-8 shadow-sm space-y-6">
       {/* Ambient background glow */}
       <div className="absolute top-0 left-1/3 -mt-16 w-80 h-80 bg-cyan-500/5 rounded-full blur-3xl pointer-events-none" />
 
       {/* Header bar */}
-      <div className="relative flex flex-col md:flex-row md:items-center justify-between gap-6 pb-6 border-b border-slate-800/80">
+      <div className="relative flex flex-col md:flex-row md:items-center justify-between gap-6 pb-6 border-b border-[var(--border)]">
         <div>
           <div className="flex flex-wrap items-center gap-2.5 mb-2">
             <span className="inline-flex items-center gap-1.5 rounded-full border border-cyan-500/30 bg-cyan-500/10 px-3 py-0.5 text-xs font-bold uppercase tracking-wider text-cyan-300">
@@ -208,7 +208,7 @@ export function GameweekSquadLineup({
             )}
 
             {isFinal && (
-              <span className="inline-flex items-center rounded-full border border-slate-700 bg-slate-800/80 px-2.5 py-0.5 text-xs font-semibold text-slate-300">
+              <span className="inline-flex items-center rounded-full border border-[var(--border)] bg-[var(--surface-raised)] px-2.5 py-0.5 text-xs font-semibold text-[var(--text-secondary)]">
                 Final Gameweek Squad
               </span>
             )}
@@ -243,7 +243,7 @@ export function GameweekSquadLineup({
           <h2 className="text-2xl font-black text-white tracking-tight">
             Gameweek {gameweekNumber} Squad Performance
           </h2>
-          <p className="mt-1 text-xs text-slate-400">
+          <p className="mt-1 text-xs text-[var(--text-muted)]">
             {isUpcoming
               ? `Lineup locks at deadline: ${formatDateTime(deadline)}`
               : 'Points earned by your starting 5 and bench contributors'}
@@ -267,11 +267,11 @@ export function GameweekSquadLineup({
 
           {/* Average & Delta (if not upcoming) */}
           {!isUpcoming && globalAverage !== null && (
-            <div className="flex flex-col items-center justify-center px-4 py-3 rounded-2xl border border-slate-800 bg-slate-900/60 backdrop-blur-sm min-w-28">
-              <span className="text-[11px] uppercase tracking-wider font-semibold text-slate-400">
+            <div className="flex flex-col items-center justify-center px-4 py-3 rounded-2xl border border-[var(--border)] bg-[var(--surface-raised)] backdrop-blur-sm min-w-28">
+              <span className="text-[11px] uppercase tracking-wider font-semibold text-[var(--text-muted)]">
                 League Avg
               </span>
-              <span className="text-xl font-bold text-slate-200">
+              <span className="text-xl font-bold text-[var(--text-primary)]">
                 {globalAverage.toFixed(1)}
               </span>
               {scoreDelta !== null && (
@@ -281,7 +281,7 @@ export function GameweekSquadLineup({
                       ? 'text-emerald-400'
                       : scoreDelta < 0
                       ? 'text-rose-400'
-                      : 'text-slate-400'
+                      : 'text-[var(--text-muted)]'
                   }`}
                 >
                   {scoreDelta > 0 ? (
@@ -312,8 +312,8 @@ export function GameweekSquadLineup({
 
       {/* Empty State: No starters configured */}
       {starters.length === 0 ? (
-        <div className="p-8 text-center rounded-2xl border border-dashed border-slate-800 bg-slate-900/40 space-y-3">
-          <p className="text-sm font-medium text-slate-300">
+        <div className="p-8 text-center rounded-2xl border border-dashed border-[var(--border)] bg-[var(--surface-raised)] space-y-3">
+          <p className="text-sm font-medium text-[var(--text-secondary)]">
             {isUpcoming
               ? `You have not confirmed your starting 5 for Gameweek ${gameweekNumber} yet.`
               : `No active fantasy squad was recorded for Gameweek ${gameweekNumber}.`}
@@ -333,10 +333,10 @@ export function GameweekSquadLineup({
           {/* Starting Five Pitch Grid */}
           <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--text-muted)]">
                 Starting Five
               </h3>
-              <span className="text-[11px] text-slate-500">
+              <span className="text-[11px] text-[var(--text-muted)]">
                 5 active starters
               </span>
             </div>
@@ -345,14 +345,14 @@ export function GameweekSquadLineup({
               {starters.map((player) => {
                 const roleConfig = ROLE_BADGES[player.role] || {
                   label: player.role,
-                  badgeClass: 'bg-slate-800 text-slate-300 border-slate-700',
-                  borderClass: 'border-slate-800',
+                  badgeClass: 'bg-[var(--surface-muted)] text-[var(--text-secondary)] border-[var(--border)]',
+                  borderClass: 'border-[var(--border)]',
                 };
 
                 return (
                   <div
                     key={`${player.role}-${player.id}`}
-                    className={`relative flex flex-col justify-between p-4 rounded-2xl border bg-slate-900/80 hover:bg-slate-900 transition duration-200 group ${roleConfig.borderClass} ${
+                    className={`relative flex flex-col justify-between p-4 rounded-2xl border bg-[var(--surface-raised)] hover:bg-[var(--surface-muted)] transition duration-200 group ${roleConfig.borderClass} ${
                       player.isCaptain ? 'ring-2 ring-amber-500/30 bg-amber-950/10' : ''
                     }`}
                   >
@@ -382,7 +382,7 @@ export function GameweekSquadLineup({
                       href={`/players/${player.id}`}
                       className="flex items-center gap-3 my-2 group-hover:translate-x-0.5 transition"
                     >
-                      <div className="relative w-11 h-11 shrink-0 rounded-full bg-slate-800 flex items-center justify-center overflow-hidden border border-slate-700 shadow-sm">
+                      <div className="relative w-11 h-11 shrink-0 rounded-full bg-[var(--surface-muted)] flex items-center justify-center overflow-hidden border border-[var(--border)] shadow-sm">
                         {player.profileImageUrl ? (
                           canOptimizeImage(player.profileImageUrl) ? (
                             <Image
@@ -401,7 +401,7 @@ export function GameweekSquadLineup({
                             />
                           )
                         ) : (
-                          <User className="w-5 h-5 text-slate-400" />
+                          <User className="w-5 h-5 text-[var(--text-muted)]" />
                         )}
                       </div>
 
@@ -409,15 +409,15 @@ export function GameweekSquadLineup({
                         <div className="font-bold text-sm text-white group-hover:text-amber-300 truncate transition">
                           {player.name}
                         </div>
-                        <div className="text-[11px] text-slate-400 flex items-center gap-1">
+                        <div className="text-[11px] text-[var(--text-muted)] flex items-center gap-1">
                           View profile <ExternalLink className="w-2.5 h-2.5 opacity-0 group-hover:opacity-100 transition" />
                         </div>
                       </div>
                     </Link>
 
                     {/* Bottom: Points Display */}
-                    <div className="mt-3 pt-3 border-t border-slate-800/80 flex items-baseline justify-between">
-                      <span className="text-[11px] uppercase tracking-wider text-slate-500">
+                    <div className="mt-3 pt-3 border-t border-[var(--border)] flex items-baseline justify-between">
+                      <span className="text-[11px] uppercase tracking-wider text-[var(--text-muted)]">
                         Points
                       </span>
 
@@ -426,7 +426,7 @@ export function GameweekSquadLineup({
                           {isUpcoming ? '—' : `${player.points.toFixed(1)}`}
                         </span>
                         {!isUpcoming && (
-                          <span className="text-[10px] text-slate-400 ml-1">pts</span>
+                          <span className="text-[10px] text-[var(--text-muted)] ml-1">pts</span>
                         )}
 
                         {player.isCaptain && player.rawPoints !== undefined && player.multiplier && player.multiplier > 1 && !isUpcoming && (
@@ -447,7 +447,7 @@ export function GameweekSquadLineup({
             <div className="space-y-3 pt-2">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--text-muted)]">
                     Bench Substitutes
                   </h3>
                   {activeChip === 'bench_boost' && (
@@ -459,8 +459,8 @@ export function GameweekSquadLineup({
                 </div>
 
                 {!isUpcoming && (
-                  <span className="text-[11px] text-slate-500">
-                    Bench total: <strong className="text-slate-300 font-semibold">{benchTotal.toFixed(1)} pts</strong>
+                  <span className="text-[11px] text-[var(--text-muted)]">
+                    Bench total: <strong className="text-[var(--text-primary)] font-semibold">{benchTotal.toFixed(1)} pts</strong>
                   </span>
                 )}
               </div>
@@ -469,14 +469,14 @@ export function GameweekSquadLineup({
                 {bench.map((player, idx) => (
                   <div
                     key={`${player.role}-${player.id}-${idx}`}
-                    className="flex items-center justify-between p-3 rounded-xl border border-slate-800/80 bg-slate-900/40 hover:bg-slate-900/70 transition"
+                    className="flex items-center justify-between p-3 rounded-xl border border-[var(--border)] bg-[var(--surface-raised)] hover:bg-[var(--surface-muted)] transition"
                   >
                     <div className="flex items-center gap-3 min-w-0">
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 px-2 py-0.5 rounded bg-slate-800">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)] px-2 py-0.5 rounded bg-[var(--surface-muted)]">
                         B{idx + 1}
                       </span>
 
-                      <div className="w-8 h-8 shrink-0 rounded-full bg-slate-800 flex items-center justify-center overflow-hidden border border-slate-700">
+                      <div className="w-8 h-8 shrink-0 rounded-full bg-[var(--surface-muted)] flex items-center justify-center overflow-hidden border border-[var(--border)]">
                         {player.profileImageUrl ? (
                           // eslint-disable-next-line @next/next/no-img-element
                           <img
@@ -485,7 +485,7 @@ export function GameweekSquadLineup({
                             className="w-full h-full object-cover"
                           />
                         ) : (
-                          <User className="w-4 h-4 text-slate-400" />
+                          <User className="w-4 h-4 text-[var(--text-muted)]" />
                         )}
                       </div>
 
@@ -493,14 +493,14 @@ export function GameweekSquadLineup({
                         <div className="text-xs font-semibold text-white truncate">
                           {player.name}
                         </div>
-                        <div className="text-[10px] text-slate-400">
+                        <div className="text-[10px] text-[var(--text-muted)]">
                           {player.role}
                         </div>
                       </div>
                     </div>
 
                     <div className="text-right shrink-0">
-                      <div className="text-xs font-bold text-slate-300">
+                      <div className="text-xs font-bold text-[var(--text-primary)]">
                         {isUpcoming ? '—' : `${player.points.toFixed(1)} pts`}
                       </div>
                     </div>

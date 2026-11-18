@@ -123,7 +123,7 @@ export function LeagueCard({ league, onClick }: LeagueCardProps) {
       </div>
 
       <div className="mt-3 flex items-center justify-end border-t border-[var(--border)] pt-3">
-        <span className="flex items-center gap-1 text-xs font-semibold text-slate-400 transition-colors group-hover:text-amber-400">
+        <span className="flex items-center gap-1 text-xs font-semibold text-[var(--text-muted)] transition-colors group-hover:text-[var(--accent-primary)]">
           View <ChevronRight className="h-3.5 w-3.5" />
         </span>
       </div>

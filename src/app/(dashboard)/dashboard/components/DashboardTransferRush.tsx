@@ -151,19 +151,19 @@ export function DashboardTransferRush({
       >
         <div className="flex items-center justify-between pb-3" style={{ borderBottom: '1px solid var(--border)' }}>
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-slate-300 dark:bg-slate-700/60" />
+            <div className="w-10 h-10 rounded-xl bg-[var(--surface-muted)] dark:bg-[var(--surface-muted)]" />
             <div className="space-y-1.5">
-              <div className="h-4 w-36 rounded bg-slate-300 dark:bg-slate-700/60" />
-              <div className="h-3 w-24 rounded bg-slate-200 dark:bg-slate-800" />
+              <div className="h-4 w-36 rounded bg-[var(--surface-muted)] dark:bg-[var(--surface-muted)]" />
+              <div className="h-3 w-24 rounded bg-[var(--surface-muted)] dark:bg-[var(--surface-raised)]" />
             </div>
           </div>
-          <div className="h-6 w-20 rounded-full bg-slate-300 dark:bg-slate-700/60" />
+          <div className="h-6 w-20 rounded-full bg-[var(--surface-muted)] dark:bg-[var(--surface-muted)]" />
         </div>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-1">
           {[1, 2, 3, 4].map((i) => (
             <div key={i} className="h-16 rounded-xl bg-[var(--surface)] border border-[var(--border)] p-3">
-              <div className="h-2.5 w-16 rounded bg-slate-300 dark:bg-slate-700/50" />
-              <div className="mt-2 h-5 w-20 rounded bg-slate-300 dark:bg-slate-700/50" />
+              <div className="h-2.5 w-16 rounded bg-[var(--surface-muted)] dark:bg-[var(--surface-muted)]" />
+              <div className="mt-2 h-5 w-20 rounded bg-[var(--surface-muted)] dark:bg-[var(--surface-muted)]" />
             </div>
           ))}
         </div>

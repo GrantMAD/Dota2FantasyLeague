@@ -407,16 +407,18 @@ function PlayerComparisonContent() {
                     <td key={player.id} className="p-4.5 text-sm text-[var(--text-primary)]">
                       <div className="flex items-center gap-2.5">
                         {player.professional_teams?.logo_url ? (
-                          <Image
-                            src={player.professional_teams.logo_url}
-                            alt=""
-                            width={20}
-                            height={20}
-                            unoptimized={!canOptimizeImage(player.professional_teams.logo_url)}
-                            className="h-5 w-5 rounded-sm object-contain"
-                          />
+                          <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md border border-slate-700/15 bg-slate-900/10 p-0.5 shadow-2xs dark:border-white/10 dark:bg-white/5">
+                            <Image
+                              src={player.professional_teams.logo_url}
+                              alt=""
+                              width={20}
+                              height={20}
+                              unoptimized={!canOptimizeImage(player.professional_teams.logo_url)}
+                              className="h-full w-full object-contain drop-shadow-[0_1px_2px_rgba(0,0,0,0.5)] drop-shadow-[0_0_1px_rgba(15,23,42,0.8)] dark:drop-shadow-none"
+                            />
+                          </span>
                         ) : (
-                          <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-sm bg-[var(--surface-muted)] text-[8px] font-bold text-[var(--text-secondary)]">
+                          <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md border border-[var(--border)] bg-[var(--surface-muted)] text-[8px] font-bold text-[var(--text-secondary)]">
                             {player.professional_teams?.name?.slice(0, 2).toUpperCase() || 'FA'}
                           </span>
                         )}

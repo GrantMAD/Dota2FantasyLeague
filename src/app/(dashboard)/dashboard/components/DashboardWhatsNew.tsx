@@ -321,13 +321,13 @@ export function DashboardWhatsNew({ whatsNew }: DashboardWhatsNewProps) {
                   </div>
 
                   {/* Headline Title */}
-                  <h3 className="mt-1 text-sm sm:text-base font-extrabold text-slate-900 dark:text-white">
+                  <h3 className="mt-1 text-sm sm:text-base font-extrabold text-[var(--text-primary)]">
                     Round in Progress: {completedMatches} of {totalMatches} Matches Concluded
                   </h3>
 
                   {/* Progress Indicator */}
-                  <div className="mt-1.5 flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
-                    <div className="w-24 sm:w-32 h-1.5 rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden">
+                  <div className="mt-1.5 flex items-center gap-2 text-xs text-[var(--text-muted)]">
+                    <div className="w-24 sm:w-32 h-1.5 rounded-full bg-[var(--surface-muted)] overflow-hidden">
                       <div
                         className="h-full bg-linear-to-r from-teal-500 to-cyan-400 rounded-full transition-all duration-500"
                         style={{
@@ -345,10 +345,10 @@ export function DashboardWhatsNew({ whatsNew }: DashboardWhatsNewProps) {
               {/* Roster Lock & Actions */}
               <div className="flex items-center gap-3">
                 <div className="flex flex-col md:text-right pr-2">
-                  <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">
+                  <span className="text-[10px] uppercase font-bold text-[var(--text-muted)] tracking-wider">
                     Roster Lock
                   </span>
-                  <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
+                  <span className="text-xs font-bold text-[var(--text-primary)]">
                     {formatUtcDate(gameweek.deadline)} UTC
                   </span>
                 </div>
@@ -362,7 +362,7 @@ export function DashboardWhatsNew({ whatsNew }: DashboardWhatsNewProps) {
                 </Link>
                 <Link
                   href={gameweek.href}
-                  className="inline-flex items-center justify-center rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-3.5 py-2.5 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-750 transition-all shrink-0"
+                  className="inline-flex items-center justify-center rounded-xl border border-[var(--border)] bg-[var(--surface-raised)] px-3.5 py-2.5 text-xs font-semibold text-[var(--text-secondary)] hover:bg-[var(--surface-muted)] transition-all shrink-0"
                 >
                   <span>GW Info</span>
                 </Link>
@@ -507,9 +507,9 @@ export function DashboardWhatsNew({ whatsNew }: DashboardWhatsNewProps) {
             </div>
 
             {/* Thin Rows List */}
-            <div className="divide-y divide-slate-100 dark:divide-slate-800/80">
+            <div className="divide-y divide-[var(--border)]">
               {filteredItems.length === 0 ? (
-                <div className="py-8 text-center text-xs text-slate-400 dark:text-slate-500">
+                <div className="py-8 text-center text-xs text-[var(--text-muted)]">
                   {filter === 'friends'
                     ? 'No recent friend activity. Follow managers on the Friends page to see their moves here!'
                     : filter === 'squad'
@@ -582,7 +582,7 @@ export function DashboardWhatsNew({ whatsNew }: DashboardWhatsNewProps) {
                             <Icon className="h-3.5 w-3.5" />
                           </div>
                           <div className="flex items-center gap-2 min-w-0 flex-wrap sm:flex-nowrap">
-                            <span className="text-xs text-slate-600 dark:text-slate-300">
+                            <span className="text-xs text-[var(--text-secondary)]">
                               There are{' '}
                               <strong className={`font-semibold ${noticeTheme.accent}`}>
                                 {notice.count} more {notice.label}
@@ -644,12 +644,12 @@ export function DashboardWhatsNew({ whatsNew }: DashboardWhatsNewProps) {
                             <span className="text-[11px] font-semibold text-teal-600 dark:text-teal-400 shrink-0">
                               Friend Move
                             </span>
-                            <span className="text-slate-300 dark:text-slate-700">·</span>
-                            <span className="text-xs font-semibold text-slate-800 dark:text-slate-200 group-hover:text-teal-600 dark:group-hover:text-teal-400 transition-colors truncate">
+                            <span className="text-[var(--border)]">·</span>
+                            <span className="text-xs font-semibold text-[var(--text-primary)] group-hover:text-teal-600 dark:group-hover:text-teal-400 transition-colors truncate">
                               {name}
                             </span>
-                            <span className="text-slate-300 dark:text-slate-700">·</span>
-                            <span className="text-xs text-slate-600 dark:text-slate-300 truncate">
+                            <span className="text-[var(--border)]">·</span>
+                            <span className="text-xs text-[var(--text-secondary)] truncate">
                               {activity.title}
                             </span>
 
@@ -671,10 +671,10 @@ export function DashboardWhatsNew({ whatsNew }: DashboardWhatsNewProps) {
                         </div>
 
                         <div className="flex items-center gap-3 shrink-0">
-                          <span className="text-[11px] text-slate-400 dark:text-slate-500">
+                          <span className="text-[11px] text-[var(--text-muted)]">
                             {formatRelativeTime(activity.updated_at)}
                           </span>
-                          <ArrowRight className="h-3.5 w-3.5 text-slate-400 group-hover:text-teal-500 dark:group-hover:text-teal-400 group-hover:translate-x-0.5 transition-all" />
+                          <ArrowRight className="h-3.5 w-3.5 text-[var(--text-muted)] group-hover:text-teal-500 dark:group-hover:text-teal-400 group-hover:translate-x-0.5 transition-all" />
                         </div>
                       </Link>
                     );
@@ -719,12 +719,12 @@ export function DashboardWhatsNew({ whatsNew }: DashboardWhatsNewProps) {
                                 {event.tier}
                               </span>
                             )}
-                            <span className="text-slate-300 dark:text-slate-700">·</span>
-                            <h4 className="text-xs font-semibold text-slate-800 dark:text-slate-200 group-hover:text-slate-900 dark:group-hover:text-white transition-colors truncate">
+                            <span className="text-[var(--border)]">·</span>
+                            <h4 className="text-xs font-semibold text-[var(--text-primary)] group-hover:text-[var(--text-primary)] transition-colors truncate">
                               {event.title}
                             </h4>
                             {matchSummary && (
-                              <span className="hidden md:inline text-xs text-slate-400 dark:text-slate-500 truncate">
+                              <span className="hidden md:inline text-xs text-[var(--text-muted)] truncate">
                                 ({matchSummary})
                               </span>
                             )}
@@ -732,10 +732,10 @@ export function DashboardWhatsNew({ whatsNew }: DashboardWhatsNewProps) {
                         </div>
 
                         <div className="flex items-center gap-3 shrink-0">
-                          <span className="text-[11px] text-slate-400 dark:text-slate-500">
+                          <span className="text-[11px] text-[var(--text-muted)]">
                             {formatUtcDate(event.startedAt)}
                           </span>
-                          <ArrowRight className="h-3.5 w-3.5 text-slate-400 group-hover:text-slate-700 dark:group-hover:text-slate-200 group-hover:translate-x-0.5 transition-all" />
+                          <ArrowRight className="h-3.5 w-3.5 text-[var(--text-muted)] group-hover:text-[var(--text-primary)] group-hover:translate-x-0.5 transition-all" />
                         </div>
                       </Link>
                     );
@@ -813,21 +813,21 @@ export function DashboardWhatsNew({ whatsNew }: DashboardWhatsNewProps) {
                           <span className={`text-[11px] font-semibold shrink-0 ${updateTheme.text}`}>
                             {updateTheme.label}
                           </span>
-                          <span className="text-slate-300 dark:text-slate-700">·</span>
-                          <h4 className="text-xs font-semibold text-slate-800 dark:text-slate-200 group-hover:text-slate-900 dark:group-hover:text-white transition-colors truncate">
+                          <span className="text-[var(--border)]">·</span>
+                          <h4 className="text-xs font-semibold text-[var(--text-primary)] group-hover:text-[var(--text-primary)] transition-colors truncate">
                             {update.title}
                           </h4>
-                          <span className="hidden md:inline text-xs text-slate-500 dark:text-slate-400 truncate">
+                          <span className="hidden md:inline text-xs text-[var(--text-muted)] truncate">
                             {update.message}
                           </span>
                         </div>
                       </div>
 
                       <div className="flex items-center gap-3 shrink-0">
-                        <span className="text-[11px] text-slate-400 dark:text-slate-500">
+                        <span className="text-[11px] text-[var(--text-muted)]">
                           {formatUtcDate(update.createdAt)}
                         </span>
-                        <ArrowRight className="h-3.5 w-3.5 text-slate-400 group-hover:text-slate-700 dark:group-hover:text-slate-200 group-hover:translate-x-0.5 transition-all" />
+                        <ArrowRight className="h-3.5 w-3.5 text-[var(--text-muted)] group-hover:text-[var(--text-primary)] group-hover:translate-x-0.5 transition-all" />
                       </div>
                     </Link>
                   );

@@ -66,14 +66,14 @@ const getRoleBadgeClass = (role: string) => {
     case 'Offlane':      return 'text-green-400 bg-green-400/10 border-green-400/20';
     case 'Support':      return 'text-blue-400 bg-blue-400/10 border-blue-400/20';
     case 'Hard Support': return 'text-purple-400 bg-purple-400/10 border-purple-400/20';
-    default:             return 'text-slate-400 bg-slate-400/10 border-slate-400/20';
+    default:             return 'text-[var(--text-muted)] bg-[var(--surface-muted)] border-[var(--border)]';
   }
 };
 
 const formatPrice = (price: number) => formatPlayerPrice(price);
 
 const getOwnershipClassification = (ownership: number | null | undefined) => {
-  if (ownership == null) return { label: 'Unranked', color: 'text-slate-400', bg: 'bg-slate-800/80', border: 'border-slate-700/60' };
+  if (ownership == null) return { label: 'Unranked', color: 'text-[var(--text-muted)]', bg: 'bg-[var(--surface-muted)]', border: 'border-[var(--border)]' };
   const val = Number(ownership);
   if (val >= 35) return { label: 'Meta Pick', color: 'text-emerald-400', bg: 'bg-emerald-500/10', border: 'border-emerald-500/30' };
   if (val >= 15) return { label: 'Popular', color: 'text-cyan-400', bg: 'bg-cyan-500/10', border: 'border-cyan-500/30' };
@@ -134,16 +134,18 @@ function TeamDropdown({ teams, selectedId, onChange, brokenTeamLogos, onTeamLogo
         {selected ? (
           <>
             {selected.logo_url && !brokenTeamLogos.has(selected.id) ? (
-              <Image
-                src={selected.logo_url}
-                alt={selected.name}
-                width={16}
-                height={16}
-                className="h-4 w-4 rounded-sm object-contain shrink-0"
-                onError={() => onTeamLogoError(selected.id)}
-              />
+              <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded border border-slate-700/15 bg-slate-900/10 p-0.5 dark:border-white/10 dark:bg-white/5">
+                <Image
+                  src={selected.logo_url}
+                  alt={selected.name}
+                  width={16}
+                  height={16}
+                  className="h-full w-full object-contain drop-shadow-[0_1px_2px_rgba(0,0,0,0.5)] drop-shadow-[0_0_1px_rgba(15,23,42,0.8)] dark:drop-shadow-none"
+                  onError={() => onTeamLogoError(selected.id)}
+                />
+              </span>
             ) : (
-              <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-sm bg-[var(--surface-muted)] text-[7px] font-bold text-[var(--text-secondary)]">
+              <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded border border-[var(--border)] bg-[var(--surface-muted)] text-[7px] font-bold text-[var(--text-secondary)]">
                 {selected.name.slice(0, 2).toUpperCase()}
               </span>
             )}
@@ -182,16 +184,18 @@ function TeamDropdown({ teams, selectedId, onChange, brokenTeamLogos, onTeamLogo
               }`}
             >
               {team.logo_url && !brokenTeamLogos.has(team.id) ? (
-                <Image
-                  src={team.logo_url}
-                  alt={team.name}
-                  width={16}
-                  height={16}
-                  className="h-4 w-4 rounded-sm object-contain shrink-0"
-                  onError={() => onTeamLogoError(team.id)}
-                />
+                <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded border border-slate-700/15 bg-slate-900/10 p-0.5 dark:border-white/10 dark:bg-white/5">
+                  <Image
+                    src={team.logo_url}
+                    alt={team.name}
+                    width={16}
+                    height={16}
+                    className="h-full w-full object-contain drop-shadow-[0_1px_2px_rgba(0,0,0,0.5)] drop-shadow-[0_0_1px_rgba(15,23,42,0.8)] dark:drop-shadow-none"
+                    onError={() => onTeamLogoError(team.id)}
+                  />
+                </span>
               ) : (
-                <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-sm bg-slate-700 text-[7px] font-bold text-slate-300">
+                <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded border border-[var(--border)] bg-[var(--surface-muted)] text-[7px] font-bold text-[var(--text-secondary)]">
                   {team.name.slice(0, 2).toUpperCase()}
                 </span>
               )}
@@ -689,7 +693,7 @@ export default function PlayersPageClient({
                   className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-semibold transition-all ${
                     active
                       ? `${color} ${bg} ${border} shadow-xs`
-                      : 'border-[var(--border)] bg-[var(--surface)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:border-slate-500'
+                      : 'border-[var(--border)] bg-[var(--surface)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:border-[var(--text-muted)]'
                   }`}
                 >
                   <Icon className={`w-3 h-3 ${active ? color : 'text-[var(--text-muted)]'}`} />
@@ -744,7 +748,9 @@ export default function PlayersPageClient({
                 return t ? (
                   <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-600 dark:text-amber-300 text-xs font-medium">
                     {t.logo_url && !brokenTeamLogos.has(t.id) ? (
-                      <Image src={t.logo_url} alt={t.name} width={12} height={12} className="h-3 w-3 rounded-sm object-contain" onError={() => handleTeamLogoError(t.id)} />
+                      <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded border border-slate-700/15 bg-slate-900/10 p-0.5 dark:border-white/10 dark:bg-white/5">
+                        <Image src={t.logo_url} alt={t.name} width={12} height={12} className="h-full w-full object-contain drop-shadow-[0_1px_2px_rgba(0,0,0,0.5)] drop-shadow-[0_0_1px_rgba(15,23,42,0.8)] dark:drop-shadow-none" onError={() => handleTeamLogoError(t.id)} />
+                      </span>
                     ) : null}
                     {t.name}
                     <button type="button" onClick={() => { setTeamIdFilter(null); setPage(1); }} className="hover:text-[var(--text-primary)] transition-colors">
@@ -1005,19 +1011,19 @@ export default function PlayersPageClient({
                         {player.professional_teams?.name ? (
                           <div className="flex items-center text-[var(--text-secondary)]">
                             {player.professional_teams.logo_url && !brokenLogos.has(player.id) ? (
-                              <span className="mr-2 flex h-5 w-5 items-center justify-center rounded-sm">
+                              <span className="mr-2.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-md border border-slate-700/15 bg-slate-900/10 p-0.5 shadow-2xs dark:border-white/10 dark:bg-white/5">
                                 <Image
                                   src={player.professional_teams.logo_url}
                                   alt={`${player.professional_teams.name} logo`}
                                   width={20}
                                   height={20}
-                                  className="h-full w-full rounded-sm object-contain"
+                                  className="h-full w-full object-contain drop-shadow-[0_1px_2px_rgba(0,0,0,0.5)] drop-shadow-[0_0_1px_rgba(15,23,42,0.8)] dark:drop-shadow-none"
                                   onError={() => handleLogoError(player.id)}
                                 />
                               </span>
                             ) : (
                               <span
-                                className="mr-2 flex h-5 w-5 shrink-0 items-center justify-center rounded-sm bg-[var(--surface-muted)] text-[8px] font-bold tracking-wider text-[var(--text-secondary)]"
+                                className="mr-2.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-md border border-[var(--border)] bg-[var(--surface-muted)] text-[8px] font-bold tracking-wider text-[var(--text-secondary)]"
                                 title={player.professional_teams.name}
                               >
                                 {player.professional_teams.name.slice(0, 3).toUpperCase()}

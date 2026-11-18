@@ -1575,22 +1575,6 @@ body {
     color: #132238 !important;
   }
 
-  :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) .leaderboard-manager-bio,
-  :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) .leaderboard-modal-label,
-  :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) .leaderboard-global-rank,
-  :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) .leaderboard-gameweek-points {
-    color: #e0f7ff !important;
-  }
-
-  :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) .leaderboard-total-points {
-    color: #ffe8a3 !important;
-  }
-
-  :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) .leaderboard-total-points span,
-  :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) .leaderboard-points-label {
-    color: #d2e6f2 !important;
-  }
-
   :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) .gameweeks-page-heading,
   :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) .gameweeks-quick-action.lineup,
   :root[data-theme='light'] .dashboard-main:not(:has(.dashboard-page)) .gameweeks-quick-action.matches,

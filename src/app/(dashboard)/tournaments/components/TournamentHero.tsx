@@ -21,7 +21,7 @@ export function TournamentHero({ tournament }: TournamentHeroProps) {
   const tierStyle = tier.includes('tier 1') || tier.includes('major')
     ? 'border-amber-400/60 bg-gradient-to-r from-amber-400/25 to-yellow-500/10 text-amber-800 dark:text-amber-200'
     : tier.includes('tier 2') || tier.includes('minor')
-      ? 'border-cyan-400/60 bg-gradient-to-r from-slate-300/20 to-cyan-500/15 text-cyan-800 dark:text-cyan-200'
+      ? 'border-cyan-400/60 bg-gradient-to-r from-cyan-500/10 to-cyan-500/20 text-cyan-800 dark:text-cyan-200'
       : 'border-[var(--border)] bg-[var(--surface-raised)] text-[var(--text-secondary)]';
   const matchCount = tournament.match_count ?? 0;
 

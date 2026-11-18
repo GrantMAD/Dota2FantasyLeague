@@ -175,7 +175,7 @@ export default function GameweeksPage({ initialGameweeks }: { initialGameweeks: 
           </details>
           <Link
             href="/season-recap"
-            className="inline-flex items-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--surface-raised)] px-3 py-2 text-sm font-medium text-slate-800 dark:text-slate-200 transition hover:border-slate-400 dark:hover:border-slate-500 hover:text-slate-950 dark:hover:text-white md:hidden xl:inline-flex"
+            className="inline-flex items-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--surface-raised)] px-3 py-2 text-sm font-medium text-[var(--text-primary)] transition hover:border-[var(--text-muted)] md:hidden xl:inline-flex"
           >
             Season Recap
           </Link>
@@ -187,14 +187,14 @@ export default function GameweeksPage({ initialGameweeks }: { initialGameweeks: 
           </Link>
           <Link
             href="/transfers"
-            className="gameweeks-transfer-link inline-flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-900/80 px-3 py-2 text-sm font-medium text-slate-200 transition hover:border-slate-500 hover:text-white md:hidden xl:inline-flex"
+            className="gameweeks-transfer-link inline-flex items-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--surface-raised)] px-3 py-2 text-sm font-medium text-[var(--text-secondary)] transition hover:text-[var(--text-primary)] hover:bg-[var(--surface-muted)] md:hidden xl:inline-flex"
           >
             Transfer Market
           </Link>
           {activeGameweek && (
             <Link
               href={`/gameweeks/${activeGameweek.id}`}
-              className="gameweeks-matches-link inline-flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-900/80 px-3 py-2 text-sm font-medium text-slate-200 transition hover:border-slate-500 hover:text-white md:hidden xl:inline-flex"
+              className="gameweeks-matches-link inline-flex items-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--surface-raised)] px-3 py-2 text-sm font-medium text-[var(--text-secondary)] transition hover:text-[var(--text-primary)] hover:bg-[var(--surface-muted)] md:hidden xl:inline-flex"
             >
               Gameweek Results
             </Link>
@@ -237,7 +237,7 @@ export default function GameweeksPage({ initialGameweeks }: { initialGameweeks: 
 
           <div className={viewMode === 'compact' ? 'grid gap-4 md:grid-cols-2 xl:grid-cols-3' : 'space-y-5'}>
             {filteredGameweeks.length === 0 ? (
-              <div className="rounded-2xl border border-dashed border-slate-700 bg-slate-900/40 px-6 py-12 text-center text-slate-400">
+              <div className="rounded-2xl border border-dashed border-[var(--border)] bg-[var(--surface-raised)] px-6 py-12 text-center text-[var(--text-muted)]">
                 No gameweeks match this filter.
               </div>
             ) : (

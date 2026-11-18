@@ -316,7 +316,7 @@ function LeaguesPageContent() {
             type="button"
             onClick={() => void loadLeagues(true)}
             disabled={refreshing}
-            className="inline-flex items-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--surface-raised)] px-3 py-2 text-sm font-medium text-slate-800 dark:text-slate-200 transition hover:border-slate-400 dark:hover:border-slate-500 hover:text-slate-950 dark:hover:text-white shadow-xs disabled:cursor-not-allowed disabled:opacity-50"
+            className="inline-flex items-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--surface-raised)] px-3 py-2 text-sm font-medium text-[var(--text-primary)] transition hover:border-[var(--text-muted)] shadow-xs disabled:cursor-not-allowed disabled:opacity-50"
             title="Refresh league standings"
           >
             <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
@@ -326,7 +326,7 @@ function LeaguesPageContent() {
             data-tour="leagues-join"
             type="button"
             onClick={() => setActionMode('join')}
-            className="inline-flex items-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--surface-raised)] px-3 py-2 text-sm font-medium text-slate-800 dark:text-slate-200 transition hover:border-slate-400 dark:hover:border-slate-500 hover:text-slate-950 dark:hover:text-white shadow-xs"
+            className="inline-flex items-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--surface-raised)] px-3 py-2 text-sm font-medium text-[var(--text-primary)] transition hover:border-[var(--text-muted)] shadow-xs"
           >
             <Hash className="h-4 w-4" />
             Join with Code
@@ -342,14 +342,14 @@ function LeaguesPageContent() {
           </button>
           <Link
             href="/leaderboard"
-            className="inline-flex items-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--surface-raised)] px-3 py-2 text-sm font-medium text-slate-800 dark:text-slate-200 transition hover:border-slate-400 dark:hover:border-slate-500 hover:text-slate-950 dark:hover:text-white shadow-xs"
+            className="inline-flex items-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--surface-raised)] px-3 py-2 text-sm font-medium text-[var(--text-primary)] transition hover:border-[var(--text-muted)] shadow-xs"
           >
             <BarChart3 className="h-4 w-4" />
             Leaderboard
           </Link>
         </div>
       </div>
-      <p className="-mt-5 mb-6 text-xs text-slate-500" aria-live="polite">
+      <p className="-mt-5 mb-6 text-xs text-[var(--text-muted)]" aria-live="polite">
         Standings last recalculated:{' '}
         {lastRecalculatedAt
           ? new Date(lastRecalculatedAt).toLocaleString()
@@ -385,7 +385,7 @@ function LeaguesPageContent() {
       ) : (
         <>
           {pageError && (
-            <div className="mb-6 rounded-2xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+            <div className="mb-6 rounded-2xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-800 dark:text-red-200">
               {pageError}
             </div>
           )}
@@ -403,7 +403,7 @@ function LeaguesPageContent() {
             <div className="mb-8 rounded-3xl border border-dashed border-amber-500/30 bg-amber-500/4 px-8 py-14 text-center">
               <Trophy className="mx-auto mb-4 h-12 w-12 text-amber-400/50" />
               <h2 className="mb-2 text-xl font-bold text-white">No Leagues Yet</h2>
-              <p className="mb-6 text-sm text-slate-400">Create your first league or join an existing one with an invite code.</p>
+              <p className="mb-6 text-sm text-[var(--text-secondary)]">Create your first league or join an existing one with an invite code.</p>
               <div className="flex justify-center gap-3">
                 <button
                   type="button"
@@ -416,7 +416,7 @@ function LeaguesPageContent() {
                 <button
                   type="button"
                   onClick={() => setActionMode('join')}
-                  className="inline-flex items-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--surface-raised)] px-5 py-2.5 text-sm font-semibold text-slate-800 dark:text-slate-200 transition hover:bg-[var(--surface-muted)] hover:text-slate-950 dark:hover:text-white shadow-xs"
+                  className="inline-flex items-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--surface-raised)] px-5 py-2.5 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--surface-muted)] shadow-xs"
                 >
                   <Hash className="h-4 w-4" />
                   Join with Code
@@ -430,7 +430,7 @@ function LeaguesPageContent() {
 
               {/* ── League Cards Grid ─────────────────────────────────── */}
               {visibleLeagues.length === 0 ? (
-                <div className="rounded-2xl border border-dashed border-slate-700 bg-slate-900/40 px-6 py-12 text-center text-slate-400">
+                <div className="rounded-2xl border border-dashed border-[var(--border)] bg-[var(--surface-raised)] px-6 py-12 text-center text-[var(--text-muted)]">
                   No {tab === 'classic' ? 'classic' : 'head-to-head'} leagues found.
                 </div>
               ) : (
@@ -455,9 +455,9 @@ function LeaguesPageContent() {
                     </h2>
                     <span className="text-xs text-amber-400">Click a manager to view profile</span>
                   </div>
-                  <div className="overflow-hidden rounded-2xl border border-slate-800">
+                  <div className="overflow-hidden rounded-2xl border border-[var(--border)]">
                     <table className="w-full text-left text-sm">
-                      <thead className="border-b border-slate-800 bg-slate-950/80 text-xs uppercase text-slate-400">
+                      <thead className="border-b border-[var(--border)] bg-[var(--surface-raised)] text-xs uppercase text-[var(--text-muted)]">
                         <tr>
                           <th className="px-5 py-3.5">Rank</th>
                           <th className="px-5 py-3.5">Manager</th>
@@ -465,22 +465,21 @@ function LeaguesPageContent() {
                           <th className="px-5 py-3.5 text-right">Total Pts</th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-slate-800/60 bg-slate-900/40">
+                      <tbody className="divide-y divide-[var(--border)] bg-[var(--surface)]">
                         {standings.map((entry, idx) => {
                           const rank = entry.rank ?? idx + 1;
                           return (
                             <tr
                               key={`${entry.manager}-${idx}`}
                               onClick={() => setSelectedUser(entry)}
-                              className="cursor-pointer transition-colors hover:bg-slate-800/60 group"
+                              className="cursor-pointer transition-colors hover:bg-[var(--surface-muted)] group"
                             >
                               <td className="px-5 py-3.5">
-                                <span className={`inline-flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold ${
-                                  rank === 1 ? 'bg-amber-500/20 text-amber-400 border border-amber-500/40' :
-                                  rank === 2 ? 'bg-slate-400/10 text-slate-300 border border-slate-600' :
-                                  rank === 3 ? 'bg-orange-700/20 text-orange-400 border border-orange-700/40' :
-                                  'text-slate-500'
-                                }`}>
+                                <span className={`inline-flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold ${rank === 1 ? 'bg-amber-500/20 text-amber-400 border border-amber-500/40' :
+                                    rank === 2 ? 'bg-slate-400/10 text-slate-300 border border-slate-600' :
+                                      rank === 3 ? 'bg-orange-700/20 text-orange-400 border border-orange-700/40' :
+                                        'text-[var(--text-muted)]'
+                                  }`}>
                                   #{rank}
                                 </span>
                               </td>
@@ -507,7 +506,7 @@ function LeaguesPageContent() {
                                   </span>
                                 </div>
                               </td>
-                              <td className="px-5 py-3.5 text-right font-mono text-slate-300">{entry.gwPoints ?? 0}</td>
+                              <td className="px-5 py-3.5 text-right font-mono text-[var(--text-secondary)]">{entry.gwPoints ?? 0}</td>
                               <td className="px-5 py-3.5 text-right font-mono font-bold text-white">{entry.points} pts</td>
                             </tr>
                           );
@@ -525,7 +524,7 @@ function LeaguesPageContent() {
                       <Swords className="h-5 w-5 text-sky-400" />
                       Matchup Arena
                     </h2>
-                    <span className="text-xs text-slate-400">Gameweek points · click a matchup for details</span>
+                    <span className="text-xs text-[var(--text-muted)]">Gameweek points · click a matchup for details</span>
                   </div>
                   <div className="grid gap-3 md:grid-cols-2">
                     {fixtures.map((fixture) => (
@@ -536,13 +535,12 @@ function LeaguesPageContent() {
                       >
                         <div className="flex items-center justify-between border-b border-[var(--border)] bg-violet-500/5 px-4 py-2">
                           <span className="text-xs font-bold uppercase tracking-wider text-violet-800 dark:text-violet-300">Gameweek {fixture.gameweekId}</span>
-                          <span className={`rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${
-                            fixture.isBye
-                              ? 'border-slate-500/30 bg-slate-500/10 text-[var(--text-muted)]'
+                          <span className={`rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${fixture.isBye
+                              ? 'border-[var(--border)] bg-[var(--surface-muted)] text-[var(--text-muted)]'
                               : fixture.winnerId
                                 ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-800 dark:text-emerald-300'
                                 : 'border-amber-500/30 bg-amber-500/10 text-amber-800 dark:text-amber-300'
-                          }`}>
+                            }`}>
                             {fixture.isBye ? 'Bye' : fixture.winnerId ? 'Final' : 'In progress / pending'}
                           </span>
                         </div>
@@ -606,11 +604,10 @@ function LeaguesPageContent() {
               <div className="flex items-start justify-between gap-4">
                 <div>
                   <div className="flex items-center gap-2 mb-1.5">
-                    <span className={`rounded-full border px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider ${
-                      selectedLeague.type === 'h2h'
+                    <span className={`rounded-full border px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider ${selectedLeague.type === 'h2h'
                         ? 'border-sky-500/40 bg-sky-500/10 text-sky-700 dark:text-sky-300'
                         : 'border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-300'
-                    }`}>
+                      }`}>
                       {selectedLeague.type === 'h2h' ? 'Head-to-Head' : 'Classic League'}
                     </span>
                     <span className="rounded-full border border-[var(--border)] bg-[var(--surface-muted)] px-2 py-0.5 text-[10px] capitalize text-[var(--text-secondary)]">
@@ -681,9 +678,9 @@ function LeaguesPageContent() {
                 {(!selectedLeague.standings || selectedLeague.standings.length === 0) ? (
                   <p className="text-sm text-[var(--text-muted)]">No participants registered yet.</p>
                 ) : (
-                  <div className="overflow-x-auto rounded-2xl border border-slate-700 bg-slate-900/60 shadow-xs">
+                  <div className="overflow-x-auto rounded-2xl border border-[var(--border)] bg-[var(--surface)] shadow-xs">
                     <table className="min-w-[35rem] w-full text-left text-sm">
-                      <thead className="border-b border-slate-700 bg-slate-900 text-xs uppercase text-white font-semibold">
+                      <thead className="border-b border-[var(--border)] bg-[var(--surface-raised)] text-xs uppercase text-[var(--text-primary)] font-semibold">
                         <tr>
                           <th className="px-4 py-3 text-white">Rank</th>
                           <th className="px-4 py-3 text-white">Manager</th>
@@ -693,7 +690,7 @@ function LeaguesPageContent() {
                           <th className="px-4 py-3 text-right text-white">{selectedLeague.type === 'h2h' ? 'Fantasy Total' : 'Total'}</th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-slate-800/60 bg-slate-900/40">
+                      <tbody className="divide-y divide-[var(--border)] bg-[var(--surface)]">
                         {[...selectedLeague.standings]
                           .sort((a, b) => (a.rank ?? 999) - (b.rank ?? 999)
                             || (b.scoreDifference ?? 0) - (a.scoreDifference ?? 0)
@@ -705,26 +702,25 @@ function LeaguesPageContent() {
                               <tr
                                 key={`${p.manager}-${idx}`}
                                 onClick={() => setSelectedUser(p)}
-                                className="cursor-pointer transition-colors hover:bg-slate-800/60 group"
+                                className="cursor-pointer transition-colors hover:bg-[var(--surface-muted)] group"
                               >
                                 <td className="px-4 py-3">
-                                  <span className={`inline-flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold ${
-                                    rank === 1 ? 'bg-amber-500/20 text-amber-400 border border-amber-500/40' :
-                                    rank === 2 ? 'bg-slate-400/10 text-slate-300 border border-slate-600' :
-                                    rank === 3 ? 'bg-orange-700/20 text-orange-400 border border-orange-700/40' :
-                                    'text-slate-500'
-                                  }`}>
+                                  <span className={`inline-flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold ${rank === 1 ? 'bg-amber-500/20 text-amber-400 border border-amber-500/40' :
+                                      rank === 2 ? 'bg-slate-400/10 text-slate-300 border border-slate-600' :
+                                        rank === 3 ? 'bg-orange-700/20 text-orange-400 border border-orange-700/40' :
+                                          'text-[var(--text-muted)]'
+                                    }`}>
                                     #{rank}
                                   </span>
                                 </td>
                                 <td className="px-4 py-3 font-semibold text-white group-hover:text-amber-400 transition-colors">{p.manager}</td>
                                 {selectedLeague.type === 'h2h' && (
-                                  <td className="px-4 py-3 text-center font-mono text-xs text-slate-300">{p.wins}W-{p.losses}L-{p.draws}D</td>
+                                  <td className="px-4 py-3 text-center font-mono text-xs text-[var(--text-secondary)]">{p.wins}W-{p.losses}L-{p.draws}D</td>
                                 )}
                                 {selectedLeague.type === 'h2h' && (
                                   <td className="px-4 py-3 text-right font-mono font-bold text-violet-300">{p.leaguePoints ?? 0}</td>
                                 )}
-                                <td className="px-4 py-3 text-right font-mono text-slate-300">{p.gwPoints ?? 0}</td>
+                                <td className="px-4 py-3 text-right font-mono text-xs text-[var(--text-secondary)]">{p.gwPoints ?? 0}</td>
                                 <td className="px-4 py-3 text-right font-mono font-bold text-white">{p.points} pts</td>
                               </tr>
                             );
@@ -756,18 +752,18 @@ function LeaguesPageContent() {
                       <button
                         type="button"
                         onClick={() => void loadLeagueActivity(selectedLeague.id)}
-                        className="shrink-0 rounded-lg bg-slate-800 px-3 py-1.5 text-xs font-semibold text-white hover:bg-slate-700"
+                        className="shrink-0 rounded-lg border border-[var(--border)] bg-[var(--surface-raised)] px-3 py-1.5 text-xs font-semibold text-[var(--text-primary)] hover:bg-[var(--surface-muted)]"
                       >
                         Retry
                       </button>
                     </div>
                   ) : leagueActivity.length === 0 ? (
-                    <p className="rounded-xl border border-dashed border-slate-700 p-4 text-center text-sm text-slate-400">
+                    <p className="rounded-xl border border-dashed border-[var(--border)] bg-[var(--surface-raised)] p-4 text-center text-sm text-[var(--text-muted)]">
                       No league activity yet.
                     </p>
                   ) : (
                     <ol className="relative max-h-80 space-y-1 overflow-y-auto pr-1">
-                      <span aria-hidden="true" className="absolute bottom-5 left-[15px] top-5 w-px bg-slate-700" />
+                      <span aria-hidden="true" className="absolute bottom-5 left-[15px] top-5 w-px bg-[var(--border)]" />
                       {leagueActivity.map((activity) => {
                         let description: string;
                         const Icon = activity.type === 'transfer'
@@ -788,13 +784,12 @@ function LeaguesPageContent() {
                         }
                         return (
                           <li key={activity.id} className="relative flex gap-3 py-2">
-                            <span className={`relative z-10 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border ${
-                              activity.type === 'transfer'
+                            <span className={`relative z-10 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border ${activity.type === 'transfer'
                                 ? 'border-sky-500/30 bg-sky-500/10 text-sky-700 dark:text-sky-300'
                                 : activity.type === 'captain_pick'
                                   ? 'border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300'
                                   : 'border-violet-500/30 bg-violet-500/10 text-violet-700 dark:text-violet-300'
-                            }`}>
+                              }`}>
                               <Icon className="h-4 w-4" aria-hidden="true" />
                             </span>
                             <div className="min-w-0 flex-1 rounded-xl border border-[var(--border)] bg-[var(--surface-raised)] px-3 py-2.5">
@@ -824,14 +819,14 @@ function LeaguesPageContent() {
                     <Swords className="h-4 w-4 text-sky-400" /> Matchups &amp; Fixtures
                   </h3>
                   {(!selectedLeague.fixtures || selectedLeague.fixtures.length === 0) ? (
-                    <p className="text-sm text-slate-400">No fixtures generated yet.</p>
+                    <p className="text-sm text-[var(--text-muted)]">No fixtures generated yet.</p>
                   ) : (
                     <div className="space-y-2.5">
                       {selectedLeague.fixtures.map((fixture) => (
                         <div
                           key={fixture.id}
                           onClick={() => setSelectedFixture({ ...fixture, leagueName: selectedLeague.name })}
-                          className="cursor-pointer rounded-xl border border-slate-800 bg-slate-950/40 p-3.5 transition-all hover:border-sky-500/40 hover:bg-slate-800/60 group"
+                          className="cursor-pointer rounded-xl border border-[var(--border)] bg-[var(--surface-raised)] p-3.5 transition-all hover:border-sky-500/40 hover:bg-[var(--surface-muted)] group"
                         >
                           <div className="flex items-center justify-between text-sm">
                             <span className="font-semibold text-white group-hover:text-amber-400 transition-colors">{fixture.home}</span>
@@ -840,9 +835,9 @@ function LeaguesPageContent() {
                             </span>
                             <span className="font-semibold text-white group-hover:text-amber-400 transition-colors">{fixture.away}</span>
                           </div>
-                          <div className="mt-2.5 flex items-center justify-between border-t border-slate-800/80 pt-2 text-xs text-slate-400">
+                          <div className="mt-2.5 flex items-center justify-between border-t border-[var(--border)] pt-2 text-xs text-[var(--text-muted)]">
                             <span>Gameweek {fixture.gameweekId}</span>
-                            <span className={`font-semibold ${fixture.isBye ? 'text-slate-400' : fixture.winnerId ? 'text-emerald-400' : 'text-amber-400'}`}>
+                            <span className={`font-semibold ${fixture.isBye ? 'text-[var(--text-muted)]' : fixture.winnerId ? 'text-emerald-400' : 'text-amber-400'}`}>
                               {fixture.isBye ? 'Bye Round' : fixture.winnerId ? 'Result Final' : 'Scheduled / Live'} →
                             </span>
                           </div>
@@ -860,10 +855,10 @@ function LeaguesPageContent() {
       {/* ── Manager Details Modal ─────────────────────────────────── */}
       {selectedUser && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm">
-          <div className="relative max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-3xl border border-slate-700 bg-slate-900 shadow-2xl p-6 no-scrollbar">
-            <div className="border-b border-slate-800 pb-5">
+          <div className="relative max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-3xl border border-[var(--border)] bg-[var(--surface)] shadow-2xl p-6 no-scrollbar">
+            <div className="border-b border-[var(--border)] pb-5">
               <div className="flex items-center gap-4">
-                <div className="h-14 w-14 rounded-full bg-slate-800 border-2 border-amber-500/50 flex items-center justify-center overflow-hidden shrink-0 shadow-md">
+                <div className="h-14 w-14 rounded-full bg-[var(--surface-muted)] border-2 border-amber-500/50 flex items-center justify-center overflow-hidden shrink-0 shadow-md">
                   {selectedUser.avatarUrl ? (
                     <Image src={selectedUser.avatarUrl} alt={selectedUser.manager} width={56} height={56} unoptimized={!canOptimizeImage(selectedUser.avatarUrl)} className="h-full w-full object-cover" />
                   ) : (
@@ -881,55 +876,55 @@ function LeaguesPageContent() {
                       </span>
                     )}
                   </div>
-                  <p className="text-xs text-slate-400 mt-0.5">
+                  <p className="text-xs text-[var(--text-muted)] mt-0.5">
                     @{selectedUser.username || selectedUser.manager.toLowerCase().replace(/\s+/g, '_')}
                   </p>
                 </div>
               </div>
               {selectedUser.bio && (
-                <p className="mt-4 text-sm text-slate-300 bg-slate-950/40 border border-slate-800/80 rounded-xl p-3 italic">
+                <p className="mt-4 text-sm text-[var(--text-secondary)] bg-[var(--surface-raised)] border border-[var(--border)] rounded-xl p-3 italic">
                   &quot;{selectedUser.bio}&quot;
                 </p>
               )}
             </div>
 
             <div className="my-6">
-              <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-3">League Performance</h3>
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)] mb-3">League Performance</h3>
               <div className="grid grid-cols-3 gap-3">
-                <div className="rounded-2xl border border-slate-800 bg-slate-950/60 p-4 text-center">
-                  <div className="text-[10px] uppercase tracking-wider text-slate-400">Total Pts</div>
+                <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface-raised)] p-4 text-center">
+                  <div className="text-[10px] uppercase tracking-wider text-[var(--text-muted)]">Total Pts</div>
                   <div className="mt-1 font-mono text-2xl font-bold text-amber-400">{selectedUser.points}</div>
                 </div>
-                <div className="rounded-2xl border border-slate-800 bg-slate-950/60 p-4 text-center">
-                  <div className="text-[10px] uppercase tracking-wider text-slate-400">GW Pts</div>
-                  <div className="mt-1 font-mono text-2xl font-bold text-slate-200">{selectedUser.gwPoints ?? 0}</div>
+                <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface-raised)] p-4 text-center">
+                  <div className="text-[10px] uppercase tracking-wider text-[var(--text-muted)]">GW Pts</div>
+                  <div className="mt-1 font-mono text-2xl font-bold text-[var(--text-primary)]">{selectedUser.gwPoints ?? 0}</div>
                 </div>
-                <div className="rounded-2xl border border-slate-800 bg-slate-950/60 p-4 text-center">
-                  <div className="text-[10px] uppercase tracking-wider text-slate-400">Rank</div>
+                <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface-raised)] p-4 text-center">
+                  <div className="text-[10px] uppercase tracking-wider text-[var(--text-muted)]">Rank</div>
                   <div className="mt-1 font-mono text-2xl font-bold text-white">#{selectedUser.rank ?? '—'}</div>
                 </div>
               </div>
               <div className="mt-3 grid grid-cols-3 gap-3">
-                <div className="rounded-xl border border-slate-800 bg-slate-950/40 p-3 text-center">
-                  <div className="text-[11px] text-slate-400 uppercase">Wins</div>
+                <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-raised)] p-3 text-center">
+                  <div className="text-[11px] text-[var(--text-muted)] uppercase">Wins</div>
                   <div className="mt-0.5 font-mono text-lg font-bold text-emerald-400">{selectedUser.wins}</div>
                 </div>
-                <div className="rounded-xl border border-slate-800 bg-slate-950/40 p-3 text-center">
-                  <div className="text-[11px] text-slate-400 uppercase">Losses</div>
+                <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-raised)] p-3 text-center">
+                  <div className="text-[11px] text-[var(--text-muted)] uppercase">Losses</div>
                   <div className="mt-0.5 font-mono text-lg font-bold text-red-400">{selectedUser.losses}</div>
                 </div>
-                <div className="rounded-xl border border-slate-800 bg-slate-950/40 p-3 text-center">
-                  <div className="text-[11px] text-slate-400 uppercase">Draws</div>
-                  <div className="mt-0.5 font-mono text-lg font-bold text-slate-300">{selectedUser.draws}</div>
+                <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-raised)] p-3 text-center">
+                  <div className="text-[11px] text-[var(--text-muted)] uppercase">Draws</div>
+                  <div className="mt-0.5 font-mono text-lg font-bold text-[var(--text-primary)]">{selectedUser.draws}</div>
                 </div>
               </div>
             </div>
 
-            <div className="flex justify-end border-t border-slate-800 pt-4">
+            <div className="flex justify-end border-t border-[var(--border)] pt-4">
               <button
                 type="button"
                 onClick={() => setSelectedUser(null)}
-                className="rounded-xl bg-slate-800 px-5 py-2 text-sm font-semibold text-white hover:bg-slate-700 transition-colors"
+                className="rounded-xl border border-[var(--border)] bg-[var(--surface-raised)] px-5 py-2 text-sm font-semibold text-[var(--text-primary)] hover:bg-[var(--surface-muted)] transition-colors"
               >
                 Close
               </button>
@@ -941,29 +936,28 @@ function LeaguesPageContent() {
       {/* ── H2H Fixture Detail Modal ──────────────────────────────── */}
       {selectedFixture && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm">
-          <div className="relative max-h-[90vh] w-full max-w-xl overflow-y-auto rounded-3xl border border-slate-700 bg-slate-900 shadow-2xl p-6 no-scrollbar">
-            <div className="border-b border-slate-800 pb-4">
+          <div className="relative max-h-[90vh] w-full max-w-xl overflow-y-auto rounded-3xl border border-[var(--border)] bg-[var(--surface)] shadow-2xl p-6 no-scrollbar">
+            <div className="border-b border-[var(--border)] pb-4">
               <div className="flex items-center gap-2 mb-1.5">
                 <span className="rounded-full border border-amber-500/40 bg-amber-500/10 px-2.5 py-0.5 text-[10px] font-bold text-amber-300 uppercase">
                   Gameweek {selectedFixture.gameweekId}
                 </span>
-                <span className={`rounded-full border px-2.5 py-0.5 text-[10px] font-bold uppercase ${
-                  selectedFixture.isBye ? 'border-slate-600 bg-slate-700/40 text-slate-300'
-                  : selectedFixture.winnerId ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-400'
-                  : 'border-amber-500/30 bg-amber-500/10 text-amber-400'
-                }`}>
+                <span className={`rounded-full border px-2.5 py-0.5 text-[10px] font-bold uppercase ${selectedFixture.isBye ? 'border-[var(--border)] bg-[var(--surface-muted)] text-[var(--text-secondary)]'
+                    : selectedFixture.winnerId ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-400'
+                      : 'border-amber-500/30 bg-amber-500/10 text-amber-400'
+                  }`}>
                   {selectedFixture.isBye ? 'Bye Round' : selectedFixture.winnerId ? 'Final Result' : 'Live / Scheduled'}
                 </span>
               </div>
               <div className="flex items-center justify-between">
                 <div>
                   <h2 className="text-xl font-bold text-white">Head-to-Head Matchup</h2>
-                  {selectedFixture.leagueName && <p className="text-xs text-slate-400 mt-0.5">{selectedFixture.leagueName}</p>}
+                  {selectedFixture.leagueName && <p className="text-xs text-[var(--text-muted)] mt-0.5">{selectedFixture.leagueName}</p>}
                 </div>
                 <button
                   type="button"
                   onClick={() => setSelectedFixture(null)}
-                  className="rounded-xl p-2 text-slate-400 transition hover:bg-slate-800 hover:text-white"
+                  className="rounded-xl p-2 text-[var(--text-muted)] transition hover:bg-[var(--surface-muted)] hover:text-[var(--text-primary)]"
                 >
                   <X className="h-5 w-5" />
                 </button>
@@ -971,11 +965,11 @@ function LeaguesPageContent() {
             </div>
 
             {/* Score card */}
-            <div className="my-6 rounded-3xl border border-slate-800 bg-slate-950/60 p-6">
+            <div className="my-6 rounded-3xl border border-[var(--border)] bg-[var(--surface-raised)] p-6">
               <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-4">
                 {/* Home */}
                 <div className="flex flex-col items-center text-center">
-                  <div className="h-16 w-16 rounded-full bg-slate-800 border-2 border-slate-700 flex items-center justify-center overflow-hidden mb-2 shadow-inner">
+                  <div className="h-16 w-16 rounded-full bg-[var(--surface-muted)] border-2 border-[var(--border)] flex items-center justify-center overflow-hidden mb-2 shadow-inner">
                     {selectedFixture.homeAvatarUrl ? (
                       <Image src={selectedFixture.homeAvatarUrl} alt={selectedFixture.home} width={64} height={64} unoptimized={!canOptimizeImage(selectedFixture.homeAvatarUrl)} className="h-full w-full object-cover" />
                     ) : (
@@ -983,10 +977,10 @@ function LeaguesPageContent() {
                     )}
                   </div>
                   <h4 className="font-bold text-white text-base leading-snug">{selectedFixture.home}</h4>
-                  {selectedFixture.homeUsername && <span className="text-[11px] text-slate-400">@{selectedFixture.homeUsername}</span>}
+                  {selectedFixture.homeUsername && <span className="text-[11px] text-[var(--text-muted)]">@{selectedFixture.homeUsername}</span>}
                   <div className="mt-3">
                     <span className="font-mono text-3xl font-black text-white">{selectedFixture.homePoints}</span>
-                    <span className="text-xs text-slate-400 ml-1">pts</span>
+                    <span className="text-xs text-[var(--text-muted)] ml-1">pts</span>
                   </div>
                   <div className="mt-2 flex min-h-5 items-center justify-center">
                     {selectedFixture.winnerId && selectedFixture.homePoints > selectedFixture.awayPoints && (
@@ -1000,7 +994,7 @@ function LeaguesPageContent() {
                 {/* VS */}
                 <div className="flex flex-col items-center px-2">
                   <span className="flex h-10 w-10 items-center justify-center rounded-full border border-amber-500/40 bg-amber-500/20 font-black text-amber-400 text-sm">VS</span>
-                  <div className="text-[11px] text-slate-500 mt-2 font-mono">
+                  <div className="text-[11px] text-[var(--text-muted)] mt-2 font-mono">
                     {selectedFixture.homePoints === selectedFixture.awayPoints
                       ? 'Tied'
                       : `Δ ${Math.abs(Number((selectedFixture.homePoints - selectedFixture.awayPoints).toFixed(1)))}`}
@@ -1009,18 +1003,18 @@ function LeaguesPageContent() {
 
                 {/* Away */}
                 <div className="flex flex-col items-center text-center">
-                  <div className="h-16 w-16 rounded-full bg-slate-800 border-2 border-slate-700 flex items-center justify-center overflow-hidden mb-2 shadow-inner">
+                  <div className="h-16 w-16 rounded-full bg-[var(--surface-muted)] border-2 border-[var(--border)] flex items-center justify-center overflow-hidden mb-2 shadow-inner">
                     {selectedFixture.awayAvatarUrl ? (
                       <Image src={selectedFixture.awayAvatarUrl} alt={selectedFixture.away} width={64} height={64} unoptimized={!canOptimizeImage(selectedFixture.awayAvatarUrl)} className="h-full w-full object-cover" />
                     ) : (
-                      <span className="text-xl font-bold text-slate-400">{selectedFixture.away.substring(0, 2).toUpperCase()}</span>
+                      <span className="text-xl font-bold text-[var(--text-muted)]">{selectedFixture.away.substring(0, 2).toUpperCase()}</span>
                     )}
                   </div>
                   <h4 className="font-bold text-white text-base leading-snug">{selectedFixture.away}</h4>
-                  {selectedFixture.awayUsername && <span className="text-[11px] text-slate-400">@{selectedFixture.awayUsername}</span>}
+                  {selectedFixture.awayUsername && <span className="text-[11px] text-[var(--text-muted)]">@{selectedFixture.awayUsername}</span>}
                   <div className="mt-3">
                     <span className="font-mono text-3xl font-black text-white">{selectedFixture.awayPoints}</span>
-                    <span className="text-xs text-slate-400 ml-1">pts</span>
+                    <span className="text-xs text-[var(--text-muted)] ml-1">pts</span>
                   </div>
                   <div className="mt-2 flex min-h-5 items-center justify-center">
                     {selectedFixture.winnerId && selectedFixture.awayPoints > selectedFixture.homePoints && (
@@ -1034,18 +1028,18 @@ function LeaguesPageContent() {
             </div>
 
             {/* Info strip */}
-            <div className="rounded-2xl border border-slate-800 bg-slate-950/40 p-4 space-y-2 text-xs text-slate-300">
+            <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface-raised)] p-4 space-y-2 text-xs text-[var(--text-secondary)]">
               <div className="flex justify-between items-center">
-                <span className="text-slate-400">Matchup Type</span>
+                <span className="text-[var(--text-muted)]">Matchup Type</span>
                 <span className="font-medium text-white">Head-to-Head Gameweek Duel</span>
               </div>
               <div className="flex justify-between items-center">
-                <span className="text-slate-400">Scoring Model</span>
+                <span className="text-[var(--text-muted)]">Scoring Model</span>
                 <span className="font-medium text-white">3pts Win · 1pt Draw · 0 Loss</span>
               </div>
               <div className="flex justify-between items-center">
-                <span className="text-slate-400">Status</span>
-                <span className={`font-semibold ${selectedFixture.isBye ? 'text-slate-400' : selectedFixture.winnerId ? 'text-emerald-400' : 'text-amber-400'}`}>
+                <span className="text-[var(--text-muted)]">Status</span>
+                <span className={`font-semibold ${selectedFixture.isBye ? 'text-[var(--text-muted)]' : selectedFixture.winnerId ? 'text-emerald-400' : 'text-amber-400'}`}>
                   {selectedFixture.isBye ? 'Bye (Auto Win)' : selectedFixture.winnerId ? 'Score Finalized' : 'In Progress / Pending'}
                 </span>
               </div>

@@ -276,7 +276,7 @@ function NotificationsPageContent() {
         );
       default:
         return (
-          <div className="flex h-11 w-11 items-center justify-center rounded-full border border-slate-600 bg-slate-800 text-slate-300">
+          <div className="flex h-11 w-11 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--surface-raised)] text-[var(--text-secondary)]">
             <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
           </div>
         );
@@ -661,8 +661,8 @@ function NotificationsPageContent() {
             <div className={`mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl border ${emptyConfig.color}`}>
               <EmptyIcon className="h-8 w-8" />
             </div>
-            <h3 className="text-lg font-semibold text-white">{emptyConfig.title}</h3>
-            <p className="mx-auto mt-2 max-w-md text-sm text-slate-400">{emptyConfig.description}</p>
+            <h3 className="text-lg font-semibold text-[var(--text-primary)]">{emptyConfig.title}</h3>
+            <p className="mx-auto mt-2 max-w-md text-sm text-[var(--text-secondary)]">{emptyConfig.description}</p>
             {emptyConfig.actionHref && emptyConfig.actionText && (
               <div className="mt-6">
                 <Link

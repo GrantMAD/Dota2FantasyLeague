@@ -362,7 +362,7 @@ function SettingsContent() {
   };
 
   const renderToggle = (label: string, description: string, enabled: boolean, onToggle: () => void, unavailable = false) => (
-    <div className="flex items-center justify-between gap-4 rounded-xl border border-[var(--border)] bg-[var(--surface-raised)] p-4 transition-all hover:border-slate-500/40">
+    <div className="flex items-center justify-between gap-4 rounded-xl border border-[var(--border)] bg-[var(--surface-raised)] p-4 transition-all hover:border-cyan-500/40">
       <div className="space-y-1">
         <div className="flex flex-wrap items-center gap-2">
           <h3 className="font-semibold text-[var(--text-primary)]">{label}</h3>
@@ -381,7 +381,7 @@ function SettingsContent() {
         disabled={unavailable || savingNotificationPreference}
         aria-label={`${label}${unavailable ? ', not available yet' : ''}`}
         className={`relative h-7 w-12 shrink-0 rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-cyan-500/30 disabled:cursor-not-allowed disabled:opacity-40 ${
-          !unavailable && enabled ? 'bg-cyan-500' : 'bg-slate-400 dark:bg-slate-700'
+          !unavailable && enabled ? 'bg-cyan-500' : 'bg-[var(--surface-muted)]'
         }`}
       >
         <span
@@ -592,7 +592,7 @@ function SettingsContent() {
                   <div
                     key={item.label}
                     onClick={() => changeTab(item.tabTarget)}
-                    className="flex cursor-pointer items-center justify-between gap-4 rounded-xl border border-[var(--border)] bg-[var(--surface-raised)] px-4.5 py-3.5 transition-all hover:border-slate-500/40"
+                    className="flex cursor-pointer items-center justify-between gap-4 rounded-xl border border-[var(--border)] bg-[var(--surface-raised)] px-4.5 py-3.5 transition-all hover:border-cyan-500/40"
                   >
                     <div className="flex items-center gap-3">
                       <div
@@ -633,7 +633,7 @@ function SettingsContent() {
                 <button
                   type="button"
                   onClick={() => changeTab('notifications')}
-                  className="rounded-xl border border-[var(--border)] bg-[var(--surface-raised)] px-5 py-2.5 text-sm font-semibold text-[var(--text-primary)] transition hover:border-slate-500"
+                  className="rounded-xl border border-[var(--border)] bg-[var(--surface-raised)] px-5 py-2.5 text-sm font-semibold text-[var(--text-primary)] transition hover:border-[var(--border)]"
                 >
                   Manage alerts
                 </button>
@@ -861,7 +861,7 @@ function SettingsContent() {
                       className={`group relative overflow-hidden rounded-2xl border-2 p-5 text-left transition-all duration-200 ${
                         theme === 'dark'
                           ? 'border-cyan-500 bg-cyan-500/10 shadow-lg shadow-cyan-500/10'
-                          : 'border-[var(--border)] bg-[var(--surface-raised)] hover:border-slate-500'
+                          : 'border-[var(--border)] bg-[var(--surface-raised)] hover:border-[var(--border)]'
                       }`}
                     >
                       {/* Theme Preview Header */}
@@ -920,7 +920,7 @@ function SettingsContent() {
                       className={`group relative overflow-hidden rounded-2xl border-2 p-5 text-left transition-all duration-200 ${
                         theme === 'light'
                           ? 'border-cyan-500 bg-cyan-500/10 shadow-lg shadow-cyan-500/10'
-                          : 'border-[var(--border)] bg-[var(--surface-raised)] hover:border-slate-500'
+                          : 'border-[var(--border)] bg-[var(--surface-raised)] hover:border-[var(--border)]'
                       }`}
                     >
                       {/* Theme Preview Header */}

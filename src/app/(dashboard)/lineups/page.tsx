@@ -63,20 +63,20 @@ function LineupFixtureDetails({
 }: LineupFixtureDetailsProps) {
   const teamId = player.professional_teams?.id ?? player.team_id ?? null;
   if (teamId === null) {
-    return <p className="mt-3 text-xs text-slate-400">No team schedule available.</p>;
+    return <p className="mt-3 text-xs text-[var(--text-muted)]">No team schedule available.</p>;
   }
   if (loading) {
-    return <p role="status" className="mt-3 text-xs text-slate-400">Loading selected-gameweek fixtures…</p>;
+    return <p role="status" className="mt-3 text-xs text-[var(--text-muted)]">Loading selected-gameweek fixtures…</p>;
   }
 
   const fixtures = fixturesByTeam.get(teamId) ?? [];
   if (fixtures.length === 0) {
-    return <p className="mt-3 text-xs text-slate-400">No scheduled fixture for this team in this gameweek.</p>;
+    return <p className="mt-3 text-xs text-[var(--text-muted)]">No scheduled fixture for this team in this gameweek.</p>;
   }
 
   return (
-    <div className="mt-3 space-y-2 border-t border-slate-700/70 pt-3">
-      <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Selected gameweek fixtures</p>
+    <div className="mt-3 space-y-2 border-t border-[var(--border)] pt-3">
+      <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)]">Selected gameweek fixtures</p>
       {fixtures.map((fixture) => {
         const isTeamA = fixture.team_a_id === teamId;
         const opponentId = isTeamA ? fixture.team_b_id : fixture.team_a_id;
@@ -86,8 +86,8 @@ function LineupFixtureDetails({
         return (
           <div key={fixture.id} className="flex flex-wrap items-center justify-between gap-2 text-xs">
             <div className="min-w-0">
-              <p className="truncate font-medium text-slate-200">vs {opponentName}</p>
-              <p className="mt-0.5 text-slate-500">
+              <p className="truncate font-medium text-[var(--text-primary)]">vs {opponentName}</p>
+              <p className="mt-0.5 text-[var(--text-muted)]">
                 {formatFixtureDate(fixture.scheduled_time)}
                 {fixture.tournaments?.name ? ` · ${fixture.tournaments.name}` : ''}
               </p>
@@ -557,29 +557,29 @@ export default function LineupsPage() {
                   </option>
                 ))}
               </select>
-              <ChevronDown className="pointer-events-none absolute right-3 h-4 w-4 text-slate-400" />
+              <ChevronDown className="pointer-events-none absolute right-3 h-4 w-4 text-[var(--text-muted)]" />
             </div>
 
             {/* Lock / Active Status Badge */}
             {lineupLocked ? (
-              <span className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold text-rose-400 bg-rose-500/10 border border-rose-500/30">
+              <span className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold text-rose-700 dark:text-rose-300 bg-rose-500/10 border border-rose-500/30">
                 <Lock className="h-3.5 w-3.5" />
                 Lineup Locked
               </span>
             ) : selectedGameweek?.status === 'active' ? (
-              <span className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/30">
+              <span className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-500/10 border border-emerald-500/30">
                 <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
                 Active Gameweek
               </span>
             ) : (
-              <span className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold text-cyan-400 bg-cyan-500/10 border border-cyan-500/30">
+              <span className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold text-cyan-700 dark:text-cyan-300 bg-cyan-500/10 border border-cyan-500/30">
                 <Clock className="h-3.5 w-3.5" />
                 Planning Ahead
               </span>
             )}
 
             {selectedGameweek?.status === 'upcoming' && !lineupLocked && (
-              <p className="mt-2 text-xs font-semibold text-cyan-400" role="status">
+              <p className="mt-2 text-xs font-semibold text-cyan-600 dark:text-cyan-400" role="status">
                 Planning ahead · this lineup is saved separately for Gameweek {selectedGameweek.gameweekNumber}.
               </p>
             )}
@@ -735,13 +735,13 @@ export default function LineupsPage() {
         <div className="rounded-2xl border p-4 sm:p-6 shadow-sm" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
             {lineupLocked && (
               <div
-                className="mb-6 flex items-start gap-3 rounded-xl border border-red-500/40 bg-red-500/10 p-4 text-sm text-red-200"
+                className="mb-6 flex items-start gap-3 rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-800 dark:text-red-200"
                 role="status"
               >
-                <CircleAlert className="mt-0.5 h-5 w-5 shrink-0 text-red-400" aria-hidden="true" />
+                <CircleAlert className="mt-0.5 h-5 w-5 shrink-0 text-red-600 dark:text-red-400" aria-hidden="true" />
                 <div>
-                  <p className="font-bold">Lineup locked for Gameweek {selectedGameweek?.gameweekNumber ?? gameweekId}</p>
-                  <p className="mt-0.5 text-xs leading-5 opacity-90">
+                  <p className="font-bold text-red-950 dark:text-red-100">Lineup locked for Gameweek {selectedGameweek?.gameweekNumber ?? gameweekId}</p>
+                  <p className="mt-0.5 text-xs leading-5 text-red-800/90 dark:text-red-300">
                     The deadline has passed. Your saved lineup is read-only and can no longer be changed.
                   </p>
                 </div>
@@ -773,7 +773,7 @@ export default function LineupsPage() {
                 </div>
               </div>
             ) : ownedPlayers.length === 0 ? (
-              <div data-guide="lineup-empty" className="py-16 text-center text-slate-400">
+              <div data-guide="lineup-empty" className="py-16 text-center text-[var(--text-muted)]">
                 Create a squad and add players before setting a lineup.
               </div>
             ) : (
@@ -785,18 +785,18 @@ export default function LineupsPage() {
                       <span className="h-2 w-2 rounded-full bg-emerald-400"></span>
                       Starting Five (Active)
                     </h3>
-                    <span className="text-xs text-slate-400">Active point scorers</span>
+                    <span className="text-xs text-[var(--text-muted)]">Active point scorers</span>
                   </div>
 
                   {/* Informational Guidance Notice */}
-                  <div className="flex items-start gap-2.5 bg-amber-500/10 border border-amber-500/30 rounded-lg p-3.5 mb-4 text-xs text-amber-200/90 leading-relaxed">
-                    <span className="text-amber-400 text-sm shrink-0">ℹ️</span>
+                  <div className="flex items-start gap-2.5 bg-amber-500/10 border border-amber-500/30 rounded-lg p-3.5 mb-4 text-xs text-amber-900 dark:text-amber-200/90 leading-relaxed">
+                    <span className="text-amber-500 dark:text-amber-400 text-sm shrink-0">ℹ️</span>
                     <div>
-                      <p className="font-semibold text-amber-300 mb-0.5">Lineup Selection Order</p>
-                      <p className="text-slate-300">
-                        Please assign your <span className="text-white font-medium">5 core starting players</span> in the slots below first. Once selected, you can appoint your <span className="text-amber-400 font-semibold">Captain</span> and <span className="text-cyan-400 font-semibold">Vice-Captain</span> from your starting lineup.
+                      <p className="font-semibold text-amber-900 dark:text-amber-300 mb-0.5">Lineup Selection Order</p>
+                      <p className="text-[var(--text-secondary)]">
+                        Please assign your <span className="text-[var(--text-primary)] font-medium">5 core starting players</span> in the slots below first. Once selected, you can appoint your <span className="text-amber-600 dark:text-amber-400 font-semibold">Captain</span> and <span className="text-cyan-600 dark:text-cyan-400 font-semibold">Vice-Captain</span> from your starting lineup.
                       </p>
-                      <p className="mt-1 text-slate-400">
+                      <p className="mt-1 text-[var(--text-muted)]">
                         Player points and form are from the latest gameweek with recorded scores, not necessarily the selected lineup gameweek. Current-gameweek scores appear as matches are processed.
                       </p>
                     </div>
@@ -833,9 +833,9 @@ export default function LineupsPage() {
                     </div>
                     <div>
                       <div className="flex items-center justify-between mb-2">
-                        <label htmlFor="lineup-vice-captain" className="block text-xs font-bold uppercase tracking-wider text-slate-300">Vice-Captain · backup</label>
+                        <label htmlFor="lineup-vice-captain" className="block text-xs font-bold uppercase tracking-wider text-[var(--text-secondary)]">Vice-Captain · backup</label>
                         {startingPlayerDetails.length === 0 && (
-                          <span className="text-[11px] text-slate-400 italic">Pick starting 5 first</span>
+                          <span className="text-[11px] text-[var(--text-muted)] italic">Pick starting 5 first</span>
                         )}
                       </div>
                       <select
@@ -872,7 +872,7 @@ export default function LineupsPage() {
                           className="rounded-xl border p-4 transition-all hover:border-cyan-500/40" style={{ background: "var(--surface-raised)", borderColor: "var(--border)" }}
                         >
                           <div className="flex items-center justify-between mb-2">
-                            <label htmlFor={`lineup-${slot}`} className="block text-xs font-bold uppercase tracking-wider text-slate-300">
+                            <label htmlFor={`lineup-${slot}`} className="block text-xs font-bold uppercase tracking-wider text-[var(--text-secondary)]">
                               {displayRole}
                             </label>
                             {eligiblePlayers.length === 0 && (
@@ -908,7 +908,7 @@ export default function LineupsPage() {
                           {selected?.professional_players && (
                             <div className="mt-3 flex items-center justify-between gap-3 rounded-xl border p-3.5 shadow-sm" style={{ background: "var(--surface)", borderColor: "var(--border)" }}>
                               <div className="flex items-center gap-3 min-w-0">
-                                <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full border border-slate-600 bg-slate-700">
+                                <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full border border-[var(--border)] bg-[var(--surface-muted)] text-[var(--text-secondary)]">
                                   {selected.professional_players.profile_image_url ? (
                                     <Image src={selected.professional_players.profile_image_url} alt={selected.professional_players.in_game_name || selected.professional_players.name} width={40} height={40} unoptimized={!canOptimizeImage(selected.professional_players.profile_image_url)} className="h-full w-full object-cover" />
                                   ) : (
@@ -946,13 +946,13 @@ export default function LineupsPage() {
                                       </span>
                                     )}
                                   </div>
-                                  <p className="truncate text-xs text-slate-400">{selected.professional_players.professional_teams?.name || 'Free Agent'} · <span className="text-amber-400/90 font-medium">{formatPlayerPrice(selected.professional_players.current_price)}</span></p>
+                                  <p className="truncate text-xs text-[var(--text-muted)]">{selected.professional_players.professional_teams?.name || 'Free Agent'} · <span className="text-amber-400/90 font-medium">{formatPlayerPrice(selected.professional_players.current_price)}</span></p>
                                 </div>
                               </div>
                               <div className="flex items-center gap-3 shrink-0 text-right">
                                 <div className="text-right">
-                                  <div className="text-[10px] uppercase tracking-wider text-slate-400">Latest GW</div>
-                                  <div className="text-xs font-mono font-bold text-white flex items-center justify-end gap-1">
+                                  <div className="text-[10px] uppercase tracking-wider text-[var(--text-muted)]">Latest GW</div>
+                                  <div className="text-xs font-mono font-bold text-[var(--text-primary)] flex items-center justify-end gap-1">
                                     {formatPoints(selected.professional_players.last_gw_points ?? 0)} pts
                                     {selected.professional_players.form_trend === 'up' && (
                                       <TrendingUp className="w-3.5 h-3.5 text-emerald-400 inline" />
@@ -961,13 +961,13 @@ export default function LineupsPage() {
                                       <TrendingDown className="w-3.5 h-3.5 text-red-400 inline" />
                                     )}
                                     {(!selected.professional_players.form_trend || selected.professional_players.form_trend === 'flat') && (
-                                      <Minus className="w-3.5 h-3.5 text-slate-400 inline" />
+                                      <Minus className="w-3.5 h-3.5 text-[var(--text-muted)] inline" />
                                     )}
                                   </div>
                                 </div>
-                                <div className="text-right border-l border-slate-700/80 pl-3">
-                                  <div className="text-[10px] uppercase tracking-wider text-slate-400">Avg</div>
-                                  <div className="text-xs font-mono font-semibold text-slate-300">
+                                <div className="text-right border-l border-[var(--border)] pl-3">
+                                  <div className="text-[10px] uppercase tracking-wider text-[var(--text-muted)]">Avg</div>
+                                  <div className="text-xs font-mono font-semibold text-[var(--text-secondary)]">
                                     {formatPoints(selected.professional_players.recent_points ?? 0)}
                                   </div>
                                 </div>
@@ -989,13 +989,13 @@ export default function LineupsPage() {
                   </div>
 
                 {/* Bench Substitutes */}
-                <div data-guide="lineup-bench" data-tour="lineup-bench" className="border-t border-slate-700/70 pt-6">
+                <div data-guide="lineup-bench" data-tour="lineup-bench" className="border-t border-[var(--border)] pt-6">
                   <div className="flex items-center justify-between mb-3">
-                    <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-2">
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--text-muted)] flex items-center gap-2">
                       <span className="h-2 w-2 rounded-full bg-amber-400"></span>
                       Bench Substitutes (Reserves)
                     </h3>
-                    <span className="text-xs text-slate-400">Auto-sub in order if starters miss</span>
+                    <span className="text-xs text-[var(--text-muted)]">Auto-sub in order if starters miss</span>
                   </div>
                   <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
                     {['bench_1', 'bench_2', 'bench_3'].map((slot, index) => {
@@ -1004,9 +1004,9 @@ export default function LineupsPage() {
                         <div
                           key={slot}
                           data-guide={index === 0 ? 'lineup-first-bench' : undefined}
-                          className="rounded-lg border border-slate-700 bg-slate-900/40 p-4"
+                          className="rounded-xl border border-[var(--border)] bg-[var(--surface-raised)] p-4"
                         >
-                          <label htmlFor={`lineup-${slot}`} className="mb-2 block text-xs font-bold uppercase tracking-wider text-slate-400">
+                          <label htmlFor={`lineup-${slot}`} className="mb-2 block text-xs font-bold uppercase tracking-wider text-[var(--text-secondary)]">
                             {slot.replace('_', ' ')}
                           </label>
                           <select
@@ -1020,7 +1020,7 @@ export default function LineupsPage() {
                                 updateSlot(slot, Number(event.target.value));
                               }
                             }}
-                            className="w-full rounded border border-slate-600 bg-slate-800 px-3 py-2 text-sm text-white focus:border-amber-500 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+                            className="w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3.5 py-2 text-sm font-medium text-[var(--text-primary)] focus:border-cyan-500 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
                           >
                             <option value="">Select player</option>
                             {ownedPlayers.map((player) => {
@@ -1038,7 +1038,7 @@ export default function LineupsPage() {
                           {selected?.professional_players && (
                             <div className="mt-3 flex items-center justify-between gap-2 rounded-xl border p-2.5 shadow-sm" style={{ background: "var(--surface)", borderColor: "var(--border)" }}>
                               <div className="flex items-center gap-2.5 min-w-0">
-                                <div className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full border border-slate-600 bg-slate-700">
+                                <div className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full border border-[var(--border)] bg-[var(--surface-muted)] text-[var(--text-secondary)]">
                                   {selected.professional_players.profile_image_url ? (
                                     <Image src={selected.professional_players.profile_image_url} alt={selected.professional_players.in_game_name || selected.professional_players.name} width={32} height={32} unoptimized={!canOptimizeImage(selected.professional_players.profile_image_url)} className="h-full w-full object-cover" />
                                   ) : (
@@ -1047,12 +1047,12 @@ export default function LineupsPage() {
                                 </div>
                                 <div className="min-w-0">
                                   <p className="truncate text-xs font-bold" style={{ color: "var(--text-primary)" }}>{selected.professional_players.in_game_name || selected.professional_players.name}</p>
-                                  <p className="truncate text-[11px] text-slate-400">{formatPlayerPrice(selected.professional_players.current_price)}</p>
+                                  <p className="truncate text-[11px] text-[var(--text-muted)]">{formatPlayerPrice(selected.professional_players.current_price)}</p>
                                 </div>
                               </div>
                               <div className="text-right shrink-0">
-                                <div className="text-[9px] uppercase tracking-wider text-slate-400">Latest GW</div>
-                                <div className="text-xs font-mono font-bold text-white flex items-center justify-end gap-1">
+                                <div className="text-[9px] uppercase tracking-wider text-[var(--text-muted)]">Latest GW</div>
+                                <div className="text-xs font-mono font-bold text-[var(--text-primary)] flex items-center justify-end gap-1">
                                   {formatPoints(selected.professional_players.last_gw_points ?? 0)}
                                   {selected.professional_players.form_trend === 'up' && (
                                     <TrendingUp className="w-3 h-3 text-emerald-400 inline" />
@@ -1061,7 +1061,7 @@ export default function LineupsPage() {
                                     <TrendingDown className="w-3 h-3 text-red-400 inline" />
                                   )}
                                   {(!selected.professional_players.form_trend || selected.professional_players.form_trend === 'flat') && (
-                                    <Minus className="w-3 h-3 text-slate-400 inline" />
+                                    <Minus className="w-3 h-3 text-[var(--text-muted)] inline" />
                                   )}
                                 </div>
                               </div>
@@ -1099,17 +1099,17 @@ export default function LineupsPage() {
             aria-describedby="deadline-save-description"
             className="w-full max-w-md rounded-2xl border shadow-2xl" style={{ background: "var(--surface)", borderColor: "var(--border)" }}
           >
-            <div className="flex items-start gap-3 border-b border-slate-700 px-5 py-4">
-              <CircleAlert className="mt-0.5 h-5 w-5 shrink-0 text-amber-300" aria-hidden="true" />
+            <div className="flex items-start gap-3 border-b border-[var(--border)] px-5 py-4">
+              <CircleAlert className="mt-0.5 h-5 w-5 shrink-0 text-amber-500" aria-hidden="true" />
               <div>
-                <h2 id="deadline-save-title" className="text-lg font-bold text-white">Deadline approaching</h2>
-                <p className="mt-1 text-sm text-amber-100">
+                <h2 id="deadline-save-title" className="text-lg font-bold text-[var(--text-primary)]">Deadline approaching</h2>
+                <p className="mt-1 text-sm text-amber-700 dark:text-amber-300">
                   Deadline is in {deadlineCountdown ?? 'less than two hours'} for Gameweek {selectedGameweek.gameweekNumber}.
                 </p>
               </div>
             </div>
             <div className="space-y-4 p-5">
-              <p id="deadline-save-description" className="text-sm leading-6 text-slate-300">
+              <p id="deadline-save-description" className="text-sm leading-6 text-[var(--text-secondary)]">
                 Are you sure you want to save these lineup changes before the deadline locks your team?
                 {selectedGameweek.deadline
                   ? ` Deadline: ${new Date(selectedGameweek.deadline).toLocaleString()}.`
@@ -1119,7 +1119,7 @@ export default function LineupsPage() {
                 <button
                   type="button"
                   onClick={() => setConfirmDeadlineSave(false)}
-                  className="rounded-lg border border-slate-600 px-4 py-2.5 text-sm font-semibold text-slate-200 transition-colors hover:bg-slate-800"
+                  className="rounded-lg border border-[var(--border)] bg-[var(--surface-raised)] px-4 py-2.5 text-sm font-semibold text-[var(--text-primary)] transition-colors hover:bg-[var(--surface-muted)]"
                 >
                   Keep Editing
                 </button>
@@ -1151,7 +1151,7 @@ export default function LineupsPage() {
                 ? 'bg-purple-900/40 border-purple-500/20'
                 : 'bg-emerald-900/40 border-emerald-500/20'
             }`}>
-              <h2 className="text-lg font-bold text-white flex items-center gap-2">
+              <h2 className="text-lg font-bold text-[var(--text-primary)] flex items-center gap-2">
                 <span className="text-2xl">{activeModal === 'triple-captain' ? '🌟' : '⚡'}</span>
                 {activeModal === 'triple-captain' ? 'Activate Triple Captain' : 'Activate Bench Boost'}
               </h2>
@@ -1160,16 +1160,16 @@ export default function LineupsPage() {
             {/* Modal body */}
             <div className="p-6 space-y-4">
               {activeModal === 'triple-captain' ? (
-                <p className="text-slate-300 text-sm leading-relaxed">
+                <p className="text-[var(--text-secondary)] text-sm leading-relaxed">
                   Your captain will earn <strong className="text-purple-400">3x points</strong> instead of the usual 2x for the upcoming gameweek.
                 </p>
               ) : (
-                <p className="text-slate-300 text-sm leading-relaxed">
+                <p className="text-[var(--text-secondary)] text-sm leading-relaxed">
                   All three of your bench players will <strong className="text-emerald-400">score their full points</strong> for the upcoming gameweek, in addition to your starting five.
                 </p>
               )}
 
-              <div className="bg-amber-900/20 border border-amber-700/30 rounded p-3 text-xs text-amber-200/80">
+              <div className="bg-amber-500/10 border border-amber-500/30 rounded p-3 text-xs text-amber-800 dark:text-amber-200">
                 <strong>Warning:</strong> You can only use this chip once per season. This action cannot be undone once the gameweek deadline passes.
               </div>
             </div>
@@ -1179,7 +1179,7 @@ export default function LineupsPage() {
               <button
                 onClick={() => setActiveModal(null)}
                 disabled={activating}
-                className="px-4 py-2 text-sm text-slate-300 hover:text-white transition-colors disabled:opacity-50"
+                className="px-4 py-2 text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors disabled:opacity-50"
               >
                 Cancel
               </button>

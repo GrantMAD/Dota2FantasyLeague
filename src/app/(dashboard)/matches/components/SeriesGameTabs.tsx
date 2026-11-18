@@ -20,7 +20,7 @@ export function SeriesGameTabs({ games, activeMatchId, onSelect }: SeriesGameTab
     <div
       role="tablist"
       aria-label="Games in this series"
-      className="flex items-center gap-1.5 overflow-x-auto border-b border-slate-800/70 px-4 py-2"
+      className="flex items-center gap-1.5 overflow-x-auto border-b border-[var(--border)] px-4 py-2"
     >
       {games.map((game, index) => {
         const isActive = game.id === activeMatchId;

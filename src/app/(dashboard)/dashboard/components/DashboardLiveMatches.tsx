@@ -166,7 +166,7 @@ export function DashboardLiveMatches({
                 </div>
 
                 <div className="flex shrink-0 flex-col items-center justify-center px-1">
-                  <span className="text-[11px] font-black tracking-wider text-slate-500 dark:text-slate-400">
+                  <span className="text-[11px] font-black tracking-wider text-[var(--text-muted)]">
                     VS
                   </span>
                 </div>

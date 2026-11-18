@@ -104,7 +104,7 @@ export function MatchFantasyImpactBanner({
                     </span>
                   )}
                   {player.isViceCaptain && (
-                    <span className="inline-flex items-center gap-0.5 text-[10px] font-bold bg-slate-700 text-slate-200 px-1.5 py-0.5 rounded">
+                    <span className="inline-flex items-center gap-0.5 text-[10px] font-bold bg-[var(--surface-muted)] text-[var(--text-secondary)] px-1.5 py-0.5 rounded">
                       <Shield className="h-2.5 w-2.5" /> VC
                     </span>
                   )}

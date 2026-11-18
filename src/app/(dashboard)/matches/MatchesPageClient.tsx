@@ -223,10 +223,10 @@ export default function MatchesPage({ initialData }: { initialData: InitialMatch
         {/* Quick link to user's lineup */}
         <Link
           href="/lineups"
-          className="matches-active-lineup-link inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold bg-slate-900 border border-slate-700/80 text-slate-200 hover:text-white hover:border-amber-500/50 transition-all shadow-sm group"
+          className="matches-active-lineup-link inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold bg-[var(--surface-raised)] border border-[var(--border)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:border-amber-500/50 transition-all shadow-sm group"
         >
           <span>⭐ Check My Active Lineup</span>
-          <span className="text-amber-400 group-hover:translate-x-0.5 transition-transform">→</span>
+          <span className="text-amber-500 dark:text-amber-400 group-hover:translate-x-0.5 transition-transform">→</span>
         </Link>
       </div>
 
@@ -299,7 +299,7 @@ export default function MatchesPage({ initialData }: { initialData: InitialMatch
 
       {/* Error state */}
       {error && (
-        <div className="bg-rose-950/40 border border-rose-600/50 text-rose-300 px-4 py-3 rounded-xl mb-8 text-sm flex items-center gap-2">
+        <div className="border border-rose-500/30 bg-rose-500/10 text-rose-800 dark:text-rose-200 px-4 py-3 rounded-xl mb-8 text-sm flex items-center gap-2" role="alert">
           <span>⚠️</span>
           <span>{error}</span>
         </div>
@@ -325,14 +325,14 @@ export default function MatchesPage({ initialData }: { initialData: InitialMatch
         </div>
       ) : seriesGroups.length === 0 ? (
         /* Empty State */
-        <div className="flex flex-col items-center justify-center py-20 px-4 text-center rounded-2xl border border-slate-800 bg-slate-900/40">
-          <div className="w-16 h-16 rounded-2xl bg-slate-800/80 border border-slate-700 flex items-center justify-center text-2xl mb-4 text-slate-500">
+        <div className="flex flex-col items-center justify-center py-20 px-4 text-center rounded-2xl border border-[var(--border)] bg-[var(--surface)]">
+          <div className="w-16 h-16 rounded-2xl bg-[var(--surface-raised)] border border-[var(--border)] flex items-center justify-center text-2xl mb-4 text-[var(--text-muted)]">
             ⚔️
           </div>
-          <h3 className="text-lg font-bold text-white mb-1">
+          <h3 className="text-lg font-bold text-[var(--text-primary)] mb-1">
             {hiddenCompletedMatchCount > 0 ? 'Waiting for match stats' : 'No matches found'}
           </h3>
-          <p className="text-sm text-slate-400 max-w-sm mb-6">
+          <p className="text-sm text-[var(--text-secondary)] max-w-sm mb-6">
             {hiddenCompletedMatchCount > 0
               ? `${hiddenCompletedMatchCount} completed match${hiddenCompletedMatchCount === 1 ? '' : 'es'} will appear once player stats are available.`
               : searchQuery || selectedTournamentId || activeTab !== 'all'
@@ -380,12 +380,12 @@ export default function MatchesPage({ initialData }: { initialData: InitialMatch
         </div>
       )}
       {!loading && total > 0 && (
-        <div className="mt-6 flex flex-col sm:flex-row items-center justify-between gap-3 text-sm text-slate-400">
+        <div className="mt-6 flex flex-col sm:flex-row items-center justify-between gap-3 text-sm text-[var(--text-secondary)]">
           <p>
             Showing {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, total)} of {total} matches
           </p>
           {hiddenCompletedMatchCount > 0 && seriesGroups.length > 0 && (
-            <p className="text-xs text-slate-500">
+            <p className="text-xs text-[var(--text-muted)]">
               {hiddenCompletedMatchCount} completed match{hiddenCompletedMatchCount === 1 ? '' : 'es'} hidden until player stats are available
             </p>
           )}
@@ -394,7 +394,7 @@ export default function MatchesPage({ initialData }: { initialData: InitialMatch
               type="button"
               onClick={() => setPage((current) => Math.max(1, current - 1))}
               disabled={page <= 1}
-              className="rounded-lg border border-slate-700 px-3 py-1.5 text-slate-200 disabled:cursor-not-allowed disabled:opacity-40"
+              className="rounded-lg border border-[var(--border)] bg-[var(--surface-raised)] px-3 py-1.5 text-[var(--text-primary)] hover:bg-[var(--surface-muted)] disabled:cursor-not-allowed disabled:opacity-40"
             >
               Previous
             </button>
@@ -403,7 +403,7 @@ export default function MatchesPage({ initialData }: { initialData: InitialMatch
               type="button"
               onClick={() => setPage((current) => Math.min(totalPages, current + 1))}
               disabled={page >= totalPages}
-              className="rounded-lg border border-slate-700 px-3 py-1.5 text-slate-200 disabled:cursor-not-allowed disabled:opacity-40"
+              className="rounded-lg border border-[var(--border)] bg-[var(--surface-raised)] px-3 py-1.5 text-[var(--text-primary)] hover:bg-[var(--surface-muted)] disabled:cursor-not-allowed disabled:opacity-40"
             >
               Next
             </button>

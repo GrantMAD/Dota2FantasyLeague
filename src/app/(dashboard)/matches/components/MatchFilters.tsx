@@ -121,7 +121,7 @@ export function MatchFilters({
         {/* Search input */}
         <div className="relative flex-1">
           <svg
-            className="w-4 h-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2"
+            className="w-4 h-4 text-[var(--text-muted)] absolute left-3 top-1/2 -translate-y-1/2"
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"
@@ -141,7 +141,7 @@ export function MatchFilters({
               type="button"
               aria-label="Clear match search"
               onClick={() => onSearchChange('')}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-500 hover:text-white"
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-[var(--text-muted)] hover:text-[var(--text-primary)]"
             >
               ✕
             </button>

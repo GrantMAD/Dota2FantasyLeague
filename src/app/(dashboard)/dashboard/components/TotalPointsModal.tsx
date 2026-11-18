@@ -77,7 +77,7 @@ export function TotalPointsModal({ onClose }: TotalPointsModalProps) {
 
   return (
     <div
-      className="fixed inset-0 z-80 flex items-start justify-center overflow-y-auto bg-slate-950/75 p-4 py-8 backdrop-blur-sm sm:items-center animate-modal-backdrop"
+      className="fixed inset-0 z-80 flex items-start justify-center overflow-y-auto bg-[var(--surface)]/75 p-4 py-8 backdrop-blur-sm sm:items-center animate-modal-backdrop"
       onMouseDown={(event) => {
         if (event.target === event.currentTarget) onClose();
       }}
@@ -88,7 +88,7 @@ export function TotalPointsModal({ onClose }: TotalPointsModalProps) {
         aria-modal="true"
         aria-labelledby="total-points-title"
         tabIndex={-1}
-        className="animate-modal-content my-auto max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-2xl border border-slate-700 bg-slate-900 p-5 shadow-2xl sm:p-7"
+        className="animate-modal-content my-auto max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 shadow-2xl sm:p-7"
       >
         <header className="mb-6 flex items-start justify-between gap-4">
           <div>
@@ -99,14 +99,14 @@ export function TotalPointsModal({ onClose }: TotalPointsModalProps) {
             <h2 id="total-points-title" className="text-2xl font-bold text-white">
               Where your points came from
             </h2>
-            {breakdown?.seasonName && <p className="mt-1 text-sm text-slate-400">{breakdown.seasonName}</p>}
+            {breakdown?.seasonName && <p className="mt-1 text-sm text-[var(--text-muted)]">{breakdown.seasonName}</p>}
           </div>
           <button
             type="button"
             ref={closeButtonRef}
             onClick={onClose}
             aria-label="Close total points breakdown"
-            className="rounded-lg p-2 text-slate-400 hover:bg-slate-800 hover:text-white"
+            className="rounded-lg p-2 text-[var(--text-muted)] hover:bg-[var(--surface-raised)] hover:text-white"
           >
             <X className="h-5 w-5" />
           </button>
@@ -114,15 +114,15 @@ export function TotalPointsModal({ onClose }: TotalPointsModalProps) {
 
         {loading ? (
           <div role="status" aria-label="Loading points breakdown" className="space-y-4 py-2">
-            <div className="h-24 animate-pulse rounded-xl border border-slate-700/60 bg-slate-800/40 p-5">
-              <div className="h-3 w-24 rounded bg-slate-700" />
-              <div className="mt-3 h-7 w-32 rounded bg-slate-700" />
+            <div className="h-24 animate-pulse rounded-xl border border-[var(--border)]/60 bg-[var(--surface-raised)]/40 p-5">
+              <div className="h-3 w-24 rounded bg-[var(--surface-muted)]" />
+              <div className="mt-3 h-7 w-32 rounded bg-[var(--surface-muted)]" />
             </div>
             <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
               {[1, 2, 3, 4, 5, 6].map((i) => (
-                <div key={i} className="flex h-12 animate-pulse items-center justify-between rounded-lg border border-slate-800 bg-slate-950/40 px-3">
-                  <div className="h-3.5 w-24 rounded bg-slate-800" />
-                  <div className="h-4 w-12 rounded bg-slate-800" />
+                <div key={i} className="flex h-12 animate-pulse items-center justify-between rounded-lg border border-[var(--border)] bg-[var(--surface)]/40 px-3">
+                  <div className="h-3.5 w-24 rounded bg-[var(--surface-muted)]" />
+                  <div className="h-4 w-12 rounded bg-[var(--surface-muted)]" />
                 </div>
               ))}
             </div>
@@ -134,19 +134,19 @@ export function TotalPointsModal({ onClose }: TotalPointsModalProps) {
         ) : breakdown ? (
           <>
             <div className="mb-6 rounded-xl border border-emerald-500/25 bg-emerald-500/5 p-5">
-              <div className="text-xs uppercase tracking-wider text-slate-400">Season total</div>
+              <div className="text-xs uppercase tracking-wider text-[var(--text-muted)]">Season total</div>
               <div className="mt-1 text-3xl font-bold text-emerald-300">{breakdown.totalPoints.toFixed(2)} pts</div>
-              <p className="mt-2 text-xs text-slate-400">
+              <p className="mt-2 text-xs text-[var(--text-muted)]">
                 The saved total is built from your gameweek lineup scores, including captain multipliers and applicable chips.
               </p>
             </div>
 
             <section className="mb-7">
-              <div className="rounded-2xl border border-slate-800 bg-slate-950/35 p-4 sm:p-5">
+              <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)]/35 p-4 sm:p-5">
                 <header className="mb-4 flex items-center justify-between gap-4">
                   <div>
-                    <h3 className="text-sm font-semibold uppercase tracking-wider text-slate-200">Scoring categories</h3>
-                    <p className="mt-1 text-xs text-slate-500">Category subtotal</p>
+                    <h3 className="text-sm font-semibold uppercase tracking-wider text-[var(--text-secondary)]">Scoring categories</h3>
+                    <p className="mt-1 text-xs text-[var(--text-muted)]">Category subtotal</p>
                   </div>
                   <span className="shrink-0 font-mono text-lg font-bold text-white">
                     {formatPoints(categorySubtotal)} pts
@@ -154,30 +154,30 @@ export function TotalPointsModal({ onClose }: TotalPointsModalProps) {
                 </header>
                 <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
                   {POINT_CATEGORIES.map(([key, label]) => (
-                    <div key={key} className="rounded-xl border border-slate-800/80 bg-slate-900/60 p-3">
+                    <div key={key} className="rounded-xl border border-[var(--border)]/80 bg-[var(--surface)]/60 p-3">
                       <div className="flex items-center gap-2">
                         <span className="h-2 w-2 rounded-full" style={{ backgroundColor: CATEGORY_ACCENTS[key] }} />
-                        <span className="text-xs font-medium text-slate-400">{label}</span>
+                        <span className="text-xs font-medium text-[var(--text-muted)]">{label}</span>
                       </div>
-                      <div className="mt-2 font-mono text-lg font-semibold leading-none text-slate-100">
+                      <div className="mt-2 font-mono text-lg font-semibold leading-none text-[var(--text-primary)]">
                         {formatPoints(breakdown.categoryTotals[key])}
-                        <span className="ml-1.5 font-sans text-xs font-medium text-slate-500">pts</span>
+                        <span className="ml-1.5 font-sans text-xs font-medium text-[var(--text-muted)]">pts</span>
                       </div>
                     </div>
                   ))}
                 </div>
                 {Math.abs(breakdown.unitemizedPoints) >= 0.01 && (
-                  <div className="mt-4 flex flex-wrap items-start justify-between gap-3 border-t border-dashed border-slate-700/80 pt-4">
+                  <div className="mt-4 flex flex-wrap items-start justify-between gap-3 border-t border-dashed border-[var(--border)]/80 pt-4">
                     <div className="flex min-w-0 items-start gap-2">
-                      <Info className="mt-0.5 h-4 w-4 shrink-0 text-slate-500" />
+                      <Info className="mt-0.5 h-4 w-4 shrink-0 text-[var(--text-muted)]" />
                       <div>
-                        <p className="text-sm font-medium text-slate-300">Unitemized adjustment</p>
-                        <p className="mt-1 max-w-xl text-xs leading-5 text-slate-500">
+                        <p className="text-sm font-medium text-[var(--text-secondary)]">Unitemized adjustment</p>
+                        <p className="mt-1 max-w-xl text-xs leading-5 text-[var(--text-muted)]">
                           Keeps the category subtotal aligned with your saved season total when historical scoring details are incomplete.
                         </p>
                       </div>
                     </div>
-                    <span className="shrink-0 font-mono text-sm font-semibold text-slate-200">
+                    <span className="shrink-0 font-mono text-sm font-semibold text-[var(--text-secondary)]">
                       {formatPoints(breakdown.unitemizedPoints)} pts
                     </span>
                   </div>
@@ -186,9 +186,9 @@ export function TotalPointsModal({ onClose }: TotalPointsModalProps) {
             </section>
 
             <section>
-              <h3 className="mb-3 text-sm font-semibold uppercase tracking-wider text-slate-300">Gameweek contributions</h3>
+              <h3 className="mb-3 text-sm font-semibold uppercase tracking-wider text-[var(--text-secondary)]">Gameweek contributions</h3>
               {breakdown.gameweeks.length === 0 ? (
-                <p className="rounded-xl border border-slate-700 bg-slate-950/40 p-4 text-sm text-slate-300">
+                <p className="rounded-xl border border-[var(--border)] bg-[var(--surface)]/40 p-4 text-sm text-[var(--text-secondary)]">
                   No saved gameweek lineups are available yet.
                 </p>
               ) : (
@@ -197,7 +197,7 @@ export function TotalPointsModal({ onClose }: TotalPointsModalProps) {
                     <details
                       key={gameweek.gameweekId}
                       open={gameweek.gameweekId === expandedGameweekId}
-                      className="group rounded-xl border border-slate-800 bg-slate-950/35"
+                      className="group rounded-xl border border-[var(--border)] bg-[var(--surface)]/35"
                     >
                       <summary className="flex cursor-pointer list-none flex-wrap items-center justify-between gap-3 p-4">
                         <span className="font-semibold text-white">Gameweek {gameweek.gameweekNumber}</span>
@@ -208,11 +208,11 @@ export function TotalPointsModal({ onClose }: TotalPointsModalProps) {
                           )}
                         </span>
                       </summary>
-                      <div className="border-t border-slate-800 px-4 pb-3">
+                      <div className="border-t border-[var(--border)] px-4 pb-3">
                         {gameweek.contributors.length === 0 ? (
-                          <p className="py-3 text-sm text-slate-400">No player scoring details are available for this gameweek.</p>
+                          <p className="py-3 text-sm text-[var(--text-muted)]">No player scoring details are available for this gameweek.</p>
                         ) : (
-                          <ul className="divide-y divide-slate-800">
+                          <ul className="divide-y divide-[var(--border)]">
                             {gameweek.contributors.map((player) => (
                               <li key={`${gameweek.gameweekId}-${player.playerId}`} className="flex flex-wrap items-center justify-between gap-3 py-3">
                                 <div className="min-w-0">
@@ -232,7 +232,7 @@ export function TotalPointsModal({ onClose }: TotalPointsModalProps) {
                                       <span className="rounded-full bg-cyan-500/15 px-2 py-0.5 text-[10px] font-bold uppercase text-cyan-200">Auto-sub</span>
                                     )}
                                   </div>
-                                  <span className="text-xs text-slate-400">{player.role} · {player.basePoints.toFixed(2)} base pts</span>
+                                  <span className="text-xs text-[var(--text-muted)]">{player.role} · {player.basePoints.toFixed(2)} base pts</span>
                                 </div>
                                 <span className="shrink-0 text-sm font-semibold text-emerald-300">
                                   {player.points.toFixed(2)} pts

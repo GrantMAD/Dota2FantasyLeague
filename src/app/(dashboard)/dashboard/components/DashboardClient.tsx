@@ -50,7 +50,7 @@ function buildStats(data: DashboardData): DashboardStatCardData[] {
       label: 'Squad Value',
       value: `${Number(data.squadValue || 0).toFixed(1)}M`,
       trend: 'Current squad',
-      trendColor: 'text-slate-400',
+      trendColor: 'text-[var(--text-muted)]',
     },
     {
       icon: <Wallet className="w-5 h-5 text-amber-400" />,
@@ -64,14 +64,14 @@ function buildStats(data: DashboardData): DashboardStatCardData[] {
       label: 'Total Points',
       value: data.totalPoints || 0,
       trend: 'Overall',
-      trendColor: 'text-slate-400',
+      trendColor: 'text-[var(--text-muted)]',
     },
     {
       icon: <BarChart3 className="w-5 h-5 text-teal-400" />,
       label: 'Global Rank',
       value: data.globalRank || '-',
       trend: data.globalRank ? 'Active' : 'Unranked',
-      trendColor: data.globalRank ? 'text-green-500' : 'text-slate-400',
+      trendColor: data.globalRank ? 'text-green-500' : 'text-[var(--text-muted)]',
     },
     {
       icon: <Zap className="w-5 h-5 text-orange-400" />,
