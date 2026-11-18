@@ -828,7 +828,7 @@ export default function RulesPage() {
               </div>
             </div>
             <p className="mt-3 text-sm leading-relaxed text-[var(--text-secondary)]">
-              With an odd number of participants in H2H, one manager receives a bye and an automatic win that round.
+              With an odd number of participants in H2H, one manager receives a bye, an automatic win, and 3 league points. The bye does not add fantasy points to tie-break totals.
             </p>
           </article>
           <article className="flex flex-col justify-between rounded-2xl border border-[var(--border)] bg-[var(--surface-raised)] p-5">

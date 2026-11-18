@@ -61,10 +61,18 @@ export function calculateH2HStandings(
   }
 
   for (const matchup of matchups) {
-    if (!matchup.is_resolved || matchup.is_bye) continue;
+    if (!matchup.is_resolved) continue;
     const participantA = totals.get(matchup.participant_a_id);
+    if (!participantA) continue;
+
+    if (matchup.is_bye) {
+      // Byes award a win but do not add fantasy points to tie-break totals.
+      participantA.wins += 1;
+      continue;
+    }
+
     const participantB = totals.get(matchup.participant_b_id);
-    if (!participantA || !participantB) continue;
+    if (!participantB) continue;
 
     const pointsA = toCents(matchup.points_a);
     const pointsB = toCents(matchup.points_b);

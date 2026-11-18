@@ -58,7 +58,7 @@ describe('calculateH2HStandings', () => {
     ]);
   });
 
-  it('excludes unresolved fixtures and byes from records and tie-break points', () => {
+  it('ignores unresolved fixtures and awards resolved byes as wins without tie-break points', () => {
     const standings = calculateH2HStandings(
       [{ id: 1 }, { id: 2 }, { id: 3 }],
       [
@@ -70,8 +70,8 @@ describe('calculateH2HStandings', () => {
 
     expect(standings).toEqual([
       expect.objectContaining({ participantId: 1, wins: 1, leaguePoints: 3, pointsFor: 100 }),
+      expect.objectContaining({ participantId: 2, wins: 1, losses: 1, leaguePoints: 3, pointsFor: 50, pointsAgainst: 100 }),
       expect.objectContaining({ participantId: 3, wins: 0, losses: 0, draws: 0, leaguePoints: 0, pointsFor: 0 }),
-      expect.objectContaining({ participantId: 2, wins: 0, losses: 1, leaguePoints: 0, pointsFor: 50 }),
     ]);
   });
 });
