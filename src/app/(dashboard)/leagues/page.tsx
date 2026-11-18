@@ -202,7 +202,13 @@ function LeaguesPageContent() {
 
   const visibleLeagues = leagues.filter((l) => l.type === tab);
   const standings = visibleLeagues.flatMap((l) => l.standings ?? []).sort((a, b) => (a.rank ?? 999) - (b.rank ?? 999));
-  const fixtures = visibleLeagues.flatMap((l) => l.fixtures ?? []);
+  const fixtures = visibleLeagues.flatMap((league) =>
+    (league.fixtures ?? []).map((fixture) => ({
+      ...fixture,
+      leagueId: fixture.leagueId ?? league.id,
+      leagueName: fixture.leagueName ?? league.name,
+    }))
+  );
 
   const heroLeague = [...visibleLeagues]
     .sort((a, b) => b.currentParticipants - a.currentParticipants)[0] ?? null;
@@ -449,7 +455,7 @@ function LeaguesPageContent() {
               {tab === 'classic' && standings.length > 0 && (
                 <div className="mt-10">
                   <div className="mb-4 flex items-center justify-between">
-                    <h2 className="flex items-center gap-2 text-xl font-bold text-white">
+                    <h2 className="flex items-center gap-2 text-xl font-bold text-[var(--text-primary)]">
                       <Trophy className="h-5 w-5 text-amber-400" />
                       Consolidated Standings
                     </h2>
@@ -528,13 +534,22 @@ function LeaguesPageContent() {
                   </div>
                   <div className="grid gap-3 md:grid-cols-2">
                     {fixtures.map((fixture) => (
-                      <div
-                        key={fixture.id}
+                      <button
+                        key={`${fixture.leagueId}-${fixture.id}`}
+                        type="button"
                         onClick={() => setSelectedFixture(fixture)}
-                        className="group cursor-pointer overflow-hidden rounded-2xl border border-violet-500/25 bg-[var(--surface)] shadow-lg transition-all hover:border-violet-400/60 hover:shadow-violet-500/10"
+                        aria-label={`View ${fixture.home} versus ${fixture.away}, Gameweek ${fixture.gameweekId}, ${fixture.isBye ? 'bye' : fixture.winnerId ? 'final' : 'in progress or pending'}`}
+                        className="group w-full cursor-pointer overflow-hidden rounded-2xl border border-violet-500/25 bg-[var(--surface)] text-left shadow-lg transition-all hover:border-violet-400/60 hover:shadow-violet-500/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500"
                       >
-                        <div className="flex items-center justify-between border-b border-[var(--border)] bg-violet-500/5 px-4 py-2">
-                          <span className="text-xs font-bold uppercase tracking-wider text-violet-800 dark:text-violet-300">Gameweek {fixture.gameweekId}</span>
+                        <div className="flex items-center justify-between gap-3 border-b border-[var(--border)] bg-violet-500/5 px-4 py-2">
+                          <div className="min-w-0">
+                            <span className="block truncate text-xs font-bold text-[var(--text-primary)]" title={fixture.leagueName}>
+                              {fixture.leagueName}
+                            </span>
+                            <span className="mt-0.5 block text-[10px] font-semibold uppercase tracking-wider text-violet-800 dark:text-violet-300">
+                              Gameweek {fixture.gameweekId}
+                            </span>
+                          </div>
                           <span className={`rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${fixture.isBye
                               ? 'border-[var(--border)] bg-[var(--surface-muted)] text-[var(--text-muted)]'
                               : fixture.winnerId
@@ -572,7 +587,7 @@ function LeaguesPageContent() {
                           </div>
                         </div>
                         <p className="px-4 pb-3 text-center text-[10px] text-[var(--text-muted)]">Fantasy points recorded for this matchup</p>
-                      </div>
+                      </button>
                     ))}
                   </div>
                 </div>
@@ -731,7 +746,7 @@ function LeaguesPageContent() {
                 )}
 
                 <div className="mt-6">
-                  <h3 className="mb-3 flex items-center gap-2 text-base font-bold text-white">
+                  <h3 className="mb-3 flex items-center gap-2 text-base font-bold text-[var(--text-primary)]">
                     <Activity className="h-4 w-4 text-sky-400" /> League Activity
                   </h3>
                   {activityLoading ? (
@@ -823,25 +838,62 @@ function LeaguesPageContent() {
                   ) : (
                     <div className="space-y-2.5">
                       {selectedLeague.fixtures.map((fixture) => (
-                        <div
+                        <button
                           key={fixture.id}
+                          type="button"
                           onClick={() => setSelectedFixture({ ...fixture, leagueName: selectedLeague.name })}
-                          className="cursor-pointer rounded-xl border border-[var(--border)] bg-[var(--surface-raised)] p-3.5 transition-all hover:border-sky-500/40 hover:bg-[var(--surface-muted)] group"
+                          aria-label={`View ${fixture.home} versus ${fixture.away}, Gameweek ${fixture.gameweekId}, ${fixture.isBye ? 'bye' : fixture.winnerId ? 'final' : 'in progress or pending'}`}
+                          className="group w-full cursor-pointer overflow-hidden rounded-2xl border border-violet-500/25 bg-[var(--surface)] text-left shadow-sm transition-all hover:border-violet-400/60 hover:bg-[var(--surface-raised)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500"
                         >
-                          <div className="flex items-center justify-between text-sm">
-                            <span className="font-semibold text-white group-hover:text-amber-400 transition-colors">{fixture.home}</span>
-                            <span className="rounded-lg bg-amber-500/20 px-2 py-0.5 text-xs font-bold font-mono text-amber-400">
-                              {fixture.homePoints} — {fixture.awayPoints}
+                          <div className="flex items-center justify-between gap-3 border-b border-[var(--border)] bg-violet-500/5 px-3.5 py-2">
+                            <div className="min-w-0">
+                              <span className="block truncate text-xs font-semibold text-[var(--text-primary)]">
+                                {selectedLeague.name}
+                              </span>
+                              <span className="mt-0.5 block text-[10px] font-semibold uppercase tracking-wider text-violet-800 dark:text-violet-300">
+                                Gameweek {fixture.gameweekId}
+                              </span>
+                            </div>
+                            <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${fixture.isBye
+                                ? 'border-[var(--border)] bg-[var(--surface-muted)] text-[var(--text-muted)]'
+                                : fixture.winnerId
+                                  ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-800 dark:text-emerald-300'
+                                  : 'border-amber-500/30 bg-amber-500/10 text-amber-800 dark:text-amber-300'
+                              }`}>
+                              {fixture.isBye ? 'Bye' : fixture.winnerId ? 'Final' : 'In progress / pending'}
                             </span>
-                            <span className="font-semibold text-white group-hover:text-amber-400 transition-colors">{fixture.away}</span>
                           </div>
-                          <div className="mt-2.5 flex items-center justify-between border-t border-[var(--border)] pt-2 text-xs text-[var(--text-muted)]">
-                            <span>Gameweek {fixture.gameweekId}</span>
-                            <span className={`font-semibold ${fixture.isBye ? 'text-[var(--text-muted)]' : fixture.winnerId ? 'text-emerald-400' : 'text-amber-400'}`}>
-                              {fixture.isBye ? 'Bye Round' : fixture.winnerId ? 'Result Final' : 'Scheduled / Live'} →
+                          <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 px-3.5 py-4">
+                            <div className="flex min-w-0 flex-col items-center gap-2 text-center">
+                              <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-full border border-[var(--border)] bg-[var(--surface-raised)]">
+                                {fixture.homeAvatarUrl ? (
+                                  <Image src={fixture.homeAvatarUrl} alt="" width={40} height={40} unoptimized={!canOptimizeImage(fixture.homeAvatarUrl)} className="h-full w-full object-cover" />
+                                ) : (
+                                  <span className="text-xs font-bold text-[var(--text-secondary)]">{fixture.home.substring(0, 2).toUpperCase()}</span>
+                                )}
+                              </div>
+                              <span className="w-full truncate text-xs font-semibold text-[var(--text-primary)]">{fixture.home}</span>
+                              <span className="font-mono text-xl font-black text-[var(--text-primary)]">{fixture.homePoints}</span>
+                            </div>
+                            <span className="rounded-full border border-violet-500/30 bg-violet-500/10 px-2.5 py-1 text-[10px] font-black uppercase tracking-widest text-violet-800 dark:text-violet-300">
+                              {fixture.isBye ? 'Bye' : 'VS'}
                             </span>
+                            <div className="flex min-w-0 flex-col items-center gap-2 text-center">
+                              <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-full border border-[var(--border)] bg-[var(--surface-raised)]">
+                                {fixture.awayAvatarUrl ? (
+                                  <Image src={fixture.awayAvatarUrl} alt="" width={40} height={40} unoptimized={!canOptimizeImage(fixture.awayAvatarUrl)} className="h-full w-full object-cover" />
+                                ) : (
+                                  <span className="text-xs font-bold text-[var(--text-secondary)]">{fixture.away.substring(0, 2).toUpperCase()}</span>
+                                )}
+                              </div>
+                              <span className="w-full truncate text-xs font-semibold text-[var(--text-primary)]">{fixture.away}</span>
+                              <span className="font-mono text-xl font-black text-[var(--text-primary)]">{fixture.awayPoints}</span>
+                            </div>
                           </div>
-                        </div>
+                          <p className="border-t border-[var(--border)] px-3.5 py-2 text-center text-[10px] text-[var(--text-muted)]">
+                            {fixture.isBye ? 'Bye round · automatic win' : 'Fantasy points recorded for this matchup'}
+                          </p>
+                        </button>
                       ))}
                     </div>
                   )}
@@ -939,19 +991,19 @@ function LeaguesPageContent() {
           <div className="relative max-h-[90vh] w-full max-w-xl overflow-y-auto rounded-3xl border border-[var(--border)] bg-[var(--surface)] shadow-2xl p-6 no-scrollbar">
             <div className="border-b border-[var(--border)] pb-4">
               <div className="flex items-center gap-2 mb-1.5">
-                <span className="rounded-full border border-amber-500/40 bg-amber-500/10 px-2.5 py-0.5 text-[10px] font-bold text-amber-300 uppercase">
+                <span className="rounded-full border border-amber-500/40 bg-amber-500/10 px-2.5 py-0.5 text-[10px] font-bold text-amber-800 dark:text-amber-300 uppercase">
                   Gameweek {selectedFixture.gameweekId}
                 </span>
                 <span className={`rounded-full border px-2.5 py-0.5 text-[10px] font-bold uppercase ${selectedFixture.isBye ? 'border-[var(--border)] bg-[var(--surface-muted)] text-[var(--text-secondary)]'
-                    : selectedFixture.winnerId ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-400'
-                      : 'border-amber-500/30 bg-amber-500/10 text-amber-400'
+                    : selectedFixture.winnerId ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-800 dark:text-emerald-300'
+                      : 'border-amber-500/30 bg-amber-500/10 text-amber-800 dark:text-amber-300'
                   }`}>
                   {selectedFixture.isBye ? 'Bye Round' : selectedFixture.winnerId ? 'Final Result' : 'Live / Scheduled'}
                 </span>
               </div>
               <div className="flex items-center justify-between">
                 <div>
-                  <h2 className="text-xl font-bold text-white">Head-to-Head Matchup</h2>
+                  <h2 className="text-xl font-bold text-[var(--text-primary)]">Head-to-Head Matchup</h2>
                   {selectedFixture.leagueName && <p className="text-xs text-[var(--text-muted)] mt-0.5">{selectedFixture.leagueName}</p>}
                 </div>
                 <button
@@ -973,18 +1025,18 @@ function LeaguesPageContent() {
                     {selectedFixture.homeAvatarUrl ? (
                       <Image src={selectedFixture.homeAvatarUrl} alt={selectedFixture.home} width={64} height={64} unoptimized={!canOptimizeImage(selectedFixture.homeAvatarUrl)} className="h-full w-full object-cover" />
                     ) : (
-                      <span className="text-xl font-bold text-amber-400">{selectedFixture.home.substring(0, 2).toUpperCase()}</span>
+                      <span className="text-xl font-bold text-amber-700 dark:text-amber-300">{selectedFixture.home.substring(0, 2).toUpperCase()}</span>
                     )}
                   </div>
-                  <h4 className="font-bold text-white text-base leading-snug">{selectedFixture.home}</h4>
+                  <h4 className="font-bold text-[var(--text-primary)] text-base leading-snug">{selectedFixture.home}</h4>
                   {selectedFixture.homeUsername && <span className="text-[11px] text-[var(--text-muted)]">@{selectedFixture.homeUsername}</span>}
                   <div className="mt-3">
-                    <span className="font-mono text-3xl font-black text-white">{selectedFixture.homePoints}</span>
+                    <span className="font-mono text-3xl font-black text-[var(--text-primary)]">{selectedFixture.homePoints}</span>
                     <span className="text-xs text-[var(--text-muted)] ml-1">pts</span>
                   </div>
                   <div className="mt-2 flex min-h-5 items-center justify-center">
                     {selectedFixture.winnerId && selectedFixture.homePoints > selectedFixture.awayPoints && (
-                      <span className="rounded-full border border-emerald-500/30 bg-emerald-500/20 px-2 py-0.5 text-[10px] font-bold text-emerald-400 uppercase">
+                      <span className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold text-emerald-800 dark:text-emerald-300 uppercase">
                         Winner (+3 pts)
                       </span>
                     )}
@@ -993,7 +1045,7 @@ function LeaguesPageContent() {
 
                 {/* VS */}
                 <div className="flex flex-col items-center px-2">
-                  <span className="flex h-10 w-10 items-center justify-center rounded-full border border-amber-500/40 bg-amber-500/20 font-black text-amber-400 text-sm">VS</span>
+                  <span className="flex h-10 w-10 items-center justify-center rounded-full border border-amber-500/40 bg-amber-500/20 font-black text-amber-800 dark:text-amber-300 text-sm">VS</span>
                   <div className="text-[11px] text-[var(--text-muted)] mt-2 font-mono">
                     {selectedFixture.homePoints === selectedFixture.awayPoints
                       ? 'Tied'
@@ -1007,18 +1059,18 @@ function LeaguesPageContent() {
                     {selectedFixture.awayAvatarUrl ? (
                       <Image src={selectedFixture.awayAvatarUrl} alt={selectedFixture.away} width={64} height={64} unoptimized={!canOptimizeImage(selectedFixture.awayAvatarUrl)} className="h-full w-full object-cover" />
                     ) : (
-                      <span className="text-xl font-bold text-[var(--text-muted)]">{selectedFixture.away.substring(0, 2).toUpperCase()}</span>
+                      <span className="text-xl font-bold text-[var(--text-secondary)]">{selectedFixture.away.substring(0, 2).toUpperCase()}</span>
                     )}
                   </div>
-                  <h4 className="font-bold text-white text-base leading-snug">{selectedFixture.away}</h4>
+                  <h4 className="font-bold text-[var(--text-primary)] text-base leading-snug">{selectedFixture.away}</h4>
                   {selectedFixture.awayUsername && <span className="text-[11px] text-[var(--text-muted)]">@{selectedFixture.awayUsername}</span>}
                   <div className="mt-3">
-                    <span className="font-mono text-3xl font-black text-white">{selectedFixture.awayPoints}</span>
+                    <span className="font-mono text-3xl font-black text-[var(--text-primary)]">{selectedFixture.awayPoints}</span>
                     <span className="text-xs text-[var(--text-muted)] ml-1">pts</span>
                   </div>
                   <div className="mt-2 flex min-h-5 items-center justify-center">
                     {selectedFixture.winnerId && selectedFixture.awayPoints > selectedFixture.homePoints && (
-                      <span className="rounded-full border border-emerald-500/30 bg-emerald-500/20 px-2 py-0.5 text-[10px] font-bold text-emerald-400 uppercase">
+                      <span className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold text-emerald-800 dark:text-emerald-300 uppercase">
                         Winner (+3 pts)
                       </span>
                     )}
@@ -1031,15 +1083,15 @@ function LeaguesPageContent() {
             <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface-raised)] p-4 space-y-2 text-xs text-[var(--text-secondary)]">
               <div className="flex justify-between items-center">
                 <span className="text-[var(--text-muted)]">Matchup Type</span>
-                <span className="font-medium text-white">Head-to-Head Gameweek Duel</span>
+                <span className="font-medium text-[var(--text-primary)]">Head-to-Head Gameweek Duel</span>
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-[var(--text-muted)]">Scoring Model</span>
-                <span className="font-medium text-white">3pts Win · 1pt Draw · 0 Loss</span>
+                <span className="font-medium text-[var(--text-primary)]">3pts Win · 1pt Draw · 0 Loss</span>
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-[var(--text-muted)]">Status</span>
-                <span className={`font-semibold ${selectedFixture.isBye ? 'text-[var(--text-muted)]' : selectedFixture.winnerId ? 'text-emerald-400' : 'text-amber-400'}`}>
+                <span className={`font-semibold ${selectedFixture.isBye ? 'text-[var(--text-muted)]' : selectedFixture.winnerId ? 'text-emerald-700 dark:text-emerald-300' : 'text-amber-700 dark:text-amber-300'}`}>
                   {selectedFixture.isBye ? 'Bye (Auto Win)' : selectedFixture.winnerId ? 'Score Finalized' : 'In Progress / Pending'}
                 </span>
               </div>
