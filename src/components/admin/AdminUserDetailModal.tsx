@@ -6,18 +6,12 @@ import {
   X,
   User,
   Shield,
-  Trophy,
   Swords,
-  Coins,
-  Calendar,
   AlertCircle,
   Mail,
   Clock,
   CheckCircle,
-  FileText,
   Activity,
-  Layers,
-  ChevronRight,
 } from 'lucide-react';
 import { fetchWithAuth } from '@/lib/fetch-with-auth';
 import { useToast } from '@/components/Toast';
@@ -153,9 +147,11 @@ export default function AdminUserDetailModal({
 }: AdminUserDetailModalProps) {
   const toast = useToast();
   const [data, setData] = useState<UserDetailResponse | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [loadedUserId, setLoadedUserId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<TabType>('overview');
+
+  const loading = Boolean(userId && loadedUserId !== userId);
 
   // Edit State
   const [editRole, setEditRole] = useState<'user' | 'admin'>('user');
@@ -166,10 +162,9 @@ export default function AdminUserDetailModal({
 
   useEffect(() => {
     if (!userId) return;
+    let ignore = false;
 
     async function loadUserDetails() {
-      setLoading(true);
-      setError(null);
       try {
         const res = await fetchWithAuth(`/api/admin/users/${userId}`);
         if (!res.ok) {
@@ -177,19 +172,29 @@ export default function AdminUserDetailModal({
           throw new Error(errData.error || 'Failed to load user details');
         }
         const json = (await res.json()) as UserDetailResponse;
-        setData(json);
-        setEditRole(json.user.role === 'admin' ? 'admin' : 'user');
-        setEditDisplayName(json.user.display_name || '');
-        setEditBio(json.user.bio || '');
-        setEditTier(json.user.subscription_tier || 'free');
+        if (!ignore) {
+          setData(json);
+          setEditRole(json.user.role === 'admin' ? 'admin' : 'user');
+          setEditDisplayName(json.user.display_name || '');
+          setEditBio(json.user.bio || '');
+          setEditTier(json.user.subscription_tier || 'free');
+          setError(null);
+        }
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'An error occurred');
+        if (!ignore) {
+          setError(err instanceof Error ? err.message : 'An error occurred');
+        }
       } finally {
-        setLoading(false);
+        if (!ignore) {
+          setLoadedUserId(userId);
+        }
       }
     }
 
     void loadUserDetails();
+    return () => {
+      ignore = true;
+    };
   }, [userId]);
 
   if (!userId) return null;

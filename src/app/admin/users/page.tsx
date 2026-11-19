@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import {
   Users,
@@ -10,10 +10,6 @@ import {
   Crown,
   Eye,
   RefreshCw,
-  Mail,
-  UserCheck,
-  CheckCircle,
-  XCircle,
 } from 'lucide-react';
 import { fetchWithAuth } from '@/lib/fetch-with-auth';
 import AdminUserDetailModal from '@/components/admin/AdminUserDetailModal';
@@ -42,7 +38,7 @@ interface UserItem {
 export default function AdminUsersPage() {
   const [users, setUsers] = useState<UserItem[]>([]);
   const [total, setTotal] = useState(0);
-  const [loading, setLoading] = useState(true);
+  const [loadedRequestKey, setLoadedRequestKey] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
   const [appliedSearch, setAppliedSearch] = useState('');
@@ -52,36 +48,43 @@ export default function AdminUsersPage() {
   const [refreshVersion, setRefreshVersion] = useState(0);
 
   const limit = 25;
-
-  const loadUsers = useCallback(async () => {
-    setLoading(true);
-    try {
-      const offset = (page - 1) * limit;
-      const params = new URLSearchParams({
-        limit: limit.toString(),
-        offset: offset.toString(),
-      });
-
-      if (appliedSearch) params.append('search', appliedSearch);
-      if (roleFilter !== 'all') params.append('role', roleFilter);
-      if (tierFilter !== 'all') params.append('tier', tierFilter);
-
-      const res = await fetchWithAuth(`/api/admin/users?${params.toString()}`);
-      if (res.ok) {
-        const data = await res.json();
-        setUsers(data.users || []);
-        setTotal(data.total || 0);
-      }
-    } catch (err) {
-      console.error('Failed to load admin users', err);
-    } finally {
-      setLoading(false);
-    }
-  }, [page, appliedSearch, roleFilter, tierFilter, limit]);
+  const requestKey = JSON.stringify([page, appliedSearch, roleFilter, tierFilter, refreshVersion]);
+  const loading = loadedRequestKey !== requestKey;
 
   useEffect(() => {
-    void loadUsers();
-  }, [loadUsers, refreshVersion]);
+    let ignore = false;
+    async function fetchUsers() {
+      try {
+        const offset = (page - 1) * limit;
+        const params = new URLSearchParams({
+          limit: limit.toString(),
+          offset: offset.toString(),
+        });
+
+        if (appliedSearch) params.append('search', appliedSearch);
+        if (roleFilter !== 'all') params.append('role', roleFilter);
+        if (tierFilter !== 'all') params.append('tier', tierFilter);
+
+        const res = await fetchWithAuth(`/api/admin/users?${params.toString()}`);
+        if (res.ok && !ignore) {
+          const data = await res.json();
+          setUsers(data.users || []);
+          setTotal(data.total || 0);
+        }
+      } catch (err) {
+        console.error('Failed to load admin users', err);
+      } finally {
+        if (!ignore) {
+          setLoadedRequestKey(requestKey);
+        }
+      }
+    }
+
+    void fetchUsers();
+    return () => {
+      ignore = true;
+    };
+  }, [page, appliedSearch, roleFilter, tierFilter, refreshVersion, requestKey, limit]);
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
