@@ -153,6 +153,37 @@ describe('groupMatchesBySeries', () => {
         isLive: false,
       });
     });
+
+    it('correctly maps scores when teams swap radiant/dire sides across games', () => {
+      // Game 1: Team 1 is Radiant, Team 2 is Dire. Team 1 wins.
+      // Game 2: Team 2 is Radiant, Team 1 is Dire. Team 1 wins.
+      // Game 3: Team 2 is Radiant, Team 1 is Dire. Team 2 wins.
+      const games = [
+        { id: 1, series_id: 10, scheduled_at: '2026-11-18T10:00:00', status: 'completed', winner_team_id: 1, radiant_team_id: 1, dire_team_id: 2 },
+        { id: 2, series_id: 10, scheduled_at: '2026-11-18T11:00:00', status: 'completed', winner_team_id: 1, radiant_team_id: 2, dire_team_id: 1 },
+        { id: 3, series_id: 10, scheduled_at: '2026-11-18T12:00:00', status: 'completed', winner_team_id: 2, radiant_team_id: 2, dire_team_id: 1 },
+      ];
+
+      // If the card displays Team 1 on the left (referenceRadiant = 1, referenceDire = 2):
+      expect(summarizeMatchSeries(games, 3, 1, 2)).toEqual({
+        radiantWins: 2, // Team 1 has 2 wins
+        direWins: 1,    // Team 2 has 1 win
+        completedGames: 3,
+        clinchedTeamId: 1,
+        isComplete: true,
+        isLive: false,
+      });
+
+      // If the card displays Team 2 on the left (referenceRadiant = 2, referenceDire = 1):
+      expect(summarizeMatchSeries(games, 3, 2, 1)).toEqual({
+        radiantWins: 1, // Team 2 has 1 win
+        direWins: 2,    // Team 1 has 2 wins
+        completedGames: 3,
+        clinchedTeamId: 1,
+        isComplete: true,
+        isLive: false,
+      });
+    });
   });
 
   it('keeps matches without a series ID separate', () => {

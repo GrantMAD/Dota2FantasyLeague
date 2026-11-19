@@ -113,21 +113,30 @@ export function summarizeMatchSeries(
     dire_team_id?: number | null;
   }>,
   bestOf: number | null | undefined = 3,
+  referenceRadiantTeamId?: number | null,
+  referenceDireTeamId?: number | null,
 ): MatchSeriesScore {
   const firstGame = games[0];
+  const refRadiantId = referenceRadiantTeamId !== undefined
+    ? referenceRadiantTeamId
+    : (firstGame?.radiant_team_id ?? null);
+  const refDireId = referenceDireTeamId !== undefined
+    ? referenceDireTeamId
+    : (firstGame?.dire_team_id ?? null);
+
   const completed = games.filter((game) => game.status === 'completed');
-  const radiantWins = firstGame?.radiant_team_id == null
+  const radiantWins = refRadiantId == null
     ? 0
-    : completed.filter((game) => game.winner_team_id === firstGame.radiant_team_id).length;
-  const direWins = firstGame?.dire_team_id == null
+    : completed.filter((game) => game.winner_team_id === refRadiantId).length;
+  const direWins = refDireId == null
     ? 0
-    : completed.filter((game) => game.winner_team_id === firstGame.dire_team_id).length;
+    : completed.filter((game) => game.winner_team_id === refDireId).length;
   const effectiveBestOf = getEffectiveBestOf(games, bestOf);
   const clinchThreshold = effectiveBestOf <= 1 ? 1 : Math.floor(effectiveBestOf / 2) + 1;
   const clinchedTeamId = radiantWins >= clinchThreshold
-    ? firstGame?.radiant_team_id ?? null
+    ? refRadiantId
     : direWins >= clinchThreshold
-      ? firstGame?.dire_team_id ?? null
+      ? refDireId
       : null;
 
   return {

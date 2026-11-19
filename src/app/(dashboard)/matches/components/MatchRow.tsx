@@ -69,7 +69,7 @@ export function MatchRow({
   const bestOf = getEffectiveBestOf(games, match.best_of);
   const isSeries = bestOf > 1;
 
-  const seriesScore = summarizeMatchSeries(games, bestOf);
+  const seriesScore = summarizeMatchSeries(games, bestOf, match.radiant_team_id, match.dire_team_id);
   const gamesAwaitingPlayerStats = getCompletedGamesAwaitingPlayerStats(games);
   const isRadiantWinner = seriesScore.clinchedTeamId === match.radiant_team_id;
   const isDireWinner = seriesScore.clinchedTeamId === match.dire_team_id;

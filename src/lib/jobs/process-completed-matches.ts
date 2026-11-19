@@ -255,10 +255,7 @@ class ProcessCompletedMatches {
     try {
       // Get completed matches that have detailed stats fetched recently (within the last 7 days)
       const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
-
-      // Fetch one more than matchLimit to detect whether there are additional pages
       const matchLimit = options.matchLimit ?? 50;
-      const fetchLimit = matchLimit + 1;
 
       const { data: matches, error: matchError } = await this.supabase
         .from('matches')
@@ -266,8 +263,7 @@ class ProcessCompletedMatches {
         .eq('status', 'completed')
         .not('detailed_stats_fetched_at', 'is', null)
         .gte('detailed_stats_fetched_at', sevenDaysAgo)
-        .order('detailed_stats_fetched_at', { ascending: true })
-        .limit(fetchLimit);
+        .order('detailed_stats_fetched_at', { ascending: true });
 
       if (matchError) {
         result.errors.push(`Failed to fetch matches: ${matchError.message}`);
@@ -275,19 +271,80 @@ class ProcessCompletedMatches {
         return result;
       }
 
-      const allFetched = (matches ?? []) as CompletedMatchRow[];
-      result.hasMore = allFetched.length > matchLimit;
-      // Trim to matchLimit — the extra record was only fetched to detect hasMore
-      const matchesList = allFetched.slice(0, matchLimit);
-      const matchCount = matchesList.length;
-      if (matchCount === 0) {
+      const allCandidateMatches = (matches ?? []) as CompletedMatchRow[];
+      if (allCandidateMatches.length === 0) {
         console.log('[ProcessMatches] No completed matches with detailed stats to process');
         result.success = result.errors.length === 0;
         result.duration = Date.now() - startTime;
         return result;
       }
 
-      console.log(`[ProcessMatches] Processing ${matchCount} completed matches (hasMore=${result.hasMore})...`);
+      // Check which candidate matches already have performances in player_performances
+      const candidateIds = allCandidateMatches.map((m) => m.id);
+      const processedMatchIds = new Set<number>();
+      const matchIdsWithStats = new Set<number>();
+      const CHECK_CHUNK = 200;
+      for (let i = 0; i < candidateIds.length; i += CHECK_CHUNK) {
+        const slice = candidateIds.slice(i, i + CHECK_CHUNK);
+
+        // Check which matches have stats in match_player_stats
+        const { data: statsRows, error: statsCheckError } = await this.supabase
+          .from('match_player_stats')
+          .select('match_id')
+          .in('match_id', slice);
+
+        if (statsCheckError) {
+          result.errors.push(`Failed to check match_player_stats: ${statsCheckError.message}`);
+          result.duration = Date.now() - startTime;
+          return result;
+        }
+
+        for (const row of (statsRows ?? []) as Array<{ match_id: number }>) {
+          matchIdsWithStats.add(row.match_id);
+        }
+
+        // Check which matches already have performances
+        const { data: existingPerformances, error: perfError } = await this.supabase
+          .from('player_performances')
+          .select('match_id')
+          .in('match_id', slice);
+
+        if (perfError) {
+          result.errors.push(`Failed to check existing performances: ${perfError.message}`);
+          result.duration = Date.now() - startTime;
+          return result;
+        }
+
+        for (const row of (existingPerformances ?? []) as Array<{ match_id: number }>) {
+          processedMatchIds.add(row.match_id);
+        }
+      }
+
+      // Only process matches that:
+      //  1. Have rows in match_player_stats (there are stats to convert)
+      //  2. Do NOT yet have rows in player_performances (not already processed)
+      // Matches with detailed_stats_fetched_at but no match_player_stats rows are from
+      // pub/untracked tournaments and can never produce performances — skip them permanently.
+      const pendingMatches = allCandidateMatches.filter(
+        (m) => matchIdsWithStats.has(m.id) && !processedMatchIds.has(m.id),
+      );
+
+      const skippedNoStats = allCandidateMatches.length - matchIdsWithStats.size;
+      if (skippedNoStats > 0) {
+        console.log(`[ProcessMatches] Skipping ${skippedNoStats} matches with no match_player_stats rows (untracked/pub matches).`);
+      }
+      result.hasMore = pendingMatches.length > matchLimit;
+      const matchesList = pendingMatches.slice(0, matchLimit);
+      const matchCount = matchesList.length;
+
+      if (matchCount === 0) {
+        console.log('[ProcessMatches] All completed matches already have performances created. 0 pending.');
+        result.success = result.errors.length === 0;
+        result.duration = Date.now() - startTime;
+        return result;
+      }
+
+      console.log(`[ProcessMatches] Processing ${matchCount} completed matches (${pendingMatches.length} pending, hasMore=${result.hasMore})...`);
       const processedGameweeks = new Set<number>();
 
       // Process matches in chunks of 25 to avoid overwhelming network or memory
