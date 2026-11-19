@@ -12,10 +12,10 @@ describe('findMatchesWithCompleteScores', () => {
         { match_id: 3, player_id: 30 },
       ],
       [
-        { match_id: 1, fantasy_points_breakdown: { id: 101 } },
-        { match_id: 1, fantasy_points_breakdown: [{ id: 102 }] },
+        { match_id: 1, fantasy_points_breakdown: { id: 101, win_points: 5 } },
+        { match_id: 1, fantasy_points_breakdown: [{ id: 102, win_points: 0 }] },
         { match_id: 2, fantasy_points_breakdown: null },
-        { match_id: 3, fantasy_points_breakdown: { id: 103 } },
+        { match_id: 3, fantasy_points_breakdown: { id: 103, win_points: 5 } },
       ],
     )).toEqual([1, 3]);
   });
@@ -40,7 +40,7 @@ describe('findMatchesWithCompleteScores', () => {
         { match_id: 1, player_id: 10 },
         { match_id: 1, player_id: 11 },
       ],
-      [{ match_id: 1, fantasy_points_breakdown: { id: 101 } }],
+      [{ match_id: 1, fantasy_points_breakdown: { id: 101, win_points: 0 } }],
     )).toEqual([]);
   });
 });

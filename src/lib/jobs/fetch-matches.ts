@@ -530,6 +530,59 @@ export async function fetchMatches(options: { tournamentLimit?: number } = {}): 
                 }
               }
 
+              // Safeguard 1: Split-series auto-merge.
+              // When a new match arrives under a different provider series ID but belongs to the
+              // same team pair in the same gameweek AND within ~3 hours of the previous series
+              // ending, merge it into the existing series instead of creating a duplicate row.
+              // All 5 conditions must be true to prevent false merges (e.g., UB Final + Grand Final).
+              if (!seriesRecord && providerSeriesId) {
+                const THREE_HOURS_MS = 3 * 60 * 60 * 1000;
+                const TWO_HOURS_MS = 2 * 60 * 60 * 1000;
+                const incomingMatchTime = new Date(scheduledTime).getTime();
+
+                const splitCandidate = [...seriesByIdentity.values()].find((series) => {
+                  // 1. Same gameweek
+                  if (series.gameweek_id !== targetGameweek.id) return false;
+                  // 2. Must have both teams set
+                  if (series.team_a_id === null || series.team_b_id === null) return false;
+                  // 3. Must have a real (non-fallback) provider series ID
+                  if (!series.source_series_id || series.source_series_id.startsWith('fallback:')) return false;
+                  // 4. Same team pair (sorted)
+                  const recorded = [series.team_a_id, series.team_b_id]
+                    .sort((a, b) => Number(a) - Number(b))
+                    .join(':');
+                  if (recorded !== teamPair.join(':')) return false;
+                  // 5. Time proximity: new match must start within 3h of the last game in existing series
+                  const seriesMatches = allMatches.filter((m) => m.series_id === series.id);
+                  if (seriesMatches.length === 0) return false;
+                  const latestEndTime = Math.max(
+                    ...seriesMatches.map((m) =>
+                      m.end_time ? new Date(m.end_time).getTime() :
+                      m.start_time ? new Date(m.start_time).getTime() :
+                      m.scheduled_time ? new Date(m.scheduled_time).getTime() : 0
+                    )
+                  );
+                  if (latestEndTime === 0) return false;
+                  const timeDiff = incomingMatchTime - latestEndTime;
+                  return timeDiff >= -TWO_HOURS_MS && timeDiff < THREE_HOURS_MS;
+                });
+
+                if (splitCandidate) {
+                  console.warn(
+                    `[FetchMatches] ⚠️ Split-series detected: match ${match.id} arrives under ` +
+                    `provider series ${providerSeriesId} but team pair [${teamPair.join(',')}] already has ` +
+                    `series ${splitCandidate.id} (${splitCandidate.source_series_id}) in gameweek ` +
+                    `${targetGameweek.id} with games ending within 3h. ` +
+                    `Merging into existing series ${splitCandidate.id}. Verify manually.`
+                  );
+                  result.errors.push(
+                    `Split-series merge: series ${splitCandidate.id} + provider ${providerSeriesId}, match ${match.id}`
+                  );
+                  seriesRecord = splitCandidate;
+                  seriesByIdentity.set(providerSeriesId, splitCandidate);
+                }
+              }
+
               if (seriesRecord && seriesRecord.team_a_id !== null && seriesRecord.team_b_id !== null) {
                 const recordedTeams = [seriesRecord.team_a_id, seriesRecord.team_b_id].sort((a, b) => a - b);
                 if (recordedTeams[0] !== teamPair[0] || recordedTeams[1] !== teamPair[1]) {

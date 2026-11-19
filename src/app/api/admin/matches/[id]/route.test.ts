@@ -177,4 +177,68 @@ describe('PATCH /api/admin/matches/:id', () => {
       })
     );
   });
+
+  it('moves match to target series and updates gameweek', async () => {
+    const mockMatchUpdate = jest.fn().mockReturnValue({
+      eq: jest.fn().mockResolvedValue({ error: null }),
+    });
+    const mockPerfUpdate = jest.fn().mockReturnValue({
+      eq: jest.fn().mockResolvedValue({ error: null }),
+    });
+
+    mockGetSupabaseServerClient.mockReturnValue({
+      from: jest.fn().mockImplementation((table: string) => {
+        if (table === 'matches') {
+          return {
+            select: jest.fn().mockReturnThis(),
+            eq: jest.fn().mockReturnThis(),
+            single: jest.fn().mockResolvedValue({
+              data: { id: 542, status: 'completed', series_id: 495 },
+              error: null,
+            }),
+            update: mockMatchUpdate,
+          };
+        }
+        if (table === 'tournament_series') {
+          return {
+            select: jest.fn().mockReturnThis(),
+            eq: jest.fn().mockReturnThis(),
+            single: jest.fn().mockResolvedValue({
+              data: { id: 494, gameweek_id: 12, tournament_id: 3 },
+              error: null,
+            }),
+          };
+        }
+        if (table === 'player_performances') {
+          return {
+            update: mockPerfUpdate,
+          };
+        }
+        return {};
+      }),
+    });
+
+    const request = new NextRequest('http://localhost:3000/api/admin/matches/542', {
+      method: 'PATCH',
+      body: JSON.stringify({ series_id: 494 }),
+    });
+
+    const response = await PATCH(request, { params: Promise.resolve({ id: '542' }) });
+    expect(response.status).toBe(200);
+    const data = await response.json();
+    expect(data.success).toBe(true);
+    expect(data.updated.series_id).toBe(494);
+    expect(mockMatchUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({ series_id: 494, gameweek_id: 12 })
+    );
+    expect(mockPerfUpdate).toHaveBeenCalledWith({ gameweek_id: 12 });
+    expect(mockLogAuditAction).toHaveBeenCalledWith(
+      expect.objectContaining({
+        tableName: 'matches',
+        recordId: 542,
+        action: 'UPDATE',
+        changedBy: 'admin-user-123',
+      })
+    );
+  });
 });

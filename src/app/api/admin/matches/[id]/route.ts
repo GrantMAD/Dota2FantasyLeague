@@ -7,6 +7,7 @@ import { withApiTelemetry } from '@/lib/api-telemetry';
 interface PatchBody {
   status?: 'completed' | 'cancelled' | 'postponed';
   best_of?: 1 | 2 | 3 | 5;
+  series_id?: number;
 }
 
 async function patchHandler(
@@ -23,7 +24,7 @@ async function patchHandler(
     }
 
     const body = (await request.json()) as PatchBody;
-    const { status, best_of } = body;
+    const { status, best_of, series_id } = body;
 
     const VALID_STATUSES = new Set(['completed', 'cancelled', 'postponed']);
     const VALID_BEST_OF = new Set([1, 2, 3, 5]);
@@ -40,7 +41,13 @@ async function patchHandler(
         { status: 400 }
       );
     }
-    if (!status && best_of === undefined) {
+    if (series_id !== undefined && (!Number.isInteger(series_id) || series_id <= 0)) {
+      return NextResponse.json(
+        { error: 'Invalid series_id. Must be a positive integer.' },
+        { status: 400 }
+      );
+    }
+    if (!status && best_of === undefined && series_id === undefined) {
       return NextResponse.json({ error: 'Nothing to update' }, { status: 400 });
     }
 
@@ -117,7 +124,61 @@ async function patchHandler(
       });
     }
 
-    return NextResponse.json({ success: true, matchId, updated: { status, best_of } });
+    // Move match to a different series if requested
+    if (series_id !== undefined) {
+      const { data: targetSeries, error: targetSeriesError } = await supabase
+        .from('tournament_series')
+        .select('id, gameweek_id, tournament_id')
+        .eq('id', series_id)
+        .single();
+
+      if (targetSeriesError || !targetSeries) {
+        return NextResponse.json(
+          { error: `Target series ${series_id} not found` },
+          { status: 404 }
+        );
+      }
+
+      const matchUpdatePayload: { series_id: number; gameweek_id?: number; last_synced_at: string } = {
+        series_id,
+        last_synced_at: new Date().toISOString(),
+      };
+      if (targetSeries.gameweek_id) {
+        matchUpdatePayload.gameweek_id = targetSeries.gameweek_id;
+      }
+
+      const { error: moveMatchError } = await supabase
+        .from('matches')
+        .update(matchUpdatePayload)
+        .eq('id', matchId);
+
+      if (moveMatchError) {
+        return NextResponse.json(
+          { error: `Failed to move match to series: ${moveMatchError.message}` },
+          { status: 500 }
+        );
+      }
+
+      // If gameweek changed, keep player_performances in sync
+      if (targetSeries.gameweek_id) {
+        await supabase
+          .from('player_performances')
+          .update({ gameweek_id: targetSeries.gameweek_id })
+          .eq('match_id', matchId);
+      }
+
+      await logAuditAction({
+        tableName: 'matches',
+        recordId: matchId,
+        action: 'UPDATE',
+        changedBy: adminId,
+        oldValues: { series_id: match.series_id },
+        newValues: { series_id, gameweek_id: targetSeries.gameweek_id },
+        reason: `Admin moved match ${matchId} to series ${series_id}`,
+      });
+    }
+
+    return NextResponse.json({ success: true, matchId, updated: { status, best_of, series_id } });
   } catch (error) {
     return createErrorResponse(error as Error);
   }

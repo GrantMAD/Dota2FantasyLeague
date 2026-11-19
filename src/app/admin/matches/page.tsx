@@ -3,7 +3,7 @@
 import { fetchWithAuth } from '@/lib/fetch-with-auth';
 import React, { useState, useEffect } from 'react';
 import Image from 'next/image';
-import { BarChart3, RefreshCw, CheckCircle, Edit2 } from 'lucide-react';
+import { BarChart3, RefreshCw, CheckCircle, Edit2, ArrowRightLeft } from 'lucide-react';
 
 
 interface ProfessionalTeam {
@@ -30,6 +30,18 @@ interface Match {
   team_b_id: number;
   series_id?: number | null;
   best_of?: number | null;
+  gameweek_id?: number | null;
+}
+
+interface SeriesOption {
+  id: number;
+  series_number: number;
+  best_of: number | null;
+  gameweek_id: number;
+  team_a: { name: string } | null;
+  team_b: { name: string } | null;
+  tournament: { name: string } | null;
+  match_count: number;
 }
 
 export default function AdminMatchesPage() {
@@ -44,6 +56,10 @@ export default function AdminMatchesPage() {
   const [syncMessage, setSyncMessage] = useState<string | null>(null);
   const [patchingMatchId, setPatchingMatchId] = useState<number | null>(null);
   const [editingBestOfMatchId, setEditingBestOfMatchId] = useState<number | null>(null);
+  const [movingMatch, setMovingMatch] = useState<Match | null>(null);
+  const [seriesOptions, setSeriesOptions] = useState<SeriesOption[]>([]);
+  const [loadingSeries, setLoadingSeries] = useState(false);
+  const [selectedTargetSeriesId, setSelectedTargetSeriesId] = useState<number | null>(null);
 
   const limit = 25;
   const requestKey = JSON.stringify([page, statusFilter, refreshVersion]);
@@ -173,6 +189,52 @@ export default function AdminMatchesPage() {
     }
   };
 
+  const handleStartMoveMatch = async (match: Match) => {
+    setMovingMatch(match);
+    setSelectedTargetSeriesId(match.series_id ?? null);
+    setLoadingSeries(true);
+    try {
+      const params = new URLSearchParams({ limit: '100' });
+      if (match.gameweek_id) {
+        params.append('gameweek_id', match.gameweek_id.toString());
+      }
+      const res = await fetchWithAuth(`/api/admin/series?${params.toString()}`);
+      if (res.ok) {
+        const data = await res.json();
+        setSeriesOptions(data.data || []);
+      }
+    } catch (err) {
+      console.error('Failed to load series options', err);
+    } finally {
+      setLoadingSeries(false);
+    }
+  };
+
+  const handleConfirmMoveMatch = async (matchId: number, targetSeriesId: number) => {
+    setPatchingMatchId(matchId);
+    setSyncMessage(null);
+    try {
+      const res = await fetchWithAuth(`/api/admin/matches/${matchId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ series_id: targetSeriesId }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setSyncMessage(`Match ${matchId} moved to Series #${targetSeriesId}.`);
+        setRefreshVersion((v) => v + 1);
+        setMovingMatch(null);
+      } else {
+        setSyncMessage(data.error || 'Failed to move match to series.');
+      }
+    } catch {
+      setSyncMessage('Failed to move match to series.');
+    } finally {
+      setPatchingMatchId(null);
+      setTimeout(() => setSyncMessage(null), 4000);
+    }
+  };
+
   const totalPages = Math.ceil(total / limit);
 
   const getStatusBadge = (status: string, detailedStatsFetchedAt: string | null) => {
@@ -290,38 +352,45 @@ export default function AdminMatchesPage() {
                     </td>
                     <td className="px-4 py-3 text-sm text-slate-300">{match.tournament?.name || '-'}</td>
                     <td className="px-4 py-3 text-sm">
-                      {editingBestOfMatchId === match.id ? (
-                        <div className="flex items-center gap-1.5">
-                          <select
-                            defaultValue={match.best_of ?? 3}
-                            disabled={patchingMatchId === match.id}
-                            onChange={(e) => void handleEditBestOf(match.id, parseInt(e.target.value))}
-                            className="px-2 py-0.5 text-xs bg-slate-900 border border-slate-600 rounded text-amber-300 focus:outline-none focus:border-amber-500"
-                          >
-                            <option value={1}>Bo1</option>
-                            <option value={2}>Bo2</option>
-                            <option value={3}>Bo3</option>
-                            <option value={5}>Bo5</option>
-                          </select>
+                      <div className="flex flex-col gap-0.5">
+                        {editingBestOfMatchId === match.id ? (
+                          <div className="flex items-center gap-1.5">
+                            <select
+                              defaultValue={match.best_of ?? 3}
+                              disabled={patchingMatchId === match.id}
+                              onChange={(e) => void handleEditBestOf(match.id, parseInt(e.target.value))}
+                              className="px-2 py-0.5 text-xs bg-slate-900 border border-slate-600 rounded text-amber-300 focus:outline-none focus:border-amber-500"
+                            >
+                              <option value={1}>Bo1</option>
+                              <option value={2}>Bo2</option>
+                              <option value={3}>Bo3</option>
+                              <option value={5}>Bo5</option>
+                            </select>
+                            <button
+                              type="button"
+                              onClick={() => setEditingBestOfMatchId(null)}
+                              className="text-xs text-slate-400 hover:text-white px-1"
+                            >
+                              ✕
+                            </button>
+                          </div>
+                        ) : (
                           <button
                             type="button"
-                            onClick={() => setEditingBestOfMatchId(null)}
-                            className="text-xs text-slate-400 hover:text-white px-1"
+                            onClick={() => setEditingBestOfMatchId(match.id)}
+                            title="Click to edit series Best of"
+                            className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded border border-slate-700 bg-slate-800/80 text-slate-300 hover:border-amber-500/50 hover:text-amber-300 transition-colors w-fit"
                           >
-                            ✕
+                            {match.best_of ? `Bo${match.best_of}` : 'Bo3'}
+                            <Edit2 className="w-2.5 h-2.5 opacity-60" />
                           </button>
-                        </div>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={() => setEditingBestOfMatchId(match.id)}
-                          title="Click to edit series Best of"
-                          className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded border border-slate-700 bg-slate-800/80 text-slate-300 hover:border-amber-500/50 hover:text-amber-300 transition-colors"
-                        >
-                          {match.best_of ? `Bo${match.best_of}` : 'Bo3'}
-                          <Edit2 className="w-2.5 h-2.5 opacity-60" />
-                        </button>
-                      )}
+                        )}
+                        {match.series_id && (
+                          <span className="text-[10px] text-slate-400 font-mono">
+                            Series #{match.series_id}
+                          </span>
+                        )}
+                      </div>
                     </td>
                     <td className="px-4 py-3 text-sm text-slate-300">{new Date(match.scheduled_time).toLocaleString()}</td>
                     <td className="px-4 py-3 text-sm">{getStatusBadge(match.status, match.detailed_stats_fetched_at)}</td>
@@ -330,6 +399,15 @@ export default function AdminMatchesPage() {
                     </td>
                     <td className="px-4 py-3 text-right">
                       <div className="flex items-center justify-end gap-2">
+                        <button
+                          onClick={() => void handleStartMoveMatch(match)}
+                          disabled={patchingMatchId === match.id}
+                          title="Move match to a different series"
+                          className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium border border-slate-600 text-slate-300 hover:text-white hover:bg-slate-700/50 rounded transition-colors disabled:opacity-50"
+                        >
+                          <ArrowRightLeft className="h-3 w-3 text-amber-400" />
+                          Move
+                        </button>
                         {match.status === 'in_progress' && (
                           <button
                             onClick={() => void handleForceComplete(match.id)}
@@ -377,6 +455,85 @@ export default function AdminMatchesPage() {
           </div>
         )}
       </div>
+
+      {/* Move Match to Series Modal */}
+      {movingMatch && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+          <div className="bg-slate-900 border border-slate-700 rounded-xl p-6 max-w-lg w-full shadow-2xl space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+                <ArrowRightLeft className="w-5 h-5 text-amber-400" />
+                Move Match #{movingMatch.id} to Series
+              </h3>
+              <button
+                type="button"
+                onClick={() => setMovingMatch(null)}
+                className="text-slate-400 hover:text-white text-sm"
+              >
+                ✕
+              </button>
+            </div>
+
+            <p className="text-sm text-slate-300">
+              Reassign match <span className="text-white font-medium">#{movingMatch.id}</span> ({movingMatch.team_a?.name || 'TBD'} vs {movingMatch.team_b?.name || 'TBD'}) to an existing series to repair a split series.
+            </p>
+
+            <div className="text-xs text-slate-400 bg-slate-800/60 p-2.5 rounded-lg border border-slate-700/50">
+              Current Series: <span className="text-amber-300 font-mono">#{movingMatch.series_id ?? 'None'}</span> {movingMatch.best_of ? `(Bo${movingMatch.best_of})` : ''}
+            </div>
+
+            {loadingSeries ? (
+              <div className="py-6 text-center text-slate-400 text-sm animate-pulse">
+                Loading available series in gameweek...
+              </div>
+            ) : seriesOptions.length === 0 ? (
+              <div className="py-4 text-center text-slate-400 text-sm">
+                No tournament series found for this gameweek.
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <label className="block text-xs font-medium text-slate-400 uppercase tracking-wider">
+                  Destination Series
+                </label>
+                <select
+                  value={selectedTargetSeriesId ?? ''}
+                  onChange={(e) => setSelectedTargetSeriesId(parseInt(e.target.value) || null)}
+                  className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white text-sm focus:outline-none focus:border-amber-500"
+                >
+                  <option value="">Select destination series...</option>
+                  {seriesOptions.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      Series #{s.id}: {s.team_a?.name || 'TBD'} vs {s.team_b?.name || 'TBD'} [Bo{s.best_of ?? 3}] ({s.match_count} game{s.match_count === 1 ? '' : 's'})
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            <div className="flex justify-end gap-3 pt-3 border-t border-slate-800">
+              <button
+                type="button"
+                onClick={() => setMovingMatch(null)}
+                className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-sm transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  if (selectedTargetSeriesId && movingMatch) {
+                    void handleConfirmMoveMatch(movingMatch.id, selectedTargetSeriesId);
+                  }
+                }}
+                disabled={!selectedTargetSeriesId || patchingMatchId !== null || selectedTargetSeriesId === movingMatch.series_id}
+                className="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 font-semibold rounded-lg text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {patchingMatchId !== null ? 'Moving...' : 'Confirm Move'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

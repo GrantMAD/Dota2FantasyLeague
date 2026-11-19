@@ -100,11 +100,11 @@ interface FantasyPointsBreakdownInsert {
 
 interface PerformanceScoreStatusRow {
   match_id: number;
-  fantasy_points_breakdown: { id: number } | { id: number }[] | null;
+  fantasy_points_breakdown: { id: number; win_points: number } | { id: number; win_points: number }[] | null;
 }
 
 export function findMatchesNeedingScores(
-  matches: Pick<Match, 'id'>[],
+  matches: Pick<Match, 'id' | 'winner_team_id'>[],
   stats: Pick<MatchPlayerStats, 'match_id'>[],
   performances: PerformanceScoreStatusRow[],
   limit: number,
@@ -130,6 +130,22 @@ export function findMatchesNeedingScores(
     if (hasMissingBreakdown) {
       pendingMatchIds.push(match.id);
       if (pendingMatchIds.length > limit) break;
+      continue;
+    }
+
+    // Safeguard 4: Re-score if winner is known but all breakdown rows show win_points = 0.
+    // This catches the split-series case where winner_team_id was corrected after initial scoring.
+    if (match.winner_team_id !== null && matchPerformances.length > 0) {
+      const allZeroWin = matchPerformances.every((row) => {
+        const breakdown = row.fantasy_points_breakdown;
+        if (!breakdown) return true;
+        const breakdowns = Array.isArray(breakdown) ? breakdown : [breakdown];
+        return breakdowns.every((b) => b.win_points === 0);
+      });
+      if (allZeroWin) {
+        pendingMatchIds.push(match.id);
+        if (pendingMatchIds.length > limit) break;
+      }
     }
   }
 
@@ -472,7 +488,7 @@ export class FantasyScoreCalculator {
           this.supabase.from('match_player_stats').select('match_id, player_id').in('match_id', matchIds),
           this.supabase
             .from('player_performances')
-            .select('match_id, fantasy_points_breakdown(id)')
+            .select('match_id, fantasy_points_breakdown(id, win_points)')
             .in('match_id', matchIds),
           this.supabase
             .from('match_player_substitutions')
