@@ -31,6 +31,7 @@ const adminMenuSections = [
     label: 'Overview',
     links: [
       { href: '/admin/dashboard', label: 'Dashboard', description: 'Review system and league metrics', icon: LayoutDashboard },
+      { href: '/admin/users', label: 'Users', description: 'Manage user accounts and profiles', icon: Users },
     ],
   },
   {
