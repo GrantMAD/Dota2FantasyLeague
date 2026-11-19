@@ -179,7 +179,11 @@ export class SteamProvider extends DataProviderBase implements DataProvider {
               const startTimeSec = g.activate_time && g.activate_time > 0 ? g.activate_time : Math.floor(Date.now() / 1000);
               const scheduledAt = new Date(startTimeSec * 1000);
 
-              const bestOf = g.series_type === 0 ? 1 : g.series_type === 2 ? 5 : 3;
+              // Fix 5: Clamp bestOf to known valid Dota formats only (Bo1, Bo2, Bo3, Bo5).
+              // Valve sometimes sends series_type = 2 (Bo5) for Bo3 qualifiers during draft phase.
+              const rawBestOf = g.series_type === 0 ? 1 : g.series_type === 2 ? 5 : 3;
+              const VALID_BEST_OF = new Set([1, 2, 3, 5]);
+              const bestOf = VALID_BEST_OF.has(rawBestOf) ? rawBestOf : 3;
               matchesMap.set(matchId, {
                 id: matchId,
                 tournamentId,
@@ -228,15 +232,21 @@ export class SteamProvider extends DataProviderBase implements DataProvider {
             const team2Id = String(m.dire_team_id ?? '0');
             const scheduledAt = new Date(m.start_time * 1000);
 
-            // Existing live entry gets promoted to concluded
+            // Fix 2: Spread the existing live entry first so bestOfSeries, playerAccountIds,
+            // and seriesStatus are preserved when GetMatchHistory overwrites it.
+            // GetMatchHistory does not include series_type so without this, bestOfSeries
+            // becomes undefined and any incorrect Bo5 from the live reading is never corrected.
+            const liveEntry = matchesMap.get(matchId);
             matchesMap.set(matchId, {
+              ...liveEntry,
               id: matchId,
               tournamentId,
               team1Id,
-              team1Name: undefined,
               team2Id,
-              team2Name: undefined,
-              sourceSeriesId: m.series_id ? String(m.series_id) : undefined,
+              // Prefer names from live entry if history doesn't supply them
+              team1Name: liveEntry?.team1Name ?? undefined,
+              team2Name: liveEntry?.team2Name ?? undefined,
+              sourceSeriesId: m.series_id ? String(m.series_id) : liveEntry?.sourceSeriesId,
               scheduledAt,
               startedAt: scheduledAt,
               endedAt: undefined,

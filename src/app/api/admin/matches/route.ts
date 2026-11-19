@@ -20,6 +20,7 @@ interface TeamRecord {
 interface SeriesRecord {
   id: number;
   tournament_id: number | null;
+  best_of: number | null;
 }
 
 interface TournamentRecord {
@@ -67,7 +68,7 @@ async function getHandler(request: NextRequest) {
 
     const [{ data: teamData }, { data: seriesData }] = await Promise.all([
       supabase.from('professional_teams').select('id, name, logo_url').in('id', teamIds),
-      supabase.from('tournament_series').select('id, tournament_id').in('id', seriesIds),
+      supabase.from('tournament_series').select('id, tournament_id, best_of').in('id', seriesIds),
     ]);
     const teams = (teamData ?? []) as TeamRecord[];
     const seriesList = (seriesData ?? []) as SeriesRecord[];
@@ -79,13 +80,15 @@ async function getHandler(request: NextRequest) {
     const tournaments = (tournamentData ?? []) as TournamentRecord[];
 
     const teamMap = new Map(teams.map((team) => [team.id, team] as const));
-    const seriesMap = new Map(seriesList.map((series) => [series.id, series.tournament_id] as const));
+    const seriesMap = new Map(seriesList.map((series) => [series.id, series] as const));
     const tournamentMap = new Map(tournaments.map((tournament) => [tournament.id, tournament] as const));
 
     const enrichedMatches = matchRows.map((match) => {
-      const tournamentId = match.series_id === null ? null : seriesMap.get(match.series_id);
+      const series = match.series_id === null ? null : seriesMap.get(match.series_id);
+      const tournamentId = series?.tournament_id ?? null;
       return {
         ...match,
+        best_of: series?.best_of ?? null,
         team_a: match.team_a_id === null ? null : teamMap.get(match.team_a_id) || null,
         team_b: match.team_b_id === null ? null : teamMap.get(match.team_b_id) || null,
         tournament: tournamentId ? tournamentMap.get(tournamentId) || null : null,

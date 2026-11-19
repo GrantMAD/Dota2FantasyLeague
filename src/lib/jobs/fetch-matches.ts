@@ -746,25 +746,32 @@ export async function fetchMatches(options: { tournamentLimit?: number } = {}): 
             );
           }
 
-          // Concluded matches: queue any that don't yet have detailed stats
-          // Uses the pre-loaded Set so we avoid one DB round-trip per match.
-          const concludedMatchIds = matches
+          // Concluded matches: always flip status to completed (Fix 1: decoupled from stats guard).
+          // The .is('detailed_stats_fetched_at', null) guard previously blocked the status flip
+          // for matches that had stats but were still in_progress due to a race condition or crash.
+          const allConcludedMatchIds = matches
             .filter((match) => match.status === 'concluded' && routedMatchIds.has(match.id))
-            .map((match) => match.id.toString())
-            .filter((id) => !detailedMatchIds.has(id));
+            .map((match) => match.id.toString());
 
-          if (concludedMatchIds.length > 0) {
-            const { error } = await supabase
+          if (allConcludedMatchIds.length > 0) {
+            // Always mark concluded matches as completed, regardless of stats state
+            const { error: statusError } = await supabase
               .from('matches')
               .update({
                 status: 'completed',
                 last_synced_at: new Date().toISOString(),
               })
-              .in('external_match_id', concludedMatchIds)
-              .is('detailed_stats_fetched_at', null);
+              .in('external_match_id', allConcludedMatchIds)
+              .neq('status', 'completed');
 
-            if (!error) {
-              result.scheduled += concludedMatchIds.length;
+            if (statusError) {
+              result.errors.push(`Failed to mark concluded matches as completed: ${statusError.message}`);
+            }
+
+            // Separately queue only those missing detailed stats for fetch-match-details
+            const needsDetailIds = allConcludedMatchIds.filter((id) => !detailedMatchIds.has(id));
+            if (needsDetailIds.length > 0) {
+              result.scheduled += needsDetailIds.length;
             }
           }
         } catch (error) {
@@ -780,6 +787,33 @@ export async function fetchMatches(options: { tournamentLimit?: number } = {}): 
 
       result.hasMore = activeTournaments.length > 0 &&
         (tournamentBatch.hasMore || effectiveTournamentsToProcess.length < tournamentsToProcess.length);
+
+      // Fix 3: Stale-live sweep — safety net for matches stuck as in_progress for >8 hours.
+      // Catches any match that slipped through the tournament-batch cursor rotation.
+      try {
+        const eightHoursAgo = new Date(Date.now() - 8 * 60 * 60 * 1000).toISOString();
+        const { data: staleMatches, error: staleError } = await supabase
+          .from('matches')
+          .update({
+            status: 'completed',
+            last_synced_at: new Date().toISOString(),
+          })
+          .eq('status', 'in_progress')
+          .lt('last_synced_at', eightHoursAgo)
+          .select('id, external_match_id');
+
+        if (staleError) {
+          result.errors.push(`Stale-live sweep failed: ${staleError.message}`);
+        } else if (staleMatches && staleMatches.length > 0) {
+          console.warn(
+            `[fetchMatches] Stale-live sweep completed ${staleMatches.length} orphaned in_progress match(es): ` +
+            staleMatches.map((m: { id: number }) => m.id).join(', ')
+          );
+          result.scheduled += staleMatches.length;
+        }
+      } catch (sweepError) {
+        result.errors.push(`Stale-live sweep threw: ${(sweepError as Error).message}`);
+      }
 
       await logJobExecution('fetch-matches', 'completed', {
         fetched: result.fetched,

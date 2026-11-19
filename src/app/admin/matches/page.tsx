@@ -3,7 +3,7 @@
 import { fetchWithAuth } from '@/lib/fetch-with-auth';
 import React, { useState, useEffect } from 'react';
 import Image from 'next/image';
-import { BarChart3, RefreshCw } from 'lucide-react';
+import { BarChart3, RefreshCw, CheckCircle, Edit2 } from 'lucide-react';
 
 
 interface ProfessionalTeam {
@@ -28,6 +28,8 @@ interface Match {
   winner_team_id: number | null;
   team_a_id: number;
   team_b_id: number;
+  series_id?: number | null;
+  best_of?: number | null;
 }
 
 export default function AdminMatchesPage() {
@@ -40,6 +42,8 @@ export default function AdminMatchesPage() {
   const [syncingMatchId, setSyncingMatchId] = useState<number | null>(null);
   const [syncingAllPending, setSyncingAllPending] = useState(false);
   const [syncMessage, setSyncMessage] = useState<string | null>(null);
+  const [patchingMatchId, setPatchingMatchId] = useState<number | null>(null);
+  const [editingBestOfMatchId, setEditingBestOfMatchId] = useState<number | null>(null);
 
   const limit = 25;
   const requestKey = JSON.stringify([page, statusFilter, refreshVersion]);
@@ -79,6 +83,55 @@ export default function AdminMatchesPage() {
       setSyncMessage('Failed to trigger sync.');
     } finally {
       setSyncingMatchId(null);
+      setTimeout(() => setSyncMessage(null), 4000);
+    }
+  };
+
+  const handleForceComplete = async (matchId: number) => {
+    setPatchingMatchId(matchId);
+    setSyncMessage(null);
+    try {
+      const res = await fetchWithAuth(`/api/admin/matches/${matchId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'completed' }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setSyncMessage(`Match ${matchId} marked as completed.`);
+        setRefreshVersion((v) => v + 1);
+      } else {
+        setSyncMessage(data.error || 'Failed to force complete match.');
+      }
+    } catch {
+      setSyncMessage('Failed to force complete match.');
+    } finally {
+      setPatchingMatchId(null);
+      setTimeout(() => setSyncMessage(null), 4000);
+    }
+  };
+
+  const handleEditBestOf = async (matchId: number, bestOf: number) => {
+    setPatchingMatchId(matchId);
+    setSyncMessage(null);
+    try {
+      const res = await fetchWithAuth(`/api/admin/matches/${matchId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ best_of: bestOf }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setSyncMessage(`Series best_of updated to Bo${bestOf}.`);
+        setRefreshVersion((v) => v + 1);
+      } else {
+        setSyncMessage(data.error || 'Failed to update best_of.');
+      }
+    } catch {
+      setSyncMessage('Failed to update best_of.');
+    } finally {
+      setPatchingMatchId(null);
+      setEditingBestOfMatchId(null);
       setTimeout(() => setSyncMessage(null), 4000);
     }
   };
@@ -187,6 +240,7 @@ export default function AdminMatchesPage() {
               <tr className="bg-slate-800/50 border-b border-slate-700 text-slate-400 text-sm">
                 <th className="px-4 py-3 font-medium">Match</th>
                 <th className="px-4 py-3 font-medium">Tournament</th>
+                <th className="px-4 py-3 font-medium">Format</th>
                 <th className="px-4 py-3 font-medium">Scheduled</th>
                 <th className="px-4 py-3 font-medium">Sync Status</th>
                 <th className="px-4 py-3 font-medium">Last Synced</th>
@@ -204,6 +258,7 @@ export default function AdminMatchesPage() {
                       </div>
                     </td>
                     <td className="px-4 py-4"><div className="h-4 w-28 rounded bg-slate-700/50" /></td>
+                    <td className="px-4 py-4"><div className="h-4 w-16 rounded bg-slate-700/50" /></td>
                     <td className="px-4 py-4"><div className="h-4 w-36 rounded bg-slate-700/50" /></td>
                     <td className="px-4 py-4"><div className="h-5 w-20 rounded bg-slate-700/50" /></td>
                     <td className="px-4 py-4"><div className="h-4 w-32 rounded bg-slate-700/50" /></td>
@@ -212,7 +267,7 @@ export default function AdminMatchesPage() {
                 ))
               ) : matches.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-6 py-12 text-center text-slate-400">No matches found.</td>
+                  <td colSpan={7} className="px-6 py-12 text-center text-slate-400">No matches found.</td>
                 </tr>
               ) : (
                 matches.map((match) => (
@@ -234,26 +289,73 @@ export default function AdminMatchesPage() {
                       </div>
                     </td>
                     <td className="px-4 py-3 text-sm text-slate-300">{match.tournament?.name || '-'}</td>
+                    <td className="px-4 py-3 text-sm">
+                      {editingBestOfMatchId === match.id ? (
+                        <div className="flex items-center gap-1.5">
+                          <select
+                            defaultValue={match.best_of ?? 3}
+                            disabled={patchingMatchId === match.id}
+                            onChange={(e) => void handleEditBestOf(match.id, parseInt(e.target.value))}
+                            className="px-2 py-0.5 text-xs bg-slate-900 border border-slate-600 rounded text-amber-300 focus:outline-none focus:border-amber-500"
+                          >
+                            <option value={1}>Bo1</option>
+                            <option value={2}>Bo2</option>
+                            <option value={3}>Bo3</option>
+                            <option value={5}>Bo5</option>
+                          </select>
+                          <button
+                            type="button"
+                            onClick={() => setEditingBestOfMatchId(null)}
+                            className="text-xs text-slate-400 hover:text-white px-1"
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => setEditingBestOfMatchId(match.id)}
+                          title="Click to edit series Best of"
+                          className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded border border-slate-700 bg-slate-800/80 text-slate-300 hover:border-amber-500/50 hover:text-amber-300 transition-colors"
+                        >
+                          {match.best_of ? `Bo${match.best_of}` : 'Bo3'}
+                          <Edit2 className="w-2.5 h-2.5 opacity-60" />
+                        </button>
+                      )}
+                    </td>
                     <td className="px-4 py-3 text-sm text-slate-300">{new Date(match.scheduled_time).toLocaleString()}</td>
                     <td className="px-4 py-3 text-sm">{getStatusBadge(match.status, match.detailed_stats_fetched_at)}</td>
                     <td className="px-4 py-3 text-sm text-slate-400">
                       {match.detailed_stats_fetched_at ? new Date(match.detailed_stats_fetched_at).toLocaleString() : '—'}
                     </td>
                     <td className="px-4 py-3 text-right">
-                      {match.status === 'completed' && (
-                        <button
-                          onClick={() => handleSync(match.id)}
-                          disabled={Boolean(match.detailed_stats_fetched_at) || syncingMatchId === match.id || syncingAllPending}
-                          title={match.detailed_stats_fetched_at ? 'Match details have already been synced.' : undefined}
-                          className="px-3 py-1.5 text-xs font-medium border border-amber-500/40 text-amber-400 hover:bg-amber-500/10 rounded transition-colors disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent"
-                        >
-                          {syncingMatchId === match.id
-                            ? 'Syncing...'
-                            : match.detailed_stats_fetched_at
-                              ? 'Synced'
-                              : 'Sync Now'}
-                        </button>
-                      )}
+                      <div className="flex items-center justify-end gap-2">
+                        {match.status === 'in_progress' && (
+                          <button
+                            onClick={() => void handleForceComplete(match.id)}
+                            disabled={patchingMatchId === match.id}
+                            title="Force mark this stuck live match as completed"
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium border border-blue-500/40 text-blue-300 hover:bg-blue-500/10 rounded transition-colors disabled:opacity-50"
+                          >
+                            <CheckCircle className="h-3.5 w-3.5 text-blue-400" />
+                            {patchingMatchId === match.id ? 'Updating...' : 'Force Complete'}
+                          </button>
+                        )}
+                        {match.status === 'completed' && (
+                          <button
+                            onClick={() => handleSync(match.id)}
+                            disabled={Boolean(match.detailed_stats_fetched_at) || syncingMatchId === match.id || syncingAllPending}
+                            title={match.detailed_stats_fetched_at ? 'Match details have already been synced.' : undefined}
+                            className="px-3 py-1.5 text-xs font-medium border border-amber-500/40 text-amber-400 hover:bg-amber-500/10 rounded transition-colors disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent"
+                          >
+                            {syncingMatchId === match.id
+                              ? 'Syncing...'
+                              : match.detailed_stats_fetched_at
+                                ? 'Synced'
+                                : 'Sync Now'}
+                          </button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))
