@@ -90,8 +90,9 @@ async function getHandler(request: NextRequest) {
       .order('id', { ascending: false });
 
     if (unreadOnly) query.eq('is_read', false);
-    if (notificationTypesByCategory[category]) {
-      query.in('type', notificationTypesByCategory[category]);
+    const categoryTypes = notificationTypesByCategory[category];
+    if (categoryTypes) {
+      query.in('type', categoryTypes);
     }
     if (cursor) {
       query.or(`created_at.lt.${cursor.createdAt},and(created_at.eq.${cursor.createdAt},id.lt.${cursor.id})`);

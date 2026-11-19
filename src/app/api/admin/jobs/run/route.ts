@@ -76,6 +76,10 @@ async function postHandler(request: Request) {
             matchLimit: typeof body.matchLimit === 'number' ? body.matchLimit : undefined,
             skipRecalculateChain: typeof body.skipRecalculateChain === 'boolean' ? body.skipRecalculateChain : undefined,
           }
+      : jobName === 'process-completed-matches'
+        ? {
+            matchLimit: typeof body.matchLimit === 'number' ? body.matchLimit : undefined,
+          }
       : {};
     const result = await runJob(jobName, jobOptions);
 

@@ -11,6 +11,7 @@ interface JobResult {
   substitutionsApplied: number;
   errors: string[];
   duration: number;
+  hasMore?: boolean;
 }
 
 interface MatchPlayerStats {
@@ -239,7 +240,7 @@ class ProcessCompletedMatches {
   /**
    * Main job entry point
    */
-  async execute(): Promise<JobResult> {
+  async execute(options: { matchLimit?: number } = {}): Promise<JobResult> {
     const startTime = Date.now();
     const result: JobResult = {
       success: false,
@@ -248,17 +249,25 @@ class ProcessCompletedMatches {
       substitutionsApplied: 0,
       errors: [],
       duration: 0,
+      hasMore: false,
     };
 
     try {
       // Get completed matches that have detailed stats fetched recently (within the last 7 days)
       const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+
+      // Fetch one more than matchLimit to detect whether there are additional pages
+      const matchLimit = options.matchLimit ?? 50;
+      const fetchLimit = matchLimit + 1;
+
       const { data: matches, error: matchError } = await this.supabase
         .from('matches')
         .select('id, external_match_id, gameweek_id, status, detailed_stats_fetched_at')
         .eq('status', 'completed')
         .not('detailed_stats_fetched_at', 'is', null)
-        .gte('detailed_stats_fetched_at', sevenDaysAgo);
+        .gte('detailed_stats_fetched_at', sevenDaysAgo)
+        .order('detailed_stats_fetched_at', { ascending: true })
+        .limit(fetchLimit);
 
       if (matchError) {
         result.errors.push(`Failed to fetch matches: ${matchError.message}`);
@@ -266,7 +275,10 @@ class ProcessCompletedMatches {
         return result;
       }
 
-      const matchesList = (matches ?? []) as CompletedMatchRow[];
+      const allFetched = (matches ?? []) as CompletedMatchRow[];
+      result.hasMore = allFetched.length > matchLimit;
+      // Trim to matchLimit — the extra record was only fetched to detect hasMore
+      const matchesList = allFetched.slice(0, matchLimit);
       const matchCount = matchesList.length;
       if (matchCount === 0) {
         console.log('[ProcessMatches] No completed matches with detailed stats to process');
@@ -275,7 +287,7 @@ class ProcessCompletedMatches {
         return result;
       }
 
-      console.log(`[ProcessMatches] Processing ${matchCount} completed matches...`);
+      console.log(`[ProcessMatches] Processing ${matchCount} completed matches (hasMore=${result.hasMore})...`);
       const processedGameweeks = new Set<number>();
 
       // Process matches in chunks of 25 to avoid overwhelming network or memory
@@ -391,9 +403,9 @@ class ProcessCompletedMatches {
   }
 }
 
-export async function processCompletedMatches(): Promise<JobResult> {
+export async function processCompletedMatches(options: { matchLimit?: number } = {}): Promise<JobResult> {
   const processor = new ProcessCompletedMatches();
-  return processor.execute();
+  return processor.execute(options);
 }
 
 export default processCompletedMatches;

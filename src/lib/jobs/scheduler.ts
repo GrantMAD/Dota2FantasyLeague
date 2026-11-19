@@ -128,7 +128,7 @@ const JOBS: JobDefinition[] = [
   {
     name: 'fetch-matches',
     schedule: '*/15 * * * *', // Every 15 minutes
-    handler: fetchMatches,
+    handler: (options?: JobRunOptions) => fetchMatches({ tournamentLimit: options?.tournamentLimit ?? 2 }),
     enabled: process.env.ENABLE_MATCH_FETCH !== 'false',
     timeout: SERVERLESS_JOB_TIMEOUT_MS,
   },
@@ -149,7 +149,7 @@ const JOBS: JobDefinition[] = [
   {
     name: 'process-completed-matches',
     schedule: '45 * * * *', // Hourly at :45, after match details fetch
-    handler: processCompletedMatches,
+    handler: (options?: JobRunOptions) => processCompletedMatches({ matchLimit: options?.matchLimit }),
     enabled: process.env.ENABLE_SCORE_CALCULATION !== 'false',
     timeout: SERVERLESS_JOB_TIMEOUT_MS,
   },

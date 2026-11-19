@@ -388,6 +388,53 @@ export default function DataJobsPage() {
         }
 
         toast.success('Job Complete', `Logo backfill finished: ${updated} updated, ${skipped} still unavailable.`);
+      } else if (jobName === 'process-completed-matches') {
+        let hasMore = true;
+        let totalMatches = 0;
+        let totalPerformances = 0;
+        let iterations = 0;
+        const maxIterations = 20;
+
+        while (hasMore && iterations < maxIterations) {
+          iterations++;
+          const response = await fetchWithAuth('/api/admin/jobs/run', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              ...authHeaders,
+            },
+            body: JSON.stringify({ job_name: jobName, matchLimit: 50 }),
+          });
+          const data = await response.json().catch(() => ({}));
+          if (!response.ok) {
+            throw new Error(data.error || `Job ${jobName} execution returned an error.`);
+          }
+
+          const batchResult = data.result?.result as {
+            success?: boolean;
+            matchesProcessed?: number;
+            performancesCreated?: number;
+            hasMore?: boolean;
+            errors?: string[];
+          } | undefined;
+
+          if (!batchResult?.success) {
+            throw new Error(batchResult?.errors?.join('; ') || `Job ${jobName} batch failed.`);
+          }
+
+          totalMatches += batchResult.matchesProcessed ?? 0;
+          totalPerformances += batchResult.performancesCreated ?? 0;
+          hasMore = Boolean(batchResult.hasMore);
+
+          if (!batchResult.matchesProcessed || batchResult.matchesProcessed === 0) {
+            break;
+          }
+        }
+
+        toast.success(
+          'Processing Complete',
+          `Completed matches processed: ${totalMatches} matches, ${totalPerformances} performances saved across ${iterations} batch(es).`
+        );
       } else if (jobName === 'calculate-fantasy-scores') {
         let hasMore = true;
         let totalProcessed = 0;
