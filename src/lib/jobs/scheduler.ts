@@ -120,7 +120,7 @@ const JOBS: JobDefinition[] = [
   },
   {
     name: 'discover-tournaments',
-    schedule: '0 */6 * * *', // Every 6 hours
+    schedule: '0 * * * *', // Every hour
     handler: discoverTournaments,
     enabled: process.env.ENABLE_TOURNAMENT_DISCOVERY !== 'false',
     timeout: SERVERLESS_JOB_TIMEOUT_MS,

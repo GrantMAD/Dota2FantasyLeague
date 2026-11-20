@@ -4,7 +4,7 @@
  * Discovers new tournaments from data provider
  * and creates tournament records in the database
  * 
- * Run schedule: Every 6 hours
+ * Run schedule: Hourly (every hour)
  */
 
 import { getSupabaseServerClient } from '@/lib/db/supabase-server';
