@@ -7,8 +7,9 @@ import { FixtureDifficultyBadge } from '@/components/FixtureDifficultyBadge';
 import type { FixtureDifficultyResult } from '@/lib/fixture-difficulty';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import Image from 'next/image';
+import Link from 'next/link';
 import { canOptimizeImage } from '@/lib/optimized-image';
-import { CircleAlert, UserCheck, TrendingUp, TrendingDown, Minus, Clock, ShieldCheck, Lock, Sparkles, ChevronDown } from 'lucide-react';
+import { ArrowRight, CircleAlert, UserCheck, TrendingUp, TrendingDown, Minus, Clock, ShieldCheck, Lock, Sparkles, ChevronDown, Users } from 'lucide-react';
 import { useToast } from '@/components/Toast';
 import type { ChipType, ChipStatus, FantasyPlayer as LineupPlayer, LineupEntry } from '@/types/fantasy';
 
@@ -773,8 +774,21 @@ export default function LineupsPage() {
                 </div>
               </div>
             ) : ownedPlayers.length === 0 ? (
-              <div data-guide="lineup-empty" className="py-16 text-center text-[var(--text-muted)]">
-                Create a squad and add players before setting a lineup.
+              <div data-guide="lineup-empty" className="rounded-2xl border border-dashed border-[var(--border)] bg-[var(--surface-raised)] px-6 py-12 text-center sm:px-10">
+                <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl border border-cyan-500/25 bg-cyan-500/10 text-cyan-700 dark:text-cyan-300">
+                  <Users className="h-7 w-7" aria-hidden="true" />
+                </span>
+                <h3 className="mt-4 text-lg font-bold text-[var(--text-primary)]">Your lineup starts with a squad</h3>
+                <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-[var(--text-secondary)]">
+                  Add players to your squad first, then return here to choose your starters and captain.
+                </p>
+                <Link
+                  href="/transfers"
+                  className="mt-5 inline-flex items-center gap-2 rounded-xl bg-cyan-600 px-4 py-2.5 text-sm font-bold text-white transition-colors hover:bg-cyan-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--surface)]"
+                >
+                  Build your squad
+                  <ArrowRight className="h-4 w-4" aria-hidden="true" />
+                </Link>
               </div>
             ) : (
               <div className="space-y-8">

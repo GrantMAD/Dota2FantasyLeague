@@ -50,7 +50,10 @@ function TransfersPageContent() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
-  const [roleFilter, setRoleFilter] = useState('');
+  const [roleFilter, setRoleFilter] = useState<string>(() => {
+    const requestedRole = searchParams.get('role');
+    return STARTER_ROLES.find((role) => role === requestedRole) ?? '';
+  });
   const [ownershipFilter, setOwnershipFilter] = useState<TransferOwnershipFilter>('all');
   const [pinOwnedFirst, setPinOwnedFirst] = useState(true);
   const [sortBy, setSortBy] = useState<TransferSortBy>('price');
@@ -595,7 +598,7 @@ function TransfersPageContent() {
 
       {/* Wildcard Alert Banner */}
       {!wildcardUsed ? (
-        <div className="mb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 rounded-xl border border-amber-500/40 bg-linear-to-r from-amber-500/15 via-amber-500/10 to-transparent p-4 shadow-sm backdrop-blur-xs">
+        <div data-guide="transfer-wildcard" className="mb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 rounded-xl border border-amber-500/40 bg-linear-to-r from-amber-500/15 via-amber-500/10 to-transparent p-4 shadow-sm backdrop-blur-xs">
           <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-500/20 text-amber-400 border border-amber-500/30 shadow-inner">
               <Sparkles className="h-5 w-5" />
@@ -623,7 +626,7 @@ function TransfersPageContent() {
           </button>
         </div>
       ) : (
-        <div className="mb-6 flex flex-col gap-3 rounded-xl border border-[var(--border)] bg-[var(--surface)] px-4 py-3 text-xs text-[var(--text-secondary)] sm:flex-row sm:items-center sm:justify-between">
+        <div data-guide="transfer-wildcard" className="mb-6 flex flex-col gap-3 rounded-xl border border-[var(--border)] bg-[var(--surface)] px-4 py-3 text-xs text-[var(--text-secondary)] sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-start gap-2">
             <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-amber-500 dark:text-amber-300" />
             <div>
@@ -678,7 +681,11 @@ function TransfersPageContent() {
         }}
       />
 
-      <DifferentialScoutPanel selectedPlayerInId={selectedPlayerIn} onSelectPlayerIn={(id) => setSelectedPlayerIn(id)} />
+      <DifferentialScoutPanel
+        selectedPlayerInId={selectedPlayerIn}
+        onSelectPlayerIn={(id) => setSelectedPlayerIn(id)}
+        defaultCollapsed
+      />
 
       {ownedPlayerIds.length >= SQUAD_MAX_SIZE && fantasySeasonId ? (
         <TransferSuggestionsPanel
@@ -696,14 +703,6 @@ function TransfersPageContent() {
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
         {/* Squad actions */}
         <div className="lg:col-span-1 space-y-6">
-          <div className="wildcard-card bg-amber-500/10 border border-amber-500/30 rounded-xl p-5">
-            <h3 className="wildcard-card-title font-semibold text-amber-600 dark:text-amber-400 mb-2 text-sm">Wildcard Available</h3>
-            <p className="wildcard-card-description text-xs text-[var(--text-secondary)] mb-3">{wildcardUsed ? 'Wildcard already used this season.' : 'Play it to make unlimited transfers this week with no point deductions.'}</p>
-            <button disabled={wildcardUsed || actionLoading} onClick={activateWildcard} className="wildcard-card-action w-full bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/40 text-amber-700 dark:text-amber-300 text-xs font-bold py-2 rounded-lg transition-colors disabled:opacity-50">
-              {wildcardUsed ? 'Wildcard Used' : 'Play Wildcard'}
-            </button>
-          </div>
-
           {!isBuilding && ownedPlayerIds.length > 0 && (
             <section className="rounded-xl border border-emerald-500/35 bg-[var(--surface)] p-4 shadow-sm">
               <div className="mb-3 flex items-center justify-between gap-2">

@@ -13,6 +13,7 @@ import {
   Wallet,
   History,
   X,
+  Plus,
 } from 'lucide-react';
 import Link from 'next/link';
 import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
@@ -759,6 +760,7 @@ export default function SquadsPage() {
                   <div className="flex justify-start sm:pl-12">
                     <PitchPlayerSlot
                       roleTitle="Pos 3 · Offlane"
+                      roleFilter="Offlane"
                       slotItem={pitchRoster.offlane}
                       onSelect={openPlayerDetails}
                       isLoading={loading}
@@ -769,6 +771,7 @@ export default function SquadsPage() {
                   <div className="flex justify-center">
                     <PitchPlayerSlot
                       roleTitle="Pos 2 · Mid"
+                      roleFilter="Mid"
                       slotItem={pitchRoster.mid}
                       onSelect={openPlayerDetails}
                       isLoading={loading}
@@ -779,12 +782,14 @@ export default function SquadsPage() {
                   <div className="flex justify-around sm:px-16">
                     <PitchPlayerSlot
                       roleTitle="Pos 4 · Support"
+                      roleFilter="Support"
                       slotItem={pitchRoster.pos4}
                       onSelect={openPlayerDetails}
                       isLoading={loading}
                     />
                     <PitchPlayerSlot
                       roleTitle="Pos 5 · Hard Sup."
+                      roleFilter="Hard Support"
                       slotItem={pitchRoster.pos5}
                       onSelect={openPlayerDetails}
                       isLoading={loading}
@@ -795,6 +800,7 @@ export default function SquadsPage() {
                   <div className="flex justify-end sm:pr-12">
                     <PitchPlayerSlot
                       roleTitle="Pos 1 · Carry"
+                      roleFilter="Carry"
                       slotItem={pitchRoster.carry}
                       onSelect={openPlayerDetails}
                       isLoading={loading}
@@ -1234,11 +1240,13 @@ export default function SquadsPage() {
  */
 function PitchPlayerSlot({
   roleTitle,
+  roleFilter,
   slotItem,
   onSelect,
   isLoading = false,
 }: {
   roleTitle: string;
+  roleFilter: string;
   slotItem: OwnedSquadPlayer | null;
   onSelect: (playerId: number) => void;
   isLoading?: boolean;
@@ -1266,16 +1274,19 @@ function PitchPlayerSlot({
 
   if (!slotItem) {
     return (
-      <div
-        className="w-48 sm:w-56 rounded-2xl border-2 border-dashed p-3 text-center transition-all"
-        style={{
-          borderColor: 'var(--border)',
-          background: 'color-mix(in srgb, var(--surface) 60%, transparent)',
-        }}
+      <Link
+        href={`/transfers?role=${encodeURIComponent(roleFilter)}`}
+        aria-label={`Add a ${roleFilter} player from the Transfer Market`}
+        className="group flex w-48 sm:w-56 items-center gap-3 rounded-2xl border-2 border-dashed border-[var(--border)] bg-[var(--surface-raised)]/60 p-3 text-left transition-all hover:border-cyan-500/60 hover:bg-[var(--surface-muted)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500"
       >
-        <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>{roleTitle}</span>
-        <p className="mt-1 text-xs" style={{ color: 'var(--text-muted)' }}>Vacant Slot</p>
-      </div>
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-dashed border-cyan-500/40 bg-cyan-500/10 text-cyan-700 transition-colors group-hover:border-cyan-500 group-hover:text-cyan-600 dark:text-cyan-300">
+          <Plus className="h-5 w-5" aria-hidden="true" />
+        </span>
+        <span className="min-w-0">
+          <span className="block text-[10px] font-bold uppercase tracking-wider text-[var(--text-secondary)]">{roleTitle}</span>
+          <span className="mt-1 block text-xs font-semibold text-cyan-700 dark:text-cyan-300">Vacant · Add player</span>
+        </span>
+      </Link>
     );
   }
 

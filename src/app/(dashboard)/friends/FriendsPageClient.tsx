@@ -744,12 +744,23 @@ export default function FriendsPageClient() {
               )}
             </div>
           ) : (
-            <div className="rounded-2xl border border-dashed border-[var(--border)] bg-[var(--surface-raised)] px-5 py-10 text-center">
-              <Activity className="mx-auto h-8 w-8 text-[var(--text-muted)]" />
-              <p className="mt-3 font-semibold text-[var(--text-primary)]">No friend activity yet</p>
-              <p className="mt-1 text-sm text-[var(--text-muted)]">
-                Transfers, lineup updates, chip use, and completed gameweek scores from followed managers will appear here.
+            <div className="rounded-2xl border border-dashed border-[var(--border)] bg-[var(--surface-raised)] px-5 py-10 text-center sm:px-8">
+              <span className="relative mx-auto flex h-16 w-16 items-center justify-center rounded-2xl border border-cyan-500/25 bg-cyan-500/10 text-cyan-700 dark:text-cyan-300">
+                <Users className="h-8 w-8" aria-hidden="true" />
+                <Sparkles className="absolute -right-2 -top-2 h-5 w-5 rounded-full bg-[var(--surface)] p-0.5 text-amber-500" aria-hidden="true" />
+              </span>
+              <p className="mt-4 font-semibold text-[var(--text-primary)]">Find managers to follow</p>
+              <p className="mx-auto mt-1 max-w-md text-sm text-[var(--text-secondary)]">
+                Friend transfers, lineup updates, chip use, and completed gameweek scores will show up here once you follow managers.
               </p>
+              <a
+                href="#friend-search"
+                className="mt-5 inline-flex items-center gap-2 rounded-xl bg-cyan-600 px-4 py-2.5 text-sm font-bold text-white transition-colors hover:bg-cyan-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--surface)]"
+              >
+                <UserPlus className="h-4 w-4" aria-hidden="true" />
+                Find managers
+                <ArrowRight className="h-4 w-4" aria-hidden="true" />
+              </a>
             </div>
           )}
         </section>
@@ -874,9 +885,15 @@ export default function FriendsPageClient() {
                 ))}
               </ul>
             ) : (
-              <div className="py-6 text-center">
-                <Users className="mx-auto h-7 w-7 text-[var(--text-muted)]" />
-                <p className="mt-2 text-sm text-[var(--text-muted)]">You are not following anyone yet.</p>
+              <div className="mt-3 rounded-xl border border-dashed border-[var(--border)] bg-[var(--surface)] px-3 py-5 text-center">
+                <Users className="mx-auto h-7 w-7 text-[var(--text-muted)]" aria-hidden="true" />
+                <p className="mt-2 text-sm font-medium text-[var(--text-secondary)]">You are not following anyone yet.</p>
+                <a
+                  href="#friend-search"
+                  className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-cyan-700 hover:underline dark:text-cyan-300"
+                >
+                  Find managers <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
+                </a>
               </div>
             )}
           </section>

@@ -88,7 +88,7 @@ const targetSelectors: Record<string, string[]> = {
   '/transfers': [
     'main input[placeholder*="Search"], main input[type="text"]',
     'main table thead tr, main table tbody tr:first-child',
-    'main table tbody tr:first-child td:last-child, .wildcard-card',
+    'main table tbody tr:first-child td:last-child, [data-guide="transfer-wildcard"]',
   ],
   '/players': [
     'main input[placeholder*="Search"], main input[type="text"]',

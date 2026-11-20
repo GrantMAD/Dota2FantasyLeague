@@ -1122,10 +1122,6 @@ body {
 [data-theme='light'] .lineup-chip-emerald .text-emerald-400,
 [data-theme='light'] .lineup-chip-emerald .text-emerald-300 { color: #087f5b !important; }
 [data-theme='light'] .lineup-chip-description { color: #456078 !important; }
-[data-theme='light'] .wildcard-card { background-color: #fff8e8 !important; border-color: #d9a441 !important; }
-[data-theme='light'] .wildcard-card-title,
-[data-theme='light'] .wildcard-card-action { color: #8a5700 !important; }
-[data-theme='light'] .wildcard-card-description { color: #456078 !important; }
 [data-theme='light'] .border-slate-700,
 [data-theme='light'] .border-slate-600,
 [data-theme='light'] .border-slate-700\/80,
