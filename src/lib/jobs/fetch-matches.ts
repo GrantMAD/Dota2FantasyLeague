@@ -532,13 +532,22 @@ export async function fetchMatches(options: { tournamentLimit?: number } = {}): 
 
               // Safeguard 1: Split-series auto-merge.
               // When a new match arrives under a different provider series ID but belongs to the
-              // same team pair in the same gameweek AND within ~3 hours of the previous series
-              // ending, merge it into the existing series instead of creating a duplicate row.
-              // All 5 conditions must be true to prevent false merges (e.g., UB Final + Grand Final).
+              // same team pair in the same gameweek AND within ~90 minutes of the last concluded
+              // game in the existing series, merge it into the existing series instead of creating
+              // a duplicate row. All conditions must be true to prevent false merges.
+              //
+              // Guard conditions tightened to prevent cross-day false merges:
+              //   • Only anchors on end_time (not start_time or scheduled_time) — if end_time is
+              //     missing the prior game is unfinished and the merge is never safe.
+              //   • 90-minute window (down from 3h) — genuine intra-session splits happen within
+              //     30-60 min; 90 min provides a safe margin without catching next-day sessions.
+              //   • Same calendar date (UTC) guard — different day means a new series session.
+              //   • Series-completion guard — if the existing series already has enough wins for
+              //     its best-of format it is complete; a new game belongs to a separate series.
               if (!seriesRecord && providerSeriesId) {
-                const THREE_HOURS_MS = 3 * 60 * 60 * 1000;
-                const TWO_HOURS_MS = 2 * 60 * 60 * 1000;
+                const NINETY_MIN_MS = 90 * 60 * 1000;
                 const incomingMatchTime = new Date(scheduledTime).getTime();
+                const incomingDateUtc = new Date(scheduledTime).toISOString().slice(0, 10);
 
                 const splitCandidate = [...seriesByIdentity.values()].find((series) => {
                   // 1. Same gameweek
@@ -552,19 +561,35 @@ export async function fetchMatches(options: { tournamentLimit?: number } = {}): 
                     .sort((a, b) => Number(a) - Number(b))
                     .join(':');
                   if (recorded !== teamPair.join(':')) return false;
-                  // 5. Time proximity: new match must start within 3h of the last game in existing series
+
                   const seriesMatches = allMatches.filter((m) => m.series_id === series.id);
                   if (seriesMatches.length === 0) return false;
+
+                  // 5. Series-completion guard: if the series is already clinched do not merge.
+                  //    Count wins directly from winner_team_id on completed games.
+                  const effectiveBestOf = series.best_of ?? (seriesMatches.length > 1 ? 3 : 1);
+                  const clinchThreshold = effectiveBestOf <= 1 ? 1 : Math.floor(effectiveBestOf / 2) + 1;
+                  const completedGames = seriesMatches.filter((m) => m.status === 'completed');
+                  const teamAWins = completedGames.filter((m) => m.winner_team_id === series.team_a_id).length;
+                  const teamBWins = completedGames.filter((m) => m.winner_team_id === series.team_b_id).length;
+                  if (teamAWins >= clinchThreshold || teamBWins >= clinchThreshold) return false;
+
+                  // 6. Time anchor: only use end_time — if any game lacks end_time the series has
+                  //    unfinished games and merging across that boundary is not safe.
                   const latestEndTime = Math.max(
                     ...seriesMatches.map((m) =>
-                      m.end_time ? new Date(m.end_time).getTime() :
-                      m.start_time ? new Date(m.start_time).getTime() :
-                      m.scheduled_time ? new Date(m.scheduled_time).getTime() : 0
+                      m.end_time ? new Date(m.end_time).getTime() : 0
                     )
                   );
                   if (latestEndTime === 0) return false;
+
+                  // 7. Same calendar date (UTC): different day = new series session, never merge.
+                  const latestEndDateUtc = new Date(latestEndTime).toISOString().slice(0, 10);
+                  if (latestEndDateUtc !== incomingDateUtc) return false;
+
+                  // 8. 90-minute proximity window (tightened from 3h).
                   const timeDiff = incomingMatchTime - latestEndTime;
-                  return timeDiff >= -TWO_HOURS_MS && timeDiff < THREE_HOURS_MS;
+                  return timeDiff >= -NINETY_MIN_MS && timeDiff < NINETY_MIN_MS;
                 });
 
                 if (splitCandidate) {
@@ -572,7 +597,7 @@ export async function fetchMatches(options: { tournamentLimit?: number } = {}): 
                     `[FetchMatches] ⚠️ Split-series detected: match ${match.id} arrives under ` +
                     `provider series ${providerSeriesId} but team pair [${teamPair.join(',')}] already has ` +
                     `series ${splitCandidate.id} (${splitCandidate.source_series_id}) in gameweek ` +
-                    `${targetGameweek.id} with games ending within 3h. ` +
+                    `${targetGameweek.id} with games ending within 90min on the same UTC day. ` +
                     `Merging into existing series ${splitCandidate.id}. Verify manually.`
                   );
                   result.errors.push(
