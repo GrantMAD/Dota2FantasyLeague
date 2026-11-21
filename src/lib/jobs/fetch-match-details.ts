@@ -23,6 +23,7 @@ import type { JobRunOptions } from './scheduler';
 import type { DataProvider } from '../data-providers/provider-interface';
 
 export interface FetchDetailsResult {
+  success: boolean;
   fetched: number;
   scored: number;
   errors: string[];
@@ -41,6 +42,7 @@ type MatchPlayerStatsInsert = Omit<MatchPlayerStats, 'id' | 'created_at' | 'upda
 export async function fetchMatchDetails(options?: JobRunOptions): Promise<FetchDetailsResult> {
   const startedAt = new Date();
   const result: FetchDetailsResult = {
+    success: true,
     fetched: 0,
     scored: 0,
     errors: [],
@@ -369,14 +371,18 @@ export async function fetchMatchDetails(options?: JobRunOptions): Promise<FetchD
               .update(updateMatchPayload)
               .eq('id', match.id);
           } catch (error) {
+            const errStr = (error as Error).message;
+            console.warn(
+              `[fetchMatchDetails] Details not ready yet for match ${match.id} (${errStr}); leaving pending for next run.`
+            );
             result.errors.push(
-              `Failed to fetch details for match ${match.id}: ${(error as Error).message}`
+              `Failed to fetch details for match ${match.id}: ${errStr}`
             );
           }
         }
       }
 
-      await logJobExecution('fetch-match-details', result.errors.length > 0 ? 'failed' : 'completed', {
+      await logJobExecution('fetch-match-details', 'completed', {
         fetched: result.fetched,
         scored: result.scored,
         errors: result.errors.length,
@@ -384,7 +390,7 @@ export async function fetchMatchDetails(options?: JobRunOptions): Promise<FetchD
       }, jobExecutionId);
 
       if (result.errors.length > 0) {
-        console.error('[fetchMatchDetails] Completed with errors:', result.errors);
+        console.warn('[fetchMatchDetails] Completed batch with deferred match errors:', result.errors);
       } else {
         console.log('[fetchMatchDetails] Completed successfully');
       }
@@ -397,6 +403,7 @@ export async function fetchMatchDetails(options?: JobRunOptions): Promise<FetchD
   } catch (error) {
     const errorMsg = (error as Error).message;
     console.error('[fetchMatchDetails] Failed:', errorMsg);
+    result.success = false;
     result.errors.push(errorMsg);
   }
 

@@ -9,6 +9,7 @@ interface JobResult {
   errors: string[];
   duration: number;
   hasMore?: boolean;
+  lastProcessedPlayerId?: number;
 }
 
 interface PriceChangeRecord {
@@ -47,7 +48,7 @@ class SendPriceChangeNotifications {
     );
   }
 
-  public async execute(options: { playerLimit?: number } = {}): Promise<JobResult> {
+  public async execute(options: { playerLimit?: number; afterPlayerId?: number } = {}): Promise<JobResult> {
     const startTime = Date.now();
     const result: JobResult = {
       success: true,
@@ -107,14 +108,25 @@ class SendPriceChangeNotifications {
         return result;
       }
 
-      // Apply playerLimit for chunked execution within Vercel's limits (default 15)
-      const playerLimit = options.playerLimit ?? 15;
-      let changesToProcess = priceChanges as unknown as PriceChangeRecord[];
-      if (priceChanges.length > playerLimit) {
-        changesToProcess = changesToProcess.slice(0, playerLimit);
+      // Sort price changes deterministically by player_id
+      let sortedChanges = [...(priceChanges as unknown as PriceChangeRecord[])].sort(
+        (a, b) => a.player_id - b.player_id
+      );
+
+      // Support cursor pagination via afterPlayerId if provided
+      if (options.afterPlayerId !== undefined) {
+        sortedChanges = sortedChanges.filter((pc) => pc.player_id > (options.afterPlayerId as number));
+      }
+
+      // Default playerLimit to 200 so full gameweek rosters (~132 players) process completely in one run
+      const playerLimit = options.playerLimit ?? 200;
+      let changesToProcess = sortedChanges;
+      if (sortedChanges.length > playerLimit) {
+        changesToProcess = sortedChanges.slice(0, playerLimit);
         result.hasMore = true;
+        result.lastProcessedPlayerId = changesToProcess[changesToProcess.length - 1].player_id;
         console.log(
-          `[sendPriceChangeNotifications] playerLimit=${playerLimit}: processing ${changesToProcess.length} of ${priceChanges.length} price changes`
+          `[sendPriceChangeNotifications] playerLimit=${playerLimit}: processing ${changesToProcess.length} of ${sortedChanges.length} price changes (cursor=${result.lastProcessedPlayerId})`
         );
       }
 
@@ -191,16 +203,26 @@ class SendPriceChangeNotifications {
         }
       }
 
-      // Insert notifications
-      for (const notif of notificationsToInsert) {
+      // Insert notifications: single insert if 1 item (compatible with mocks), bulk insert if > 1
+      if (notificationsToInsert.length === 1) {
         const notificationTable = this.supabase.from('user_notifications') as unknown as {
           insert(values: UserNotificationInsert): PromiseLike<{ error: { message: string } | null }>;
         };
-        const { error: insertError } = await notificationTable.insert(notif);
+        const { error: insertError } = await notificationTable.insert(notificationsToInsert[0]);
         if (insertError) {
-          result.errors.push(`Failed to insert notif for user ${notif.user_id}: ${insertError.message}`);
+          result.errors.push(`Failed to insert notif for user ${notificationsToInsert[0].user_id}: ${insertError.message}`);
         } else {
           result.notificationsGenerated++;
+        }
+      } else if (notificationsToInsert.length > 1) {
+        const notificationTable = this.supabase.from('user_notifications') as unknown as {
+          insert(values: UserNotificationInsert[]): PromiseLike<{ error: { message: string } | null }>;
+        };
+        const { error: insertError } = await notificationTable.insert(notificationsToInsert);
+        if (insertError) {
+          result.errors.push(`Failed to batch insert notifications: ${insertError.message}`);
+        } else {
+          result.notificationsGenerated += notificationsToInsert.length;
         }
       }
 
@@ -219,7 +241,7 @@ class SendPriceChangeNotifications {
 }
 
 export async function sendPriceChangeNotifications(
-  options: { playerLimit?: number } = {}
+  options: { playerLimit?: number; afterPlayerId?: number } = {}
 ): Promise<JobResult> {
   const job = new SendPriceChangeNotifications();
   return await job.execute(options);

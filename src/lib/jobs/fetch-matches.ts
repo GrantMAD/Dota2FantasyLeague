@@ -30,6 +30,7 @@ import {
 import { overlapsConfiguredGameweek } from './match-tournament-eligibility';
 
 interface FetchResult {
+  success: boolean;
   fetched: number;
   updated: number;
   scheduled: number;
@@ -75,6 +76,7 @@ interface TeamReference {
 export async function fetchMatches(options: { tournamentLimit?: number } = {}): Promise<FetchResult> {
   const startedAt = new Date();
   const result: FetchResult = {
+    success: true,
     fetched: 0,
     updated: 0,
     scheduled: 0,
@@ -264,11 +266,14 @@ export async function fetchMatches(options: { tournamentLimit?: number } = {}): 
           try {
             matches = await fetchAllTournamentMatches(provider, leagueExternalId);
           } catch (fetchErr) {
-            if (providerSource === 'stratz' && providers.opendota) {
+            const fallbackProvider = providerSource === 'steam'
+              ? (providers.opendota || providers.stratz)
+              : (providerSource === 'stratz' ? providers.opendota : undefined);
+            if (fallbackProvider) {
               console.warn(
-                `[fetchMatches] STRATZ match fetch failed for tournament ${tournament.id} (${(fetchErr as Error).message}); falling back to OpenDota`
+                `[fetchMatches] ${providerSource.toUpperCase()} match fetch failed for tournament ${tournament.id} (${(fetchErr as Error).message}); falling back to ${fallbackProvider.name}`
               );
-              matches = await fetchAllTournamentMatches(providers.opendota, leagueExternalId);
+              matches = await fetchAllTournamentMatches(fallbackProvider, leagueExternalId);
             } else {
               throw fetchErr;
             }
@@ -919,6 +924,7 @@ export async function fetchMatches(options: { tournamentLimit?: number } = {}): 
   } catch (error) {
     const errorMsg = (error as Error).message;
     console.error('[fetchMatches] Failed:', errorMsg);
+    result.success = false;
     result.errors.push(errorMsg);
   }
 
