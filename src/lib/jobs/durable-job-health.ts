@@ -25,6 +25,12 @@ export function getExpectedJobIntervalMs(schedule: string): number {
 
   const minuteStep = /^\*\/(\d+)$/.exec(minute);
   if (minuteStep && hour === '*') return Number(minuteStep[1]) * MINUTE;
+  if (minute.includes(',') && hour === '*') {
+    const items = minute.split(',');
+    if (items.length > 1) {
+      return Math.round(HOUR / items.length);
+    }
+  }
   if (minute === '*' && hour === '*') return MINUTE;
   if (hour === '*') return HOUR;
 

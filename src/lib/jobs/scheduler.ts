@@ -120,21 +120,21 @@ const JOBS: JobDefinition[] = [
   },
   {
     name: 'discover-tournaments',
-    schedule: '0 * * * *', // Every hour
+    schedule: '2 * * * *', // Hourly at :02
     handler: discoverTournaments,
     enabled: process.env.ENABLE_TOURNAMENT_DISCOVERY !== 'false',
     timeout: SERVERLESS_JOB_TIMEOUT_MS,
   },
   {
     name: 'fetch-matches',
-    schedule: '*/15 * * * *', // Every 15 minutes
+    schedule: '0,15,30,45 * * * *', // Every 15 minutes (:00, :15, :30, :45)
     handler: (options?: JobRunOptions) => fetchMatches({ tournamentLimit: options?.tournamentLimit ?? 2 }),
     enabled: process.env.ENABLE_MATCH_FETCH !== 'false',
     timeout: SERVERLESS_JOB_TIMEOUT_MS,
   },
   {
     name: 'fetch-match-details',
-    schedule: '*/30 * * * *', // Every 30 minutes
+    schedule: '12,42 * * * *', // Every 30 minutes at :12 and :42
     handler: fetchMatchDetails,
     enabled: process.env.ENABLE_MATCH_DETAILS !== 'false',
     timeout: SERVERLESS_JOB_TIMEOUT_MS,
@@ -184,21 +184,21 @@ const JOBS: JobDefinition[] = [
   },
   {
     name: 'update-player-prices',
-    schedule: '*/10 * * * *', // Every 10 minutes after the scoring sequence
+    schedule: '6,16,26,36,46,56 * * * *', // Every 10 minutes at :06, :16, :26, :36, :46, :56
     handler: updatePlayerPrices,
     enabled: process.env.ENABLE_PRICE_UPDATES !== 'false',
     timeout: SERVERLESS_JOB_TIMEOUT_MS,
   },
   {
     name: 'send-deadline-notifications',
-    schedule: '*/15 * * * *', // Check approaching deadlines and lineup status every 15 minutes
+    schedule: '1,16,31,46 * * * *', // Check approaching deadlines every 15 minutes at :01, :16, :31, :46
     handler: sendDeadlineNotifications,
     enabled: process.env.ENABLE_NOTIFICATIONS !== 'false',
     timeout: SERVERLESS_JOB_TIMEOUT_MS,
   },
   {
     name: 'send-price-change-notifications',
-    schedule: '*/15 * * * *', // Shortly after price updates
+    schedule: '8,23,38,53 * * * *', // Every 15 minutes at :08, :23, :38, :53 (2m after price update)
     handler: sendPriceChangeNotifications,
     enabled: process.env.ENABLE_NOTIFICATIONS !== 'false',
     timeout: SERVERLESS_JOB_TIMEOUT_MS,
@@ -212,14 +212,14 @@ const JOBS: JobDefinition[] = [
   },
   {
     name: 'send-unavailable-player-notifications',
-    schedule: '*/30 * * * *', // Check for unavailable players every 30 minutes
+    schedule: '14,44 * * * *', // Check for unavailable players every 30 minutes at :14 and :44
     handler: sendUnavailablePlayerNotifications,
     enabled: process.env.ENABLE_NOTIFICATIONS !== 'false',
     timeout: SERVERLESS_JOB_TIMEOUT_MS,
   },
   {
     name: 'process-push-receipts',
-    schedule: '*/15 * * * *', // Remove device tokens Expo reports as permanently invalid
+    schedule: '7,22,37,52 * * * *', // Remove invalid tokens every 15 minutes at :07, :22, :37, :52
     handler: processPushReceipts,
     enabled: process.env.ENABLE_NOTIFICATIONS !== 'false',
     timeout: SERVERLESS_JOB_TIMEOUT_MS,

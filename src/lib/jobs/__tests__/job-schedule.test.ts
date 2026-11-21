@@ -7,12 +7,12 @@ import { getNextCronDate } from '../cron-utils';
 describe('scheduled job cadence', () => {
   it('checks deadline and lineup reminders every 15 minutes', () => {
     expect(getJobs().find((job) => job.name === 'send-deadline-notifications')?.schedule)
-      .toBe('*/15 * * * *');
+      .toBe('1,16,31,46 * * * *');
   });
 
   it('fetches matches every 15 minutes to match the external cron schedule', () => {
     expect(getJobs().find((job) => job.name === 'fetch-matches')?.schedule)
-      .toBe('*/15 * * * *');
+      .toBe('0,15,30,45 * * * *');
   });
 
   it('allows every configured job to run via cron-jobs.org (Vercel cron removed)', () => {

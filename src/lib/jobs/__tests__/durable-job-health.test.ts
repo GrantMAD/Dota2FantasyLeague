@@ -75,6 +75,9 @@ describe('durable job health', () => {
 
   it('uses schedule-aware freshness thresholds for supported cron cadences', () => {
     expect(getExpectedJobIntervalMs('*/10 * * * *')).toBe(10 * MINUTE);
+    expect(getExpectedJobIntervalMs('6,16,26,36,46,56 * * * *')).toBe(10 * MINUTE);
+    expect(getExpectedJobIntervalMs('12,42 * * * *')).toBe(30 * MINUTE);
+    expect(getExpectedJobIntervalMs('1,16,31,46 * * * *')).toBe(15 * MINUTE);
     expect(getExpectedJobIntervalMs('0 */6 * * *')).toBe(6 * HOUR);
     expect(getExpectedJobIntervalMs('0 3 * * *')).toBe(DAY);
     expect(getExpectedJobIntervalMs('0 4 * * 0')).toBe(7 * DAY);

@@ -881,7 +881,7 @@ export default function DataJobsPage() {
           <h3 className="text-sm font-semibold text-white">Automated Schedule Manifest</h3>
         </div>
         <p className="text-xs text-slate-400 mb-3">
-          In production all jobs below run automatically via Vercel Cron — no manual intervention required.
+          In production all jobs below run automatically via cron-jobs.org — no manual intervention required.
           The times listed are UTC. Manual triggers above are only needed when seeding a new environment or
           forcing an out-of-cycle refresh.
         </p>
@@ -901,15 +901,15 @@ export default function DataJobsPage() {
               </div>
               <div className="rounded border border-slate-800/80 bg-slate-950/40 p-2">
                 <div className="font-mono font-medium text-amber-300">discover-tournaments</div>
-                <div className="mt-0.5 text-slate-400">Every 6 h &mdash; league &amp; event discovery</div>
+                <div className="mt-0.5 text-slate-400">Hourly at :02 UTC &mdash; league &amp; event discovery</div>
               </div>
               <div className="rounded border border-slate-800/80 bg-slate-950/40 p-2">
                 <div className="font-mono font-medium text-amber-300">fetch-matches</div>
-                <div className="mt-0.5 text-slate-400">Every 1 h &mdash; match header batch ingest</div>
+                <div className="mt-0.5 text-slate-400">Every 15 min (:00, :15, :30, :45) &mdash; match header batch ingest</div>
               </div>
               <div className="rounded border border-slate-800/80 bg-slate-950/40 p-2">
                 <div className="font-mono font-medium text-amber-300">fetch-match-details</div>
-                <div className="mt-0.5 text-slate-400">Every 30 min &mdash; per-player stat breakdown</div>
+                <div className="mt-0.5 text-slate-400">Every 30 min (:12, :42) &mdash; per-player stat breakdown</div>
               </div>
               <div className="rounded border border-slate-800/80 bg-slate-950/40 p-2">
                 <div className="font-mono font-medium text-amber-300">track-roster-changes</div>
@@ -924,31 +924,31 @@ export default function DataJobsPage() {
             <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2 lg:grid-cols-3">
               <div className="rounded border border-slate-800/80 bg-slate-950/40 p-2">
                 <div className="font-mono font-medium text-purple-300">transition-gameweeks</div>
-                <div className="mt-0.5 text-slate-400">Every 5 min &mdash; closes GWs at deadline</div>
+                <div className="mt-0.5 text-slate-400">Every 5 min (:00, :05, :10...) &mdash; closes GWs at deadline</div>
               </div>
               <div className="rounded border border-slate-800/80 bg-slate-950/40 p-2">
                 <div className="font-mono font-medium text-purple-300">process-completed-matches</div>
-                <div className="mt-0.5 text-slate-400">Every 45 min &mdash; stats to performances</div>
+                <div className="mt-0.5 text-slate-400">Hourly at :45 UTC &mdash; stats to performances</div>
               </div>
               <div className="rounded border border-slate-800/80 bg-slate-950/40 p-2">
                 <div className="font-mono font-medium text-purple-300">calculate-fantasy-scores</div>
-                <div className="mt-0.5 text-slate-400">Every 50 min &mdash; full point breakdowns</div>
+                <div className="mt-0.5 text-slate-400">Hourly at :50 UTC &mdash; full point breakdowns</div>
               </div>
               <div className="rounded border border-slate-800/80 bg-slate-950/40 p-2">
                 <div className="font-mono font-medium text-purple-300">recalculate-gameweeks</div>
-                <div className="mt-0.5 text-slate-400">Every 55 min &mdash; aggregates GW totals</div>
+                <div className="mt-0.5 text-slate-400">Hourly at :55 UTC &mdash; aggregates GW totals</div>
               </div>
               <div className="rounded border border-slate-800/80 bg-slate-950/40 p-2">
                 <div className="font-mono font-medium text-purple-300">recalculate-leagues</div>
-                <div className="mt-0.5 text-slate-400">Every 60 min &mdash; classic &amp; H2H standings</div>
+                <div className="mt-0.5 text-slate-400">Hourly at :00 UTC &mdash; classic &amp; H2H standings</div>
               </div>
               <div className="rounded border border-slate-800/80 bg-slate-950/40 p-2">
                 <div className="font-mono font-medium text-purple-300">calculate-global-rankings</div>
-                <div className="mt-0.5 text-slate-400">Every 65 min &mdash; global leaderboard</div>
+                <div className="mt-0.5 text-slate-400">Hourly at :05 UTC &mdash; global leaderboard</div>
               </div>
               <div className="rounded border border-slate-800/80 bg-slate-950/40 p-2">
                 <div className="font-mono font-medium text-purple-300">update-player-prices</div>
-                <div className="mt-0.5 text-slate-400">Every 10 min &mdash; form &amp; ownership pricing</div>
+                <div className="mt-0.5 text-slate-400">Every 10 min (:06, :16, :26...) &mdash; form &amp; ownership pricing</div>
               </div>
             </div>
           </div>
@@ -959,19 +959,23 @@ export default function DataJobsPage() {
             <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2 lg:grid-cols-3">
               <div className="rounded border border-slate-800/80 bg-slate-950/40 p-2">
                 <div className="font-mono font-medium text-violet-300">send-deadline-notifications</div>
-                <div className="mt-0.5 text-slate-400">Every 1 h &mdash; approaching GW deadline alerts</div>
+                <div className="mt-0.5 text-slate-400">Every 15 min (:01, :16, :31, :46) &mdash; approaching GW deadline alerts</div>
               </div>
               <div className="rounded border border-slate-800/80 bg-slate-950/40 p-2">
                 <div className="font-mono font-medium text-violet-300">send-price-change-notifications</div>
-                <div className="mt-0.5 text-slate-400">Every 15 min &mdash; price change alerts</div>
+                <div className="mt-0.5 text-slate-400">Every 15 min (:08, :23, :38, :53) &mdash; price change alerts</div>
               </div>
               <div className="rounded border border-slate-800/80 bg-slate-950/40 p-2">
                 <div className="font-mono font-medium text-violet-300">send-rank-notifications</div>
-                <div className="mt-0.5 text-slate-400">Every 70 min &mdash; rank change alerts</div>
+                <div className="mt-0.5 text-slate-400">Hourly at :10 UTC &mdash; rank change alerts</div>
               </div>
               <div className="rounded border border-slate-800/80 bg-slate-950/40 p-2">
                 <div className="font-mono font-medium text-violet-300">send-unavailable-player-notifications</div>
-                <div className="mt-0.5 text-slate-400">Every 30 min &mdash; inactive player alerts</div>
+                <div className="mt-0.5 text-slate-400">Every 30 min (:14, :44) &mdash; inactive player alerts</div>
+              </div>
+              <div className="rounded border border-slate-800/80 bg-slate-950/40 p-2">
+                <div className="font-mono font-medium text-violet-300">process-push-receipts</div>
+                <div className="mt-0.5 text-slate-400">Every 15 min (:07, :22, :37, :52) &mdash; purge invalid push tokens</div>
               </div>
             </div>
           </div>
@@ -987,6 +991,10 @@ export default function DataJobsPage() {
               <div className="rounded border border-slate-800/80 bg-slate-950/40 p-2">
                 <div className="font-mono font-medium text-slate-300">purge-inactive-data</div>
                 <div className="mt-0.5 text-slate-400">Weekly Sun 04:00 UTC &mdash; removes orphaned records</div>
+              </div>
+              <div className="rounded border border-slate-800/80 bg-slate-950/40 p-2">
+                <div className="font-mono font-medium text-slate-300">purge-interaction-telemetry</div>
+                <div className="mt-0.5 text-slate-400">Daily 04:15 UTC &mdash; trims telemetry records</div>
               </div>
               <div className="rounded border border-slate-800/80 bg-slate-950/40 p-2">
                 <div className="font-mono font-medium text-slate-300">backfill-team-logos</div>
