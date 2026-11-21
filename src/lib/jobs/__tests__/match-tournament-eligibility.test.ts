@@ -1,8 +1,6 @@
 import {
   overlapsConfiguredGameweek,
   isDisqualifiedTournament,
-  DISQUALIFIED_LEAGUE_IDS,
-  MAX_VALID_TOURNAMENT_DURATION_DAYS,
 } from '../match-tournament-eligibility';
 
 const gameweeks = [
