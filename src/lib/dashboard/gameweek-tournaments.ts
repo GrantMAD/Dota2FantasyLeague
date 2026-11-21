@@ -120,3 +120,22 @@ export function mapGameweekTournaments(
     }];
   });
 }
+
+/**
+ * Evaluates whether an active gameweek is within its final 24 hours before ending.
+ *
+ * @param status - The gameweek status ('active', 'upcoming', 'closed')
+ * @param endDate - The ISO timestamp string when the gameweek concludes (e.g. '2026-11-22T23:59:59')
+ * @param now - Current timestamp in ms (defaults to Date.now())
+ */
+export function isGameweekEndingSoon(
+  status: string | null | undefined,
+  endDate: string | null | undefined,
+  now = Date.now(),
+): boolean {
+  if (status !== 'active' || !endDate) return false;
+  const endTime = new Date(endDate).getTime();
+  if (Number.isNaN(endTime)) return false;
+  return endTime > now && endTime - now <= 24 * 60 * 60 * 1000;
+}
+

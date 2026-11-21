@@ -4,7 +4,7 @@ import { getOrCreateFantasySeason } from '@/lib/fantasy-season';
 import { aggregatePlayerGameweekBreakdowns } from '@/lib/player-gameweek-breakdown';
 import { getEquivalentProviderIds, getRelatedPlayerIds } from '@/lib/jobs/player-identity';
 import { getGameweekMatchProgress } from '@/lib/dashboard/gameweek-match-progress';
-import { fetchGameweekTournaments } from '@/lib/dashboard/gameweek-tournaments';
+import { fetchGameweekTournaments, isGameweekEndingSoon } from '@/lib/dashboard/gameweek-tournaments';
 import type { DashboardData } from '@/types/fantasy';
 import type { WhatsNewData, WhatsNewUpdate } from './components/DashboardWhatsNew';
 import { DashboardClient } from './components/DashboardClient';
@@ -393,7 +393,7 @@ async function fetchWhatsNew(userId: string): Promise<WhatsNewData | null> {
     const [gameweeksRes, updatesRes] = await Promise.all([
       supabase
         .from('gameweeks')
-        .select('id, gameweek_number, status, start_date, deadline')
+        .select('id, gameweek_number, status, start_date, end_date, deadline')
         .eq('season_id', fantasySeason.season_id)
         .in('status', ['active', 'upcoming'])
         .order('start_date', { ascending: true })
@@ -437,7 +437,7 @@ async function fetchWhatsNew(userId: string): Promise<WhatsNewData | null> {
           status: gw.status,
           startsAt: gw.start_date,
           isCurrent: gw.status === 'active',
-          endsSoon: gw.deadline ? new Date(gw.deadline).getTime() - now < 24 * 60 * 60 * 1000 : false,
+          endsSoon: isGameweekEndingSoon(gw.status, gw.end_date, now),
           deadline: gw.deadline ?? '',
           matchCount: matchProgress.total,
           matchStatuses: matchProgress.statuses,

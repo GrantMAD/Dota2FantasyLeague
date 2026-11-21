@@ -3,7 +3,7 @@ import { AuthError, verifyAuth } from '@/lib/auth-utils';
 import { getOrCreateFantasySeason } from '@/lib/fantasy-season';
 import { supabaseServer } from '@/lib/supabase';
 import { withApiTelemetry } from '@/lib/api-telemetry';
-import { fetchGameweekTournaments } from '@/lib/dashboard/gameweek-tournaments';
+import { fetchGameweekTournaments, isGameweekEndingSoon } from '@/lib/dashboard/gameweek-tournaments';
 
 
 interface AnnouncementEvent {
@@ -101,17 +101,14 @@ async function getHandler(request: NextRequest) {
 
     let gameweek = null;
     if (currentGameweek) {
-      const gameweekEndTime = new Date(currentGameweek.end_date).getTime();
       gameweek = {
         id: currentGameweek.id,
         number: currentGameweek.gameweek_number,
         status: currentGameweek.status,
         startsAt: currentGameweek.start_date,
-          isCurrent: currentGameweek.status === 'active'
+        isCurrent: currentGameweek.status === 'active'
           || new Date(currentGameweek.start_date).getTime() <= now.getTime(),
-        endsSoon: currentGameweek.status === 'active'
-          && gameweekEndTime > now.getTime()
-          && gameweekEndTime - now.getTime() <= 24 * 60 * 60 * 1000,
+        endsSoon: isGameweekEndingSoon(currentGameweek.status, currentGameweek.end_date, now.getTime()),
         deadline: currentGameweek.deadline,
         matchCount: gameweekTournamentData.matches.length,
         matchStatuses: countStatuses(gameweekTournamentData.matches),
