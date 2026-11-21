@@ -1,4 +1,9 @@
-import { overlapsConfiguredGameweek } from '../match-tournament-eligibility';
+import {
+  overlapsConfiguredGameweek,
+  isDisqualifiedTournament,
+  DISQUALIFIED_LEAGUE_IDS,
+  MAX_VALID_TOURNAMENT_DURATION_DAYS,
+} from '../match-tournament-eligibility';
 
 const gameweeks = [
   {
@@ -51,3 +56,31 @@ describe('overlapsConfiguredGameweek', () => {
     }])).toBe(true);
   });
 });
+
+describe('isDisqualifiedTournament', () => {
+  it('disqualifies known amateur ticket leagues (Party To Play 16251 and 互联网联赛 17508)', () => {
+    expect(isDisqualifiedTournament('16251')).toBe(true);
+    expect(isDisqualifiedTournament(16251)).toBe(true);
+    expect(isDisqualifiedTournament('17508')).toBe(true);
+    expect(isDisqualifiedTournament(17508)).toBe(true);
+  });
+
+  it('disqualifies tournaments spanning longer than MAX_VALID_TOURNAMENT_DURATION_DAYS (180 days)', () => {
+    // 6-year multi-year ticket (like Party To Play)
+    expect(isDisqualifiedTournament('99999', '2023-12-31', '2029-12-31')).toBe(true);
+    // 200 days duration
+    const start = new Date('2026-01-01');
+    const end = new Date('2026-08-01');
+    expect(isDisqualifiedTournament('99999', start, end)).toBe(true);
+  });
+
+  it('allows legitimate professional tournaments with normal durations and IDs', () => {
+    // DreamLeague (approx 20 days)
+    expect(isDisqualifiedTournament('20511', '2026-11-15', '2026-12-04')).toBe(false);
+    // BLAST Slam (approx 15 days)
+    expect(isDisqualifiedTournament('20208', '2026-11-20', '2026-12-05')).toBe(false);
+    // 1win Essence III (approx 17 days)
+    expect(isDisqualifiedTournament('20486', '2026-11-10', '2026-11-27')).toBe(false);
+  });
+});
+

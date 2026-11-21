@@ -10,6 +10,7 @@
 import { getSupabaseServerClient } from '@/lib/db/supabase-server';
 import type { DataProvider, TournamentData } from '../data-providers/provider-interface';
 import type { Tournament } from '@/types/database';
+import { isDisqualifiedTournament } from './match-tournament-eligibility';
 
 interface DiscoveryResult {
   discovered: number;
@@ -101,7 +102,17 @@ export async function discoverTournaments(): Promise<DiscoveryResult> {
             ? tournamentIdentity(existing.name, new Date(existing.start_date))
             : null;
 
+          const isDisqualified = isDisqualifiedTournament(providerId, startDate, endDate);
+
           if (existing) {
+            // Preserve manual admin exclusions: never re-enable an excluded, non-eligible, or disqualified tournament
+            if (existing.status === 'excluded' || existing.eligible === false || isDisqualified) {
+              console.log(
+                `[discoverTournaments] Preserving excluded status for tournament "${tournament.name}" (ID ${existing.id})`
+              );
+              continue;
+            }
+
             // Update existing tournament
             const { error } = await supabase
               .from('tournaments')
@@ -181,11 +192,11 @@ export async function discoverTournaments(): Promise<DiscoveryResult> {
                   data_provider_id: String(tournament.id),
                   data_provider: source,
                   date_basis: source === 'opendota' ? 'observed' : 'official',
-                  status: 'provisional',
-                  tier: tournament.tier || 'Professional',
+                  status: isDisqualified ? 'excluded' : 'provisional',
+                  tier: isDisqualified ? 'Amateur' : (tournament.tier || 'Professional'),
                   start_date: startDateString,
                   end_date: endDateString,
-                  eligible: true,
+                  eligible: !isDisqualified,
                   last_synced_at: new Date().toISOString(),
                 },
                 { onConflict: 'season_id,slug' }
