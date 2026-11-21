@@ -212,9 +212,9 @@ export async function syncPlayers(options: { processLimit?: number } = {}): Prom
           const recentMatchIds = (recentMatches || []).map((m: { id: number }) => m.id);
           const activeMatchPlayerDbIds = new Set<number>();
           if (recentMatchIds.length > 0) {
-            // Check match_player_stats in chunks of 100 matches
-            for (let m = 0; m < recentMatchIds.length; m += 100) {
-              const chunk = recentMatchIds.slice(m, m + 100);
+            // Check match_player_stats in chunks of 50 matches (max 500 rows, staying safely under 1000 limit)
+            for (let m = 0; m < recentMatchIds.length; m += 50) {
+              const chunk = recentMatchIds.slice(m, m + 50);
               const { data: recentStats, error: recentStatsError } = await supabase
                 .from('match_player_stats')
                 .select('player_id')

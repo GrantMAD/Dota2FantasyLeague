@@ -283,7 +283,8 @@ class ProcessCompletedMatches {
       const candidateIds = allCandidateMatches.map((m) => m.id);
       const processedMatchIds = new Set<number>();
       const matchIdsWithStats = new Set<number>();
-      const CHECK_CHUNK = 200;
+      // Use chunks of 50 matches (max 500 player rows) to stay well under Supabase/PostgREST 1000-row limit
+      const CHECK_CHUNK = 50;
       for (let i = 0; i < candidateIds.length; i += CHECK_CHUNK) {
         const slice = candidateIds.slice(i, i + CHECK_CHUNK);
 
@@ -291,7 +292,8 @@ class ProcessCompletedMatches {
         const { data: statsRows, error: statsCheckError } = await this.supabase
           .from('match_player_stats')
           .select('match_id')
-          .in('match_id', slice);
+          .in('match_id', slice)
+          .limit(1000);
 
         if (statsCheckError) {
           result.errors.push(`Failed to check match_player_stats: ${statsCheckError.message}`);
@@ -307,7 +309,8 @@ class ProcessCompletedMatches {
         const { data: existingPerformances, error: perfError } = await this.supabase
           .from('player_performances')
           .select('match_id')
-          .in('match_id', slice);
+          .in('match_id', slice)
+          .limit(1000);
 
         if (perfError) {
           result.errors.push(`Failed to check existing performances: ${perfError.message}`);
