@@ -1018,7 +1018,9 @@ export class StratzProvider extends DataProviderBase implements DataProvider {
         } catch {
           // ignore
         }
-        const retryable = response.status >= 500 || response.status === 429;
+        // Cloudflare origin errors (520-527) indicate upstream origin server is down; fail fast.
+        const isCloudflareOriginError = response.status >= 520 && response.status <= 527;
+        const retryable = !isCloudflareOriginError && (response.status >= 500 || response.status === 429);
         throw this.createError(
           'STRATZ_HTTP_ERROR',
           `HTTP ${response.status}: ${response.statusText}${errorBody ? ` - ${errorBody}` : ''}`,

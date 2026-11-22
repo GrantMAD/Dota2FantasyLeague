@@ -428,11 +428,12 @@ export class OpenDotaProvider extends DataProviderBase implements DataProvider {
         .filter((tournament) => filters?.status === undefined || tournament.status === filters.status)
         .slice(offset, offset + limit);
     } catch (error) {
+      const dpError = error as DataProviderError;
       throw this.createError(
         'OPENDOTA_TOURNAMENTS_FETCH_FAILED',
         `Failed to fetch tournaments from OpenDota: ${(error as Error).message}`,
-        undefined,
-        true,
+        dpError.statusCode,
+        dpError.retryable ?? true,
         error as Error
       );
     }
@@ -475,11 +476,12 @@ export class OpenDotaProvider extends DataProviderBase implements DataProvider {
       const limit = filters?.limit ?? filteredMatches.length;
       return filteredMatches.slice(offset, offset + limit);
     } catch (error) {
+      const dpError = error as DataProviderError;
       throw this.createError(
         'OPENDOTA_MATCHES_FETCH_FAILED',
         `Failed to fetch matches from OpenDota: ${(error as Error).message}`,
-        undefined,
-        true,
+        dpError.statusCode,
+        dpError.retryable ?? true,
         error as Error
       );
     }
@@ -580,11 +582,12 @@ export class OpenDotaProvider extends DataProviderBase implements DataProvider {
       if ((error as DataProviderError).code === 'OPENDOTA_MATCH_NOT_FOUND') {
         throw error;
       }
+      const dpError = error as DataProviderError;
       throw this.createError(
         'OPENDOTA_MATCH_DETAILS_FETCH_FAILED',
         `Failed to fetch match ${matchId} details from OpenDota: ${(error as Error).message}`,
-        undefined,
-        true,
+        dpError.statusCode,
+        dpError.retryable ?? true,
         error as Error
       );
     }
@@ -654,9 +657,12 @@ export class OpenDotaProvider extends DataProviderBase implements DataProvider {
       });
 
       if (!response.ok) {
-        // HTTP 520 = Cloudflare "Unknown Error" (origin down) — not retryable, fail fast.
-        // HTTP 429 = rate-limited — retryable. 5xx server errors — retryable.
-        const retryable = response.status !== 520 && (response.status >= 500 || response.status === 429);
+        // Cloudflare origin errors: 520 (Unknown Error), 521 (Web Server Down), 522 (Connection Timed Out),
+        // 523 (Origin Unreachable), 524 (A Timeout Occurred), 525 (SSL Handshake Failed),
+        // 526 (Invalid SSL Certificate), 527 (Railgun Error).
+        // When Cloudflare reports an origin outage, retrying immediately is futile and wastes serverless budget. Fail fast.
+        const isCloudflareOriginError = response.status >= 520 && response.status <= 527;
+        const retryable = !isCloudflareOriginError && (response.status >= 500 || response.status === 429);
         throw this.createError(
           'OPENDOTA_HTTP_ERROR',
           `HTTP ${response.status}: ${response.statusText}`,
