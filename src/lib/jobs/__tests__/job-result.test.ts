@@ -4,6 +4,12 @@ describe('getHandlerFailure', () => {
   it('does not classify successful job results as failed', () => {
     expect(getHandlerFailure({ success: true, errors: ['non-fatal warning'] })).toBeNull();
     expect(getHandlerFailure({ success: true })).toBeNull();
+    expect(getHandlerFailure({
+      success: true,
+      discovered: 2,
+      updated: 0,
+      errors: ['Failed to fetch tournaments from opendota: The operation was aborted due to timeout'],
+    })).toBeNull();
   });
 
   it('reports explicit failures and their diagnostic messages', () => {

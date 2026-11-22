@@ -12,7 +12,8 @@ import type { DataProvider, TournamentData } from '../data-providers/provider-in
 import type { Tournament } from '@/types/database';
 import { isDisqualifiedTournament } from './match-tournament-eligibility';
 
-interface DiscoveryResult {
+export interface DiscoveryResult {
+  success: boolean;
   discovered: number;
   updated: number;
   errors: string[];
@@ -24,6 +25,7 @@ interface DiscoveryResult {
 export async function discoverTournaments(): Promise<DiscoveryResult> {
   const startedAt = new Date();
   const result: DiscoveryResult = {
+    success: true,
     discovered: 0,
     updated: 0,
     errors: [],
@@ -217,7 +219,7 @@ export async function discoverTournaments(): Promise<DiscoveryResult> {
         }
       }
 
-      await logJobExecution('discover-tournaments', result.errors.length > 0 ? 'failed' : 'completed', {
+      await logJobExecution('discover-tournaments', result.success ? 'completed' : 'failed', {
         discovered: result.discovered,
         updated: result.updated,
         errors: result.errors.length,
@@ -225,11 +227,12 @@ export async function discoverTournaments(): Promise<DiscoveryResult> {
       }, jobExecutionId);
 
       if (result.errors.length > 0) {
-        console.error('[discoverTournaments] Completed with errors:', result.errors);
+        console.warn('[discoverTournaments] Completed with partial provider errors:', result.errors);
       } else {
         console.log('[discoverTournaments] Completed successfully');
       }
     } catch (error) {
+      result.success = false;
       await logJobExecution('discover-tournaments', 'failed', {
         error: (error as Error).message,
       }, jobExecutionId);
@@ -239,6 +242,7 @@ export async function discoverTournaments(): Promise<DiscoveryResult> {
     const errorMsg = (error as Error).message;
     console.error('[discoverTournaments] Failed:', errorMsg);
     result.errors.push(errorMsg);
+    result.success = false;
   }
 
   result.completedAt = new Date();
