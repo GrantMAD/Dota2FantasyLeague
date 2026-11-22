@@ -871,28 +871,23 @@ export async function fetchMatches(options: { tournamentLimit?: number } = {}): 
       result.hasMore = activeTournaments.length > 0 &&
         (tournamentBatch.hasMore || effectiveTournamentsToProcess.length < tournamentsToProcess.length);
 
-      // Fix 3: Stale-live sweep — safety net for matches stuck as in_progress for >8 hours.
-      // Catches any match that slipped through the tournament-batch cursor rotation.
+      // Stale-live & duplicate-live sweep:
+      // 1. Enforces single-live-game invariant per series: if a newer game in the series starts or finishes,
+      //    any older in_progress lobby without stats is recognized as an aborted lobby and purged.
+      // 2. Sweeps any orphaned in_progress match older than 3-4 hours.
       try {
-        const eightHoursAgo = new Date(Date.now() - 8 * 60 * 60 * 1000).toISOString();
-        const { data: staleMatches, error: staleError } = await supabase
-          .from('matches')
-          .update({
-            status: 'completed',
-            last_synced_at: new Date().toISOString(),
-          })
-          .eq('status', 'in_progress')
-          .lt('last_synced_at', eightHoursAgo)
-          .select('id, external_match_id');
-
-        if (staleError) {
-          result.errors.push(`Stale-live sweep failed: ${staleError.message}`);
-        } else if (staleMatches && staleMatches.length > 0) {
+        const sweepResult = await resolveDuplicateAndStaleLiveMatches(supabase);
+        if (sweepResult.errors.length > 0) {
+          result.errors.push(...sweepResult.errors);
+        }
+        if (sweepResult.resolvedCompleted > 0) {
+          result.scheduled += sweepResult.resolvedCompleted;
+        }
+        if (sweepResult.purgedAborted > 0 || sweepResult.resolvedCompleted > 0) {
           console.warn(
-            `[fetchMatches] Stale-live sweep completed ${staleMatches.length} orphaned in_progress match(es): ` +
-            staleMatches.map((m: { id: number }) => m.id).join(', ')
+            `[fetchMatches] Live sweep: resolved ${sweepResult.resolvedCompleted} completed, ` +
+            `purged ${sweepResult.purgedAborted} aborted lobby match(es)`
           );
-          result.scheduled += staleMatches.length;
         }
       } catch (sweepError) {
         result.errors.push(`Stale-live sweep threw: ${(sweepError as Error).message}`);
@@ -1158,6 +1153,181 @@ async function resolveOrCreateTeam(
   }
 
   return null;
+}
+
+interface LiveSweepMatchRow {
+  id: number;
+  series_id: number | null;
+  status: string;
+  scheduled_time: string | null;
+  start_time: string | null;
+  last_synced_at: string | null;
+  external_match_id: string | null;
+  detailed_stats_fetched_at: string | null;
+  duration_minutes: number | null;
+}
+
+export async function resolveDuplicateAndStaleLiveMatches(
+  supabase: ReturnType<typeof getSupabaseServerClient>
+): Promise<{ resolvedCompleted: number; purgedAborted: number; errors: string[] }> {
+  const sweepResult = { resolvedCompleted: 0, purgedAborted: 0, errors: [] as string[] };
+
+  try {
+    // 1. Fetch all currently in_progress matches
+    const { data: rawLiveMatches, error: liveErr } = await supabase
+      .from('matches')
+      .select('id, series_id, status, scheduled_time, start_time, last_synced_at, external_match_id, detailed_stats_fetched_at, duration_minutes')
+      .eq('status', 'in_progress');
+
+    if (liveErr) {
+      sweepResult.errors.push(`Failed to fetch in_progress matches for sweep: ${liveErr.message}`);
+      return sweepResult;
+    }
+
+    const liveMatches = (rawLiveMatches ?? []) as LiveSweepMatchRow[];
+    if (liveMatches.length === 0) {
+      return sweepResult;
+    }
+
+    const now = Date.now();
+    const threeHoursMs = 3 * 60 * 60 * 1000;
+    const resolvedMatchIds = new Set<number>();
+
+    // Group live matches by series_id
+    const liveBySeries = new Map<number, LiveSweepMatchRow[]>();
+    for (const match of liveMatches) {
+      if (match.series_id) {
+        const list = liveBySeries.get(match.series_id) ?? [];
+        list.push(match);
+        liveBySeries.set(match.series_id, list);
+      }
+    }
+
+    // A. Series-level check: In Dota 2, a series can only ever have ONE match in progress.
+    // If a series has an in_progress match that is older than a newer match in the same series,
+    // the older match CANNOT still be live.
+    for (const [seriesId, seriesLiveMatches] of liveBySeries.entries()) {
+      const { data: rawSeriesMatches, error: seriesMatchesErr } = await supabase
+        .from('matches')
+        .select('id, series_id, status, scheduled_time, start_time, last_synced_at, external_match_id, detailed_stats_fetched_at, duration_minutes')
+        .eq('series_id', seriesId)
+        .order('scheduled_time', { ascending: true });
+
+      if (seriesMatchesErr || !rawSeriesMatches) continue;
+      const allSeriesMatches = rawSeriesMatches as LiveSweepMatchRow[];
+
+      for (const liveMatch of seriesLiveMatches) {
+        const liveTime = new Date(liveMatch.scheduled_time || liveMatch.start_time || 0).getTime();
+
+        // Check if there is another match in this series that started later (or same time with higher ID)
+        // and is either completed or also in_progress
+        const newerMatch = allSeriesMatches.find((m: LiveSweepMatchRow) => {
+          if (m.id === liveMatch.id) return false;
+          const mTime = new Date(m.scheduled_time || m.start_time || 0).getTime();
+          return (mTime > liveTime || (mTime === liveTime && m.id > liveMatch.id)) &&
+            (m.status === 'completed' || m.status === 'in_progress');
+        });
+
+        if (newerMatch) {
+          resolvedMatchIds.add(liveMatch.id);
+          const hasStats = Boolean(liveMatch.detailed_stats_fetched_at || liveMatch.duration_minutes);
+          if (hasStats) {
+            await supabase
+              .from('matches')
+              .update({ status: 'completed', last_synced_at: new Date().toISOString() })
+              .eq('id', liveMatch.id);
+            sweepResult.resolvedCompleted++;
+            console.log(
+              `[fetchMatches] Marked superseded match ${liveMatch.id} as completed (has stats) in series ${seriesId}`
+            );
+          } else {
+            // Check if player stats exist
+            const { count: statsCount } = await supabase
+              .from('match_player_stats')
+              .select('id', { count: 'exact', head: true })
+              .eq('match_id', liveMatch.id);
+
+            if ((statsCount ?? 0) === 0) {
+              const { error: delErr } = await supabase
+                .from('matches')
+                .delete()
+                .eq('id', liveMatch.id);
+
+              if (!delErr) {
+                sweepResult.purgedAborted++;
+                console.warn(
+                  `[fetchMatches] Purged aborted lobby match ${liveMatch.id} (external: ${liveMatch.external_match_id}) ` +
+                  `in series ${seriesId} superseded by match ${newerMatch.id}`
+                );
+              } else {
+                // If deletion fails for any reason, mark as cancelled
+                await supabase
+                  .from('matches')
+                  .update({ status: 'cancelled', last_synced_at: new Date().toISOString() })
+                  .eq('id', liveMatch.id);
+              }
+            } else {
+              await supabase
+                .from('matches')
+                .update({ status: 'completed', last_synced_at: new Date().toISOString() })
+                .eq('id', liveMatch.id);
+              sweepResult.resolvedCompleted++;
+            }
+          }
+        }
+      }
+    }
+
+    // B. Staleness check: Any match remaining in_progress whose start time or last sync is > 3 hours old
+    for (const match of liveMatches) {
+      if (resolvedMatchIds.has(match.id)) continue;
+      const matchTime = new Date(match.scheduled_time || match.start_time || match.last_synced_at || 0).getTime();
+      const ageMs = now - matchTime;
+      if (ageMs > threeHoursMs) {
+        // Re-check current status in case it was already resolved above
+        const { data: currentData } = await supabase
+          .from('matches')
+          .select('status, detailed_stats_fetched_at, duration_minutes')
+          .eq('id', match.id)
+          .single();
+
+        const current = currentData as { status: string; detailed_stats_fetched_at: string | null; duration_minutes: number | null } | null;
+        if (current?.status !== 'in_progress') continue;
+
+        const hasStats = Boolean(current.detailed_stats_fetched_at || current.duration_minutes);
+        if (hasStats) {
+          await supabase
+            .from('matches')
+            .update({ status: 'completed', last_synced_at: new Date().toISOString() })
+            .eq('id', match.id);
+          sweepResult.resolvedCompleted++;
+          console.warn(`[fetchMatches] Stale-live sweep completed match ${match.id} (>3h old with stats)`);
+        } else if (ageMs > 4 * 60 * 60 * 1000) {
+          // If over 4 hours old with 0 stats, it was an abandoned lobby
+          const { count: statsCount } = await supabase
+            .from('match_player_stats')
+            .select('id', { count: 'exact', head: true })
+            .eq('match_id', match.id);
+
+          if ((statsCount ?? 0) === 0) {
+            await supabase.from('matches').delete().eq('id', match.id);
+            sweepResult.purgedAborted++;
+            console.warn(`[fetchMatches] Stale-live sweep purged abandoned lobby match ${match.id} (>4h old with no stats)`);
+          } else {
+            await supabase
+              .from('matches')
+              .update({ status: 'completed', last_synced_at: new Date().toISOString() })
+              .eq('id', match.id);
+            sweepResult.resolvedCompleted++;
+          }
+        }
+      }
+    }
+  } catch (err) {
+    sweepResult.errors.push(`resolveDuplicateAndStaleLiveMatches error: ${(err as Error).message}`);
+  }
+
+  return sweepResult;
 }
 
 async function logJobExecution(
