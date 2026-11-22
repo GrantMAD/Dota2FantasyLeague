@@ -1,3 +1,4 @@
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { resolveDuplicateAndStaleLiveMatches } from '../fetch-matches';
 
 describe('resolveDuplicateAndStaleLiveMatches', () => {
@@ -31,7 +32,7 @@ describe('resolveDuplicateAndStaleLiveMatches', () => {
       from: jest.fn((table: string) => {
         if (table === 'matches') {
           return {
-            select: jest.fn((cols: string) => {
+            select: jest.fn(() => {
               return {
                 eq: jest.fn((col: string, val: unknown) => {
                   if (col === 'status' && val === 'in_progress') {
@@ -72,7 +73,7 @@ describe('resolveDuplicateAndStaleLiveMatches', () => {
         }
         return {};
       }),
-    } as any;
+    } as unknown as SupabaseClient;
 
     const result = await resolveDuplicateAndStaleLiveMatches(mockSupabase);
 
@@ -124,7 +125,7 @@ describe('resolveDuplicateAndStaleLiveMatches', () => {
             delete: jest.fn(() => ({
               eq: jest.fn(() => Promise.resolve({ error: null })),
             })),
-            update: jest.fn((payload: any) => ({
+            update: jest.fn((payload: { status: string }) => ({
               eq: jest.fn((_col: string, val: number) => {
                 updatedMatches.push({ id: val, status: payload.status });
                 return Promise.resolve({ error: null });
@@ -134,7 +135,7 @@ describe('resolveDuplicateAndStaleLiveMatches', () => {
         }
         return {};
       }),
-    } as any;
+    } as unknown as SupabaseClient;
 
     const result = await resolveDuplicateAndStaleLiveMatches(mockSupabase);
 
