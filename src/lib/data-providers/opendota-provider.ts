@@ -374,7 +374,9 @@ export class OpenDotaProvider extends DataProviderBase implements DataProvider {
 
   async fetchTournaments(filters?: DataProviderFilters & { status?: 'upcoming' | 'active' | 'concluded'; minTier?: string }): Promise<TournamentData[]> {
     try {
-      const response = await this.request<OpenDotaProMatch[]>('/proMatches');
+      // Use a tighter timeout for tournament discovery — it's a background cross-reference,
+      // and OpenDota's /proMatches can be slow or down. Fail fast so other providers aren't blocked.
+      const response = await this.request<OpenDotaProMatch[]>('/proMatches', undefined, 8000);
       const tournamentsMap = new Map<string, TournamentData>();
       const latestMatchTimes = new Map<string, number>();
 
@@ -624,7 +626,8 @@ export class OpenDotaProvider extends DataProviderBase implements DataProvider {
 
   private async request<T = unknown>(
     endpoint: string,
-    queryParams?: Record<string, string | number | undefined>
+    queryParams?: Record<string, string | number | undefined>,
+    timeoutMs = 10000
   ): Promise<T> {
     return this.retry(async () => {
       const now = Date.now();
@@ -647,11 +650,13 @@ export class OpenDotaProvider extends DataProviderBase implements DataProvider {
           'User-Agent': 'FantasyDota/1.0',
           Accept: 'application/json',
         },
-        signal: AbortSignal.timeout(30000),
+        signal: AbortSignal.timeout(timeoutMs),
       });
 
       if (!response.ok) {
-        const retryable = response.status >= 500 || response.status === 429;
+        // HTTP 520 = Cloudflare "Unknown Error" (origin down) — not retryable, fail fast.
+        // HTTP 429 = rate-limited — retryable. 5xx server errors — retryable.
+        const retryable = response.status !== 520 && (response.status >= 500 || response.status === 429);
         throw this.createError(
           'OPENDOTA_HTTP_ERROR',
           `HTTP ${response.status}: ${response.statusText}`,
