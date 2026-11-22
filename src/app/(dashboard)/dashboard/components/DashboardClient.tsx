@@ -27,6 +27,7 @@ import { DashboardLiveMatches } from './DashboardLiveMatches';
 import { DashboardWhatsNew, type WhatsNewData } from './DashboardWhatsNew';
 import { DashboardGoalProgress } from './DashboardGoalProgress';
 import { DashboardTransferRush } from './DashboardTransferRush';
+import { DashboardGreeting } from './DashboardGreeting';
 import { DataFreshnessBadge } from '@/components/DataFreshnessBadge';
 import type { MatchData } from '@/app/(dashboard)/matches/components/MatchCard';
 
@@ -337,9 +338,10 @@ export function DashboardClient({ initialData, initialWhatsNew }: DashboardClien
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8">
             <div>
               <div className="flex flex-wrap items-center gap-3 mb-2">
-                <h1 className="dashboard-hero-title text-3xl md:text-4xl font-bold" style={{ color: 'var(--text-primary)' }}>
-                  Welcome back{dashboardData?.displayName ? `, ${dashboardData.displayName}` : ''}
-                </h1>
+                <DashboardGreeting
+                  loading={loading}
+                  displayName={dashboardData?.displayName}
+                />
                 <DataFreshnessBadge page="dashboard" />
               </div>
               <p className="text-base sm:text-lg" style={{ color: 'var(--text-secondary)' }}>
