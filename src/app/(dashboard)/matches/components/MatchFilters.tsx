@@ -1,5 +1,7 @@
 'use client';
 
+import { getActiveMatchFilterCount } from './match-filters-state';
+
 interface MatchFiltersProps {
   activeTab: 'all' | 'live' | 'upcoming' | 'completed';
   onTabChange: (tab: 'all' | 'live' | 'upcoming' | 'completed') => void;
@@ -16,6 +18,7 @@ interface MatchFiltersProps {
   onSearchChange: (query: string) => void;
   viewMode: 'grid' | 'list';
   onViewModeChange: (mode: 'grid' | 'list') => void;
+  onClearFilters: () => void;
 }
 
 export function MatchFilters({
@@ -29,7 +32,13 @@ export function MatchFilters({
   onSearchChange,
   viewMode,
   onViewModeChange,
+  onClearFilters,
 }: MatchFiltersProps) {
+  const activeFilterCount = getActiveMatchFilterCount({
+    activeTab,
+    selectedTournamentId,
+    searchQuery,
+  });
   const tabs = [
     { id: 'all', label: 'All Matches', count: counts.all, isLive: false },
     { id: 'live', label: 'Live', count: counts.live, isLive: true },
@@ -167,6 +176,29 @@ export function MatchFilters({
           </div>
         )}
       </div>
+
+      {activeFilterCount > 0 ? (
+        <div className="flex items-center justify-between gap-3">
+          <span
+            aria-live="polite"
+            aria-label={`${activeFilterCount} active match filters`}
+            className="inline-flex items-center gap-2 text-xs font-medium text-[var(--text-secondary)]"
+          >
+            Filters
+            <span className="rounded-full border border-[var(--border)] bg-[var(--surface-raised)] px-2 py-0.5 font-mono text-[var(--text-primary)]">
+              {activeFilterCount}
+            </span>
+          </span>
+          <button
+            type="button"
+            onClick={onClearFilters}
+            aria-label="Clear all match filters"
+            className="rounded-lg px-3 py-2 text-xs font-semibold text-[var(--accent-primary)] transition-colors hover:bg-[var(--surface-raised)]"
+          >
+            Clear all
+          </button>
+        </div>
+      ) : null}
     </div>
   );
 }

@@ -12,6 +12,7 @@ import type { InitialMatchesData } from '@/lib/matches-initial-data';
 import { getSquadPlayersForMatch, type TrackedSquadPlayer } from '@/lib/match-squad-tracking';
 import { replaceUrlQueryParams } from '@/lib/url-query-state';
 import { groupMatchesBySeries, shouldShowMatchSeries } from '@/lib/match-series';
+import { getMatchAutoRefreshInterval } from '@/lib/match-center-refresh';
 
 interface UserSquadPlayer extends TrackedSquadPlayer {
   id: number;
@@ -47,6 +48,7 @@ export default function MatchesPage({ initialData }: { initialData: InitialMatch
   const [totalPages, setTotalPages] = useState(initialData.pagination.totalPages);
   const [counts, setCounts] = useState(initialData.counts);
   const [squadTrackingError, setSquadTrackingError] = useState<string | null>(null);
+  const [refreshTick, setRefreshTick] = useState(0);
 
   // Filters state
   const [activeTab, setActiveTab] = useState<'all' | 'live' | 'upcoming' | 'completed'>(
@@ -59,6 +61,9 @@ export default function MatchesPage({ initialData }: { initialData: InitialMatch
   const [debouncedSearch, setDebouncedSearch] = useState(initialSearch.trim());
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const lastRequestKey = useRef<string | null>(null);
+  const autoRefreshFilterKey = useRef<string | null>(null);
+  const inFlightRequests = useRef(0);
+  const filterKey = `${page}|${activeTab}|${selectedTournamentId}|${debouncedSearch}`;
 
   useEffect(() => {
     replaceUrlQueryParams({
@@ -81,7 +86,9 @@ export default function MatchesPage({ initialData }: { initialData: InitialMatch
   }, [searchQuery]);
 
   useEffect(() => {
-    const requestKey = `${page}|${activeTab}|${selectedTournamentId}|${debouncedSearch}`;
+    const requestKey = `${filterKey}|${refreshTick}`;
+    const isAutoRefresh = autoRefreshFilterKey.current === filterKey;
+    autoRefreshFilterKey.current = null;
     if (
       lastRequestKey.current === null
       && initialData.matches.length > 0
@@ -95,10 +102,12 @@ export default function MatchesPage({ initialData }: { initialData: InitialMatch
     }
     if (lastRequestKey.current === requestKey) return;
     lastRequestKey.current = requestKey;
+    if (isAutoRefresh && inFlightRequests.current > 0) return;
     let cancelled = false;
+    inFlightRequests.current += 1;
     async function loadMatches() {
       try {
-        setLoading(true);
+        if (!isAutoRefresh) setLoading(true);
         setError(null);
         const params = new URLSearchParams({
           page: String(page),
@@ -134,14 +143,31 @@ export default function MatchesPage({ initialData }: { initialData: InitialMatch
       } catch (err: unknown) {
         if (!cancelled) setError(err instanceof Error ? err.message : 'Failed to load matches');
       } finally {
-        if (!cancelled) setLoading(false);
+        inFlightRequests.current -= 1;
+        if (!cancelled && !isAutoRefresh) setLoading(false);
       }
     }
     void loadMatches();
     return () => {
       cancelled = true;
     };
-  }, [activeTab, debouncedSearch, initialData.matches.length, page, selectedTournamentId]);
+  }, [activeTab, debouncedSearch, filterKey, initialData.matches.length, page, refreshTick, selectedTournamentId]);
+
+  useEffect(() => {
+    const refreshInterval = getMatchAutoRefreshInterval(activeTab, counts.live);
+    if (refreshInterval === null) return;
+    const refreshMatches = () => {
+      if (document.visibilityState === 'hidden') return;
+      autoRefreshFilterKey.current = filterKey;
+      setRefreshTick((current) => current + 1);
+    };
+    const interval = window.setInterval(refreshMatches, refreshInterval);
+    document.addEventListener('visibilitychange', refreshMatches);
+    return () => {
+      window.clearInterval(interval);
+      document.removeEventListener('visibilitychange', refreshMatches);
+    };
+  }, [activeTab, counts.live, filterKey]);
 
   const loadSquadPlayers = useCallback(async () => {
     try {
@@ -200,6 +226,13 @@ export default function MatchesPage({ initialData }: { initialData: InitialMatch
     : [];
   const liveSeriesIds = new Set(liveSeriesGroups.map((group) => group.key));
   const nonLiveSeriesGroups = seriesGroups.filter((group) => !liveSeriesIds.has(group.key));
+  const clearAllFilters = () => {
+    setActiveTab('all');
+    setSelectedTournamentId('');
+    setSearchQuery('');
+    setDebouncedSearch('');
+    setPage(1);
+  };
 
   return (
     <div className="matches-page max-w-7xl mx-auto px-4 py-10">
@@ -248,15 +281,25 @@ export default function MatchesPage({ initialData }: { initialData: InitialMatch
         onSearchChange={setSearchQuery}
         viewMode={viewMode}
         onViewModeChange={setViewMode}
+        onClearFilters={clearAllFilters}
       />
 
       {squadTrackingError && (
-        <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-800 dark:text-rose-200" role="alert">
+        <div
+          className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-xl border px-4 py-3 text-sm"
+          style={{
+            borderColor: 'color-mix(in srgb, var(--danger) 30%, var(--border))',
+            backgroundColor: 'color-mix(in srgb, var(--danger) 10%, var(--surface))',
+            color: 'var(--danger)',
+          }}
+          role="alert"
+        >
           <span>{squadTrackingError}</span>
           <button
             type="button"
             onClick={() => void loadSquadPlayers()}
-            className="rounded-lg border border-rose-500/40 px-3 py-1.5 text-xs font-semibold hover:bg-rose-500/10"
+            className="rounded-lg border border-[var(--border)] px-3 py-1.5 text-xs font-semibold hover:bg-[var(--surface-raised)]"
+            style={{ color: 'var(--danger)' }}
           >
             Retry
           </button>
@@ -299,7 +342,15 @@ export default function MatchesPage({ initialData }: { initialData: InitialMatch
 
       {/* Error state */}
       {error && (
-        <div className="border border-rose-500/30 bg-rose-500/10 text-rose-800 dark:text-rose-200 px-4 py-3 rounded-xl mb-8 text-sm flex items-center gap-2" role="alert">
+        <div
+          className="mb-8 flex items-center gap-2 rounded-xl border px-4 py-3 text-sm"
+          style={{
+            borderColor: 'color-mix(in srgb, var(--danger) 30%, var(--border))',
+            backgroundColor: 'color-mix(in srgb, var(--danger) 10%, var(--surface))',
+            color: 'var(--danger)',
+          }}
+          role="alert"
+        >
           <span>⚠️</span>
           <span>{error}</span>
         </div>
@@ -342,11 +393,7 @@ export default function MatchesPage({ initialData }: { initialData: InitialMatch
           {hiddenCompletedMatchCount === 0 && (searchQuery || selectedTournamentId || activeTab !== 'all') && (
             <button
               onClick={() => {
-                setActiveTab('all');
-                setSelectedTournamentId('');
-                setSearchQuery('');
-                setDebouncedSearch('');
-                setPage(1);
+                clearAllFilters();
               }}
               className="px-4 py-2 rounded-xl text-xs font-semibold bg-amber-500 text-slate-950 hover:bg-amber-400 transition-colors shadow-md shadow-amber-500/20"
             >
@@ -383,6 +430,11 @@ export default function MatchesPage({ initialData }: { initialData: InitialMatch
         <div className="mt-6 flex flex-col sm:flex-row items-center justify-between gap-3 text-sm text-[var(--text-secondary)]">
           <p>
             Showing {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, total)} of {total} matches
+            {liveSeriesGroups.length > 0 ? (
+              <span className="text-xs text-[var(--text-muted)]">
+                {' '}· Live matches shown above are included in this total.
+              </span>
+            ) : null}
           </p>
           {hiddenCompletedMatchCount > 0 && seriesGroups.length > 0 && (
             <p className="text-xs text-[var(--text-muted)]">
