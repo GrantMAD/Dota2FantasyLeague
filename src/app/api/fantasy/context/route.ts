@@ -96,8 +96,10 @@ async function getHandler(request: NextRequest) {
         chips: {
           tripleCaptainUsed: false,
           tripleCaptainGameweekId: null,
+          tripleCaptainGameweekNumber: null,
           benchBoostUsed: false,
           benchBoostGameweekId: null,
+          benchBoostGameweekNumber: null,
           wildcardUsed: false,
           wildcardUsedGameweekId: null,
         },
@@ -360,8 +362,14 @@ async function getHandler(request: NextRequest) {
       chips: {
         tripleCaptainUsed: chipsRow.triple_captain_gameweek_id != null,
         tripleCaptainGameweekId: chipsRow.triple_captain_gameweek_id ?? null,
+        tripleCaptainGameweekNumber: allGws.find((gameweek) =>
+          gameweek.id === chipsRow.triple_captain_gameweek_id
+        )?.gameweek_number ?? null,
         benchBoostUsed: chipsRow.bench_boost_gameweek_id != null,
         benchBoostGameweekId: chipsRow.bench_boost_gameweek_id ?? null,
+        benchBoostGameweekNumber: allGws.find((gameweek) =>
+          gameweek.id === chipsRow.bench_boost_gameweek_id
+        )?.gameweek_number ?? null,
         wildcardUsed: chipsRow.wildcard_used_gameweek_id != null,
         wildcardUsedGameweekId: chipsRow.wildcard_used_gameweek_id ?? null,
       },

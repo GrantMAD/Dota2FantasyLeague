@@ -34,8 +34,10 @@ export type ChipType = 'triple-captain' | 'bench-boost' | null;
 export interface ChipStatus {
   tripleCaptainUsed?: boolean;
   tripleCaptainGameweekId?: number | null;
+  tripleCaptainGameweekNumber?: number | null;
   benchBoostUsed?: boolean;
   benchBoostGameweekId?: number | null;
+  benchBoostGameweekNumber?: number | null;
 }
 
 export interface ProfessionalTeamRef {

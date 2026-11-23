@@ -9,7 +9,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { canOptimizeImage } from '@/lib/optimized-image';
-import { ArrowRight, CircleAlert, UserCheck, TrendingUp, TrendingDown, Minus, Clock, ShieldCheck, Lock, Sparkles, ChevronDown, Users } from 'lucide-react';
+import { ArrowRight, Check, CircleAlert, Info, UserCheck, TrendingUp, TrendingDown, Minus, Clock, ShieldCheck, Lock, Sparkles, ChevronDown, Users } from 'lucide-react';
 import { useToast } from '@/components/Toast';
 import type { ChipType, ChipStatus, FantasyPlayer as LineupPlayer, LineupEntry } from '@/types/fantasy';
 
@@ -175,10 +175,12 @@ export default function LineupsPage() {
       setTcStatus(data.chips ? {
         tripleCaptainUsed: data.chips.tripleCaptainUsed,
         tripleCaptainGameweekId: data.chips.tripleCaptainGameweekId,
+        tripleCaptainGameweekNumber: data.chips.tripleCaptainGameweekNumber,
       } : null);
       setBbStatus(data.chips ? {
         benchBoostUsed: data.chips.benchBoostUsed,
         benchBoostGameweekId: data.chips.benchBoostGameweekId,
+        benchBoostGameweekNumber: data.chips.benchBoostGameweekNumber,
       } : null);
     } catch (err) {
       toastError('Load Error', err instanceof Error ? err.message : 'Unable to load fantasy lineup');
@@ -463,10 +465,20 @@ export default function LineupsPage() {
 
       if (isTripleCaptain) {
         toast.success('Triple Captain Active', 'Your captain earns 3× points this gameweek.');
-        setTcStatus({ ...tcStatus, tripleCaptainUsed: true, tripleCaptainGameweekId: data.gameweekId });
+        setTcStatus({
+          ...tcStatus,
+          tripleCaptainUsed: true,
+          tripleCaptainGameweekId: data.gameweekId,
+          tripleCaptainGameweekNumber: availableGameweeks.find((gameweek) => gameweek.id === data.gameweekId)?.gameweekNumber ?? null,
+        });
       } else {
         toast.success('Bench Boost Active', 'All bench players score full points this gameweek.');
-        setBbStatus({ ...bbStatus, benchBoostUsed: true, benchBoostGameweekId: data.gameweekId });
+        setBbStatus({
+          ...bbStatus,
+          benchBoostUsed: true,
+          benchBoostGameweekId: data.gameweekId,
+          benchBoostGameweekNumber: availableGameweeks.find((gameweek) => gameweek.id === data.gameweekId)?.gameweekNumber ?? null,
+        });
       }
     } catch (err: unknown) {
       toast.error('Chip Activation Failed', err instanceof Error ? err.message : 'Activation failed');
@@ -477,7 +489,10 @@ export default function LineupsPage() {
   };
 
   const starterSlots = ['carry', 'mid', 'offlane', 'support', 'hard_support'];
-  const hasAllStarters = starterSlots.every((slot) => lineup.some((entry) => entry.slot === slot));
+  const missingStarterSlots = starterSlots.filter((slot) =>
+    !lineup.some((entry) => entry.slot === slot && entry.player_id != null)
+  );
+  const hasAllStarters = missingStarterSlots.length === 0;
   const startingPlayers = lineup.filter((entry) => starterSlots.includes(entry.slot) && entry.player_id);
   const startingPlayerDetails = Array.from(new Map(
     startingPlayers
@@ -485,8 +500,20 @@ export default function LineupsPage() {
       .filter((player): player is LineupPlayer => Boolean(player))
       .map((player) => [player.id, player]),
   ).values());
-  const hasCaptainAndVice = lineup.filter((e) => e.is_captain).length === 1 && lineup.filter((e) => e.is_vice_captain).length === 1;
+  const captainEntries = lineup.filter((entry) => entry.is_captain);
+  const viceCaptainEntries = lineup.filter((entry) => entry.is_vice_captain);
+  const hasCaptainAndVice = captainEntries.length === 1
+    && viceCaptainEntries.length === 1
+    && captainEntries[0].player_id !== viceCaptainEntries[0].player_id
+    && starterSlots.includes(captainEntries[0].slot)
+    && starterSlots.includes(viceCaptainEntries[0].slot);
   const isLineupReady = hasAllStarters && hasCaptainAndVice;
+  const captainPlayer = startingPlayerDetails.find((player) =>
+    lineup.some((entry) => entry.player_id === player.id && entry.is_captain)
+  );
+  const viceCaptainPlayer = startingPlayerDetails.find((player) =>
+    lineup.some((entry) => entry.player_id === player.id && entry.is_vice_captain)
+  );
   const selectedGameweek = availableGameweeks.find((gameweek) => gameweek.id === gameweekId);
   const deadlineCountdown = selectedGameweek?.deadline
     ? formatTimeUntilDeadline(selectedGameweek.deadline)
@@ -595,14 +622,14 @@ export default function LineupsPage() {
           </div>
 
           {/* Action CTA Button */}
-          <div className="flex items-center gap-3">
+          <div className="flex flex-col gap-2 md:items-end">
             <button
               type="button"
               data-guide="lineup-save-btn"
               data-tour="lineup-save-btn"
               onClick={() => void saveLineup()}
               disabled={saving || !isLineupReady || lineupLocked}
-              className="inline-flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-amber-500/20 transition-all hover:scale-102 active:scale-98 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+              className="inline-flex self-start items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-amber-500/20 transition-all hover:scale-102 active:scale-98 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer md:self-auto"
               style={{
                 background: 'linear-gradient(135deg, #f59e0b, #d97706)',
               }}
@@ -615,14 +642,47 @@ export default function LineupsPage() {
                 <><ShieldCheck className="h-4 w-4" /> Save Lineup</>
               )}
             </button>
+            {!loading && ownedPlayers.length > 0 && !lineupLocked && !isLineupReady && (
+              <div role="status" aria-live="polite" className="space-y-1 text-xs text-[var(--text-secondary)] md:max-w-xs md:text-right">
+                {!hasAllStarters ? (
+                  <p className="flex items-start gap-1.5 md:justify-end">
+                    <CircleAlert className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-600 dark:text-amber-400" aria-hidden="true" />
+                    <span>
+                      Choose a player for each starting slot: {missingStarterSlots
+                        .map((slot) => slot.replace('_', ' ').replace(/\b\w/g, (character) => character.toUpperCase()))
+                        .join(', ')}.
+                    </span>
+                  </p>
+                ) : (
+                  <p className="flex items-center gap-1.5 md:justify-end">
+                    <Check className="h-3.5 w-3.5 shrink-0 text-emerald-600 dark:text-emerald-400" aria-hidden="true" />
+                    <span>All 5 starting slots are set.</span>
+                  </p>
+                )}
+                {!hasCaptainAndVice ? (
+                  <p className="flex items-start gap-1.5 md:justify-end">
+                    <CircleAlert className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-600 dark:text-amber-400" aria-hidden="true" />
+                    <span>Select one Captain and one Vice-Captain from your starting five.</span>
+                  </p>
+                ) : (
+                  <p className="flex items-center gap-1.5 md:justify-end">
+                    <Check className="h-3.5 w-3.5 shrink-0 text-emerald-600 dark:text-emerald-400" aria-hidden="true" />
+                    <span>Captain and Vice-Captain are set.</span>
+                  </p>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </div>
 
       <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[var(--border)] bg-[var(--surface)] px-4 py-3 text-xs text-[var(--text-muted)]">
-        <span>
-          Fixture difficulty is a form estimate from opponent win rate in up to 10 recent completed matches, not a prediction; 1 is easiest and 5 hardest. At least 5 results are required.
-        </span>
+        <div className="flex items-start gap-2.5 text-sm text-[var(--text-secondary)]">
+          <Info className="mt-0.5 h-4 w-4 shrink-0 text-[var(--accent-primary)]" aria-hidden="true" />
+          <span>
+            Fixture difficulty is a form estimate from opponent win rate in up to 10 recent completed matches, not a prediction. Ratings range from 1 (easiest) to 5 (hardest); at least 5 results are required.
+          </span>
+        </div>
         {fixtureLoading && <span role="status">Loading selected-gameweek fixtures…</span>}
         {!fixtureLoading && (fixtureError || fixtureDifficultyError) && (
           <div className="flex items-center gap-2">
@@ -679,7 +739,9 @@ export default function LineupsPage() {
             <div>
               {tcStatus?.tripleCaptainUsed ? (
                 <span className="rounded-lg bg-purple-500/15 border border-purple-500/30 px-2.5 py-1 text-[11px] font-bold text-purple-300">
-                  Used GW {tcStatus.tripleCaptainGameweekId}
+                  {tcStatus.tripleCaptainGameweekNumber != null
+                    ? `Used GW ${tcStatus.tripleCaptainGameweekNumber}`
+                    : 'Used · gameweek unavailable'}
                 </span>
               ) : (
                 <button
@@ -714,7 +776,9 @@ export default function LineupsPage() {
             <div>
               {bbStatus?.benchBoostUsed ? (
                 <span className="rounded-lg bg-emerald-500/15 border border-emerald-500/30 px-2.5 py-1 text-[11px] font-bold text-emerald-300">
-                  Used GW {bbStatus.benchBoostGameweekId}
+                  {bbStatus.benchBoostGameweekNumber != null
+                    ? `Used GW ${bbStatus.benchBoostGameweekNumber}`
+                    : 'Used · gameweek unavailable'}
                 </span>
               ) : (
                 <button
@@ -795,19 +859,39 @@ export default function LineupsPage() {
                 {/* Starting 5 */}
                 <div data-guide="lineup-starters" data-tour="lineup-starters">
                   <div className="flex items-center justify-between mb-3">
-                    <h3 className="text-xs font-bold uppercase tracking-wider text-amber-400 flex items-center gap-2">
+                    <h3 className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--accent-primary)' }}>
                       <span className="h-2 w-2 rounded-full bg-emerald-400"></span>
                       Starting Five (Active)
                     </h3>
                     <span className="text-xs text-[var(--text-muted)]">Active point scorers</span>
                   </div>
 
+                  <div
+                    role="group"
+                    aria-label="Leadership selections"
+                    className="mb-3 flex flex-wrap items-center gap-x-4 gap-y-1 rounded-lg border px-3 py-2 text-xs"
+                    style={{ background: 'var(--surface-raised)', borderColor: 'var(--border)' }}
+                  >
+                    <span className="text-[var(--text-secondary)]">
+                      Captain: <strong className="font-semibold text-[var(--text-primary)]">{captainPlayer?.in_game_name || captainPlayer?.name || 'Not selected'}</strong>
+                    </span>
+                    <span className="text-[var(--text-secondary)]">
+                      Vice-Captain: <strong className="font-semibold text-[var(--text-primary)]">{viceCaptainPlayer?.in_game_name || viceCaptainPlayer?.name || 'Not selected'}</strong>
+                    </span>
+                  </div>
+
                   {/* Informational Guidance Notice */}
-                  <div className="flex items-start gap-2.5 bg-amber-500/10 border border-amber-500/30 rounded-lg p-3.5 mb-4 text-xs text-amber-900 dark:text-amber-200/90 leading-relaxed">
-                    <span className="text-amber-500 dark:text-amber-400 text-sm shrink-0">ℹ️</span>
+                  <div
+                    className="mb-4 flex items-start gap-2.5 rounded-lg border p-3.5 text-sm leading-relaxed text-[var(--text-secondary)]"
+                    style={{
+                      background: 'color-mix(in srgb, #f59e0b 7%, var(--surface))',
+                      borderColor: 'color-mix(in srgb, #f59e0b 30%, var(--border))',
+                    }}
+                  >
+                    <Info className="mt-0.5 h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" aria-hidden="true" />
                     <div>
-                      <p className="font-semibold text-amber-900 dark:text-amber-300 mb-0.5">Lineup Selection Order</p>
-                      <p className="text-[var(--text-secondary)]">
+                      <p className="mb-0.5 font-semibold text-[var(--text-primary)]">Lineup Selection Order</p>
+                      <p>
                         Please assign your <span className="text-[var(--text-primary)] font-medium">5 core starting players</span> in the slots below first. Once selected, you can appoint your <span className="text-amber-600 dark:text-amber-400 font-semibold">Captain</span> and <span className="text-cyan-600 dark:text-cyan-400 font-semibold">Vice-Captain</span> from your starting lineup.
                       </p>
                       <p className="mt-1 text-[var(--text-muted)]">
