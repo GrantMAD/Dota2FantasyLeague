@@ -484,18 +484,28 @@ export async function runJob(jobName: JobName, options?: JobRunOptions): Promise
     recordJobHistory({ ...result });
     await persistJobExecution(result);
     await maybeDispatchAlert(result);
+    let lockReleased = false;
     try {
       await releaseDistributedJobLock(jobName, executionId);
+      lockReleased = true;
     } catch (error) {
       console.error(`[Scheduler] Failed to release lock for timed-out job ${jobName}:`, error);
     }
 
     void settledHandler.then(async (lateOutcome) => {
       console.warn(`[Scheduler] Timed-out job ${jobName} settled later with status ${lateOutcome.status}`);
-      try {
-        await releaseDistributedJobLock(jobName, executionId);
-      } catch (error) {
-        console.error(`[Scheduler] Failed to release late-settled job lock for ${jobName}:`, error);
+      if (!lockReleased) {
+        try {
+          await releaseDistributedJobLock(jobName, executionId);
+          lockReleased = true;
+        } catch (error) {
+          const msg = error instanceof Error ? error.message : String(error);
+          if (msg.includes('was not owned by execution')) {
+            lockReleased = true;
+          } else {
+            console.error(`[Scheduler] Failed to release late-settled job lock for ${jobName}:`, error);
+          }
+        }
       }
     });
     return result;

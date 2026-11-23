@@ -12,6 +12,11 @@ import {
   requireStratzMatchProvider,
   toDatabaseMatchStatus,
 } from '../match-sync';
+import {
+  isDifferentTime,
+  FETCH_MATCHES_TIME_BUDGET_MS,
+  FETCH_MATCHES_MAX_MATCH_BUDGET_MS,
+} from '../fetch-matches';
 
 function makeMatch(id: string, status: MatchData['status']): MatchData {
   return {
@@ -208,5 +213,32 @@ describe('match synchronization helpers', () => {
 
     expect(result).toHaveLength(100);
     expect(fetchMatches).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe('isDifferentTime and time budget constants', () => {
+  it('returns false for identical ISO dates', () => {
+    expect(isDifferentTime('2026-11-23T15:00:00.000Z', '2026-11-23T15:00:00.000Z')).toBe(false);
+  });
+
+  it('returns false for same instant with different offset format', () => {
+    expect(isDifferentTime('2026-11-23T15:00:00+00:00', '2026-11-23T15:00:00.000Z')).toBe(false);
+    expect(isDifferentTime('2026-11-23T17:00:00+02:00', '2026-11-23T15:00:00.000Z')).toBe(false);
+  });
+
+  it('returns true for different timestamps', () => {
+    expect(isDifferentTime('2026-11-23T15:00:00.000Z', '2026-11-23T15:01:00.000Z')).toBe(true);
+  });
+
+  it('handles null and undefined safely', () => {
+    expect(isDifferentTime(null, null)).toBe(false);
+    expect(isDifferentTime(undefined, undefined)).toBe(false);
+    expect(isDifferentTime('2026-11-23T15:00:00.000Z', null)).toBe(true);
+    expect(isDifferentTime(null, '2026-11-23T15:00:00.000Z')).toBe(true);
+  });
+
+  it('exports time budget constants within safe serverless limits', () => {
+    expect(FETCH_MATCHES_TIME_BUDGET_MS).toBe(35_000);
+    expect(FETCH_MATCHES_MAX_MATCH_BUDGET_MS).toBe(42_000);
   });
 });

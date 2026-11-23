@@ -73,6 +73,9 @@ interface TeamReference {
   data_provider_id: string | null;
 }
 
+export const FETCH_MATCHES_TIME_BUDGET_MS = 35_000;
+export const FETCH_MATCHES_MAX_MATCH_BUDGET_MS = 42_000;
+
 export async function fetchMatches(options: { tournamentLimit?: number } = {}): Promise<FetchResult> {
   const startedAt = new Date();
   const result: FetchResult = {
@@ -233,7 +236,19 @@ export async function fetchMatches(options: { tournamentLimit?: number } = {}): 
         teamNameMap.set(t.id, t.name ?? '');
       }
 
+      const processedTournaments: Tournament[] = [];
+
       for (const tournament of effectiveTournamentsToProcess) {
+        const elapsedSinceStart = Date.now() - startedAt.getTime();
+        if (processedTournaments.length > 0 && elapsedSinceStart >= FETCH_MATCHES_TIME_BUDGET_MS) {
+          console.log(
+            `[fetchMatches] Time budget threshold reached (${elapsedSinceStart}ms >= ${FETCH_MATCHES_TIME_BUDGET_MS}ms); ` +
+            `deferring remaining ${effectiveTournamentsToProcess.length - processedTournaments.length} tournament(s) to subsequent run`
+          );
+          break;
+        }
+
+        let tournamentFullyProcessed = true;
         try {
           const providerSource = tournament.data_provider ?? 'stratz';
           let provider = providers[providerSource];
@@ -367,6 +382,16 @@ export async function fetchMatches(options: { tournamentLimit?: number } = {}): 
 
           // Process matches
           for (const match of matches) {
+            const matchElapsed = Date.now() - startedAt.getTime();
+            if (matchElapsed >= FETCH_MATCHES_MAX_MATCH_BUDGET_MS) {
+              console.warn(
+                `[fetchMatches] Match processing time threshold reached (${matchElapsed}ms >= ${FETCH_MATCHES_MAX_MATCH_BUDGET_MS}ms) ` +
+                `for tournament ${tournament.name}; flushing current batch and deferring remaining matches`
+              );
+              tournamentFullyProcessed = false;
+              break;
+            }
+
             try {
               const scheduledTime = match.scheduledAt
                 ? new Date(match.scheduledAt).toISOString()
@@ -687,9 +712,9 @@ export async function fetchMatches(options: { tournamentLimit?: number } = {}): 
                   existing.status !== status ||
                   existing.team_a_id !== teamAId ||
                   existing.team_b_id !== teamBId ||
-                  existing.scheduled_time !== scheduledTime ||
-                  (matchTimes.start_time !== undefined && existing.start_time !== matchTimes.start_time) ||
-                  (matchTimes.end_time !== undefined && existing.end_time !== matchTimes.end_time);
+                  isDifferentTime(existing.scheduled_time, scheduledTime) ||
+                  (matchTimes.start_time !== undefined && isDifferentTime(existing.start_time, matchTimes.start_time)) ||
+                  (matchTimes.end_time !== undefined && isDifferentTime(existing.end_time, matchTimes.end_time));
 
                 if (needsUpdate) {
                   const { error: updateError } = await supabase
@@ -857,6 +882,10 @@ export async function fetchMatches(options: { tournamentLimit?: number } = {}): 
               result.scheduled += needsDetailIds.length;
             }
           }
+
+          if (tournamentFullyProcessed) {
+            processedTournaments.push(tournament);
+          }
         } catch (error) {
           result.errors.push(
             `Failed to fetch matches for tournament ${tournament.id}: ${(error as Error).message}`
@@ -864,12 +893,12 @@ export async function fetchMatches(options: { tournamentLimit?: number } = {}): 
         }
       }
 
-      const nextCursor = effectiveTournamentsToProcess.length > 0
-        ? effectiveTournamentsToProcess[effectiveTournamentsToProcess.length - 1].id
+      const nextCursor = processedTournaments.length > 0
+        ? processedTournaments[processedTournaments.length - 1].id
         : (tournamentBatch.lastProcessedTournamentId ?? lastProcessedTournamentId);
 
       result.hasMore = activeTournaments.length > 0 &&
-        (tournamentBatch.hasMore || effectiveTournamentsToProcess.length < tournamentsToProcess.length);
+        (tournamentBatch.hasMore || processedTournaments.length < tournamentsToProcess.length);
 
       // Stale-live & duplicate-live sweep:
       // 1. Enforces single-live-game invariant per series: if a newer game in the series starts or finishes,
@@ -1040,6 +1069,19 @@ async function preloadDetailedMatchIds(
     if (row.external_match_id) ids.add(row.external_match_id);
   }
   return ids;
+}
+
+/**
+ * Safely compares two timestamp strings by epoch millisecond to prevent redundant
+ * database updates caused by timestamp formatting differences (e.g. +00:00 vs .000Z).
+ */
+export function isDifferentTime(a?: string | null, b?: string | null): boolean {
+  if (!a && !b) return false;
+  if (!a || !b) return true;
+  const timeA = new Date(a).getTime();
+  const timeB = new Date(b).getTime();
+  if (isNaN(timeA) || isNaN(timeB)) return a !== b;
+  return timeA !== timeB;
 }
 
 /**
