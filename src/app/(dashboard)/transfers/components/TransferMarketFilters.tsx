@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useRef } from 'react';
 import { ArrowDown, ArrowUp, Pin } from 'lucide-react';
 import {
   ROLE_ACCENTS,
@@ -37,15 +38,42 @@ export function TransferMarketFilters({
   onTogglePinOwnedFirst,
   onClear,
 }: TransferMarketFiltersProps) {
+  const searchInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    const handleSearchShortcut = (event: KeyboardEvent) => {
+      if (event.key !== '/' || event.metaKey || event.ctrlKey || event.altKey || event.shiftKey) return;
+      if (
+        event.target instanceof HTMLElement &&
+        (event.target.isContentEditable ||
+          event.target.closest('input, textarea, select, [contenteditable="true"], [role="dialog"], dialog'))
+      ) {
+        return;
+      }
+
+      event.preventDefault();
+      searchInputRef.current?.focus();
+    };
+
+    window.addEventListener('keydown', handleSearchShortcut);
+    return () => window.removeEventListener('keydown', handleSearchShortcut);
+  }, []);
+
   return (
     <section className="mb-5 rounded-2xl border border-[var(--border)] bg-[var(--surface)]/95 p-4 shadow-lg backdrop-blur">
       <div className="grid gap-4 xl:grid-cols-[minmax(220px,1.2fr)_minmax(0,2fr)]">
         <div>
-          <label htmlFor="transfer-market-search" className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)]">
-            Scout players
-          </label>
+          <div className="mb-1.5 flex items-center justify-between gap-2">
+            <label htmlFor="transfer-market-search" className="block text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)]">
+              Scout players
+            </label>
+            <span className="flex items-center gap-1 text-xs text-[var(--text-muted)]">
+              Press <kbd className="rounded border border-[var(--border)] bg-[var(--surface-raised)] px-1.5 py-0.5 font-mono text-[var(--text-secondary)]">/</kbd> to search
+            </span>
+          </div>
           <input
             id="transfer-market-search"
+            ref={searchInputRef}
             data-tour="transfers-search"
             type="search"
             placeholder="Search player or team..."

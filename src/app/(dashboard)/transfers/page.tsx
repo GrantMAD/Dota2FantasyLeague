@@ -585,7 +585,7 @@ function TransfersPageContent() {
             <div className="text-xs text-[var(--text-muted)] uppercase">Bank</div>
             {budget === null
               ? <div className="h-6 w-16 animate-pulse rounded bg-[var(--surface-muted)] mt-0.5" />
-              : <div className="text-lg font-mono font-bold text-emerald-400">${(budget).toFixed(1)}M</div>
+              : <div className="text-lg font-mono font-bold text-emerald-700 dark:text-emerald-300">${(budget).toFixed(1)}M</div>
             }
           </div>
           <div className="w-px h-8 bg-[var(--border)]"></div>
@@ -853,7 +853,7 @@ function TransfersPageContent() {
               <button
                 disabled={actionLoading || buildingSelections.size === 0}
                 onClick={submitAddToSquad}
-                className="w-full bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold py-2.5 rounded-lg transition-colors disabled:opacity-50 shadow-md"
+                className="w-full bg-[var(--accent-primary)] text-white text-xs font-bold py-2.5 rounded-lg transition-opacity hover:opacity-90 disabled:opacity-50 shadow-md"
               >
                 {actionLoading ? 'Adding...' : totalSelected === 0 ? 'Select players from the list →' : `Confirm ${totalSelected} Player${totalSelected !== 1 ? 's' : ''}`}
               </button>
@@ -966,7 +966,7 @@ function TransfersPageContent() {
                 data-tour="transfers-action"
                 disabled={actionLoading || selectedPlayerIn === null || selectedPlayerOut === null || !rolesMatch}
                 onClick={submitTransfer}
-                className="mt-4 w-full rounded-lg bg-emerald-600 py-2.5 text-xs font-bold text-white shadow-md transition-colors hover:bg-emerald-500 disabled:opacity-50"
+                className="mt-4 w-full rounded-lg bg-[var(--accent-primary)] py-2.5 text-xs font-bold text-white shadow-md transition-opacity hover:opacity-90 disabled:opacity-50"
               >
                 {actionLoading ? 'Processing...' : 'Confirm Transfer'}
               </button>
@@ -1101,7 +1101,7 @@ function TransfersPageContent() {
                             isSelected
                               ? 'bg-amber-500/10 ring-1 ring-inset ring-amber-400/60'
                               : isOwned
-                                ? 'bg-emerald-950/20 hover:bg-emerald-950/35'
+                                ? 'bg-emerald-500/10 hover:bg-emerald-500/15'
                                 : 'hover:bg-[var(--surface-raised)]'
                           }`}
                         >
@@ -1164,7 +1164,7 @@ function TransfersPageContent() {
                           </td>
                           <td className="px-3 py-3 text-right xl:px-4">
                             <div className="flex flex-col items-end gap-1">
-                              <span className="text-xs font-mono font-bold text-amber-400 xl:text-base">{formatPlayerPrice(player.current_price)}</span>
+                              <span className="text-xs font-mono font-bold text-amber-700 dark:text-amber-300 xl:text-base">{formatPlayerPrice(player.current_price)}</span>
                               <div className="hidden items-center gap-1.5 xl:flex">
                                 <PriceSparkline data={player.price_history} width={48} height={14} themeAware />
                                 {priceChange !== null && priceChange !== 0 ? (
