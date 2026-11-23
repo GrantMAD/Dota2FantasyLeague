@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { ArrowRight, Info } from 'lucide-react';
+import { ArrowRight, Info, TrendingDown, TrendingUp } from 'lucide-react';
 import { useCountUp } from '@/hooks/useCountUp';
 
 export interface DashboardStatCardData {
@@ -8,6 +8,7 @@ export interface DashboardStatCardData {
   value: string | number;
   trend?: string;
   trendColor?: string;
+  trendDirection?: 'up' | 'down';
 }
 
 function StatValue({ value }: { value: string | number }) {
@@ -15,6 +16,25 @@ function StatValue({ value }: { value: string | number }) {
   return (
     <p className="mb-1 text-2xl font-black font-mono tracking-tight" style={{ color: 'var(--text-primary)' }}>
       {animatedValue}
+    </p>
+  );
+}
+
+function StatSupportingText({ stat }: { stat: DashboardStatCardData }) {
+  if (!stat.trend) return null;
+  const TrendIcon = stat.trendDirection === 'up'
+    ? TrendingUp
+    : stat.trendDirection === 'down'
+      ? TrendingDown
+      : null;
+
+  return (
+    <p
+      className={`mt-1 flex min-h-4 min-w-0 items-center gap-1.5 truncate text-[11px] font-medium leading-4 ${stat.trendColor || ''}`}
+      style={{ color: !stat.trendColor ? 'var(--text-muted)' : undefined }}
+    >
+      {TrendIcon ? <TrendIcon aria-hidden="true" className="h-3.5 w-3.5 shrink-0" /> : null}
+      <span className="truncate">{stat.trend}</span>
     </p>
   );
 }
@@ -64,11 +84,7 @@ function StaticStatCard({ stat }: { stat: DashboardStatCardData }) {
         </p>
         <StatValue value={stat.value} />
       </div>
-      {stat.trend && (
-        <p className={`text-xs font-medium mt-1 ${stat.trendColor || ''}`} style={{ color: !stat.trendColor ? 'var(--text-muted)' : undefined }}>
-          {stat.trend}
-        </p>
-      )}
+      <StatSupportingText stat={stat} />
     </article>
   );
 }
@@ -86,6 +102,7 @@ export function DashboardStatCards({ stats, onOpenPointsBreakdown }: DashboardSt
               type="button"
               onClick={onOpenPointsBreakdown}
               aria-haspopup="dialog"
+              aria-label={`Total Points: ${stat.value}. ${stat.trend ?? ''}. Open points breakdown.`}
               className="group relative flex w-full cursor-pointer flex-col justify-between overflow-hidden rounded-2xl p-4 text-left shadow-sm transition-all duration-200 hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400"
               style={{
                 background: 'var(--surface-raised)',
@@ -114,11 +131,7 @@ export function DashboardStatCards({ stats, onOpenPointsBreakdown }: DashboardSt
                 </p>
                 <StatValue value={stat.value} />
               </div>
-              {stat.trend && (
-                <p className="text-xs font-medium mt-1 flex items-center gap-1 text-amber-500">
-                  {stat.trend} · Breakdown
-                </p>
-              )}
+              <StatSupportingText stat={stat} />
             </button>
           );
         }
@@ -176,11 +189,7 @@ export function DashboardStatCards({ stats, onOpenPointsBreakdown }: DashboardSt
               </p>
               <StatValue value={stat.value} />
             </div>
-            {stat.trend && (
-              <p className={`text-xs font-medium mt-1 truncate ${stat.trendColor || ''}`} style={{ color: !stat.trendColor ? 'var(--text-muted)' : undefined }}>
-                {stat.trend} · {actionLabel}
-              </p>
-            )}
+            <StatSupportingText stat={stat} />
           </Link>
         );
       })}

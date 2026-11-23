@@ -143,6 +143,7 @@ export interface DashboardStarter {
 export interface LeagueStanding {
   rank: number | null;
   points?: number;
+  rankMovement?: number | null;
   leagues?: { id?: number; name?: string } | null;
 }
 
@@ -158,6 +159,9 @@ export interface DashboardData {
   bankBalance: number;
   totalPoints: number;
   globalRank: number | null;
+  gameweekPointsDelta?: number | null;
+  gameweekRankMovement?: number | null;
+  dashboardTrendStatus?: 'ready' | 'insufficient-history' | 'unavailable';
   targetPoints?: number | null;
   targetRank?: number | null;
   freeTransfers: number;

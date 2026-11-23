@@ -5,6 +5,8 @@ import { aggregatePlayerGameweekBreakdowns } from '@/lib/player-gameweek-breakdo
 import { getEquivalentProviderIds, getRelatedPlayerIds } from '@/lib/jobs/player-identity';
 import { getGameweekMatchProgress } from '@/lib/dashboard/gameweek-match-progress';
 import { fetchGameweekTournaments, isGameweekEndingSoon } from '@/lib/dashboard/gameweek-tournaments';
+import { fetchLeagueRankMovements } from '@/lib/dashboard-league-rank-movements';
+import { fetchDashboardStatTrends } from '@/lib/dashboard-stat-trends';
 import type { DashboardData } from '@/types/fantasy';
 import type { WhatsNewData, WhatsNewUpdate } from './components/DashboardWhatsNew';
 import { DashboardClient } from './components/DashboardClient';
@@ -96,11 +98,37 @@ async function fetchDashboardData(userId: string): Promise<DashboardData | null>
     if (!gameweek) gameweek = previousClosedGameweek;
 
     // Normalise the Supabase join shape to match LeagueStanding[]
-    const leagues: import('@/types/fantasy').LeagueStanding[] = (leaguesRes.data ?? []).map((l) => ({
-      rank: l.rank ?? null,
-      points: l.points ?? undefined,
-      leagues: Array.isArray(l.leagues) ? l.leagues[0] ?? null : (l.leagues as { id?: number; name?: string } | null),
-    }));
+    const leagueRows = leaguesRes.data ?? [];
+    const leagueIds = leagueRows
+      .map((l) => {
+        const league = Array.isArray(l.leagues) ? l.leagues[0] : l.leagues;
+        return league?.id;
+      })
+      .filter((id): id is number => typeof id === 'number' && Number.isSafeInteger(id) && id > 0);
+    const [leagueRankMovements, dashboardStatTrends] = fantasySeason?.id
+      ? await Promise.all([
+          fetchLeagueRankMovements(supabase, userId, fantasySeason.id, leagueIds),
+          fetchDashboardStatTrends(supabase, fantasySeason.id, fantasySeason.season_id),
+        ])
+      : [
+          new Map<number, number>(),
+          {
+            gameweekPointsDelta: null,
+            gameweekRankMovement: null,
+            status: 'insufficient-history' as const,
+          },
+        ];
+    const leagues: import('@/types/fantasy').LeagueStanding[] = leagueRows.map((l) => {
+      const league = Array.isArray(l.leagues)
+        ? l.leagues[0] ?? null
+        : l.leagues as { id?: number; name?: string } | null;
+      return {
+        rank: l.rank ?? null,
+        points: l.points ?? undefined,
+        rankMovement: league?.id ? leagueRankMovements.get(league.id) ?? null : null,
+        leagues: league,
+      };
+    });
 
     if (!fantasySeason || !fantasySeason.id) {
       return {
@@ -109,6 +137,9 @@ async function fetchDashboardData(userId: string): Promise<DashboardData | null>
         gameweek,
         totalPoints: 0,
         globalRank: null,
+        gameweekPointsDelta: dashboardStatTrends.gameweekPointsDelta,
+        gameweekRankMovement: dashboardStatTrends.gameweekRankMovement,
+        dashboardTrendStatus: dashboardStatTrends.status,
         targetPoints: null,
         targetRank: null,
         bankBalance: 45,
@@ -362,6 +393,9 @@ async function fetchDashboardData(userId: string): Promise<DashboardData | null>
       gameweek,
       totalPoints: fantasySeason.total_points || 0,
       globalRank: fantasySeason.global_rank,
+      gameweekPointsDelta: dashboardStatTrends.gameweekPointsDelta,
+      gameweekRankMovement: dashboardStatTrends.gameweekRankMovement,
+      dashboardTrendStatus: dashboardStatTrends.status,
       targetPoints: fantasySeason.target_points ?? null,
       targetRank: fantasySeason.target_rank ?? null,
       bankBalance: Number(fantasySeason.budget || 0),

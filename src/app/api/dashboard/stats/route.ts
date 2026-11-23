@@ -5,6 +5,8 @@ import { getOrCreateFantasySeason } from '@/lib/fantasy-season';
 import { aggregatePlayerGameweekBreakdowns } from '@/lib/player-gameweek-breakdown';
 import { getEquivalentProviderIds, getRelatedPlayerIds } from '@/lib/jobs/player-identity';
 import { withApiTelemetry } from '@/lib/api-telemetry';
+import { fetchLeagueRankMovements } from '@/lib/dashboard-league-rank-movements';
+import { fetchDashboardStatTrends } from '@/lib/dashboard-stat-trends';
 
 const PRIVATE_CACHE_HEADERS = { 'Cache-Control': 'private, no-store' };
 
@@ -59,7 +61,37 @@ async function getHandler(request: NextRequest) {
     // No active/upcoming GW — fall back to the latest closed one so lineup still renders
     if (!gameweek) gameweek = previousClosedGameweek;
 
-    const leagues = leaguesRes.data || [];
+    const leagueRows = leaguesRes.data || [];
+    const leagueIds = leagueRows
+      .map((l) => {
+        const league = Array.isArray(l.leagues) ? l.leagues[0] : l.leagues;
+        return league?.id;
+      })
+      .filter((id): id is number => typeof id === 'number' && Number.isSafeInteger(id) && id > 0);
+    const [leagueRankMovements, dashboardStatTrends] = fantasySeason?.id
+      ? await Promise.all([
+          fetchLeagueRankMovements(supabase, user.userId, fantasySeason.id, leagueIds),
+          fetchDashboardStatTrends(supabase, fantasySeason.id, fantasySeason.season_id),
+        ])
+      : [
+          new Map<number, number>(),
+          {
+            gameweekPointsDelta: null,
+            gameweekRankMovement: null,
+            status: 'insufficient-history' as const,
+          },
+        ];
+    const leagues = leagueRows.map((l) => {
+      const league = Array.isArray(l.leagues)
+        ? l.leagues[0] ?? null
+        : l.leagues as { id?: number; name?: string } | null;
+      return {
+        rank: l.rank ?? null,
+        points: l.points ?? undefined,
+        rankMovement: league?.id ? leagueRankMovements.get(league.id) ?? null : null,
+        leagues: league,
+      };
+    });
 
     if (!fantasySeason || !fantasySeason.id) {
       const emptyData = {
@@ -68,6 +100,9 @@ async function getHandler(request: NextRequest) {
         gameweek,
         totalPoints: 0,
         globalRank: null,
+        gameweekPointsDelta: dashboardStatTrends.gameweekPointsDelta,
+        gameweekRankMovement: dashboardStatTrends.gameweekRankMovement,
+        dashboardTrendStatus: dashboardStatTrends.status,
         targetPoints: null,
         targetRank: null,
         bankBalance: 45,
@@ -343,6 +378,9 @@ async function getHandler(request: NextRequest) {
       gameweek,
       totalPoints: fantasySeason.total_points || 0,
       globalRank: fantasySeason.global_rank,
+      gameweekPointsDelta: dashboardStatTrends.gameweekPointsDelta,
+      gameweekRankMovement: dashboardStatTrends.gameweekRankMovement,
+      dashboardTrendStatus: dashboardStatTrends.status,
       targetPoints: fantasySeason.target_points ?? null,
       targetRank: fantasySeason.target_rank ?? null,
       bankBalance: Number(fantasySeason.budget || 0),

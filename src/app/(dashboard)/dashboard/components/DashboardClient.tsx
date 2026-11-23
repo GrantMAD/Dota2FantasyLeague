@@ -21,13 +21,20 @@ import { TotalPointsModal } from './TotalPointsModal';
 import { DashboardQuickActions } from './DashboardQuickActions';
 import { DashboardOnboardingChecklist } from './DashboardOnboardingChecklist';
 import { DashboardStatCards, type DashboardStatCardData } from './DashboardStatCards';
-import { DashboardStarterCard } from './DashboardStarterCard';
+import { DashboardStarterStrip } from './DashboardStarterStrip';
 import { EmptySquadState } from './EmptySquadState';
 import { DashboardLiveMatches } from './DashboardLiveMatches';
 import { DashboardWhatsNew, type WhatsNewData } from './DashboardWhatsNew';
 import { DashboardGoalProgress } from './DashboardGoalProgress';
 import { DashboardTransferRush } from './DashboardTransferRush';
 import { DashboardGreeting } from './DashboardGreeting';
+import { DashboardErrorAlert } from './DashboardErrorAlert';
+import { DashboardLineupProgress } from './DashboardLineupProgress';
+import { DashboardCaptainGuide } from './DashboardCaptainGuide';
+import {
+  formatGameweekPointsDelta,
+  formatGameweekRankMovement,
+} from '@/lib/dashboard-stat-trends';
 import { DataFreshnessBadge } from '@/components/DataFreshnessBadge';
 import type { MatchData } from '@/app/(dashboard)/matches/components/MatchCard';
 
@@ -43,43 +50,81 @@ function buildStats(data: DashboardData): DashboardStatCardData[] {
       icon: <Users className="w-5 h-5 text-cyan-400" />,
       label: 'Active Squads',
       value: data.activeSquadCount || 0,
-      trend: data.activeSquadCount > 0 ? 'Ready' : 'Create one',
-      trendColor: data.activeSquadCount > 0 ? 'text-green-500' : 'text-amber-500',
+      trend: data.activeSquadCount > 0
+        ? `${data.activeSquadCount} active ${data.activeSquadCount === 1 ? 'squad' : 'squads'}`
+        : 'No active squad',
+      trendColor: 'text-[var(--text-secondary)]',
     },
     {
       icon: <DollarSign className="w-5 h-5 text-emerald-400" />,
       label: 'Squad Value',
       value: `${Number(data.squadValue || 0).toFixed(1)}M`,
-      trend: 'Current squad',
-      trendColor: 'text-[var(--text-muted)]',
+      trend: data.ownedPlayerCount > 0
+        ? `${data.ownedPlayerCount} ${data.ownedPlayerCount === 1 ? 'player' : 'players'}`
+        : 'No players yet',
+      trendColor: 'text-[var(--text-secondary)]',
     },
     {
       icon: <Wallet className="w-5 h-5 text-amber-400" />,
       label: 'Bank Balance',
       value: `${Number(data.bankBalance || 0).toFixed(1)}M`,
-      trend: 'Available budget',
-      trendColor: 'text-amber-500',
+      trend: 'Available for transfers',
+      trendColor: 'text-[var(--text-secondary)]',
     },
     {
       icon: <Trophy className="w-5 h-5 text-yellow-400" />,
       label: 'Total Points',
       value: data.totalPoints || 0,
-      trend: 'Overall',
-      trendColor: 'text-[var(--text-muted)]',
+      trend: formatGameweekPointsDelta(
+        data.gameweekPointsDelta ?? null,
+        data.dashboardTrendStatus ?? 'insufficient-history',
+      ),
+      trendColor: data.gameweekPointsDelta == null
+        ? 'text-[var(--text-muted)]'
+        : data.gameweekPointsDelta > 0
+          ? 'text-emerald-500'
+          : data.gameweekPointsDelta < 0
+            ? 'text-rose-500'
+            : 'text-[var(--text-muted)]',
+      trendDirection: data.gameweekPointsDelta == null
+        ? undefined
+        : data.gameweekPointsDelta > 0
+          ? 'up'
+          : data.gameweekPointsDelta < 0
+            ? 'down'
+            : undefined,
     },
     {
       icon: <BarChart3 className="w-5 h-5 text-teal-400" />,
       label: 'Global Rank',
       value: data.globalRank || '-',
-      trend: data.globalRank ? 'Active' : 'Unranked',
-      trendColor: data.globalRank ? 'text-green-500' : 'text-[var(--text-muted)]',
+      trend: data.globalRank
+        ? formatGameweekRankMovement(
+            data.gameweekRankMovement ?? null,
+            data.dashboardTrendStatus ?? 'insufficient-history',
+          )
+        : 'Unranked',
+      trendColor: !data.globalRank || data.gameweekRankMovement == null
+        ? 'text-[var(--text-muted)]'
+        : data.gameweekRankMovement > 0
+          ? 'text-emerald-500'
+          : data.gameweekRankMovement < 0
+            ? 'text-rose-500'
+            : 'text-[var(--text-muted)]',
+      trendDirection: !data.globalRank || data.gameweekRankMovement == null
+        ? undefined
+        : data.gameweekRankMovement > 0
+          ? 'up'
+          : data.gameweekRankMovement < 0
+            ? 'down'
+            : undefined,
     },
     {
       icon: <Zap className="w-5 h-5 text-orange-400" />,
       label: 'Free Transfers',
       value: data.freeTransfers || 0,
-      trend: 'Ready to use',
-      trendColor: 'text-amber-500',
+      trend: data.freeTransfers > 0 ? 'Available this gameweek' : 'No transfers remaining',
+      trendColor: data.freeTransfers > 0 ? 'text-[var(--text-secondary)]' : 'text-[var(--text-muted)]',
     },
   ];
 }
@@ -91,6 +136,7 @@ export function DashboardClient({ initialData, initialWhatsNew }: DashboardClien
   // If we got server-side data, we skip the initial loading state entirely
   const [loading, setLoading] = useState(initialData === null);
   const [error, setError] = useState<string | null>(null);
+  const [statsRetryAttempt, setStatsRetryAttempt] = useState(0);
   const [dashboardData, setDashboardData] = useState<DashboardData | null>(initialData);
 
   const [selectedPlayer, setSelectedPlayer] = useState<PlayerDetails | null>(null);
@@ -162,6 +208,7 @@ export function DashboardClient({ initialData, initialWhatsNew }: DashboardClien
         const data = (await res.json()) as DashboardData;
         if (cancelled) return;
         setDashboardData(data);
+        setError(null);
       } catch (err: unknown) {
         if (cancelled) return;
         const msg = err instanceof Error ? err.message : 'Error fetching dashboard stats';
@@ -310,7 +357,7 @@ export function DashboardClient({ initialData, initialWhatsNew }: DashboardClien
       window.removeEventListener('fantasy:whats-new-refresh', handleWhatsNewRefresh);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [router]);
+  }, [router, statsRetryAttempt]);
 
   return (
     <div className="dashboard-page min-h-screen" style={{ background: 'var(--background)' }}>
@@ -358,9 +405,14 @@ export function DashboardClient({ initialData, initialWhatsNew }: DashboardClien
           </div>
 
           {error && (
-            <div className="mb-6 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">
-              {error}
-            </div>
+            <DashboardErrorAlert
+              error={error}
+              loading={loading}
+              onRetry={() => {
+                setLoading(true);
+                setStatsRetryAttempt((attempt) => attempt + 1);
+              }}
+            />
           )}
 
           {/* Stats Grid */}
@@ -560,22 +612,13 @@ export function DashboardClient({ initialData, initialWhatsNew }: DashboardClien
                   </span>
                 </div>
 
+                <DashboardLineupProgress starterCount={dashboardData.starters?.length ?? 0} />
+
                 {dashboardData.starters && dashboardData.starters.length > 0 ? (
-                  <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
-                    {[...dashboardData.starters]
-                      .sort((a, b) => {
-                        const getRank = (player: typeof a) => (player.is_captain ? 0 : player.is_vice_captain ? 1 : 2);
-                        return getRank(a) - getRank(b);
-                      })
-                      .map((player, index) => (
-                        <DashboardStarterCard
-                          key={`${player.slot}-${player.id}`}
-                          player={player}
-                          index={index}
-                          onOpenPlayer={openPlayerDetails}
-                        />
-                      ))}
-                  </div>
+                  <DashboardStarterStrip
+                    starters={dashboardData.starters}
+                    onOpenPlayer={openPlayerDetails}
+                  />
                 ) : (
                   <div
                     className="flex flex-col items-center rounded-2xl border border-dashed py-12 text-center"
@@ -712,6 +755,7 @@ export function DashboardClient({ initialData, initialWhatsNew }: DashboardClien
                     <span className="text-sm font-semibold" style={{ color: 'var(--text-secondary)' }}>{dashboardData.viceCaptain?.name || 'None'}</span>
                   </div>
                 </div>
+                <DashboardCaptainGuide />
               </div>
             ) : null}
 
@@ -777,7 +821,40 @@ export function DashboardClient({ initialData, initialWhatsNew }: DashboardClien
                       style={{ borderBottom: idx === dashboardData.leagueStandings.length - 1 ? 'none' : '1px solid var(--border)' }}
                     >
                       <span className="truncate pr-2 text-xs font-medium" style={{ color: 'var(--text-primary)' }}>{l.leagues?.name}</span>
-                      <span className="text-xs font-bold font-mono" style={{ color: 'var(--accent-primary)' }}>Rank {l.rank || '-'}</span>
+                      <div className="shrink-0 text-right">
+                        <span className="block text-xs font-bold font-mono" style={{ color: 'var(--accent-primary)' }}>
+                          Rank {l.rank || '-'}
+                        </span>
+                        <span className="block text-[10px]" style={{ color: 'var(--text-muted)' }}>
+                          {Number(l.points ?? 0).toLocaleString()} pts
+                        </span>
+                        {l.rankMovement != null ? (
+                          <span
+                            className="mt-0.5 block text-[10px] font-semibold"
+                            style={{
+                              color: l.rankMovement > 0
+                                ? 'var(--success)'
+                                : l.rankMovement < 0
+                                  ? 'var(--danger)'
+                                  : 'var(--text-muted)',
+                            }}
+                            title="Compared with the previous recorded league position"
+                            aria-label={`Last rank movement: ${
+                              l.rankMovement > 0
+                                ? `up ${l.rankMovement} ${l.rankMovement === 1 ? 'place' : 'places'}`
+                                : l.rankMovement < 0
+                                  ? `down ${Math.abs(l.rankMovement)} ${Math.abs(l.rankMovement) === 1 ? 'place' : 'places'}`
+                                  : 'no change'
+                            }`}
+                          >
+                            {l.rankMovement > 0
+                              ? `↑ ${l.rankMovement}`
+                              : l.rankMovement < 0
+                                ? `↓ ${Math.abs(l.rankMovement)}`
+                                : '—'}
+                          </span>
+                        ) : null}
+                      </div>
                     </div>
                   ))}
                 </div>
