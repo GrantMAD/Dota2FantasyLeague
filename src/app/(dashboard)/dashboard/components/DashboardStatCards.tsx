@@ -9,6 +9,8 @@ export interface DashboardStatCardData {
   trend?: string;
   trendColor?: string;
   trendDirection?: 'up' | 'down';
+  supportingIcon?: React.ReactNode;
+  supportingAccent?: string;
 }
 
 function StatValue({ value }: { value: string | number }) {
@@ -22,6 +24,9 @@ function StatValue({ value }: { value: string | number }) {
 
 function StatSupportingText({ stat }: { stat: DashboardStatCardData }) {
   if (!stat.trend) return null;
+  const supportingTextColor = stat.supportingAccent
+    ? `color-mix(in srgb, var(--text-primary) 55%, ${stat.supportingAccent})`
+    : undefined;
   const TrendIcon = stat.trendDirection === 'up'
     ? TrendingUp
     : stat.trendDirection === 'down'
@@ -31,9 +36,21 @@ function StatSupportingText({ stat }: { stat: DashboardStatCardData }) {
   return (
     <p
       className={`mt-1 flex min-h-4 min-w-0 items-center gap-1.5 truncate text-[11px] font-medium leading-4 ${stat.trendColor || ''}`}
-      style={{ color: !stat.trendColor ? 'var(--text-muted)' : undefined }}
+      style={{
+        color: supportingTextColor ?? (!stat.trendColor ? 'var(--text-muted)' : undefined),
+      }}
     >
-      {TrendIcon ? <TrendIcon aria-hidden="true" className="h-3.5 w-3.5 shrink-0" /> : null}
+      {TrendIcon ? (
+        <TrendIcon aria-hidden="true" className="h-3.5 w-3.5 shrink-0" />
+      ) : stat.supportingIcon ? (
+        <span
+          aria-hidden="true"
+          className="inline-flex shrink-0"
+          style={{ color: supportingTextColor ?? 'var(--text-muted)' }}
+        >
+          {stat.supportingIcon}
+        </span>
+      ) : null}
       <span className="truncate">{stat.trend}</span>
     </p>
   );
@@ -44,7 +61,7 @@ interface DashboardStatCardsProps {
   onOpenPointsBreakdown: () => void;
 }
 
-const STAT_ACCENTS: Record<string, string> = {
+export const STAT_ACCENTS: Record<string, string> = {
   'Active Squads': '#22d3ee',
   'Squad Value': '#34d399',
   'Bank Balance': '#fbbf24',

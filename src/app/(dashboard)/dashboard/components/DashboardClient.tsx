@@ -4,6 +4,9 @@ import Link from 'next/link';
 import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import {
+  ArrowLeftRight,
+  CircleCheck,
+  Crown,
   Trophy,
   Users,
   DollarSign,
@@ -11,6 +14,7 @@ import {
   BarChart3,
   Zap,
   Shield,
+  UserRound,
   CalendarOff,
 } from 'lucide-react';
 import { fetchWithAuth } from '@/lib/fetch-with-auth';
@@ -20,7 +24,7 @@ import { PlayerDetailModal, type PlayerDetails } from '@/app/(dashboard)/squads/
 import { TotalPointsModal } from './TotalPointsModal';
 import { DashboardQuickActions } from './DashboardQuickActions';
 import { DashboardOnboardingChecklist } from './DashboardOnboardingChecklist';
-import { DashboardStatCards, type DashboardStatCardData } from './DashboardStatCards';
+import { DashboardStatCards, STAT_ACCENTS, type DashboardStatCardData } from './DashboardStatCards';
 import { DashboardStarterStrip } from './DashboardStarterStrip';
 import { EmptySquadState } from './EmptySquadState';
 import { DashboardLiveMatches } from './DashboardLiveMatches';
@@ -53,7 +57,10 @@ function buildStats(data: DashboardData): DashboardStatCardData[] {
       trend: data.activeSquadCount > 0
         ? `${data.activeSquadCount} active ${data.activeSquadCount === 1 ? 'squad' : 'squads'}`
         : 'No active squad',
-      trendColor: 'text-[var(--text-secondary)]',
+      supportingIcon: data.activeSquadCount > 0
+        ? <CircleCheck aria-hidden="true" className="h-3.5 w-3.5" />
+        : undefined,
+      supportingAccent: data.activeSquadCount > 0 ? STAT_ACCENTS['Active Squads'] : undefined,
     },
     {
       icon: <DollarSign className="w-5 h-5 text-emerald-400" />,
@@ -62,14 +69,16 @@ function buildStats(data: DashboardData): DashboardStatCardData[] {
       trend: data.ownedPlayerCount > 0
         ? `${data.ownedPlayerCount} ${data.ownedPlayerCount === 1 ? 'player' : 'players'}`
         : 'No players yet',
-      trendColor: 'text-[var(--text-secondary)]',
+      supportingIcon: <UserRound aria-hidden="true" className="h-3.5 w-3.5" />,
+      supportingAccent: data.ownedPlayerCount > 0 ? STAT_ACCENTS['Squad Value'] : undefined,
     },
     {
       icon: <Wallet className="w-5 h-5 text-amber-400" />,
       label: 'Bank Balance',
       value: `${Number(data.bankBalance || 0).toFixed(1)}M`,
       trend: 'Available for transfers',
-      trendColor: 'text-[var(--text-secondary)]',
+      supportingIcon: <ArrowLeftRight aria-hidden="true" className="h-3.5 w-3.5" />,
+      supportingAccent: STAT_ACCENTS['Bank Balance'],
     },
     {
       icon: <Trophy className="w-5 h-5 text-yellow-400" />,
@@ -124,7 +133,8 @@ function buildStats(data: DashboardData): DashboardStatCardData[] {
       label: 'Free Transfers',
       value: data.freeTransfers || 0,
       trend: data.freeTransfers > 0 ? 'Available this gameweek' : 'No transfers remaining',
-      trendColor: data.freeTransfers > 0 ? 'text-[var(--text-secondary)]' : 'text-[var(--text-muted)]',
+      supportingIcon: <ArrowLeftRight aria-hidden="true" className="h-3.5 w-3.5" />,
+      supportingAccent: data.freeTransfers > 0 ? STAT_ACCENTS['Free Transfers'] : undefined,
     },
   ];
 }
@@ -747,12 +757,37 @@ export function DashboardClient({ initialData, initialWhatsNew }: DashboardClien
                 <h3 className="font-bold text-sm mb-4" style={{ color: 'var(--text-primary)' }}>Leadership</h3>
                 <div className="space-y-3">
                   <div className="flex justify-between items-center pb-2.5" style={{ borderBottom: '1px solid var(--border)' }}>
-                    <span className="text-xs" style={{ color: 'var(--text-muted)' }}>Captain (2x)</span>
+                    <span className="flex items-center gap-1.5 text-xs" style={{ color: 'var(--text-secondary)' }}>
+                      <Crown
+                        aria-hidden="true"
+                        className="h-3.5 w-3.5"
+                        style={{ color: 'color-mix(in srgb, var(--text-primary) 55%, #f59e0b)' }}
+                      />
+                      Captain
+                      <span
+                        className="rounded-full px-1.5 py-0.5 text-[10px] font-bold"
+                        style={{
+                          color: 'color-mix(in srgb, var(--text-primary) 55%, #f59e0b)',
+                          background: 'color-mix(in srgb, #f59e0b 14%, var(--surface-muted))',
+                          border: '1px solid color-mix(in srgb, #f59e0b 28%, var(--border))',
+                        }}
+                      >
+                        2x
+                      </span>
+                    </span>
                     <span className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>{dashboardData.captain.name}</span>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="text-xs" style={{ color: 'var(--text-muted)' }}>Vice-Captain</span>
-                    <span className="text-sm font-semibold" style={{ color: 'var(--text-secondary)' }}>{dashboardData.viceCaptain?.name || 'None'}</span>
+                    <span className="flex items-center gap-1.5 text-xs" style={{ color: 'var(--text-secondary)' }}>
+                      <Shield aria-hidden="true" className="h-3.5 w-3.5" style={{ color: 'var(--accent-primary)' }} />
+                      Vice-Captain
+                    </span>
+                    <span
+                      className="truncate text-right text-sm font-semibold"
+                      style={{ color: dashboardData.viceCaptain ? 'var(--accent-primary)' : 'var(--text-muted)' }}
+                    >
+                      {dashboardData.viceCaptain?.name || 'None'}
+                    </span>
                   </div>
                 </div>
                 <DashboardCaptainGuide />
