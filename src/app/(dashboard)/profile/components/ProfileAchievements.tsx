@@ -1,8 +1,23 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Award, Lock, CheckCircle2, Sparkles, ChevronDown } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
+import { Award, BadgeCheck, CheckCircle2, ChevronDown, Crown, Lock, Shield, Sparkles, TrendingUp, Trophy, Zap } from 'lucide-react';
 import type { Achievement } from './achievementsData';
+
+const ACHIEVEMENT_ICONS: Record<string, LucideIcon> = {
+  'first-squad': Shield,
+  'century-club': Zap,
+  'captain-hit': Crown,
+  'value-hunter': TrendingUp,
+  'top-1000': Trophy,
+  'perfect-gw': Sparkles,
+  'profile-master': BadgeCheck,
+};
+
+function getAchievementIcon(achievement: Achievement): LucideIcon {
+  return ACHIEVEMENT_ICONS[achievement.id] ?? Award;
+}
 
 interface ProfileAchievementsProps {
   achievements: Achievement[];
@@ -138,13 +153,18 @@ export function ProfileAchievements({ achievements }: ProfileAchievementsProps) 
               <div>
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex items-center gap-3">
-                    <span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-[var(--border)] text-xl transition-all ${
-                      badge.unlocked
-                        ? `${style.icon} animate-badge-glow`
-                        : 'bg-[var(--surface)] text-[var(--text-muted)] grayscale'
-                    }`}>
-                      {badge.icon}
-                    </span>
+                    {(() => {
+                      const Icon = getAchievementIcon(badge);
+                      return (
+                        <span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-[var(--border)] transition-all ${
+                          badge.unlocked
+                            ? `${style.icon} animate-badge-glow`
+                            : 'bg-[var(--surface)] text-[var(--text-muted)] grayscale'
+                        }`}>
+                          <Icon className="h-5 w-5" aria-hidden="true" />
+                        </span>
+                      );
+                    })()}
                     <div>
                       <div className="flex items-center gap-1.5">
                         <h3 className="text-sm font-bold text-[var(--text-primary)]">{badge.title}</h3>

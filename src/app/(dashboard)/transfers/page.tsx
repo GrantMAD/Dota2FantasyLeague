@@ -10,6 +10,7 @@ import {
   ArrowLeftRight,
   ArrowUp,
   CheckCircle2,
+  Info,
   Minus,
   Plus,
   Sparkles,
@@ -22,6 +23,7 @@ import { useToast } from '@/components/Toast';
 import { PriceSparkline } from '@/components/PriceSparkline';
 import { DifferentialScoutPanel } from '@/components/DifferentialScoutPanel';
 import { DataFreshnessBadge } from '@/components/DataFreshnessBadge';
+import { PageSkeleton } from '@/components/PageSkeleton';
 import { canOptimizeImage } from '@/lib/optimized-image';
 import type { FantasyPlayer as TransferPlayer } from '@/types/fantasy';
 import { TransferMarketFilters } from './components/TransferMarketFilters';
@@ -836,8 +838,8 @@ function TransfersPageContent() {
               </div>
 
               {/* Support slot explainer */}
-              <div className="flex items-start gap-1.5 bg-[var(--surface-raised)] border border-[var(--border)] rounded-lg px-3 py-2 mb-3">
-                <span className="text-amber-500 dark:text-amber-400 text-xs mt-0.5 shrink-0">ℹ️</span>
+              <div className="flex items-start gap-2 bg-[var(--surface-raised)] border border-[var(--border)] rounded-lg px-3 py-2 mb-3">
+                <Info className="mt-0.5 h-4 w-4 shrink-0 text-amber-500 dark:text-amber-400" aria-hidden="true" />
                 <p className="text-xs text-[var(--text-secondary)] leading-relaxed">
                   <span className="text-[var(--text-primary)] font-medium">Support slots:</span> Pick any support-type player for both Pos 4 &amp; Pos 5 — your 1st pick fills <span className="text-[var(--text-primary)] font-semibold">Support (Pos 4)</span>, your 2nd fills <span className="text-[var(--text-primary)] font-semibold">Hard Support (Pos 5)</span>.
                 </p>
@@ -1361,8 +1363,8 @@ export default function TransfersPage() {
   return (
     <Suspense
       fallback={
-        <div className="mx-auto max-w-7xl px-4 py-12 text-center text-sm text-[var(--text-muted)]" role="status">
-          Loading Transfer Market…
+        <div className="mx-auto max-w-7xl px-4 py-12">
+          <PageSkeleton label="Loading transfer market" lines={5} className="mx-auto max-w-2xl" />
         </div>
       }
     >

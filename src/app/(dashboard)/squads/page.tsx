@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { PageSkeleton } from '@/components/PageSkeleton';
 import { fetchWithAuth } from '@/lib/fetch-with-auth';
 import { buildOwnedSquadRoster, type OwnedSquadPlayer } from '@/lib/squad-roster';
 import { canOptimizeImage } from '@/lib/optimized-image';
@@ -501,9 +502,9 @@ export default function SquadsPage() {
                 transferAnalytics.netBudgetChange === null
                   ? 'text-[var(--text-muted)]'
                   : transferAnalytics.netBudgetChange > 0
-                    ? 'text-emerald-400'
+                ? 'text-emerald-600 dark:text-emerald-400'
                     : transferAnalytics.netBudgetChange < 0
-                      ? 'text-rose-400'
+                  ? 'text-rose-600 dark:text-rose-400'
                       : 'text-[var(--text-primary)]'
               }`}>
                 {transferAnalytics.netBudgetChange === null
@@ -531,28 +532,31 @@ export default function SquadsPage() {
                         dataKey="gameweekNumber"
                         tickFormatter={(value: number) => `GW ${value}`}
                         stroke="var(--text-muted)"
-                        tick={{ fontSize: 11 }}
+                    tick={{ fill: 'var(--text-muted)', fontSize: 11 }}
+                    tickLine={{ stroke: 'var(--border)' }}
                       />
                       <YAxis
                         stroke="var(--text-muted)"
-                        tick={{ fontSize: 11 }}
+                    tick={{ fill: 'var(--text-muted)', fontSize: 11 }}
+                    tickLine={{ stroke: 'var(--border)' }}
                         tickFormatter={(value: number) => `$${value.toFixed(0)}M`}
                         width={54}
                       />
                       <Tooltip
                         labelFormatter={(value) => `Gameweek ${value}`}
                         formatter={(value) => typeof value === 'number' ? [`$${value.toFixed(1)}M`, 'Squad value'] : ['Unavailable', 'Squad value']}
-                        contentStyle={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '0.75rem' }}
+                    contentStyle={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '0.75rem', color: 'var(--text-primary)' }}
                         labelStyle={{ color: 'var(--text-primary)' }}
+                    itemStyle={{ color: 'var(--accent-secondary)' }}
                       />
                       <Line
                         type="monotone"
                         dataKey="value"
                         name="Squad value"
-                        stroke="#22d3ee"
+                    stroke="var(--accent-secondary)"
                         strokeWidth={2}
-                        dot={{ r: 3, fill: '#22d3ee' }}
-                        activeDot={{ r: 5 }}
+                    dot={{ r: 3, fill: 'var(--accent-secondary)', stroke: 'var(--surface)', strokeWidth: 1.5 }}
+                    activeDot={{ r: 5, fill: 'var(--accent-secondary)', stroke: 'var(--text-primary)', strokeWidth: 2 }}
                         connectNulls={false}
                       />
                     </LineChart>
@@ -579,11 +583,11 @@ export default function SquadsPage() {
                 {insight ? (
                   <>
                     <p className="mt-2 flex flex-wrap items-center gap-2 text-sm">
-                      <span className="text-rose-300">{insight.playerOut}</span>
+                      <span className="text-rose-700 dark:text-rose-300">{insight.playerOut}</span>
                       <ArrowRight className="h-3.5 w-3.5 text-[var(--text-muted)]" aria-hidden="true" />
-                      <span className="text-emerald-300">{insight.playerIn}</span>
+                      <span className="text-emerald-700 dark:text-emerald-300">{insight.playerIn}</span>
                     </p>
-                    <p className={`mt-2 font-mono text-lg font-bold ${positive ? 'text-emerald-400' : 'text-rose-400'}`}>
+                    <p className={`mt-2 font-mono text-lg font-bold ${positive ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
                       {insight.netPoints > 0 ? '+' : ''}{insight.netPoints.toFixed(1)} pts
                     </p>
                     <p className="text-xs text-[var(--text-muted)]">
@@ -607,7 +611,9 @@ export default function SquadsPage() {
           </div>
 
           {historyLoading ? (
-            <div className="py-12 text-center text-sm text-[var(--text-muted)]">Loading transfer history…</div>
+            <div className="py-12">
+              <PageSkeleton label="Loading transfer history" lines={3} className="mx-auto max-w-md" />
+            </div>
           ) : historyError ? (
             <p role="alert" className="rounded-xl border border-rose-500/30 bg-rose-500/10 p-4 text-sm text-rose-800 dark:text-rose-200">
               {historyError}

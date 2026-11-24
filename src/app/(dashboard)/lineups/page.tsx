@@ -9,7 +9,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { canOptimizeImage } from '@/lib/optimized-image';
-import { ArrowRight, Check, CircleAlert, Info, UserCheck, TrendingUp, TrendingDown, Minus, Clock, ShieldCheck, Lock, Sparkles, ChevronDown, Users } from 'lucide-react';
+import { ArrowRight, Check, CircleAlert, Info, UserCheck, TrendingUp, TrendingDown, Minus, Clock, ShieldCheck, Lock, Sparkles, ChevronDown, Users, Zap } from 'lucide-react';
 import { useToast } from '@/components/Toast';
 import type { ChipType, ChipStatus, FantasyPlayer as LineupPlayer, LineupEntry } from '@/types/fantasy';
 
@@ -728,8 +728,8 @@ export default function LineupsPage() {
             }}
           >
             <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-purple-500/15 border border-purple-500/30 text-purple-400 text-lg">
-                🌟
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-purple-500/15 border border-purple-500/30 text-purple-400">
+                <Sparkles className="h-5 w-5" aria-hidden="true" />
               </div>
               <div>
                 <h3 className="text-xs font-bold text-purple-400">Triple Captain</h3>
@@ -765,8 +765,8 @@ export default function LineupsPage() {
             }}
           >
             <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-lg">
-                ⚡
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-400">
+                <Zap className="h-5 w-5" aria-hidden="true" />
               </div>
               <div>
                 <h3 className="text-xs font-bold text-emerald-400">Bench Boost</h3>
@@ -1250,7 +1250,9 @@ export default function LineupsPage() {
                 : 'bg-emerald-900/40 border-emerald-500/20'
             }`}>
               <h2 className="text-lg font-bold text-[var(--text-primary)] flex items-center gap-2">
-                <span className="text-2xl">{activeModal === 'triple-captain' ? '🌟' : '⚡'}</span>
+                <span className={`flex h-8 w-8 items-center justify-center rounded-lg ${activeModal === 'triple-captain' ? 'bg-purple-500/15 text-purple-300' : 'bg-emerald-500/15 text-emerald-300'}`}>
+                  {activeModal === 'triple-captain' ? <Sparkles className="h-4 w-4" aria-hidden="true" /> : <Zap className="h-4 w-4" aria-hidden="true" />}
+                </span>
                 {activeModal === 'triple-captain' ? 'Activate Triple Captain' : 'Activate Bench Boost'}
               </h2>
             </div>
