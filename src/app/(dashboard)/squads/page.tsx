@@ -81,6 +81,35 @@ export default function SquadsPage() {
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<SquadTab>('squad');
   const [viewMode, setViewMode] = useState<ViewMode>('pitch');
+
+  useEffect(() => {
+    if (activeTab !== 'squad') return;
+
+    function handleViewModeShortcut(event: KeyboardEvent) {
+      if (event.defaultPrevented || event.metaKey || event.ctrlKey || event.altKey) return;
+
+      const target = event.target;
+      if (
+        target instanceof HTMLElement &&
+        (target.isContentEditable ||
+          target.closest('input, textarea, select, [role="textbox"], [role="combobox"]'))
+      ) {
+        return;
+      }
+
+      if (event.key === 'p' || event.key === 'P') {
+        event.preventDefault();
+        setViewMode('pitch');
+      } else if (event.key === 'g' || event.key === 'G') {
+        event.preventDefault();
+        setViewMode('grid');
+      }
+    }
+
+    window.addEventListener('keydown', handleViewModeShortcut);
+    return () => window.removeEventListener('keydown', handleViewModeShortcut);
+  }, [activeTab]);
+
   const [transferHistory, setTransferHistory] = useState<TransferHistoryRecord[]>([]);
   const [transferAnalytics, setTransferAnalytics] = useState<TransferHistoryAnalytics>(emptyTransferAnalytics);
   const [historyLoading, setHistoryLoading] = useState(false);
