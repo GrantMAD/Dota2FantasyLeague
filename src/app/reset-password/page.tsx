@@ -6,6 +6,7 @@ import { ArrowLeft, Check, KeyRound } from 'lucide-react';
 import { BrandLogo } from '@/components/BrandLogo';
 import { AuthBackground } from '@/components/auth/AuthBackground';
 import { AuthCard } from '@/components/auth/AuthCard';
+import { AuthError } from '@/components/auth/AuthError';
 import { AuthInput } from '@/components/auth/AuthInput';
 import { PasswordStrength } from '@/components/auth/PasswordStrength';
 import { supabase } from '@/lib/supabase';
@@ -17,6 +18,8 @@ export default function ResetPasswordPage() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [passwordError, setPasswordError] = useState<string | null>(null);
+  const [confirmPasswordError, setConfirmPasswordError] = useState<string | null>(null);
   const [updated, setUpdated] = useState(false);
 
   useEffect(() => {
@@ -56,11 +59,11 @@ export default function ResetPasswordPage() {
     setError(null);
 
     if (password.length < 8) {
-      setError('Your new password must be at least 8 characters.');
+      setPasswordError('Your new password must be at least 8 characters.');
       return;
     }
     if (password !== confirmPassword) {
-      setError('The passwords do not match.');
+      setConfirmPasswordError('The passwords do not match.');
       return;
     }
 
@@ -125,9 +128,9 @@ export default function ResetPasswordPage() {
               </div>
 
               {error && (
-                <div role="alert" className="mb-5 rounded-xl border border-red-500/25 bg-red-500/8 px-4 py-3 text-sm text-red-300">
+                <AuthError className="mb-5">
                   {error}
-                </div>
+                </AuthError>
               )}
 
               {checkingRecovery ? (
@@ -141,11 +144,16 @@ export default function ResetPasswordPage() {
                       type="password"
                       label="New password"
                       value={password}
-                      onChange={(event) => setPassword(event.target.value)}
                       placeholder="At least 8 characters"
                       required
                       autoComplete="new-password"
                       hint="Use at least 8 characters."
+                      error={passwordError ?? undefined}
+                      onChange={(event) => {
+                        setPassword(event.target.value);
+                        setPasswordError(null);
+                        setConfirmPasswordError(null);
+                      }}
                     />
                     <PasswordStrength password={password} />
                   </div>
@@ -155,10 +163,15 @@ export default function ResetPasswordPage() {
                     type="password"
                     label="Confirm new password"
                     value={confirmPassword}
-                    onChange={(event) => setConfirmPassword(event.target.value)}
                     placeholder="Enter your new password again"
                     required
                     autoComplete="new-password"
+                    error={confirmPasswordError ?? undefined}
+                    onChange={(event) => {
+                      setConfirmPassword(event.target.value);
+                      setPasswordError(null);
+                      setConfirmPasswordError(null);
+                    }}
                   />
                   <button
                     type="submit"

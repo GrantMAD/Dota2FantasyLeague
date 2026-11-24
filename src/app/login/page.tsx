@@ -8,6 +8,7 @@ import { supabase } from '@/lib/supabase';
 import { BrandLogo } from '@/components/BrandLogo';
 import { AuthBackground } from '@/components/auth/AuthBackground';
 import { AuthCard } from '@/components/auth/AuthCard';
+import { AuthError } from '@/components/auth/AuthError';
 import { AuthInput } from '@/components/auth/AuthInput';
 
 export default function LoginPage() {
@@ -17,7 +18,7 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [confirmationEmail, setConfirmationEmail] = useState<string | null>(null);
   const [resendingConfirmation, setResendingConfirmation] = useState(false);
-  const [resendMessage, setResendMessage] = useState<string | null>(null);
+  const [resendMessage, setResendMessage] = useState<{ type: 'error' | 'success'; message: string } | null>(null);
   const [formData, setFormData] = useState({
     email: '',
     password: '',
@@ -77,9 +78,15 @@ export default function LoginPage() {
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || 'Unable to resend the confirmation email.');
-      setResendMessage('If this account needs confirmation, a new email will arrive shortly. Check your inbox and spam folder.');
+      setResendMessage({
+        type: 'success',
+        message: 'If this account needs confirmation, a new email will arrive shortly. Check your inbox and spam folder.',
+      });
     } catch (err) {
-      setResendMessage(err instanceof Error ? err.message : 'Unable to resend the confirmation email.');
+      setResendMessage({
+        type: 'error',
+        message: err instanceof Error ? err.message : 'Unable to resend the confirmation email.',
+      });
     } finally {
       setResendingConfirmation(false);
     }
@@ -109,12 +116,9 @@ export default function LoginPage() {
           <form onSubmit={handleSubmit} className="space-y-5">
             {/* Error banner */}
             {error && (
-              <div className="flex items-start gap-3 rounded-xl border border-red-500/25 bg-red-500/8 px-4 py-3 text-sm text-red-400 backdrop-blur-sm">
-                <svg className="mt-0.5 h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" />
-                </svg>
+              <AuthError>
                 {error}
-              </div>
+              </AuthError>
             )}
 
             {confirmationEmail && (
@@ -130,7 +134,11 @@ export default function LoginPage() {
                 >
                   {resendingConfirmation ? 'Sending…' : 'Resend confirmation email'}
                 </button>
-                {resendMessage && <p role="status" className="text-xs text-slate-300">{resendMessage}</p>}
+                {resendMessage?.type === 'error' ? (
+                  <AuthError>{resendMessage.message}</AuthError>
+                ) : resendMessage ? (
+                  <p role="status" className="text-xs text-slate-300">{resendMessage.message}</p>
+                ) : null}
               </div>
             )}
 

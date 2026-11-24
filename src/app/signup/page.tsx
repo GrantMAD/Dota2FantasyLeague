@@ -7,6 +7,7 @@ import { Eye, EyeOff, Loader2 } from 'lucide-react';
 import { BrandLogo } from '@/components/BrandLogo';
 import { AuthBackground } from '@/components/auth/AuthBackground';
 import { AuthCard } from '@/components/auth/AuthCard';
+import { AuthError } from '@/components/auth/AuthError';
 import { AuthInput } from '@/components/auth/AuthInput';
 import { PasswordStrength } from '@/components/auth/PasswordStrength';
 import { supabase } from '@/lib/supabase';
@@ -33,6 +34,8 @@ export default function SignupPage() {
   const [resendMessage, setResendMessage] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [passwordError, setPasswordError] = useState<string | null>(null);
+  const [confirmPasswordError, setConfirmPasswordError] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     email: '',
     password: '',
@@ -43,6 +46,10 @@ export default function SignupPage() {
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
+    if (name === 'password' || name === 'confirmPassword') {
+      setPasswordError(null);
+      setConfirmPasswordError(null);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -50,13 +57,13 @@ export default function SignupPage() {
     setError(null);
     setIsLoading(true);
 
-    if (formData.password !== formData.confirmPassword) {
-      setError('Passwords do not match');
+    if (formData.password.length < 8) {
+      setPasswordError('Password must be at least 8 characters.');
       setIsLoading(false);
       return;
     }
-    if (formData.password.length < 8) {
-      setError('Password must be at least 8 characters');
+    if (formData.password !== formData.confirmPassword) {
+      setConfirmPasswordError('Passwords do not match.');
       setIsLoading(false);
       return;
     }
@@ -145,7 +152,7 @@ export default function SignupPage() {
               <p className="text-sm leading-6 text-slate-400">
                 If it is not in your inbox, check your spam folder and make sure the address is correct. Confirmation links expire, but you can request a new one here.
               </p>
-              {error && <p role="alert" className="text-sm text-red-400">{error}</p>}
+              {error && <AuthError>{error}</AuthError>}
               {resendMessage && <p role="status" className="text-sm text-emerald-300">{resendMessage}</p>}
               <button
                 type="button"
@@ -254,12 +261,9 @@ export default function SignupPage() {
               <form onSubmit={handleSubmit} className="space-y-4">
                 {/* Error banner */}
                 {error && (
-                  <div className="flex items-start gap-3 rounded-xl border border-red-500/25 bg-red-500/8 px-4 py-3 text-sm text-red-400 backdrop-blur-sm">
-                    <svg className="mt-0.5 h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" />
-                    </svg>
+                  <AuthError>
                     {error}
-                  </div>
+                  </AuthError>
                 )}
 
                 <AuthInput
@@ -298,6 +302,7 @@ export default function SignupPage() {
                     required
                     autoComplete="new-password"
                     hint="At least 8 characters"
+                    error={passwordError ?? undefined}
                     rightElement={
                       <button
                         type="button"
@@ -322,6 +327,7 @@ export default function SignupPage() {
                   placeholder="••••••••"
                   required
                   autoComplete="new-password"
+                  error={confirmPasswordError ?? undefined}
                   rightElement={
                     <button
                       type="button"

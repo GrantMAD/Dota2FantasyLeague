@@ -6,6 +6,7 @@ import { ArrowLeft, Check, Mail } from 'lucide-react';
 import { BrandLogo } from '@/components/BrandLogo';
 import { AuthBackground } from '@/components/auth/AuthBackground';
 import { AuthCard } from '@/components/auth/AuthCard';
+import { AuthError } from '@/components/auth/AuthError';
 import { AuthInput } from '@/components/auth/AuthInput';
 
 export default function ForgotPasswordPage() {
@@ -115,9 +116,9 @@ export default function ForgotPasswordPage() {
 
               <form onSubmit={handleSubmit} className="space-y-5">
                 {error && (
-                  <div role="alert" className="rounded-xl border border-red-500/25 bg-red-500/8 px-4 py-3 text-sm text-red-300">
+                  <AuthError>
                     {error}
-                  </div>
+                  </AuthError>
                 )}
                 <AuthInput
                   id="email"

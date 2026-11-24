@@ -23,8 +23,9 @@ export function ParticleCanvas() {
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    let animationId: number;
+    let animationId: number | null = null;
     let particles: Particle[] = [];
+    const motionPreference = window.matchMedia('(prefers-reduced-motion: reduce)');
 
     const COLORS = [
       'rgba(245, 158, 11,',  // amber
@@ -67,23 +68,22 @@ export function ParticleCanvas() {
       ctx!.fill();
     }
 
-    function animate() {
+    function draw(animate: boolean) {
       ctx!.clearRect(0, 0, canvas!.width, canvas!.height);
 
       particles.forEach((p) => {
-        // Pulsate alpha
-        p.alpha += 0.003 * p.alphaDir;
-        if (p.alpha > 0.65 || p.alpha < 0.05) p.alphaDir *= -1;
+        if (animate) {
+          p.alpha += 0.003 * p.alphaDir;
+          if (p.alpha > 0.65 || p.alpha < 0.05) p.alphaDir *= -1;
 
-        // Move
-        p.x += p.vx;
-        p.y += p.vy;
+          p.x += p.vx;
+          p.y += p.vy;
 
-        // Wrap
-        if (p.x < 0) p.x = canvas!.width;
-        if (p.x > canvas!.width) p.x = 0;
-        if (p.y < 0) p.y = canvas!.height;
-        if (p.y > canvas!.height) p.y = 0;
+          if (p.x < 0) p.x = canvas!.width;
+          if (p.x > canvas!.width) p.x = 0;
+          if (p.y < 0) p.y = canvas!.height;
+          if (p.y > canvas!.height) p.y = 0;
+        }
 
         drawOrb(p.x, p.y, p.radius * 30, p.color, p.alpha * 0.12);
 
@@ -112,22 +112,30 @@ export function ParticleCanvas() {
         }
       }
 
-      animationId = requestAnimationFrame(animate);
+      if (animate) animationId = requestAnimationFrame(() => draw(true));
     }
 
     resize();
     initParticles();
-    animate();
+    draw(!motionPreference.matches);
 
     const handleResize = () => {
       resize();
       initParticles();
+      if (motionPreference.matches) draw(false);
+    };
+    const handleMotionPreferenceChange = (event: MediaQueryListEvent) => {
+      if (animationId !== null) cancelAnimationFrame(animationId);
+      if (event.matches) draw(false);
+      else animationId = requestAnimationFrame(() => draw(true));
     };
 
     window.addEventListener('resize', handleResize);
+    motionPreference.addEventListener('change', handleMotionPreferenceChange);
     return () => {
       window.removeEventListener('resize', handleResize);
-      cancelAnimationFrame(animationId);
+      motionPreference.removeEventListener('change', handleMotionPreferenceChange);
+      if (animationId !== null) cancelAnimationFrame(animationId);
     };
   }, []);
 
