@@ -441,7 +441,8 @@ export default function SquadsPage() {
                 color: viewMode === 'pitch' ? '#06b6d4' : 'var(--text-muted)',
                 border: `1px solid ${viewMode === 'pitch' ? 'color-mix(in srgb, #06b6d4 40%, transparent)' : 'var(--border)'}`,
               }}
-              title="Dota battlefield lane formation"
+              title="Dota battlefield lane formation (P)"
+              aria-keyshortcuts="P"
             >
               <MapPin className="h-3.5 w-3.5" />
               Pitch View
@@ -455,7 +456,8 @@ export default function SquadsPage() {
                 color: viewMode === 'grid' ? '#06b6d4' : 'var(--text-muted)',
                 border: `1px solid ${viewMode === 'grid' ? 'color-mix(in srgb, #06b6d4 40%, transparent)' : 'var(--border)'}`,
               }}
-              title="Compact squad roster grid"
+              title="Compact squad roster grid (G)"
+              aria-keyshortcuts="G"
             >
               <LayoutGrid className="h-3.5 w-3.5" />
               Grid View
