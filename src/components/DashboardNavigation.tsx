@@ -99,6 +99,10 @@ function isActive(pathname: string, path: string) {
   return pathname === path || pathname.startsWith(`${path}/`);
 }
 
+function getSectionId(label: string) {
+  return `nav-section-${label.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')}`;
+}
+
 // ── NavBadge ──────────────────────────────────────────────────────────────────
 function NavBadge({ children, variant = 'default' }: { children: React.ReactNode; variant?: 'default' | 'warning' | 'info' }) {
   const colours = {
@@ -164,7 +168,7 @@ function NavLink({
             <span className="block truncate font-medium">{link.label}</span>
             {badge}
           </span>
-          <span className={`mt-0.5 block text-[10px] leading-tight ${active ? 'text-teal-600 dark:text-teal-300' : 'text-slate-400 dark:text-slate-500'}`}>
+          <span className={`mt-0.5 block text-xs leading-tight ${active ? 'text-teal-600 dark:text-teal-300' : 'text-slate-400 dark:text-slate-500'}`}>
             {link.description}
           </span>
         </span>
@@ -174,13 +178,12 @@ function NavLink({
       {collapsed && (
         <div
           role="tooltip"
-          className="pointer-events-none fixed left-20 ml-2 z-70 hidden max-w-xs -translate-y-1/2 whitespace-nowrap rounded-lg border border-slate-200 bg-white/95 px-3 py-2 shadow-2xl backdrop-blur-md dark:border-slate-700 dark:bg-slate-900/95 group-hover:pointer-events-auto group-hover:flex group-focus-within:pointer-events-auto group-focus-within:flex"
-          style={{ top: 'auto' }}
+          className="pointer-events-none absolute left-full top-1/2 z-70 ml-2 hidden max-w-xs -translate-y-1/2 whitespace-nowrap rounded-lg border border-slate-200 bg-white/95 px-3 py-2 shadow-2xl backdrop-blur-md dark:border-slate-700 dark:bg-slate-900/95 group-hover:pointer-events-auto group-hover:flex group-focus-within:pointer-events-auto group-focus-within:flex"
         >
           <div className="flex items-center gap-2">
             <div>
               <p className="text-xs font-semibold text-slate-900 dark:text-white">{link.label}</p>
-              <p className="text-[10px] text-slate-500 dark:text-slate-400">{link.description}</p>
+              <p className="text-xs text-slate-500 dark:text-slate-400">{link.description}</p>
             </div>
             {badge && <div className="ml-1">{badge}</div>}
           </div>
@@ -216,7 +219,7 @@ function AdminLink({ collapsed, onClick }: { collapsed: boolean; onClick?: () =>
           className={`min-w-0 transition-all duration-150 ${collapsed ? 'w-0 overflow-hidden opacity-0 -translate-x-1 pointer-events-none' : 'opacity-100 translate-x-0'}`}
         >
           <span className="block truncate">Admin Console</span>
-          <span className={`mt-0.5 block truncate text-[10px] leading-tight ${active ? 'text-amber-600 dark:text-amber-300' : 'text-slate-400 dark:text-slate-500'}`}>
+          <span className={`mt-0.5 block truncate text-xs leading-tight ${active ? 'text-amber-600 dark:text-amber-300' : 'text-slate-400 dark:text-slate-500'}`}>
             Manage app operations
           </span>
         </span>
@@ -225,11 +228,11 @@ function AdminLink({ collapsed, onClick }: { collapsed: boolean; onClick?: () =>
       {collapsed && (
         <div
           role="tooltip"
-          className="pointer-events-none fixed left-20 ml-2 z-70 hidden max-w-xs -translate-y-1/2 whitespace-nowrap rounded-lg border border-slate-200 bg-white/95 px-3 py-2 shadow-2xl backdrop-blur-md dark:border-slate-700 dark:bg-slate-900/95 group-hover:pointer-events-auto group-hover:flex group-focus-within:pointer-events-auto group-focus-within:flex"
+          className="pointer-events-none absolute left-full top-1/2 z-70 ml-2 hidden max-w-xs -translate-y-1/2 whitespace-nowrap rounded-lg border border-slate-200 bg-white/95 px-3 py-2 shadow-2xl backdrop-blur-md dark:border-slate-700 dark:bg-slate-900/95 group-hover:pointer-events-auto group-hover:flex group-focus-within:pointer-events-auto group-focus-within:flex"
         >
           <div>
             <p className="text-xs font-semibold text-amber-500 dark:text-amber-400">Admin Console</p>
-            <p className="text-[10px] text-slate-500 dark:text-slate-400">Manage app operations</p>
+            <p className="text-xs text-slate-500 dark:text-slate-400">Manage app operations</p>
           </div>
         </div>
       )}
@@ -357,11 +360,22 @@ export function DashboardNavigation({
           </button>
         )}
 
-        <nav className="no-scrollbar flex flex-1 flex-col overflow-y-auto overflow-x-hidden">
+        <nav className="no-scrollbar flex flex-1 flex-col overflow-y-auto overflow-x-hidden" aria-label="Sidebar navigation">
+          <div className="sr-only focus-within:not-sr-only focus-within:mb-2 focus-within:space-y-1 focus-within:rounded-lg focus-within:border focus-within:border-[var(--border)] focus-within:bg-[var(--surface-raised)] focus-within:p-2">
+            <a href="#sidebar-resources" className="block rounded px-2 py-1 text-xs font-medium text-[var(--text-primary)] hover:bg-[var(--surface)] focus:bg-[var(--surface)] focus:outline-none">
+              Skip to Resources section
+            </a>
+            {isAdmin && (
+              <a href="#sidebar-admin" className="block rounded px-2 py-1 text-xs font-medium text-[var(--text-primary)] hover:bg-[var(--surface)] focus:bg-[var(--surface)] focus:outline-none">
+                Skip to Admin section
+              </a>
+            )}
+          </div>
           <div className="space-y-1">
             {navSections.map((section, idx) => (
               <section
                 key={section.label}
+                id={getSectionId(section.label)}
                 aria-label={section.label}
                 className={idx > 0 ? 'border-t border-slate-200 dark:border-slate-800 pt-3 mt-1' : ''}
               >
@@ -390,7 +404,7 @@ export function DashboardNavigation({
           </div>
 
           {/* ── Bottom area: Resources + Admin ───────────────────────────── */}
-          <div className="mt-auto border-t border-slate-200 dark:border-slate-800/80 pt-3">
+          <div id="sidebar-resources" className="mt-auto border-t border-slate-200 dark:border-slate-800/80 pt-3" aria-label="Resources">
             <h2
               className={`mb-1 px-3 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500 transition-all duration-150 ${sidebarCollapsed ? 'h-0 overflow-hidden opacity-0 mb-0' : 'opacity-100'}`}
             >
@@ -404,7 +418,7 @@ export function DashboardNavigation({
 
             {/* Admin Console — separated with its own divider */}
             {isAdmin && (
-              <div className="mt-2 border-t border-slate-200 dark:border-slate-800/80 pt-2">
+              <div id="sidebar-admin" className="mt-2 border-t border-slate-200 dark:border-slate-800/80 pt-2" aria-label="Admin">
                 <AdminLink collapsed={sidebarCollapsed} />
               </div>
             )}
@@ -493,11 +507,22 @@ export function DashboardNavigation({
           </span>
         </div>
 
-        <nav className="no-scrollbar flex-1 overflow-y-auto px-3 py-2">
+        <nav className="no-scrollbar flex-1 overflow-y-auto px-3 py-2" aria-label="Mobile sidebar navigation">
+          <div className="sr-only focus-within:not-sr-only focus-within:mb-2 focus-within:space-y-1 focus-within:rounded-lg focus-within:border focus-within:border-[var(--border)] focus-within:bg-[var(--surface-raised)] focus-within:p-2">
+            <a href="#mobile-sidebar-resources" className="block rounded px-2 py-1 text-xs font-medium text-[var(--text-primary)] hover:bg-[var(--surface)] focus:bg-[var(--surface)] focus:outline-none">
+              Skip to Resources section
+            </a>
+            {isAdmin && (
+              <a href="#mobile-sidebar-admin" className="block rounded px-2 py-1 text-xs font-medium text-[var(--text-primary)] hover:bg-[var(--surface)] focus:bg-[var(--surface)] focus:outline-none">
+                Skip to Admin section
+              </a>
+            )}
+          </div>
           <div className="space-y-1">
             {navSections.map((section, idx) => (
               <section
                 key={section.label}
+                id={`mobile-${getSectionId(section.label)}`}
                 aria-label={section.label}
                 className={idx > 0 ? 'border-t border-slate-200 dark:border-slate-800 pt-3 mt-1' : ''}
               >
@@ -522,7 +547,7 @@ export function DashboardNavigation({
             ))}
           </div>
 
-          <div className="mt-3 border-t border-slate-200 dark:border-slate-700/80 pt-2">
+          <div id="mobile-sidebar-resources" className="mt-3 border-t border-slate-200 dark:border-slate-700/80 pt-2" aria-label="Resources">
             <h2 className="mb-1 px-3 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-500">
               Resources
             </h2>
@@ -539,7 +564,7 @@ export function DashboardNavigation({
             </div>
 
             {isAdmin && (
-              <div className="mt-2 border-t border-slate-200 dark:border-slate-800/80 pt-2">
+              <div id="mobile-sidebar-admin" className="mt-2 border-t border-slate-200 dark:border-slate-800/80 pt-2" aria-label="Admin">
                 <AdminLink collapsed={false} onClick={onMobileMenuClose} />
               </div>
             )}

@@ -6,6 +6,8 @@ import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { BrandLogo } from './BrandLogo';
 import {
+  Bug,
+  Crown,
   Search,
   Command,
   Medal,
@@ -61,11 +63,11 @@ function getPageMeta(pathname: string): { title: string; colour?: string } {
 }
 
 // ── Breadcrumb / page title ───────────────────────────────────────────────────
-function CurrentPageTitle() {
+function CurrentPageTitle({ className = '' }: { className?: string }) {
   const pathname = usePathname();
   const { title, colour } = getPageMeta(pathname);
   return (
-    <h1 className={`text-sm font-bold tracking-wide ${colour ?? 'text-slate-800 dark:text-white'}`}>
+    <h1 className={`truncate text-sm font-bold tracking-wide ${colour ?? 'text-[var(--text-primary)]'} ${className}`.trim()}>
       {title}
     </h1>
   );
@@ -188,25 +190,25 @@ export const Header = memo(function Header() {
 
   // ── Richer user menu ──────────────────────────────────────────────────────
   const userMenu = (
-    <div className="absolute right-0 top-12 z-50 w-56 rounded-xl border border-slate-200 bg-white shadow-xl dark:border-slate-700 dark:bg-slate-900">
+    <div className="absolute right-0 top-12 z-50 w-56 rounded-xl border border-[var(--border)] bg-[var(--surface)] shadow-xl">
       {/* Profile header */}
       <Link
         href="/profile"
         aria-label="View your profile"
         onClick={() => setUserMenuOpen(false)}
-        className="flex items-center gap-3 border-b border-slate-100 px-4 py-3 transition-colors hover:bg-slate-100 dark:border-slate-800 dark:hover:bg-slate-800"
+        className="flex items-center gap-3 border-b border-[var(--border)] px-4 py-3 transition-colors hover:bg-[var(--surface-raised)]"
       >
-        <span className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full border border-slate-200 bg-slate-100 text-sm font-bold text-slate-700 dark:border-slate-600 dark:bg-slate-800 dark:text-white">
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full border border-[var(--border)] bg-[var(--surface-raised)] text-sm font-bold text-[var(--text-primary)]">
           {profile?.avatar_url ? (
             <Image src={profile.avatar_url} alt="" width={40} height={40} unoptimized={!canOptimizeImage(profile.avatar_url)} className="h-full w-full object-cover" />
           ) : initials}
         </span>
         <span className="min-w-0 flex-1">
-          <span className="block truncate text-sm font-semibold text-slate-900 dark:text-white">
+          <span className="block truncate text-sm font-semibold text-[var(--text-primary)]">
             {profile?.display_name || profile?.username || 'Account'}
           </span>
           {profile?.username && (
-            <span className="block truncate text-xs text-slate-500 dark:text-slate-400">@{profile.username}</span>
+            <span className="block truncate text-xs text-[var(--text-secondary)]">@{profile.username}</span>
           )}
           <span className="mt-1 block text-xs font-semibold text-teal-700 dark:text-teal-300">
             View profile
@@ -219,7 +221,7 @@ export const Header = memo(function Header() {
                   #{quickStats.globalRank.toLocaleString()}
                 </span>
               )}
-              <span className="flex items-center gap-1 text-slate-500 dark:text-slate-400">
+              <span className="flex items-center gap-1 text-[var(--text-secondary)]">
                 <Star className="h-3 w-3 text-amber-400" />
                 {quickStats.totalPoints} pts
               </span>
@@ -229,21 +231,41 @@ export const Header = memo(function Header() {
       </Link>
       {/* Menu links */}
       <div className="p-1.5">
+        {!isPremiumUser(profile) && (
+          <Link
+            href="/premium"
+            onClick={() => setUserMenuOpen(false)}
+            className="mb-1 flex items-center gap-2 rounded-lg border border-amber-500/30 bg-gradient-to-r from-amber-500/10 to-orange-500/10 px-3 py-2 text-sm font-semibold transition-colors hover:from-amber-500/20 hover:to-orange-500/20"
+          >
+            <Crown className="h-4 w-4 text-amber-500" aria-hidden="true" />
+            <span className="bg-gradient-to-r from-amber-600 to-orange-500 bg-clip-text text-transparent dark:from-amber-300 dark:to-orange-300">
+              Upgrade to Premium
+            </span>
+          </Link>
+        )}
+        <Link
+          href="/report-issue"
+          onClick={() => setUserMenuOpen(false)}
+          className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-[var(--text-secondary)] transition-colors hover:bg-[var(--surface-raised)] hover:text-[var(--text-primary)]"
+        >
+          <Bug className="h-4 w-4 text-[var(--text-muted)]" />
+          Report Issue
+        </Link>
         <Link
           href="/settings"
           onClick={() => setUserMenuOpen(false)}
-          className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-slate-700 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white transition-colors"
+          className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-[var(--text-secondary)] transition-colors hover:bg-[var(--surface-raised)] hover:text-[var(--text-primary)]"
         >
-          <Settings className="h-4 w-4 text-slate-400" />
+          <Settings className="h-4 w-4 text-[var(--text-muted)]" />
           Settings
         </Link>
-        <div className="my-1 border-t border-slate-100 dark:border-slate-800" />
+        <div className="my-1 border-t border-[var(--border)]" />
         <button
           onClick={handleSignOut}
           disabled={signingOut}
-          className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-white transition-colors disabled:opacity-60"
+          className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-[var(--text-secondary)] transition-colors hover:bg-[var(--surface-raised)] hover:text-[var(--text-primary)] disabled:opacity-60"
         >
-          <LogOut className="h-4 w-4" />
+          <LogOut className="h-4 w-4 text-[var(--text-muted)]" />
           {signingOut ? 'Signing out...' : 'Sign Out'}
         </button>
       </div>
@@ -274,18 +296,20 @@ export const Header = memo(function Header() {
             {/* Mobile Brand */}
             <Link href="/" className="flex items-center gap-2 font-bold text-xl md:hidden shrink-0">
               <BrandLogo className="h-8 w-8" />
-              <span className="bg-linear-to-r from-amber-500 to-orange-600 bg-clip-text text-transparent">
-                Fantasy
-              </span>
             </Link>
 
-            {/* Left: Colour-coded Breadcrumb (Desktop) */}
-            <div className="hidden md:flex items-center gap-2 shrink-0">
-              <span className="text-xs uppercase tracking-wider font-semibold text-slate-400 dark:text-slate-500">
-                Fantasy
-              </span>
-              <span className="text-slate-300 font-medium dark:text-slate-600">/</span>
-              <CurrentPageTitle />
+            {/* Current page title (mobile + desktop breadcrumb) */}
+            <div className="min-w-0 flex-1 md:flex-none">
+              <div className="flex items-center gap-2 min-w-0 md:hidden">
+                <CurrentPageTitle className="text-sm" />
+              </div>
+              <div className="hidden md:flex items-center gap-2 shrink-0">
+                <span className="text-xs uppercase tracking-wider font-semibold text-slate-400 dark:text-slate-500">
+                  Fantasy
+                </span>
+                <span className="text-slate-300 font-medium dark:text-slate-600">/</span>
+                <CurrentPageTitle />
+              </div>
             </div>
 
             {/* Center: Command Palette Search (md+ — wider than before) */}
