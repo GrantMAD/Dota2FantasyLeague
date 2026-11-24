@@ -269,6 +269,7 @@ export default function PlayersPageClient({
   const [compareMode, setCompareMode] = useState(false);
   const [watchlistOnly, setWatchlistOnly] = useState(false);
   const [watchlistIds, setWatchlistIds] = useState<number[]>([]);
+  const [watchlistStatus, setWatchlistStatus] = useState<'loading' | 'ready' | 'error'>('loading');
   const [watchlistBusyIds, setWatchlistBusyIds] = useState<Set<number>>(new Set());
 
   // Squad context
@@ -303,6 +304,7 @@ export default function PlayersPageClient({
   // ── Load teams and squad context in parallel ────────────────────────────────
   useEffect(() => {
     let cancelled = false;
+    let watchlistResolved = false;
 
     async function loadTeamsAndSquadContext() {
       try {
@@ -333,13 +335,18 @@ export default function PlayersPageClient({
             (id): id is number => Number.isSafeInteger(id) && id > 0,
           )) {
             setWatchlistIds(watchlistData.playerIds);
+            setWatchlistStatus('ready');
           } else {
             console.error('Player watchlist returned an unexpected response.');
             toast.error('Watchlist unavailable', 'Refresh the page to try loading your saved players again.');
+            setWatchlistStatus('error');
           }
+          watchlistResolved = true;
         } else if (watchlistResult.status === 'rejected' || !watchlistResult.value.ok) {
           console.error('Unable to load player watchlist:', watchlistResult.status === 'rejected' ? watchlistResult.reason : watchlistResult.value.status);
           toast.error('Watchlist unavailable', 'Refresh the page to try loading your saved players again.');
+          setWatchlistStatus('error');
+          watchlistResolved = true;
         }
 
         if (squadResult.status === 'rejected') {
@@ -376,6 +383,7 @@ export default function PlayersPageClient({
         }
       } catch (error) {
         if (!cancelled) {
+          if (!watchlistResolved) setWatchlistStatus('error');
           console.warn('Unable to load player directory team and squad context:', error);
           setSquadContextLoaded(true);
         }
@@ -491,6 +499,12 @@ export default function PlayersPageClient({
     setTeamIdFilter(null);
     setSearch('');
     setPage(1);
+  };
+
+  const changePage = (nextPage: number) => {
+    if (nextPage === page) return;
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    setPage(nextPage);
   };
 
   const toggleComparePlayer = (playerId: number) => {
@@ -790,6 +804,12 @@ export default function PlayersPageClient({
                     <button
                       key={option.id}
                       type="button"
+                      title={isActive ? 'Click again to reverse sort direction' : `Sort by ${option.label}`}
+                      aria-label={
+                        isActive
+                          ? `Sort by ${option.label}, currently ${sortDesc ? 'descending' : 'ascending'}. Click again to reverse sort direction.`
+                          : `Sort by ${option.label}`
+                      }
                       onClick={() => {
                         if (isActive) {
                           setSortDesc((prev) => !prev);
@@ -835,6 +855,12 @@ export default function PlayersPageClient({
                 <th className="px-4 py-3.5 font-bold whitespace-nowrap">
                   <button
                     type="button"
+                    title={sortBy === 'name' ? 'Click again to reverse sort direction' : 'Sort by player name'}
+                    aria-label={
+                      sortBy === 'name'
+                        ? `Sort by player name, currently ${sortDesc ? 'descending' : 'ascending'}. Click again to reverse sort direction.`
+                        : 'Sort by player name'
+                    }
                     onClick={() => {
                       if (sortBy === 'name') setSortDesc((prev) => !prev);
                       else { setSortBy('name'); setSortDesc(false); }
@@ -853,6 +879,12 @@ export default function PlayersPageClient({
                 <th className="px-4 py-3.5 font-bold whitespace-nowrap text-right">
                   <button
                     type="button"
+                    title={sortBy === 'price' ? 'Click again to reverse sort direction' : 'Sort by price'}
+                    aria-label={
+                      sortBy === 'price'
+                        ? `Sort by price, currently ${sortDesc ? 'descending' : 'ascending'}. Click again to reverse sort direction.`
+                        : 'Sort by price'
+                    }
                     onClick={() => {
                       if (sortBy === 'price') setSortDesc((prev) => !prev);
                       else { setSortBy('price'); setSortDesc(true); }
@@ -869,6 +901,12 @@ export default function PlayersPageClient({
                 <th className="px-4 py-3.5 font-bold whitespace-nowrap text-right">
                   <button
                     type="button"
+                    title={sortBy === 'ownership' ? 'Click again to reverse sort direction' : 'Sort by ownership'}
+                    aria-label={
+                      sortBy === 'ownership'
+                        ? `Sort by ownership, currently ${sortDesc ? 'descending' : 'ascending'}. Click again to reverse sort direction.`
+                        : 'Sort by ownership'
+                    }
                     onClick={() => {
                       if (sortBy === 'ownership') setSortDesc((prev) => !prev);
                       else { setSortBy('ownership'); setSortDesc(true); }
@@ -926,19 +964,48 @@ export default function PlayersPageClient({
               ) : displayedPlayers.length === 0 ? (
                 <tr>
                   <td colSpan={compareMode ? 8 : 7} className="px-6 py-16 text-center">
-                    <div className="flex flex-col items-center gap-3 text-[var(--text-muted)]">
-                      <Users className="w-8 h-8 text-[var(--text-muted)] opacity-60" />
-                      <p className="text-sm">No players found matching your filters.</p>
-                      {(activeFilterCount > 0 || search) && (
+                    {watchlistOnly && watchlistStatus === 'ready' && watchlistIds.length === 0 ? (
+                      <div className="flex flex-col items-center gap-3 text-[var(--text-muted)]">
+                        <Bookmark className="h-8 w-8 opacity-60" aria-hidden="true" />
+                        <p className="text-sm font-semibold text-[var(--text-primary)]">Your watchlist is empty</p>
+                        <p className="max-w-md text-sm">
+                          Bookmark players to keep track of them here.
+                        </p>
                         <button
                           type="button"
-                          onClick={clearAllFilters}
-                          className="text-xs text-amber-500 hover:text-amber-400 underline transition-colors"
+                          onClick={() => { setWatchlistOnly(false); setPage(1); }}
+                          className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-1.5 text-xs font-semibold text-amber-700 transition-colors hover:bg-amber-500/20 dark:text-amber-300"
                         >
-                          Clear all filters
+                          Browse all players
                         </button>
-                      )}
-                    </div>
+                      </div>
+                    ) : watchlistOnly && watchlistStatus === 'error' ? (
+                      <div className="flex flex-col items-center gap-3 text-[var(--text-muted)]">
+                        <Bookmark className="h-8 w-8 opacity-60" aria-hidden="true" />
+                        <p className="text-sm">Your watchlist could not be loaded.</p>
+                        <button
+                          type="button"
+                          onClick={() => { setWatchlistOnly(false); setPage(1); }}
+                          className="text-xs text-amber-600 underline transition-colors hover:text-amber-500 dark:text-amber-400"
+                        >
+                          Browse all players
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="flex flex-col items-center gap-3 text-[var(--text-muted)]">
+                        <Users className="w-8 h-8 text-[var(--text-muted)] opacity-60" />
+                        <p className="text-sm">No players found matching your filters.</p>
+                        {(activeFilterCount > 0 || search) && (
+                          <button
+                            type="button"
+                            onClick={clearAllFilters}
+                            className="text-xs text-amber-600 underline transition-colors hover:text-amber-500 dark:text-amber-400"
+                          >
+                            Clear all filters
+                          </button>
+                        )}
+                      </div>
+                    )}
                   </td>
                 </tr>
               ) : (
@@ -1147,14 +1214,14 @@ export default function PlayersPageClient({
             </span>
             <div className="flex gap-2">
               <button
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                onClick={() => changePage(Math.max(1, page - 1))}
                 disabled={page === 1}
                 className="px-3.5 py-1.5 border border-[var(--border)] rounded-lg bg-[var(--surface)] text-[var(--text-primary)] font-semibold disabled:opacity-40 disabled:cursor-not-allowed hover:bg-[var(--surface-raised)] transition-colors text-xs"
               >
                 Previous
               </button>
               <button
-                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                onClick={() => changePage(Math.min(totalPages, page + 1))}
                 disabled={page === totalPages}
                 className="px-3.5 py-1.5 border border-[var(--border)] rounded-lg bg-[var(--surface)] text-[var(--text-primary)] font-semibold disabled:opacity-40 disabled:cursor-not-allowed hover:bg-[var(--surface-raised)] transition-colors text-xs"
               >
