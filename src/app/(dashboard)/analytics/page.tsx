@@ -170,6 +170,7 @@ function AnalyticsDashboardContent() {
   };
 
   const toast = useToast();
+  const showAnalyticsError = toast.error;
   const [data, setData] = useState(initialData);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -192,63 +193,48 @@ function AnalyticsDashboardContent() {
     });
   }, [tab, trendRange]);
 
-  const fetchAnalytics = useCallback(async () => {
-    setLoading(true);
-    setError(null);
+  const fetchAnalytics = useCallback(async (signal?: AbortSignal) => {
     try {
-      const res = await fetchWithAuth('/api/analytics');
+      const res = await fetchWithAuth('/api/analytics', signal ? { signal } : {});
       if (!res.ok) throw new Error('Failed to load analytics data');
       const payload = await res.json() as Partial<AnalyticsData>;
+      if (signal?.aborted) return;
       setData({ ...initialData, ...payload });
     } catch (err: unknown) {
+      if (signal?.aborted) return;
       const message = err instanceof Error ? err.message : 'Failed to load analytics data';
       setError(message);
       setData(initialData);
-      toast.error('Unable to load analytics', 'Could not retrieve your latest manager metrics. Please try again.');
+      showAnalyticsError('Unable to load analytics', 'Could not retrieve your latest manager metrics. Please try again.');
     } finally {
-      setLoading(false);
+      if (!signal?.aborted) setLoading(false);
     }
-  }, [toast]);
+  }, [showAnalyticsError]);
 
   useEffect(() => {
-    let ignore = false;
-
+    const controller = new AbortController();
     async function loadInitialAnalytics() {
-      try {
-        const res = await fetchWithAuth('/api/analytics');
-        if (!res.ok) throw new Error('Failed to load analytics data');
-        const payload = await res.json() as Partial<AnalyticsData>;
-        if (!ignore) {
-          setData({ ...initialData, ...payload });
-        }
-      } catch (err: unknown) {
-        if (!ignore) {
-          const message = err instanceof Error ? err.message : 'Failed to load analytics data';
-          setError(message);
-          setData(initialData);
-          toast.error('Unable to load analytics', 'Could not retrieve your latest manager metrics. Please try again.');
-        }
-      } finally {
-        if (!ignore) {
-          setLoading(false);
-        }
-      }
+      await fetchAnalytics(controller.signal);
     }
 
     void loadInitialAnalytics();
 
     return () => {
-      ignore = true;
+      controller.abort();
     };
-  }, [toast]);
+  }, [fetchAnalytics]);
 
-
+  function handleAnalyticsRetry() {
+    setLoading(true);
+    setError(null);
+    void fetchAnalytics();
+  }
 
   const activeTabContent = useMemo(() => {
     if (tab === 'market') {
       return {
         title: 'Market & Metagame Intelligence',
-        subtitle: 'Ownership momentum, ROI, and value signals from the current market.'
+        subtitle: 'Compare latest scored returns with each player’s current price and ownership.'
       };
     }
     if (tab === 'dream') {
@@ -381,7 +367,7 @@ function AnalyticsDashboardContent() {
               </div>
               <button
                 type="button"
-                onClick={() => void fetchAnalytics()}
+                onClick={handleAnalyticsRetry}
                 className="inline-flex shrink-0 items-center gap-2 rounded-xl bg-red-600 px-4 py-2 text-sm font-semibold text-white shadow-md transition hover:bg-red-500 focus:outline-none focus:ring-2 focus:ring-red-400 focus:ring-offset-2 focus:ring-offset-slate-950"
               >
                 Retry
@@ -626,9 +612,19 @@ function AnalyticsDashboardContent() {
                         </div>
                       </>
                     ) : (
-                      <div className="flex h-48 w-full items-center justify-center text-sm text-[var(--text-muted)]">
-                        No score history available yet.
-                      </div>
+                      error ? (
+                        <div className="flex h-48 w-full items-center justify-center text-center text-sm text-[var(--text-secondary)]">
+                          Performance trends could not be loaded. Retry above to view your history.
+                        </div>
+                      ) : (
+                        <div className="flex min-h-48 flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-[var(--border)] bg-[var(--surface)] p-6 text-center">
+                          <p className="font-semibold text-[var(--text-primary)]">Your performance trends will appear after your first scored gameweek.</p>
+                          <p className="max-w-lg text-sm text-[var(--text-secondary)]">Set your lineup now, then come back after scores are recorded to see your progress over time.</p>
+                          <Link href="/lineups" className="mt-2 rounded-lg bg-[var(--accent-primary)] px-4 py-2 text-sm font-semibold text-white transition hover:brightness-110">
+                            Set your lineup
+                          </Link>
+                        </div>
+                      )
                     )}
                   </div>
 
@@ -738,6 +734,13 @@ function AnalyticsDashboardContent() {
                     <div className="mb-4">
                       <h3 className="analytics-market-heading text-lg font-semibold text-[var(--text-primary)]">Value for Money</h3>
                       <p className="mt-1 text-xs text-[var(--text-secondary)]">High-return players by points per million</p>
+                      <details className="mt-3 rounded-lg border border-[var(--border)] bg-[var(--surface-raised)] px-3 py-2 text-sm">
+                        <summary className="cursor-pointer font-medium text-[var(--text-secondary)]">How are value and ownership calculated?</summary>
+                        <div className="mt-2 space-y-1 text-[var(--text-secondary)]">
+                          <p><span className="font-semibold text-[var(--text-primary)]">ROI:</span> fantasy points in the latest scored gameweek divided by the player’s current price, multiplied by 10 (points per $10M).</p>
+                          <p><span className="font-semibold text-[var(--text-primary)]">Owned:</span> the current percentage of managers who own that player; it is an ownership snapshot, not a change-over-time measure.</p>
+                        </div>
+                      </details>
                     </div>
                     <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
                       {data.market.length ? data.market.map((row: MarketRow, index: number) => (
@@ -780,6 +783,10 @@ function AnalyticsDashboardContent() {
                     <div className="mb-4">
                       <h3 className="analytics-dream-heading text-lg font-semibold text-[var(--text-primary)]">Gameweek Dream Team</h3>
                       <p className="mt-1 text-xs text-[var(--text-secondary)]">Best role-balanced scorers from the latest available gameweek</p>
+                      <details className="mt-3 rounded-lg border border-[var(--border)] bg-[var(--surface-raised)] px-3 py-2 text-sm">
+                        <summary className="cursor-pointer font-medium text-[var(--text-secondary)]">How is the Dream Team selected?</summary>
+                        <p className="mt-2 text-[var(--text-secondary)]">It selects the highest scorer for each starting role from the latest scored gameweek, using an unused Support scorer for Hard Support when needed. Any other unfilled starter roles go to the next-highest remaining scorers; the next three highest-scoring remaining players form the bench.</p>
+                      </details>
                     </div>
                     {data.dreamTeam.length ? (
                       <>
