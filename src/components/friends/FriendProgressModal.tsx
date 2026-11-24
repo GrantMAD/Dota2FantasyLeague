@@ -2,7 +2,8 @@
 
 import Image from 'next/image';
 import { useEffect, useRef, useState } from 'react';
-import { Award, LoaderCircle, X } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { Award, GitCompareArrows, LoaderCircle, X } from 'lucide-react';
 import { fetchWithAuth } from '@/lib/fetch-with-auth';
 import type { FriendProfile, FriendProgress } from '@/types/friends';
 
@@ -49,10 +50,42 @@ export function FriendProgressModal({
   user: FriendProfile;
   onClose: () => void;
 }) {
+  const router = useRouter();
   const [progress, setProgress] = useState<FriendProgress | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [compareLoading, setCompareLoading] = useState(false);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
+
+  const handleCompareWithMe = async () => {
+    setCompareLoading(true);
+    try {
+      const response = await fetchWithAuth('/api/squads');
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data?.error || 'Unable to load your squad for comparison.');
+
+      const squads = Array.isArray(data?.data) ? data.data : [];
+      const activeSquad = squads[0];
+      const memberIds = Array.isArray(activeSquad?.fantasy_squad_members)
+        ? activeSquad.fantasy_squad_members
+            .map((member: { player_id?: number }) => Number(member.player_id))
+            .filter((id: number) => Number.isInteger(id) && id > 0)
+        : [];
+
+      const ids = [...new Set(memberIds)].slice(0, 4);
+      onClose();
+      if (ids.length >= 2) {
+        router.push(`/players/compare?ids=${ids.join(',')}`);
+      } else {
+        router.push('/players?view=my-squad');
+      }
+    } catch {
+      onClose();
+      router.push('/players?view=my-squad');
+    } finally {
+      setCompareLoading(false);
+    }
+  };
 
   useEffect(() => {
     const controller = new AbortController();
@@ -109,15 +142,27 @@ export function FriendProgressModal({
               <p className="text-sm text-[var(--text-muted)]">@{user.username}</p>
             </div>
           </div>
-          <button
-            ref={closeButtonRef}
-            type="button"
-            onClick={onClose}
-            aria-label="Close manager progress"
-            className="rounded-lg p-2 text-[var(--text-muted)] hover:bg-[var(--surface)] hover:text-[var(--text-primary)]"
-          >
-            <X className="h-5 w-5" />
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => void handleCompareWithMe()}
+              disabled={compareLoading}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-xs font-semibold text-[var(--text-primary)] transition hover:border-cyan-500/40 hover:text-cyan-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 disabled:cursor-not-allowed disabled:opacity-60"
+              title="Open Players compare pre-filled with your squad players"
+            >
+              {compareLoading ? <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden="true" /> : <GitCompareArrows className="h-4 w-4" aria-hidden="true" />}
+              Compare with me
+            </button>
+            <button
+              ref={closeButtonRef}
+              type="button"
+              onClick={onClose}
+              aria-label="Close manager progress"
+              className="rounded-lg p-2 text-[var(--text-muted)] hover:bg-[var(--surface)] hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
         </header>
 
         {loading ? (

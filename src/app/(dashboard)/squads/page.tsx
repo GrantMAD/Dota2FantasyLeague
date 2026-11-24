@@ -1176,9 +1176,9 @@ export default function SquadsPage() {
                 type="button"
                 onClick={() => setSelectedPlayer(null)}
                 aria-label="Close player details"
-                className="rounded-lg p-2 text-[var(--text-muted)] transition-colors hover:bg-[var(--surface-muted)] hover:text-[var(--text-primary)]"
+                className="rounded-lg p-2 text-[var(--text-muted)] transition-colors hover:bg-[var(--surface-muted)] hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
               >
-                <X className="h-5 w-5" />
+                <X className="h-5 w-5" aria-hidden="true" />
               </button>
             </div>
 
@@ -1227,6 +1227,23 @@ export default function SquadsPage() {
               ) : (
                 <p className="text-sm text-[var(--text-muted)]">No performance data available yet.</p>
               )}
+            </div>
+
+            <div className="mt-6 flex flex-wrap justify-end gap-2">
+              <Link
+                href={`/transfers?playerOutId=${selectedPlayer.id}`}
+                onClick={() => setSelectedPlayer(null)}
+                className="inline-flex items-center gap-1.5 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-2 text-xs font-semibold text-amber-700 transition hover:bg-amber-500/20 dark:text-amber-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
+              >
+                Transfer Out
+              </Link>
+              <Link
+                href={`/players/${selectedPlayer.id}`}
+                onClick={() => setSelectedPlayer(null)}
+                className="inline-flex items-center gap-1.5 rounded-xl border border-teal-500/30 bg-teal-500/10 px-4 py-2 text-xs font-semibold text-teal-700 transition hover:bg-teal-500/20 dark:text-teal-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
+              >
+                View Full Player Profile
+              </Link>
             </div>
           </div>
         </div>

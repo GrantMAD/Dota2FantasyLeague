@@ -43,8 +43,12 @@ function TransfersPageContent() {
   const searchParams = useSearchParams();
   const quickAddPlayerIdParam = searchParams.get('playerId');
   const quickAddPlayerId = quickAddPlayerIdParam ? Number(quickAddPlayerIdParam) : null;
+  const quickAddPlayerOutIdParam = searchParams.get('playerOutId') ?? searchParams.get('sellPlayerId');
+  const quickAddPlayerOutId = quickAddPlayerOutIdParam ? Number(quickAddPlayerOutIdParam) : null;
   const lastHandledQuickAddPlayerId = useRef<number | null>(null);
+  const lastHandledQuickAddPlayerOutId = useRef<number | null>(null);
   const currentQuickAddPlayerId = useRef<number | null>(quickAddPlayerId);
+  const currentQuickAddPlayerOutId = useRef<number | null>(quickAddPlayerOutId);
   const tableContainerRef = useRef<HTMLDivElement>(null);
   const [players, setPlayers] = useState<TransferPlayer[]>([]);
   const [loading, setLoading] = useState(true);
@@ -135,6 +139,42 @@ function TransfersPageContent() {
   useEffect(() => {
     currentQuickAddPlayerId.current = quickAddPlayerId;
   }, [quickAddPlayerId]);
+
+  useEffect(() => {
+    currentQuickAddPlayerOutId.current = quickAddPlayerOutId;
+  }, [quickAddPlayerOutId]);
+
+  useEffect(() => {
+    if (!Number.isInteger(quickAddPlayerOutId) || !quickAddPlayerOutId || quickAddPlayerOutId <= 0) {
+      lastHandledQuickAddPlayerOutId.current = null;
+      return;
+    }
+    if (!transferContextReady || lastHandledQuickAddPlayerOutId.current === quickAddPlayerOutId) return;
+
+    if (ownedPlayerIds.length < SQUAD_MAX_SIZE) {
+      lastHandledQuickAddPlayerOutId.current = quickAddPlayerOutId;
+      return;
+    }
+
+    if (!ownedPlayerIds.includes(quickAddPlayerOutId)) {
+      lastHandledQuickAddPlayerOutId.current = quickAddPlayerOutId;
+      toast.info('Player not in squad', 'Only players currently in your squad can be selected for transfer out.');
+      return;
+    }
+
+    lastHandledQuickAddPlayerOutId.current = quickAddPlayerOutId;
+    const outgoing = players.find((player) => player.id === quickAddPlayerOutId) || ownedPlayersMap.get(quickAddPlayerOutId);
+    const outgoingRole = outgoing?.primary_role ?? null;
+
+    setTimeout(() => {
+      setSelectedPlayerOut(quickAddPlayerOutId);
+      if (outgoingRole) {
+        setRoleFilter(outgoingRole);
+        setPage(1);
+      }
+      toast.info('Player selected to transfer out', 'Choose a replacement player to complete the transfer.');
+    }, 0);
+  }, [fantasySeasonId, ownedPlayerIds, ownedPlayersMap, players, quickAddPlayerOutId, toast, transferContextReady]);
 
   const ownedPlayerIdsKey = ownedPlayerIds.join(',');
 

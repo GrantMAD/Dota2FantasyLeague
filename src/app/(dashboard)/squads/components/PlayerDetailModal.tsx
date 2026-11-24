@@ -271,15 +271,22 @@ export function PlayerDetailModal({ player, loading, onClose, scoreBreakdown }: 
           )}
         </div>
 
-        {/* View Full Profile Link */}
-        <div className="mt-6 flex justify-end">
+        {/* Actions */}
+        <div className="mt-6 flex flex-wrap justify-end gap-2">
+          <Link
+            href={`/transfers?playerOutId=${player.id}`}
+            onClick={onClose}
+            className="inline-flex items-center gap-1.5 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-2 text-xs font-semibold text-amber-700 transition hover:bg-amber-500/20 dark:text-amber-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
+          >
+            <span>Transfer Out</span>
+          </Link>
           <Link
             href={`/players/${player.id}`}
             onClick={onClose}
-            className="inline-flex items-center gap-1.5 rounded-xl border border-teal-500/30 bg-teal-500/10 px-4 py-2 text-xs font-semibold text-teal-700 transition hover:bg-teal-500/20 dark:text-teal-300"
+            className="inline-flex items-center gap-1.5 rounded-xl border border-teal-500/30 bg-teal-500/10 px-4 py-2 text-xs font-semibold text-teal-700 transition hover:bg-teal-500/20 dark:text-teal-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
           >
             <span>View Full Player Profile</span>
-            <ExternalLink className="h-3.5 w-3.5" />
+            <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
           </Link>
         </div>
       </div>

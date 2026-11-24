@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import { ArrowLeft, ArrowRight, X } from 'lucide-react';
 import { useTour } from '@/context/TourContext';
+import { useToast } from '@/components/Toast';
 import type { PageTourDefinition } from '@/lib/tourSteps';
 import { getPageTourKey } from '@/lib/pageGuideRoutes';
 
@@ -20,13 +21,24 @@ const clamp = (value: number, min: number, max: number) =>
 export function PageTour() {
   const pathname = usePathname();
   const { isOpen, closeTour, stepIndex, setStepIndex, markCompleted } = useTour();
+  const { success } = useToast();
   const [loadedTour, setLoadedTour] = useState<{ key: string; definition: PageTourDefinition | undefined } | null>(null);
   const tourKey = getPageTourKey(pathname);
   const pageTour = loadedTour && loadedTour.key === tourKey ? loadedTour.definition : undefined;
   const [target, setTarget] = useState<TargetRect | null>(null);
   const [isMobile, setIsMobile] = useState(false);
+  const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
   const dialogRef = useRef<HTMLDivElement>(null);
   const previousFocusRef = useRef<HTMLElement | null>(null);
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.matchMedia) return;
+    const media = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const update = () => setPrefersReducedMotion(media.matches);
+    update();
+    media.addEventListener('change', update);
+    return () => media.removeEventListener('change', update);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -66,7 +78,7 @@ export function PageTour() {
 
       if (targetElement) {
         targetElement.setAttribute('data-tour-active', 'true');
-        targetElement.scrollIntoView({ behavior: 'auto', block: 'center' });
+        targetElement.scrollIntoView({ behavior: prefersReducedMotion ? 'auto' : 'smooth', block: 'center' });
       }
     };
 
@@ -100,7 +112,7 @@ export function PageTour() {
         node.removeAttribute('data-tour-active');
       });
     };
-  }, [currentStep, isOpen, pageTour]);
+  }, [currentStep, isOpen, pageTour, prefersReducedMotion]);
 
   useEffect(() => {
     if (!isOpen || !pageTour) return;
@@ -161,6 +173,7 @@ export function PageTour() {
   const nextStep = () => {
     if (isLastStep) {
       markCompleted();
+      success('Tour completed', `You finished the ${pageTour.pageTitle} guide.`);
       closeTour();
       return;
     }
@@ -174,7 +187,6 @@ export function PageTour() {
   };
 
   const skipTour = () => {
-    markCompleted();
     closeTour();
   };
 

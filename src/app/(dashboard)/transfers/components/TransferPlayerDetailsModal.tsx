@@ -1,5 +1,4 @@
-'use client';
-import { formatPlayerPrice } from '@/lib/format-price';
+﻿'use client';
 
 import Image from 'next/image';
 import Link from 'next/link';
@@ -24,36 +23,38 @@ export function TransferPlayerDetailsModal({
   onSelect,
 }: TransferPlayerDetailsModalProps) {
   const ownership = player.ownership_percentage == null ? null : Number(player.ownership_percentage);
-  const ownershipLabel = ownership === null ? null : ownership >= 35 ? 'Meta' : ownership >= 15 ? 'Popular' : 'Differential';
-  const ownershipColor = ownership === null ? '' : ownership >= 35
-    ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/30'
-    : ownership >= 15
-      ? 'text-cyan-400 bg-cyan-500/10 border-cyan-500/30'
-      : 'text-amber-400 bg-amber-500/10 border-amber-500/30';
+  const ownershipBadge = ownership === null
+    ? null
+    : ownership >= 35
+      ? { label: 'Meta Pick', className: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/30' }
+      : ownership >= 15
+        ? { label: 'Popular', className: 'text-cyan-400 bg-cyan-500/10 border-cyan-500/30' }
+        : { label: 'Differential', className: 'text-purple-400 bg-purple-500/10 border-purple-500/30' };
 
   return (
     <div
       role="dialog"
       aria-modal="true"
+      aria-labelledby="transfer-player-detail-title"
       onClick={onClose}
       className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/80 p-4 py-8 backdrop-blur-sm sm:items-center animate-modal-backdrop"
     >
       <div
         onClick={(event) => event.stopPropagation()}
-        className="animate-modal-content relative my-auto max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-2xl border border-[var(--border)] bg-[var(--surface)] shadow-2xl"
+        className="animate-modal-content relative my-auto flex max-h-[90vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface)] shadow-2xl"
       >
         <div className="relative border-b border-[var(--border)] bg-[var(--surface-raised)] p-6">
           <button
             type="button"
             onClick={onClose}
-            className="absolute right-4 top-4 z-10 flex h-8 w-8 items-center justify-center rounded-lg border border-[var(--border)] bg-[var(--surface-raised)] text-[var(--text-secondary)] shadow-sm transition-all hover:bg-[var(--surface-muted)] hover:text-[var(--text-primary)]"
-            aria-label="Close modal"
-            title="Close modal"
+            className="absolute right-4 top-4 z-10 flex h-8 w-8 items-center justify-center rounded-lg border border-[var(--border)] bg-[var(--surface-raised)] text-[var(--text-secondary)] shadow-sm transition-all hover:bg-[var(--surface-muted)] hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
+            aria-label="Close player details"
+            title="Close player details"
           >
-            <X className="h-4 w-4" />
+            <X className="h-4 w-4" aria-hidden="true" />
           </button>
 
-          <div className="flex flex-col items-center gap-5 sm:flex-row sm:items-start">
+          <div className="flex flex-col items-center gap-5 pr-10 sm:flex-row sm:items-start">
             <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-2xl border-2 border-[var(--border)] bg-[var(--surface-raised)] shadow-xl sm:h-24 sm:w-24">
               {player.profile_image_url ? (
                 <Image
@@ -73,11 +74,20 @@ export function TransferPlayerDetailsModal({
 
             <div className="flex-1 text-center sm:text-left">
               <div className="mb-1 flex flex-wrap items-center justify-center gap-2 sm:justify-start">
-                <h2 className="text-2xl font-bold text-[var(--text-primary)] sm:text-3xl">{player.in_game_name || player.name}</h2>
-                <span className="rounded border border-[var(--border)] bg-[var(--surface-muted)] px-2 py-0.5 text-xs font-bold uppercase text-[var(--text-secondary)]">{player.primary_role}</span>
+                <h2 id="transfer-player-detail-title" className="text-2xl font-bold text-[var(--text-primary)] sm:text-3xl">
+                  {player.in_game_name || player.name}
+                </h2>
+                <span className="rounded border border-[var(--border)] bg-[var(--surface-muted)] px-2 py-0.5 text-xs font-bold uppercase text-[var(--text-secondary)]">
+                  {player.primary_role}
+                </span>
                 <span className="rounded border border-emerald-500/30 bg-emerald-500/20 px-2 py-0.5 text-xs font-semibold capitalize text-emerald-400">
                   {player.availability_status || 'Available'}
                 </span>
+                {ownershipBadge && (
+                  <span className={`rounded border px-2 py-0.5 text-xs font-bold uppercase tracking-wider ${ownershipBadge.className}`}>
+                    {ownershipBadge.label}
+                  </span>
+                )}
               </div>
 
               <p className="mb-3 text-sm text-[var(--text-secondary)]">
@@ -88,7 +98,7 @@ export function TransferPlayerDetailsModal({
                 <button
                   type="button"
                   onClick={onSelect}
-                  className={`rounded-lg px-4 py-1.5 text-xs font-bold shadow-md transition-all ${
+                  className={`rounded-lg px-4 py-1.5 text-xs font-bold shadow-md transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 ${
                     owned ? 'bg-red-600 text-white hover:bg-red-500' : 'bg-amber-500 text-slate-950 hover:bg-amber-400'
                   }`}
                 >
@@ -96,7 +106,7 @@ export function TransferPlayerDetailsModal({
                 </button>
                 <Link
                   href={`/players/${player.id}`}
-                  className="rounded-lg border border-[var(--border)] px-4 py-1.5 text-xs font-medium text-[var(--text-secondary)] transition-colors hover:bg-[var(--surface-muted)] hover:text-[var(--text-primary)]"
+                  className="rounded-lg border border-[var(--border)] px-4 py-1.5 text-xs font-medium text-[var(--text-secondary)] transition-colors hover:bg-[var(--surface-muted)] hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
                 >
                   Full Profile Page →
                 </Link>
@@ -105,50 +115,47 @@ export function TransferPlayerDetailsModal({
           </div>
         </div>
 
-        <div className="p-6">
-          <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
-            <div className="flex flex-col items-center justify-between rounded-xl border border-[var(--border)] bg-[var(--surface-raised)] p-3 text-center">
-              <div>
-                <div className="mb-1 text-[11px] uppercase tracking-wider text-[var(--text-muted)]">Market Price</div>
-                <div className="font-mono text-xl font-bold text-amber-500 dark:text-amber-400">{formatPlayerPrice(player.current_price)}</div>
-              </div>
-              <div className="mt-2 flex flex-col items-center">
-                <PriceSparkline data={player.price_history} width={72} height={20} strokeWidth={2} themeAware />
-                <span className="mt-0.5 text-[9px] text-[var(--text-muted)]">Trend</span>
-              </div>
+        <div className="flex-1 overflow-y-auto p-6">
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+            <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-raised)] p-3 text-center">
+              <div className="mb-1 text-[11px] uppercase tracking-wider text-[var(--text-muted)]">Price</div>
+              <div className="font-mono text-xl font-bold text-amber-500 dark:text-amber-400">${player.current_price?.toFixed(1)}M</div>
             </div>
-            <div className="flex flex-col justify-between rounded-xl border border-[var(--border)] bg-[var(--surface-raised)] p-3 text-center">
-              <div>
-                <div className="mb-1 text-[11px] uppercase tracking-wider text-[var(--text-muted)]">Ownership</div>
-                <div className="text-xl font-bold text-[var(--text-primary)]">{ownership === null ? '—' : `${ownership.toFixed(1)}%`}</div>
-              </div>
-              {ownership !== null && (
-                <div className="mt-1 flex flex-col items-center gap-1">
-                  <div className="h-1 w-16 overflow-hidden rounded-full bg-[var(--surface-muted)]">
-                    <div
-                      className={`h-full rounded-full ${ownership >= 35 ? 'bg-emerald-400' : ownership >= 15 ? 'bg-cyan-400' : 'bg-amber-400'}`}
-                      style={{ width: `${Math.min(100, Math.max(4, ownership))}%` }}
-                    />
-                  </div>
-                  <span className={`inline-flex rounded border px-1.5 py-0.2 text-[8px] font-bold uppercase tracking-wider ${ownershipColor}`}>
-                    {ownershipLabel}
-                  </span>
+            <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-raised)] p-3 text-center">
+              <div className="mb-1 text-[11px] uppercase tracking-wider text-[var(--text-muted)]">Ownership</div>
+              <div className="font-mono text-xl font-bold text-[var(--text-primary)]">{player.ownership_percentage == null ? '—' : `${Number(player.ownership_percentage).toFixed(1)}%`}</div>
+              {ownershipBadge && (
+                <div className={`mt-1.5 inline-flex rounded border px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider ${ownershipBadge.className}`}>
+                  {ownershipBadge.label}
                 </div>
               )}
             </div>
             <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-raised)] p-3 text-center">
               <div className="mb-1 text-[11px] uppercase tracking-wider text-[var(--text-muted)]">Season Points</div>
-              <div className="font-mono text-xl font-bold text-[var(--text-primary)]">{player.total_season_points ?? player.recent_points ?? 124.0}</div>
+              <div className="font-mono text-xl font-bold text-[var(--text-primary)]">{player.total_season_points ?? player.recent_points ?? 0}</div>
             </div>
             <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-raised)] p-3 text-center">
               <div className="mb-1 text-[11px] uppercase tracking-wider text-[var(--text-muted)]">Latest Gameweek</div>
-              <div className="font-mono text-xl font-bold text-emerald-500 dark:text-emerald-400">+{player.last_gw_points ?? player.gameweek_points ?? 14.5} pts</div>
+              <div className="font-mono text-xl font-bold text-emerald-500 dark:text-emerald-400">+{player.last_gw_points ?? player.gameweek_points ?? 0} pts</div>
             </div>
           </div>
 
-          <div className="mb-6">
+          <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-raised)] p-3">
+              <div className="mb-1 text-[11px] uppercase tracking-wider text-[var(--text-muted)]">Price Trend</div>
+              <PriceSparkline data={player.price_history ?? undefined} themeAware />
+            </div>
+            <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-raised)] p-3 text-center">
+              <div className="mb-1 text-[11px] uppercase tracking-wider text-[var(--text-muted)]">Price Change</div>
+              <div className="font-mono text-lg font-bold text-[var(--text-primary)]">
+                {player.price_change == null ? '—' : `${player.price_change > 0 ? '+' : ''}$${Math.abs(player.price_change).toFixed(1)}M`}
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-6">
             <h4 className="mb-3 flex items-center gap-2 text-sm font-semibold text-[var(--text-primary)]">
-              <span>⚔️</span> Recent Match History &amp; Scoring Breakdown
+              <span aria-hidden="true">⚔️</span> Recent Match History &amp; Scoring Breakdown
             </h4>
             {loading ? (
               <div className="overflow-hidden rounded-xl border border-[var(--border)] animate-pulse" role="status" aria-label="Loading performance details">
@@ -199,7 +206,7 @@ export function TransferPlayerDetailsModal({
                           <td className="px-3 py-2.5 text-center text-[var(--text-secondary)]">{performance.kills}/{performance.deaths}/{performance.assists}</td>
                           <td className="px-3 py-2.5 text-center text-[var(--text-muted)]">{performance.gold_per_minute} / {performance.experience_per_minute}</td>
                           <td className="px-3 py-2.5 text-right font-bold text-amber-500 dark:text-amber-400">
-                            {performance.fantasy_points_breakdown?.total_points ?? 16.5} pts
+                            {performance.fantasy_points_breakdown?.total_points ?? 0} pts
                           </td>
                         </tr>
                       );
@@ -210,7 +217,7 @@ export function TransferPlayerDetailsModal({
             )}
           </div>
 
-          <div className="flex items-center justify-between rounded-xl border border-[var(--border)] bg-[var(--surface-raised)] p-4">
+          <div className="mt-6 flex items-center justify-between rounded-xl border border-[var(--border)] bg-[var(--surface-raised)] p-4">
             <div>
               <p className="text-xs text-[var(--text-muted)]">Player Availability Status</p>
               <p className="text-sm font-semibold capitalize text-[var(--text-primary)]">{player.availability_status || 'Active for selection'}</p>

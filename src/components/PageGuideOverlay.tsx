@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
@@ -201,6 +201,16 @@ export function PageGuideOverlay() {
   const [stepIndex, setStepIndex] = useState(0);
   const [target, setTarget] = useState<TargetRect | null>(null);
   const [isSettled, setIsSettled] = useState(false);
+  const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.matchMedia) return;
+    const media = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const update = () => setPrefersReducedMotion(media.matches);
+    update();
+    media.addEventListener('change', update);
+    return () => media.removeEventListener('change', update);
+  }, []);
 
   const closeGuide = useCallback(() => {
     setStepIndex(0);
@@ -357,7 +367,7 @@ export function PageGuideOverlay() {
   // While aligning or waiting for the element to stabilize, do not show any premature highlight
   if (!isSettled || target?.stepIndex !== stepIndex) {
     return (
-      <div className="fixed inset-0 z-100 bg-slate-950/40 transition-opacity duration-150" />
+      <div className={["fixed inset-0 z-100 bg-slate-950/40", prefersReducedMotion ? '' : 'transition-opacity duration-150'].filter(Boolean).join(' ')} />
     );
   }
 
@@ -395,7 +405,10 @@ export function PageGuideOverlay() {
       <div className="absolute inset-0 bg-slate-950/65" />
       {activeTarget && (
         <div
-          className="fixed z-101 box-border rounded-xl border-2 border-cyan-300 shadow-[0_0_0_9999px_rgba(2,6,23,0.70),0_0_24px_rgba(34,211,238,0.55)] transition-all duration-150 pointer-events-none"
+          className={[
+            'fixed z-101 box-border rounded-xl border-2 border-cyan-300 shadow-[0_0_0_9999px_rgba(2,6,23,0.70),0_0_24px_rgba(34,211,238,0.55)] pointer-events-none',
+            prefersReducedMotion ? '' : 'transition-all duration-150',
+          ].filter(Boolean).join(' ')}
           style={{
             top: Math.max(4, activeTarget.top - pad),
             left: Math.max(4, activeTarget.left - pad),
@@ -403,14 +416,20 @@ export function PageGuideOverlay() {
             height: Math.min(typeof window !== 'undefined' ? window.innerHeight - 8 : activeTarget.height + pad * 2, activeTarget.height + pad * 2),
           }}
         >
-          <span
-            aria-hidden="true"
-            className="absolute -inset-0.5 animate-ping rounded-xl border border-cyan-200/80"
-          />
+          {!prefersReducedMotion && (
+            <span
+              aria-hidden="true"
+              className="absolute -inset-0.5 animate-ping rounded-xl border border-cyan-200/80"
+            />
+          )}
         </div>
       )}
       <div
-        className={`fixed z-102 w-[min(380px,calc(100vw-32px))] rounded-xl border border-cyan-400/50 bg-[var(--surface)] p-5 text-[var(--text-primary)] shadow-2xl shadow-slate-950/40 backdrop-blur-md transition-all duration-150 ${isCentered ? '-translate-x-1/2 -translate-y-1/2' : ''}`}
+        className={[
+          'fixed z-102 w-[min(380px,calc(100vw-32px))] rounded-xl border border-cyan-400/50 bg-[var(--surface)] p-5 text-[var(--text-primary)] shadow-2xl shadow-slate-950/40 backdrop-blur-md',
+          prefersReducedMotion ? '' : 'transition-all duration-150',
+          isCentered ? '-translate-x-1/2 -translate-y-1/2' : '',
+        ].filter(Boolean).join(' ')}
         style={{ top: tooltipTop, left: tooltipLeft }}
       >
         <div className="mb-3 flex items-start justify-between gap-4">
@@ -461,3 +480,4 @@ export function PageGuideOverlay() {
     </div>
   );
 }
+

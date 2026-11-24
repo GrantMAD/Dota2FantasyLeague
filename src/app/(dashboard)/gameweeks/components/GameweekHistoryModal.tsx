@@ -31,29 +31,37 @@ interface GameweekHistoryModalProps {
 
 function PlayerList({ players, emptyMessage }: { players: HistoryPlayer[]; emptyMessage: string }) {
   if (players.length === 0) {
-    return <p className="py-4 text-sm text-[var(--text-muted)]">{emptyMessage}</p>;
+    return <p className="py-4 text-sm text-[var(--text-secondary)]">{emptyMessage}</p>;
   }
 
   return (
-    <ul className="divide-y divide-[var(--border)]">
-      {players.map((player) => (
-        <li key={`${player.role}-${player.id}`} className="flex items-center justify-between gap-3 py-3">
-          <div className="min-w-0">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="truncate font-medium text-[var(--text-primary)]">{player.name}</span>
-              {player.isCaptain && (
-                <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-bold uppercase text-amber-300">Captain</span>
-              )}
-              {player.isViceCaptain && (
-                <span className="rounded-full bg-sky-500/15 px-2 py-0.5 text-[10px] font-bold uppercase text-sky-300">Vice</span>
-              )}
+    <div className="overflow-hidden rounded-xl border border-[var(--border)]">
+      <ul>
+        {players.map((player, index) => (
+          <li
+            key={`${player.role}-${player.id}`}
+            className="flex items-center justify-between gap-3 border-b border-[var(--border)] px-4 py-3 last:border-b-0"
+            style={{
+              background: index % 2 === 0 ? 'var(--surface)' : 'var(--surface-raised)',
+            }}
+          >
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="truncate font-medium text-[var(--text-primary)]">{player.name}</span>
+                {player.isCaptain && (
+                  <span className="rounded-full border border-amber-500/30 bg-amber-500/15 px-2 py-0.5 text-[10px] font-bold uppercase text-amber-300">Captain</span>
+                )}
+                {player.isViceCaptain && (
+                  <span className="rounded-full border border-sky-500/30 bg-sky-500/15 px-2 py-0.5 text-[10px] font-bold uppercase text-sky-300">Vice</span>
+                )}
+              </div>
+              <span className="text-xs text-[var(--text-secondary)]">{player.role}</span>
             </div>
-            <span className="text-xs text-[var(--text-muted)]">{player.role}</span>
-          </div>
-          <span className="shrink-0 text-sm font-semibold text-emerald-300">{player.points.toFixed(1)} pts</span>
-        </li>
-      ))}
-    </ul>
+            <span className="shrink-0 text-sm font-semibold text-emerald-300">{player.points.toFixed(1)} pts</span>
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }
 

@@ -18,11 +18,21 @@ export function PageGuideModal() {
   const dialogRef = useRef<HTMLElement>(null);
   const previousFocusRef = useRef<HTMLElement | null>(null);
   const [guideData, setGuideData] = useState<{ key: string; guide?: PageGuide } | null>(null);
+  const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
   const guideKey = getPageGuideKey(pathname);
   const pageGuide = guideData && guideData.key === guideKey ? guideData.guide : undefined;
   const pageTitle = getPageGuideTitle(pathname);
   const pageHasTour = hasPageTour(pathname);
   const dark = theme === 'dark';
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.matchMedia) return;
+    const media = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const update = () => setPrefersReducedMotion(media.matches);
+    update();
+    media.addEventListener('change', update);
+    return () => media.removeEventListener('change', update);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -140,14 +150,16 @@ export function PageGuideModal() {
         <div className="overflow-y-auto p-5 sm:p-7">
           <section aria-labelledby="page-guide-steps-title">
             <h3 id="page-guide-steps-title" className="text-base font-bold">How to use this page</h3>
-            <div className="mt-3 flex items-center gap-1.5" aria-hidden="true">
-              {pageGuide.steps.map((step, index) => (
-                <span
-                  key={`${index}-${step}`}
-                  className={`h-1.5 flex-1 rounded-full ${dark ? 'bg-cyan-300/70' : 'bg-cyan-700/70'}`}
-                />
-              ))}
-            </div>
+            {!prefersReducedMotion && (
+              <div className="mt-3 flex items-center gap-1.5" aria-hidden="true">
+                {pageGuide.steps.map((step, index) => (
+                  <span
+                    key={`${index}-${step}`}
+                    className={`h-1.5 flex-1 rounded-full ${dark ? 'bg-cyan-300/70' : 'bg-cyan-700/70'}`}
+                  />
+                ))}
+              </div>
+            )}
             <ol className="mt-4 space-y-3">
               {pageGuide.steps.map((step, index) => (
                 <li key={step} className={`flex gap-3 rounded-xl border p-4 ${cardClass}`}>

@@ -87,28 +87,31 @@ export function TotalPointsModal({ onClose }: TotalPointsModalProps) {
         role="dialog"
         aria-modal="true"
         aria-labelledby="total-points-title"
+        aria-describedby="total-points-description"
         tabIndex={-1}
-        className="animate-modal-content my-auto max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 shadow-2xl sm:p-7"
+        className="animate-modal-content my-auto max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 text-[var(--text-primary)] shadow-2xl sm:p-7"
       >
         <header className="mb-6 flex items-start justify-between gap-4">
           <div>
             <div className="mb-1 inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-amber-300">
-              <Award className="h-4 w-4" />
+              <Award className="h-4 w-4" aria-hidden="true" />
               Season points
             </div>
-            <h2 id="total-points-title" className="text-2xl font-bold text-white">
+            <h2 id="total-points-title" className="text-2xl font-bold text-[var(--text-primary)]">
               Where your points came from
             </h2>
-            {breakdown?.seasonName && <p className="mt-1 text-sm text-[var(--text-muted)]">{breakdown.seasonName}</p>}
+            <p id="total-points-description" className="mt-1 text-sm text-[var(--text-secondary)]">
+              {breakdown?.seasonName || 'Season scoring breakdown by category and gameweek.'}
+            </p>
           </div>
           <button
             type="button"
             ref={closeButtonRef}
             onClick={onClose}
             aria-label="Close total points breakdown"
-            className="rounded-lg p-2 text-[var(--text-muted)] hover:bg-[var(--surface-raised)] hover:text-white"
+            className="rounded-lg p-2 text-[var(--text-secondary)] transition-colors hover:bg-[var(--surface-raised)] hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
           >
-            <X className="h-5 w-5" />
+            <X className="h-5 w-5" aria-hidden="true" />
           </button>
         </header>
 
@@ -146,22 +149,28 @@ export function TotalPointsModal({ onClose }: TotalPointsModalProps) {
                 <header className="mb-4 flex items-center justify-between gap-4">
                   <div>
                     <h3 className="text-sm font-semibold uppercase tracking-wider text-[var(--text-secondary)]">Scoring categories</h3>
-                    <p className="mt-1 text-xs text-[var(--text-muted)]">Category subtotal</p>
+                    <p className="mt-1 text-xs text-[var(--text-secondary)]">Category subtotal</p>
                   </div>
-                  <span className="shrink-0 font-mono text-lg font-bold text-white">
+                  <span className="shrink-0 font-mono text-lg font-bold text-[var(--text-primary)]">
                     {formatPoints(categorySubtotal)} pts
                   </span>
                 </header>
                 <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-                  {POINT_CATEGORIES.map(([key, label]) => (
-                    <div key={key} className="rounded-xl border border-[var(--border)]/80 bg-[var(--surface)]/60 p-3">
+                  {POINT_CATEGORIES.map(([key, label], index) => (
+                    <div
+                      key={key}
+                      className="rounded-xl border border-[var(--border)] p-3"
+                      style={{
+                        background: index % 2 === 0 ? 'var(--surface-raised)' : 'var(--surface)',
+                      }}
+                    >
                       <div className="flex items-center gap-2">
-                        <span className="h-2 w-2 rounded-full" style={{ backgroundColor: CATEGORY_ACCENTS[key] }} />
-                        <span className="text-xs font-medium text-[var(--text-muted)]">{label}</span>
+                        <span className="h-2 w-2 rounded-full" style={{ backgroundColor: CATEGORY_ACCENTS[key] }} aria-hidden="true" />
+                        <span className="text-xs font-medium text-[var(--text-secondary)]">{label}</span>
                       </div>
                       <div className="mt-2 font-mono text-lg font-semibold leading-none text-[var(--text-primary)]">
                         {formatPoints(breakdown.categoryTotals[key])}
-                        <span className="ml-1.5 font-sans text-xs font-medium text-[var(--text-muted)]">pts</span>
+                        <span className="ml-1.5 font-sans text-xs font-medium text-[var(--text-secondary)]">pts</span>
                       </div>
                     </div>
                   ))}
@@ -199,40 +208,46 @@ export function TotalPointsModal({ onClose }: TotalPointsModalProps) {
                       open={gameweek.gameweekId === expandedGameweekId}
                       className="group rounded-xl border border-[var(--border)] bg-[var(--surface)]/35"
                     >
-                      <summary className="flex cursor-pointer list-none flex-wrap items-center justify-between gap-3 p-4">
-                        <span className="font-semibold text-white">Gameweek {gameweek.gameweekNumber}</span>
+                      <summary className="flex cursor-pointer list-none flex-wrap items-center justify-between gap-3 p-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 focus-visible:ring-inset">
+                        <span className="font-semibold text-[var(--text-primary)]">Gameweek {gameweek.gameweekNumber}</span>
                         <span className="flex items-center gap-2 text-sm font-bold text-emerald-300">
                           {gameweek.points.toFixed(2)} pts
                           {gameweek.benchBoost && (
-                            <span className="rounded-full bg-violet-500/15 px-2 py-0.5 text-[10px] font-bold uppercase text-violet-200">Bench Boost</span>
+                            <span className="rounded-full border border-violet-500/30 bg-violet-500/15 px-2 py-0.5 text-[10px] font-bold uppercase text-violet-200">Bench Boost</span>
                           )}
                         </span>
                       </summary>
                       <div className="border-t border-[var(--border)] px-4 pb-3">
                         {gameweek.contributors.length === 0 ? (
-                          <p className="py-3 text-sm text-[var(--text-muted)]">No player scoring details are available for this gameweek.</p>
+                          <p className="py-3 text-sm text-[var(--text-secondary)]">No player scoring details are available for this gameweek.</p>
                         ) : (
-                          <ul className="divide-y divide-[var(--border)]">
-                            {gameweek.contributors.map((player) => (
-                              <li key={`${gameweek.gameweekId}-${player.playerId}`} className="flex flex-wrap items-center justify-between gap-3 py-3">
+                          <ul className="overflow-hidden rounded-xl border border-[var(--border)]">
+                            {gameweek.contributors.map((player, index) => (
+                              <li
+                                key={`${gameweek.gameweekId}-${player.playerId}`}
+                                className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--border)] px-3 py-3 last:border-b-0"
+                                style={{
+                                  background: index % 2 === 0 ? 'var(--surface)' : 'var(--surface-raised)',
+                                }}
+                              >
                                 <div className="min-w-0">
                                   <div className="flex flex-wrap items-center gap-2">
-                                    <span className="font-medium text-white">{player.name}</span>
+                                    <span className="font-medium text-[var(--text-primary)]">{player.name}</span>
                                     {player.isCaptain && (
-                                      <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-bold uppercase text-amber-200">
+                                      <span className="rounded-full border border-amber-500/30 bg-amber-500/15 px-2 py-0.5 text-[10px] font-bold uppercase text-amber-200">
                                         Captain {player.multiplier}x
                                       </span>
                                     )}
                                     {!player.isCaptain && player.isViceCaptain && player.multiplier > 1 && (
-                                      <span className="rounded-full bg-sky-500/15 px-2 py-0.5 text-[10px] font-bold uppercase text-sky-200">
+                                      <span className="rounded-full border border-sky-500/30 bg-sky-500/15 px-2 py-0.5 text-[10px] font-bold uppercase text-sky-200">
                                         Vice-captain {player.multiplier}x
                                       </span>
                                     )}
                                     {player.isAutoSub && (
-                                      <span className="rounded-full bg-cyan-500/15 px-2 py-0.5 text-[10px] font-bold uppercase text-cyan-200">Auto-sub</span>
+                                      <span className="rounded-full border border-cyan-500/30 bg-cyan-500/15 px-2 py-0.5 text-[10px] font-bold uppercase text-cyan-200">Auto-sub</span>
                                     )}
                                   </div>
-                                  <span className="text-xs text-[var(--text-muted)]">{player.role} · {player.basePoints.toFixed(2)} base pts</span>
+                                  <span className="text-xs text-[var(--text-secondary)]">{player.role} · {player.basePoints.toFixed(2)} base pts</span>
                                 </div>
                                 <span className="shrink-0 text-sm font-semibold text-emerald-300">
                                   {player.points.toFixed(2)} pts
