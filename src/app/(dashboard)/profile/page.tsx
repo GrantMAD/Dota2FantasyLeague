@@ -37,22 +37,47 @@ type Profile = {
 
 const BANNER_STORAGE_KEY = 'dota_fantasy_profile_banner_theme';
 
+function formatCountryLabel(code: string | null | undefined): string {
+  if (!code) return 'Country not set';
+  try {
+    return new Intl.DisplayNames(['en'], { type: 'region' }).of(code) ?? code;
+  } catch {
+    return code;
+  }
+}
+
+function formatTimezoneLabel(timezone: string | null | undefined): string {
+  if (!timezone) return 'UTC';
+  try {
+    const now = new Date();
+    const longName = new Intl.DateTimeFormat('en-US', {
+      timeZone: timezone,
+      timeZoneName: 'longGeneric',
+    })
+      .formatToParts(now)
+      .find((part) => part.type === 'timeZoneName')?.value;
+    const offset = new Intl.DateTimeFormat('en-US', {
+      timeZone: timezone,
+      timeZoneName: 'shortOffset',
+    })
+      .formatToParts(now)
+      .find((part) => part.type === 'timeZoneName')?.value
+      ?.replace('GMT', 'UTC');
+
+    if (longName && offset) return `${longName} (${offset})`;
+    if (longName) return longName;
+    if (offset) return `${timezone} (${offset})`;
+    return timezone;
+  } catch {
+    return timezone;
+  }
+}
+
 export default function ProfilePage() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [selectedThemeId, setSelectedThemeId] = useState<BannerThemeId>(() => {
-    if (typeof window === 'undefined') return DEFAULT_BANNER_THEME_ID;
-    try {
-      const stored = localStorage.getItem(BANNER_STORAGE_KEY) as BannerThemeId | null;
-      if (stored && BANNER_THEMES.some((t) => t.id === stored)) {
-        return stored;
-      }
-    } catch {
-      // Ignore localStorage availability issues
-    }
-    return DEFAULT_BANNER_THEME_ID;
-  });
+  const [selectedThemeId, setSelectedThemeId] = useState<BannerThemeId>(DEFAULT_BANNER_THEME_ID);
 
   const handleSelectTheme = async (themeId: BannerThemeId) => {
     setSelectedThemeId(themeId);
@@ -83,8 +108,15 @@ export default function ProfilePage() {
         const data = (await res.json()) as { profile: Profile | null };
         setProfile(data.profile);
         const theme = data.profile?.banner_theme;
-        if (theme && BANNER_THEMES.some((t) => t.id === theme)) {
-          setSelectedThemeId(theme as BannerThemeId);
+        const nextTheme =
+          theme && BANNER_THEMES.some((t) => t.id === theme)
+            ? (theme as BannerThemeId)
+            : DEFAULT_BANNER_THEME_ID;
+        setSelectedThemeId(nextTheme);
+        try {
+          localStorage.setItem(BANNER_STORAGE_KEY, nextTheme);
+        } catch {
+          // Ignore localStorage availability issues
         }
       } catch (err: unknown) {
         setError(err instanceof Error ? err.message : 'Failed to load profile');
@@ -123,6 +155,11 @@ export default function ProfilePage() {
   const seasonRank = profile?.fantasy_team?.global_rank ?? null;
   const seasonRankTier = getSeasonRankTier(seasonRank);
   const totalPoints = Number(profile?.fantasy_team?.total_points ?? 0);
+  const managerStatus = seasonRank
+    ? `Ranked #${seasonRank}`
+    : hasFantasyTeam
+      ? 'Squad active'
+      : 'Getting started';
 
   const accountHealthItems: Array<[string, boolean]> = profile ? [
     ['Profile identity', Boolean(profile.display_name || profile.username)],
@@ -199,7 +236,7 @@ export default function ProfilePage() {
                   className="profile-banner-badge rounded-full border border-white/40 bg-white/15 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em]"
                   style={{ color: '#ffffff', borderColor: 'rgba(255,255,255,0.4)', backgroundColor: 'rgba(255,255,255,0.15)' }}
                 >
-                  Active manager
+                  {managerStatus}
                 </span>
               </div>
               <p className="profile-banner-meta mt-1 text-sm font-medium" style={{ color: 'rgba(255, 255, 255, 0.92)' }}>
@@ -247,13 +284,32 @@ export default function ProfilePage() {
                 <div className="h-4 w-full rounded bg-[var(--surface-raised)]" />
                 <div className="h-4 w-3/4 rounded bg-[var(--surface-raised)]" />
               </div>
+            ) : hasBio ? (
+              <p className="min-h-16 text-sm leading-7 text-[var(--text-secondary)]">{profile?.bio}</p>
             ) : (
-              <p className="min-h-16 text-sm leading-7 text-[var(--text-secondary)]">{hasBio ? profile?.bio : 'Add a short bio to tell your league rivals who they are competing against.'}</p>
+              <Link
+                href="/settings?section=profile"
+                className="inline-flex min-h-16 items-start text-sm leading-7 text-[var(--text-secondary)] underline decoration-dotted underline-offset-4 transition hover:text-[var(--text-primary)]"
+              >
+                Add a short bio to tell your league rivals who they are competing against.
+              </Link>
             )}
           </div>
           <div className="mt-5 flex flex-wrap gap-2 text-xs text-[var(--text-secondary)]">
-            <span className="rounded-full border border-[var(--border)] bg-[var(--surface-raised)] px-3 py-1.5">{profile?.country_code || 'Country not set'}</span>
-            <span className="rounded-full border border-[var(--border)] bg-[var(--surface-raised)] px-3 py-1.5">{profile?.timezone || 'UTC'}</span>
+            <Link
+              href="/settings?section=profile"
+              className="rounded-full border border-[var(--border)] bg-[var(--surface-raised)] px-3 py-1.5 transition hover:border-cyan-500/40 hover:text-[var(--text-primary)]"
+              title="Edit country in settings"
+            >
+              {formatCountryLabel(profile?.country_code)}
+            </Link>
+            <Link
+              href="/settings?section=profile"
+              className="rounded-full border border-[var(--border)] bg-[var(--surface-raised)] px-3 py-1.5 transition hover:border-cyan-500/40 hover:text-[var(--text-primary)]"
+              title="Edit timezone in settings"
+            >
+              {formatTimezoneLabel(profile?.timezone)}
+            </Link>
             <span className="rounded-full border border-[var(--border)] bg-[var(--surface-raised)] px-3 py-1.5">{profile?.role === 'admin' ? 'Admin access' : 'Manager account'}</span>
           </div>
         </section>

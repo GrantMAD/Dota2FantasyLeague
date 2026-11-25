@@ -144,6 +144,7 @@ export function ProfileAchievements({ achievements }: ProfileAchievementsProps) 
             <div
               key={`${filter}-${badge.id}`}
               style={animDelay ? { animationDelay: animDelay } : undefined}
+              title={`${badge.title}: ${badge.description} ${badge.unlocked ? `Earned: ${badge.unlockedAtLabel ?? 'Unlocked'}.` : `Progress: ${badge.progressText}.`}`}
               className={`animate-badge-pop relative flex flex-col justify-between overflow-hidden rounded-xl border bg-[var(--surface-raised)] p-4 transition hover:-translate-y-0.5 ${
                 badge.unlocked
                   ? style.border
