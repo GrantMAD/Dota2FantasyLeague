@@ -153,6 +153,7 @@ export function LeagueActionModal({
                   id="league-name"
                   value={form.name}
                   maxLength={LEAGUE_NAME_MAX + 10}
+                  disabled={isLoading}
                   onChange={(e) => {
                     const next = { ...form, name: e.target.value };
                     setForm(next);
@@ -163,7 +164,7 @@ export function LeagueActionModal({
                   placeholder="e.g. The Premier Fantasy Circuit"
                   aria-invalid={Boolean(touched.name && createErrors.name)}
                   aria-describedby={touched.name && createErrors.name ? 'league-name-error' : 'league-name-help'}
-                  className={`w-full rounded-xl border bg-[var(--surface-raised)] px-4 py-3 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] transition focus:outline-none focus:ring-1 ${
+                  className={`w-full rounded-xl border bg-[var(--surface-raised)] px-4 py-3 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] transition focus:outline-none focus:ring-1 disabled:cursor-not-allowed disabled:opacity-60 ${
                     touched.name && createErrors.name
                       ? 'border-rose-500/60 focus:border-rose-500/60 focus:ring-rose-500/30'
                       : 'border-[var(--border)] focus:border-amber-500/60 focus:ring-amber-500/30'
@@ -180,10 +181,11 @@ export function LeagueActionModal({
                 <textarea
                   id="league-description"
                   value={form.description}
+                  disabled={isLoading}
                   onChange={(e) => setForm({ ...form, description: e.target.value })}
                   placeholder="What is this league about?"
                   rows={2}
-                  className="w-full resize-none rounded-xl border border-[var(--border)] bg-[var(--surface-raised)] px-4 py-3 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] transition focus:border-amber-500/60 focus:outline-none focus:ring-1 focus:ring-amber-500/30"
+                  className="w-full resize-none rounded-xl border border-[var(--border)] bg-[var(--surface-raised)] px-4 py-3 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] transition focus:border-amber-500/60 focus:outline-none focus:ring-1 focus:ring-amber-500/30 disabled:cursor-not-allowed disabled:opacity-60"
                 />
               </div>
 
@@ -193,8 +195,9 @@ export function LeagueActionModal({
                   <select
                     id="league-type"
                     value={form.type}
+                    disabled={isLoading}
                     onChange={(e) => setForm({ ...form, type: e.target.value as 'classic' | 'h2h' })}
-                    className="w-full rounded-xl border border-[var(--border)] bg-[var(--surface-raised)] px-3 py-2.5 text-sm text-[var(--text-primary)] focus:border-amber-500/60 focus:outline-none"
+                    className="w-full rounded-xl border border-[var(--border)] bg-[var(--surface-raised)] px-3 py-2.5 text-sm text-[var(--text-primary)] focus:border-amber-500/60 focus:outline-none disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     <option value="classic">Classic</option>
                     <option value="h2h">Head-to-Head</option>
@@ -205,8 +208,9 @@ export function LeagueActionModal({
                   <select
                     id="league-privacy"
                     value={form.privacyLevel}
+                    disabled={isLoading}
                     onChange={(e) => setForm({ ...form, privacyLevel: e.target.value as 'public' | 'private' })}
-                    className="w-full rounded-xl border border-[var(--border)] bg-[var(--surface-raised)] px-3 py-2.5 text-sm text-[var(--text-primary)] focus:border-amber-500/60 focus:outline-none"
+                    className="w-full rounded-xl border border-[var(--border)] bg-[var(--surface-raised)] px-3 py-2.5 text-sm text-[var(--text-primary)] focus:border-amber-500/60 focus:outline-none disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     <option value="private">Private</option>
                     <option value="public">Public</option>
@@ -224,6 +228,7 @@ export function LeagueActionModal({
                   min={4}
                   max={32}
                   value={form.maxParticipants}
+                  disabled={isLoading}
                   onChange={(e) => {
                     const next = { ...form, maxParticipants: Number(e.target.value) || 0 };
                     setForm(next);
@@ -233,7 +238,7 @@ export function LeagueActionModal({
                   }}
                   aria-invalid={Boolean(touched.maxParticipants && createErrors.maxParticipants)}
                   aria-describedby={touched.maxParticipants && createErrors.maxParticipants ? 'league-max-participants-error' : undefined}
-                  className={`w-full rounded-xl border bg-[var(--surface-raised)] px-4 py-3 text-sm text-[var(--text-primary)] transition focus:outline-none focus:ring-1 ${
+                  className={`w-full rounded-xl border bg-[var(--surface-raised)] px-4 py-3 text-sm text-[var(--text-primary)] transition focus:outline-none focus:ring-1 disabled:cursor-not-allowed disabled:opacity-60 ${
                     touched.maxParticipants && createErrors.maxParticipants
                       ? 'border-rose-500/60 focus:border-rose-500/60 focus:ring-rose-500/30'
                       : 'border-[var(--border)] focus:border-amber-500/60 focus:ring-amber-500/30'
@@ -304,6 +309,7 @@ export function LeagueActionModal({
               <input
                 id="join-code"
                 value={joinCode}
+                disabled={isLoading}
                 onChange={(e) => {
                   const next = e.target.value.toUpperCase();
                   setJoinCode(next);
@@ -313,14 +319,20 @@ export function LeagueActionModal({
                 }}
                 placeholder="Enter your invite code"
                 aria-invalid={Boolean(touched.joinCode && joinErrors.joinCode)}
-                aria-describedby={touched.joinCode && joinErrors.joinCode ? 'join-code-error' : 'join-code-help'}
-                className={`w-full rounded-xl border bg-[var(--surface-raised)] px-4 py-3 font-mono text-sm uppercase text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none focus:ring-1 ${
+                aria-describedby={touched.joinCode && joinErrors.joinCode ? 'join-code-error' : isLoading ? 'join-code-loading' : 'join-code-help'}
+                className={`w-full rounded-xl border bg-[var(--surface-raised)] px-4 py-3 font-mono text-sm uppercase text-[var(--text-primary)] placeholder:text-[var(--text-muted)] transition focus:outline-none focus:ring-1 disabled:cursor-not-allowed disabled:opacity-60 ${
                   touched.joinCode && joinErrors.joinCode
                     ? 'border-rose-500/60 focus:border-rose-500/60 focus:ring-rose-500/30'
                     : 'border-[var(--border)] focus:border-amber-500/60 focus:ring-amber-500/30'
                 }`}
               />
               <p id="join-code-help" className="mt-2 text-xs text-[var(--text-muted)]">Invite codes are case-insensitive. Ask the league creator for their code.</p>
+              {isLoading && (
+                <p id="join-code-loading" className="mt-1.5 flex items-center gap-2 text-xs text-amber-300" role="status" aria-live="polite">
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
+                  Joining league...
+                </p>
+              )}
               {touched.joinCode && joinErrors.joinCode && (
                 <p id="join-code-error" className="mt-1.5 text-xs text-rose-300">{joinErrors.joinCode}</p>
               )}

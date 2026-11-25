@@ -303,7 +303,7 @@ function LeaguesPageContent() {
       <div className="mb-8 flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
         <div>
           <div className="flex flex-wrap items-center gap-3 mb-2">
-            <div className="inline-flex items-center gap-2 rounded-full border border-amber-500/30 bg-amber-500/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.24em] text-amber-300">
+            <div className="inline-flex items-center gap-2 rounded-full border border-amber-500/30 bg-amber-500/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-widest text-amber-300">
               Competitive Circuits
             </div>
             <DataFreshnessBadge page="leagues" />
@@ -774,7 +774,7 @@ function LeaguesPageContent() {
                     </div>
                   ) : leagueActivity.length === 0 ? (
                     <p className="rounded-xl border border-dashed border-[var(--border)] bg-[var(--surface-raised)] p-4 text-center text-sm text-[var(--text-muted)]">
-                      No league activity yet.
+                      No recent activity — check back after the next gameweek.
                     </p>
                   ) : (
                     <ol className="relative max-h-80 space-y-1 overflow-y-auto pr-1">
