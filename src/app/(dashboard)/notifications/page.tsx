@@ -10,6 +10,7 @@ import {
   Bug,
   CalendarDays,
   CheckCircle2,
+  CircleDollarSign,
   Clock,
   Info,
   Radio,
@@ -30,6 +31,7 @@ import {
   type NotificationCategoryCacheEntry,
 } from './notification-view-model';
 import { replaceUrlQueryParams } from '@/lib/url-query-state';
+import { formatRelativeTime } from '@/lib/format-relative-time';
 
 const categories: Array<{ key: NotificationCategory; label: string; countKey?: string }> = [
   { key: 'all', label: 'All' },
@@ -64,6 +66,14 @@ function NotificationsPageContent() {
   const [error, setError] = useState<string | null>(null);
   const [markingAllRead, setMarkingAllRead] = useState(false);
   const [activeCategory, setActiveCategory] = useState<NotificationCategory>(initialCategory);
+  const [pushPermission, setPushPermission] = useState<NotificationPermission | 'unsupported'>(() => {
+    if (typeof window === 'undefined' || !('Notification' in window)) return 'unsupported';
+    return window.Notification.permission;
+  });
+  const [pushPromptDismissed, setPushPromptDismissed] = useState(() => {
+    if (typeof window === 'undefined') return true;
+    return window.localStorage.getItem('notifications-push-prompt-dismissed') === '1';
+  });
   const paginationController = useRef<AbortController | null>(null);
   const categoryCache = useRef(new Map<NotificationCategory, NotificationCategoryCacheEntry>());
 
@@ -232,71 +242,59 @@ function NotificationsPageContent() {
     }
   };
 
+  const handleEnablePushNotifications = async () => {
+    if (typeof window === 'undefined' || !('Notification' in window)) return;
+    try {
+      const permission = await window.Notification.requestPermission();
+      setPushPermission(permission);
+      if (permission === 'granted') {
+        toast.success('Notifications enabled', 'Browser notifications are enabled for this device.');
+      } else if (permission === 'denied') {
+        toast.info('Notifications blocked', 'You can re-enable browser notifications from your browser settings.');
+      }
+    } catch {
+      toast.error('Action Failed', 'Could not request browser notification permission.');
+    }
+  };
+
+  const dismissPushPrompt = () => {
+    setPushPromptDismissed(true);
+    if (typeof window !== 'undefined') {
+      window.localStorage.setItem('notifications-push-prompt-dismissed', '1');
+    }
+  };
+
   const getIconForType = (type: string) => {
     switch (type) {
       case 'issue_report_status':
-        return <div className="flex h-11 w-11 items-center justify-center rounded-full border border-violet-500/30 bg-violet-500/15 text-violet-300"><Bug className="h-5 w-5" /></div>;
+        return <Bug className="h-5 w-5" aria-hidden="true" />;
       case 'live_squad_match':
       case 'match_finished':
       case 'match_data_processed':
       case 'fantasy_points_calculated':
-        return <div className="flex h-11 w-11 items-center justify-center rounded-full border border-teal-500/30 bg-teal-500/15 text-teal-300"><Radio className="h-5 w-5" /></div>;
+        return <Radio className="h-5 w-5" aria-hidden="true" />;
       case 'gameweek_deadline':
       case 'lineup_deadline':
       case 'deadline_reminder':
       case 'deadline':
-        return (
-          <div className="flex h-11 w-11 items-center justify-center rounded-full border border-red-500/30 bg-red-500/15 text-red-300">
-            <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-          </div>
-        );
+        return <Clock className="h-5 w-5" aria-hidden="true" />;
       case 'price_change':
       case 'transfer_market':
       case 'wildcard_used':
-        return (
-          <div className="flex h-11 w-11 items-center justify-center rounded-full border border-amber-500/30 bg-amber-500/15 text-amber-300">
-            <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-          </div>
-        );
+        return <CircleDollarSign className="h-5 w-5" aria-hidden="true" />;
       case 'score_posted':
       case 'gameweek_result':
       case 'rank_movement':
-        return (
-          <div className="flex h-11 w-11 items-center justify-center rounded-full border border-emerald-500/30 bg-emerald-500/15 text-emerald-300">
-            <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"></path></svg>
-          </div>
-        );
+        return <TrendingUp className="h-5 w-5" aria-hidden="true" />;
       case 'league_activity':
       case 'league_result':
       case 'h2h_result':
-        return (
-          <div className="flex h-11 w-11 items-center justify-center rounded-full border border-cyan-500/30 bg-cyan-500/15 text-cyan-300">
-            <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 3h14a2 2 0 012 2v14l-4-3-4 3-4-3-4 3V5a2 2 0 012-2z"></path></svg>
-          </div>
-        );
+        return <Trophy className="h-5 w-5" aria-hidden="true" />;
       default:
-        return (
-          <div className="flex h-11 w-11 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--surface-raised)] text-[var(--text-secondary)]">
-            <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-          </div>
-        );
+        return <Info className="h-5 w-5" aria-hidden="true" />;
     }
   };
 
-  const timeAgo = (dateString: string) => {
-    const date = new Date(dateString);
-    const now = new Date();
-    const seconds = Math.floor((now.getTime() - date.getTime()) / 1000);
-
-    if (seconds < 60) return 'just now';
-    const minutes = Math.floor(seconds / 60);
-    if (minutes < 60) return `${minutes}m ago`;
-    const hours = Math.floor(minutes / 60);
-    if (hours < 24) return `${hours}h ago`;
-    const days = Math.floor(hours / 24);
-    if (days < 7) return `${days}d ago`;
-    return date.toLocaleDateString();
-  };
 
   const getActionHref = (type: string) => {
     switch (type) {
@@ -645,6 +643,19 @@ function NotificationsPageContent() {
         })}
       </div>
 
+      {!pushPromptDismissed && pushPermission === 'default' && (
+        <div className="mb-6 flex flex-col gap-3 rounded-xl border border-cyan-500/30 bg-cyan-500/10 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="text-sm font-semibold text-[var(--text-primary)]">Enable browser notifications</p>
+            <p className="text-xs text-[var(--text-secondary)]">Get deadline and match alerts even when this tab is closed.</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <button type="button" onClick={() => void handleEnablePushNotifications()} className="rounded-lg bg-cyan-500 px-3 py-2 text-xs font-semibold text-slate-950 transition hover:bg-cyan-400">Enable</button>
+            <button type="button" onClick={dismissPushPrompt} className="rounded-lg border border-[var(--border)] bg-[var(--surface-raised)] px-3 py-2 text-xs font-semibold text-[var(--text-secondary)] transition hover:text-[var(--text-primary)]">Not now</button>
+          </div>
+        </div>
+      )}
+
       {error && (
         <div role="alert" className="mb-6 rounded-xl border border-rose-500/40 bg-rose-500/10 px-4 py-3 text-sm text-rose-800 dark:text-rose-200">
           {error}
@@ -700,7 +711,7 @@ function NotificationsPageContent() {
                   const gameweekNumber = Number(notification.metadata?.gameweek_number);
 
                   return (
-                    <div key={notification.id} className={`flex flex-col gap-3 rounded-xl border border-l-4 bg-[var(--surface)] p-4 transition-colors md:flex-row md:items-start ${
+                    <div key={notification.id} className={`group flex flex-col gap-3 rounded-xl border border-l-4 bg-[var(--surface)] p-4 transition-colors md:flex-row md:items-start ${
                       notification.is_read
                         ? 'border-[var(--border)] border-l-[var(--border)] opacity-75'
                         : `${presentation.rowTone} hover:bg-[var(--surface-raised)]`
@@ -723,7 +734,20 @@ function NotificationsPageContent() {
                               </span>
                             )}
                           </div>
-                          <time title={dateTitle} dateTime={notification.created_at} className="text-xs text-[var(--text-muted)]">{timeAgo(notification.created_at)}</time>
+                          <div className="flex items-center gap-2">
+                            <time title={dateTitle} dateTime={notification.created_at} className="text-xs text-[var(--text-muted)]">{formatRelativeTime(notification.created_at)}</time>
+                            {!notification.is_read && (
+                              <button
+                                type="button"
+                                onClick={() => handleMarkAsRead(notification.id)}
+                                className="inline-flex items-center gap-1 rounded-lg border border-[var(--border)] bg-[var(--surface-raised)] px-2 py-1 text-[11px] font-semibold text-[var(--text-secondary)] transition hover:text-[var(--text-primary)] md:opacity-0 md:group-hover:opacity-100 md:focus-visible:opacity-100"
+                                aria-label={`Mark ${notification.title} as read`}
+                              >
+                                <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" />
+                                <span className="md:hidden lg:inline">Mark read</span>
+                              </button>
+                            )}
+                          </div>
                         </div>
 
                         <h3 className="text-base font-semibold text-[var(--text-primary)]">{notification.title}</h3>

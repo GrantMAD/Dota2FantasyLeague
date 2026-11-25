@@ -88,17 +88,21 @@ function SettingsContent() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [savingNotificationPreference, setSavingNotificationPreference] = useState(false);
+  const [notificationSaveStatus, setNotificationSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [themeSaving, setThemeSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [messageIsError, setMessageIsError] = useState(false);
 
   const [loadError, setLoadError] = useState<string | null>(null);
 
-  const loadProfile = useCallback(async () => {
-    setLoading(true);
-    setLoadError(null);
-    setMessage(null);
-    setMessageIsError(false);
+  const loadProfile = useCallback(async (options?: { silent?: boolean }) => {
+    const silent = options?.silent === true;
+    if (!silent) {
+      setLoading(true);
+      setLoadError(null);
+      setMessage(null);
+      setMessageIsError(false);
+    }
 
     try {
       const res = await fetchWithAuth('/api/user/profile');
@@ -128,7 +132,7 @@ function SettingsContent() {
         displayName: profile.display_name || profile.username || '',
         bio: profile.bio || '',
         avatarUrl: profile.avatar_url || null,
-        countryCode: profile.country_code || 'US',
+        countryCode: profile.country_code || '',
         timezone: profile.timezone || 'UTC',
         emailNotifications: profile.email_notifications ?? true,
         pushNotifications: profile.push_notifications ?? true,
@@ -143,73 +147,14 @@ function SettingsContent() {
       setMessageIsError(true);
       toast.error('Settings Error', 'Unable to load your profile settings. Please try again.');
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, [toast]);
 
   useEffect(() => {
-    let ignore = false;
-
-    async function loadInitialProfile() {
-      try {
-        const res = await fetchWithAuth('/api/user/profile');
-        if (!res.ok) throw new Error('Failed to load profile preferences');
-        const data = (await res.json()) as {
-          profile?: {
-            display_name?: string | null;
-            avatar_url?: string | null;
-            username?: string;
-            email?: string;
-            bio?: string | null;
-            country_code?: string | null;
-            timezone?: string | null;
-            email_notifications?: boolean | null;
-            push_notifications?: boolean | null;
-            live_squad_match_notifications?: boolean | null;
-            match_data_processed_notifications?: boolean | null;
-            fantasy_points_calculated_notifications?: boolean | null;
-          };
-        };
-        const profile = data.profile;
-        if (!profile) throw new Error('No profile record found');
-        if (!ignore) {
-          setFormData((current) => ({
-            ...current,
-            username: profile.username || '',
-            email: profile.email || '',
-            displayName: profile.display_name || profile.username || '',
-            bio: profile.bio || '',
-            avatarUrl: profile.avatar_url || null,
-            countryCode: profile.country_code || 'US',
-            timezone: profile.timezone || 'UTC',
-            emailNotifications: profile.email_notifications ?? true,
-            pushNotifications: profile.push_notifications ?? true,
-            liveSquadMatchNotifications: profile.live_squad_match_notifications ?? true,
-            matchDataProcessedNotifications: profile.match_data_processed_notifications ?? true,
-            fantasyPointsCalculatedNotifications: profile.fantasy_points_calculated_notifications ?? true,
-          }));
-        }
-      } catch (err: unknown) {
-        if (!ignore) {
-          const errMsg = err instanceof Error ? err.message : 'Unable to load profile preferences';
-          setLoadError(errMsg);
-          setMessage(errMsg);
-          setMessageIsError(true);
-          toast.error('Settings Error', 'Unable to load your profile settings. Please try again.');
-        }
-      } finally {
-        if (!ignore) {
-          setLoading(false);
-        }
-      }
-    }
-
-    void loadInitialProfile();
-
-    return () => {
-      ignore = true;
-    };
-  }, [toast]);
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional initial profile load
+    void loadProfile();
+  }, [loadProfile]);
 
   const changeTab = (tab: SettingsTab) => {
     setActiveTab(tab);
@@ -309,6 +254,7 @@ function SettingsContent() {
   ) => {
     setFormData((current) => ({ ...current, [key]: nextVal }));
     setSavingNotificationPreference(true);
+    setNotificationSaveStatus('saving');
 
     const preferenceFields = {
       pushNotifications: { field: 'push_notifications', label: 'Push alerts' },
@@ -334,9 +280,12 @@ function SettingsContent() {
       });
 
       if (!res.ok) throw new Error('Failed to save notification preference');
+      setNotificationSaveStatus('saved');
       toast.info('Notification Preference', `${preference.label} ${nextVal ? 'enabled' : 'disabled'}.`);
+      setTimeout(() => setNotificationSaveStatus((current) => current === 'saved' ? 'idle' : current), 2000);
     } catch (error: unknown) {
       setFormData((current) => ({ ...current, [key]: formData[key] }));
+      setNotificationSaveStatus('error');
       const errMsg = error instanceof Error ? error.message : 'Failed to save preference';
       toast.error('Save Failed', errMsg);
     } finally {
@@ -489,7 +438,7 @@ function SettingsContent() {
       <div className="grid min-w-0 gap-6 lg:grid-cols-[250px_minmax(0,1fr)]">
         {/* Sleek Vertical Tab Navigation */}
         <nav
-          className="h-fit min-w-0 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-2.5 shadow-sm space-y-1.5"
+          className="flex h-fit min-w-0 gap-2 overflow-x-auto rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-2.5 shadow-sm lg:block lg:space-y-1.5 lg:overflow-visible"
           aria-label="Settings sections"
         >
           {tabs.map((tab) => {
@@ -500,15 +449,15 @@ function SettingsContent() {
                 key={tab.key}
                 type="button"
                 onClick={() => changeTab(tab.key)}
-                className={`relative group w-full rounded-xl px-3.5 py-3 text-left transition-all duration-200 flex items-center gap-3.5 ${
+                className={`group relative flex shrink-0 items-center gap-3.5 rounded-xl px-3.5 py-3 text-left transition-all duration-200 lg:w-full ${
                   isActive
-                    ? 'bg-cyan-500/10 text-cyan-600 dark:text-cyan-300 font-bold shadow-xs'
+                    ? 'bg-cyan-500/10 text-cyan-600 font-bold shadow-xs dark:text-cyan-300'
                     : 'text-[var(--text-secondary)] hover:bg-[var(--surface-raised)] hover:text-[var(--text-primary)]'
                 }`}
               >
                 {/* Active Left-Edge Accent Indicator */}
                 <div
-                  className={`absolute left-0 top-2 bottom-2 w-1 rounded-r-full transition-all duration-200 ${
+                  className={`absolute left-0 top-2 bottom-2 hidden w-1 rounded-r-full transition-all duration-200 lg:block ${
                     isActive ? 'bg-gradient-to-b from-cyan-400 to-teal-500 opacity-100' : 'opacity-0'
                   }`}
                 />
@@ -990,7 +939,24 @@ function SettingsContent() {
           {activeTab === 'notifications' && (
             <div className="space-y-6">
               <div>
-                <h2 className="text-xl font-bold text-[var(--text-primary)]">Notification preferences</h2>
+                <div className="flex items-center gap-3">
+                  <h2 className="text-xl font-bold text-[var(--text-primary)]">Notification preferences</h2>
+                  {notificationSaveStatus === 'saving' && (
+                    <span className="inline-flex items-center gap-1.5 text-xs font-medium text-[var(--text-muted)]" role="status">
+                      <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-[var(--border)] border-t-cyan-500" aria-hidden="true" />
+                      Saving…
+                    </span>
+                  )}
+                  {notificationSaveStatus === 'saved' && (
+                    <span className="inline-flex items-center gap-1.5 text-xs font-medium text-emerald-600 dark:text-emerald-400" role="status">
+                      <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" />
+                      Saved
+                    </span>
+                  )}
+                  {notificationSaveStatus === 'error' && (
+                    <span className="text-xs font-medium text-rose-600 dark:text-rose-400" role="status">Save failed</span>
+                  )}
+                </div>
                 <p className="mt-1.5 text-sm leading-relaxed text-[var(--text-secondary)]">
                   Manage push delivery to registered mobile app devices. In-app Notification Center alerts are controlled separately.
                 </p>
@@ -1099,6 +1065,24 @@ function SettingsContent() {
                       className="inline-flex items-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--surface)] px-4.5 py-2.5 text-sm font-semibold text-[var(--text-primary)] transition hover:border-cyan-500 hover:text-cyan-500 shadow-xs"
                     >
                       <KeyRound className="h-4 w-4" /> Reset password
+                    </Link>
+                  </div>
+                </div>
+
+                <div className="rounded-2xl border border-rose-500/30 bg-rose-500/5 p-5">
+                  <div className="flex items-center gap-2">
+                    <AlertTriangle className="h-5 w-5 text-rose-600 dark:text-rose-400" aria-hidden="true" />
+                    <h3 className="text-base font-bold text-rose-700 dark:text-rose-300">Danger Zone</h3>
+                  </div>
+                  <p className="mt-2 text-sm text-[var(--text-secondary)]">
+                    Account deletion and irreversible account actions are not available in-app yet. If you need help with account removal or a sensitive security request, contact support so we can verify your identity.
+                  </p>
+                  <div className="mt-4">
+                    <Link
+                      href="/support"
+                      className="inline-flex items-center gap-2 rounded-xl border border-rose-500/40 bg-rose-500/10 px-4 py-2.5 text-sm font-semibold text-rose-700 transition hover:bg-rose-500/20 dark:text-rose-300"
+                    >
+                      Contact support
                     </Link>
                   </div>
                 </div>

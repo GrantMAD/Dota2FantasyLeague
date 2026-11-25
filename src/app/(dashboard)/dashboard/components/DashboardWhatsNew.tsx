@@ -92,22 +92,9 @@ export interface FeedGroupItem {
 
 export type FeedItem = FeedItemChild | FeedGroupItem;
 
-export function formatRelativeTime(value: string) {
-  const elapsedSeconds = Math.round((Date.now() - new Date(value).getTime()) / 1000);
-  const units: Array<[Intl.RelativeTimeFormatUnit, number]> = [
-    ['year', 60 * 60 * 24 * 365],
-    ['month', 60 * 60 * 24 * 30],
-    ['week', 60 * 60 * 24 * 7],
-    ['day', 60 * 60 * 24],
-    ['hour', 60 * 60],
-    ['minute', 60],
-  ];
-  const formatter = new Intl.RelativeTimeFormat(undefined, { numeric: 'auto' });
-  for (const [unit, seconds] of units) {
-    if (elapsedSeconds >= seconds) return formatter.format(-Math.floor(elapsedSeconds / seconds), unit);
-  }
-  return formatter.format(-elapsedSeconds, 'second');
-}
+import { formatRelativeTime } from '@/lib/format-relative-time';
+
+export { formatRelativeTime };
 
 export function getCategoryTheme(category: WhatsNewCategory) {
   switch (category) {

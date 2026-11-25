@@ -3,7 +3,7 @@
 import Image from 'next/image';
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Award, GitCompareArrows, LoaderCircle, X } from 'lucide-react';
+import { Award, GitCompareArrows, LoaderCircle, UserMinus, X } from 'lucide-react';
 import { fetchWithAuth } from '@/lib/fetch-with-auth';
 import type { FriendProfile, FriendProgress } from '@/types/friends';
 
@@ -46,15 +46,20 @@ export function FriendAvatar({
 export function FriendProgressModal({
   user,
   onClose,
+  isFollowing = false,
+  onUnfollow,
 }: {
   user: FriendProfile;
   onClose: () => void;
+  isFollowing?: boolean;
+  onUnfollow?: () => Promise<void> | void;
 }) {
   const router = useRouter();
   const [progress, setProgress] = useState<FriendProgress | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [compareLoading, setCompareLoading] = useState(false);
+  const [unfollowLoading, setUnfollowLoading] = useState(false);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
 
   const handleCompareWithMe = async () => {
@@ -84,6 +89,17 @@ export function FriendProgressModal({
       router.push('/players?view=my-squad');
     } finally {
       setCompareLoading(false);
+    }
+  };
+
+  const handleUnfollow = async () => {
+    if (!onUnfollow) return;
+    setUnfollowLoading(true);
+    try {
+      await onUnfollow();
+      onClose();
+    } finally {
+      setUnfollowLoading(false);
     }
   };
 
@@ -153,6 +169,17 @@ export function FriendProgressModal({
               {compareLoading ? <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden="true" /> : <GitCompareArrows className="h-4 w-4" aria-hidden="true" />}
               Compare with me
             </button>
+            {isFollowing && onUnfollow && (
+              <button
+                type="button"
+                onClick={() => void handleUnfollow()}
+                disabled={unfollowLoading}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-xs font-semibold text-rose-700 transition hover:bg-rose-500/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-400 disabled:cursor-not-allowed disabled:opacity-60 dark:text-rose-300"
+              >
+                {unfollowLoading ? <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden="true" /> : <UserMinus className="h-4 w-4" aria-hidden="true" />}
+                Unfollow
+              </button>
+            )}
             <button
               ref={closeButtonRef}
               type="button"

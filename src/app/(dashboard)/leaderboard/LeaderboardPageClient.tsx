@@ -89,9 +89,13 @@ export default function LeaderboardPageClient({ initialData }: LeaderboardPagePr
   const searchParams = useSearchParams();
   const initialPage = Number(searchParams.get('page'));
   const initialCountry = searchParams.get('country')?.toUpperCase() ?? '';
+  const initialSeason = searchParams.get('season') ?? '';
+  const initialGameweek = searchParams.get('gameweek') ?? '';
   const startsWithFilteredLeaderboard = (Number.isSafeInteger(initialPage) && initialPage > 1)
-    || /^[A-Z]{2}$/.test(initialCountry);
-   const [entries, setEntries] = useState<LeaderboardEntry[]>(initialData?.leaderboard ?? []);
+    || /^[A-Z]{2}$/.test(initialCountry)
+    || Boolean(initialSeason)
+    || Boolean(initialGameweek);
+  const [entries, setEntries] = useState<LeaderboardEntry[]>(initialData?.leaderboard ?? []);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [loading, setLoading] = useState(initialData === null || startsWithFilteredLeaderboard);
   const [error, setError] = useState<string | null>(null);
@@ -105,6 +109,8 @@ export default function LeaderboardPageClient({ initialData }: LeaderboardPagePr
   const [refreshing, setRefreshing] = useState(false);
   const [page, setPage] = useState(Number.isSafeInteger(initialPage) && initialPage > 0 ? Math.min(initialPage, 1000) : 1);
   const [countryFilter, setCountryFilter] = useState(/^[A-Z]{2}$/.test(initialCountry) ? initialCountry : '');
+  const [seasonFilter] = useState(initialSeason);
+  const [gameweekFilter] = useState(initialGameweek);
   const [selectedUser, setSelectedUser] = useState<SelectedManager | null>(null);
   const [managerDetails, setManagerDetails] = useState<ManagerDetails | null>(null);
   const [managerDetailsLoading, setManagerDetailsLoading] = useState(false);
@@ -120,8 +126,10 @@ export default function LeaderboardPageClient({ initialData }: LeaderboardPagePr
     replaceUrlQueryParams({
       country: countryFilter,
       page: page > 1 ? String(page) : null,
+      season: seasonFilter || null,
+      gameweek: gameweekFilter || null,
     });
-  }, [countryFilter, page]);
+  }, [countryFilter, page, seasonFilter, gameweekFilter]);
 
   useEffect(() => {
     async function fetchCountries() {
@@ -156,10 +164,12 @@ export default function LeaderboardPageClient({ initialData }: LeaderboardPagePr
     if (isBackgroundRefresh || initialData) setRefreshing(true);
     else setLoading(true);
     try {
-      let url = `/api/leaderboard?page=${page}&limit=50`;
-      if (countryFilter) url += `&country=${countryFilter}`;
+      const params = new URLSearchParams({ page: String(page), limit: '50' });
+      if (countryFilter) params.set('country', countryFilter);
+      if (seasonFilter) params.set('seasonId', seasonFilter);
+      if (gameweekFilter) params.set('gameweekId', gameweekFilter);
 
-      const res = await fetchWithAuth(url);
+      const res = await fetchWithAuth(`/api/leaderboard?${params.toString()}`);
       const data = await res.json() as {
         leaderboard?: LeaderboardEntry[];
         error?: string;
@@ -185,6 +195,8 @@ export default function LeaderboardPageClient({ initialData }: LeaderboardPagePr
   }, [
     page,
     countryFilter,
+    seasonFilter,
+    gameweekFilter,
     initialData,
     setRefreshing,
     setLoading,
@@ -197,7 +209,11 @@ export default function LeaderboardPageClient({ initialData }: LeaderboardPagePr
 
   const fetchCurrentUserPosition = useCallback(async () => {
     try {
-      const res = await fetchWithAuth('/api/leaderboard?currentUserOnly=true');
+      const params = new URLSearchParams({ currentUserOnly: 'true' });
+      if (countryFilter) params.set('country', countryFilter);
+      if (seasonFilter) params.set('seasonId', seasonFilter);
+      if (gameweekFilter) params.set('gameweekId', gameweekFilter);
+      const res = await fetchWithAuth(`/api/leaderboard?${params.toString()}`);
       const data = await res.json() as {
         currentUserId?: string | null;
         currentUserEntry?: LeaderboardEntry | null;
@@ -227,7 +243,7 @@ export default function LeaderboardPageClient({ initialData }: LeaderboardPagePr
       const message = err instanceof Error ? err.message : 'Failed to load your leaderboard position';
       setError(message);
     }
-  }, [setCurrentUserId, setEntries, setError]);
+  }, [countryFilter, seasonFilter, gameweekFilter, setCurrentUserId, setEntries, setError]);
 
   const loadManagerDetails = useCallback(async (fantasySeasonId: number) => {
     const requestId = ++managerRequestId.current;
@@ -282,7 +298,7 @@ export default function LeaderboardPageClient({ initialData }: LeaderboardPagePr
   useEffect(() => {
     let refreshTimeout: number | undefined;
     const initialLoad = window.setTimeout(() => {
-      if (initialData && !initialPositionLoaded.current && page === 1 && !countryFilter) {
+      if (initialData && !initialPositionLoaded.current && page === 1 && !countryFilter && !seasonFilter && !gameweekFilter) {
         initialPositionLoaded.current = true;
         void fetchCurrentUserPosition();
       } else {
@@ -320,7 +336,7 @@ export default function LeaderboardPageClient({ initialData }: LeaderboardPagePr
       if (refreshTimeout !== undefined) window.clearTimeout(refreshTimeout);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, [fetchCurrentUserPosition, fetchLeaderboard, initialData, page, countryFilter]);
+  }, [fetchCurrentUserPosition, fetchLeaderboard, initialData, page, countryFilter, seasonFilter, gameweekFilter]);
 
   const renderRankChange = (current: number, previous: number | null) => {
     if (!previous || current === previous) {
@@ -590,6 +606,13 @@ export default function LeaderboardPageClient({ initialData }: LeaderboardPagePr
                   {pointsToNextRank === null ? currentUserEntry.rank === 1 ? 'Top rank' : '—' : `${pointsToNextRank.toLocaleString()} pts`}
                 </p>
               </div>
+              <button
+                type="button"
+                onClick={() => document.querySelector<HTMLElement>('[data-tour="leaderboard-you-row"]')?.scrollIntoView({ behavior: 'smooth', block: 'center' })}
+                className="rounded-lg border border-teal-500/40 bg-teal-500/10 px-3 py-2 text-xs font-semibold text-teal-700 transition hover:bg-teal-500/20 dark:text-teal-300"
+              >
+                Jump to my rank
+              </button>
             </div>
           </div>
         </section>

@@ -28,6 +28,7 @@ import { LeagueHero } from './components/LeagueHero';
 import { LeagueFilters } from './components/LeagueFilters';
 import { LeagueCard } from './components/LeagueCard';
 import { LeagueActionModal } from './components/LeagueActionModal';
+import { formatRelativeTime } from '@/lib/format-relative-time';
 import { DataFreshnessBadge } from '@/components/DataFreshnessBadge';
 import { replaceUrlQueryParams } from '@/lib/url-query-state';
 
@@ -64,25 +65,6 @@ function isLeagueActivityEntry(value: unknown): value is LeagueActivityEntry {
     && activity.playersOut.every((player) => typeof player === 'string')
     && (activity.captain === null || typeof activity.captain === 'string')
     && (activity.viceCaptain === null || typeof activity.viceCaptain === 'string');
-}
-
-function formatRelativeTime(value: string): string {
-  const elapsedSeconds = Math.round((Date.now() - Date.parse(value)) / 1000);
-  const units: [Intl.RelativeTimeFormatUnit, number][] = [
-    ['year', 31_536_000],
-    ['month', 2_592_000],
-    ['week', 604_800],
-    ['day', 86_400],
-    ['hour', 3_600],
-    ['minute', 60],
-  ];
-  const relativeTime = new Intl.RelativeTimeFormat(undefined, { numeric: 'auto' });
-  for (const [unit, seconds] of units) {
-    if (Math.abs(elapsedSeconds) >= seconds) {
-      return relativeTime.format(-Math.round(elapsedSeconds / seconds), unit);
-    }
-  }
-  return relativeTime.format(-elapsedSeconds, 'second');
 }
 
 export default function LeaguesPage() {

@@ -28,6 +28,7 @@ import { fetchWithAuth } from '@/lib/fetch-with-auth';
 
 import type { FriendProfile, FriendActivity } from '@/types/friends';
 import { FriendAvatar, FriendProgressModal } from '@/components/friends/FriendProgressModal';
+import { formatRelativeTime } from '@/lib/format-relative-time';
 
 const THREE_DAYS_MS = 3 * 24 * 60 * 60 * 1000;
 
@@ -37,23 +38,6 @@ function displayName(user: Pick<FriendProfile, 'username' | 'display_name'>) {
 
 function formatPoints(value: number | string) {
   return Number(value).toLocaleString(undefined, { maximumFractionDigits: 1 });
-}
-
-function formatRelativeTime(value: string) {
-  const elapsedSeconds = Math.round((Date.now() - new Date(value).getTime()) / 1000);
-  const units: Array<[Intl.RelativeTimeFormatUnit, number]> = [
-    ['year', 60 * 60 * 24 * 365],
-    ['month', 60 * 60 * 24 * 30],
-    ['week', 60 * 60 * 24 * 7],
-    ['day', 60 * 60 * 24],
-    ['hour', 60 * 60],
-    ['minute', 60],
-  ];
-  const formatter = new Intl.RelativeTimeFormat(undefined, { numeric: 'auto' });
-  for (const [unit, seconds] of units) {
-    if (elapsedSeconds >= seconds) return formatter.format(-Math.floor(elapsedSeconds / seconds), unit);
-  }
-  return formatter.format(-elapsedSeconds, 'second');
 }
 
 function ActivityCard({
@@ -188,7 +172,7 @@ function ActivityCard({
           <time className="text-xs text-[var(--text-muted)] font-medium whitespace-nowrap" dateTime={activity.updated_at}>
             {formatRelativeTime(activity.updated_at)}
           </time>
-          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[var(--surface-muted)] text-[var(--text-muted)] transition-colors group-hover:bg-[var(--surface)] group-hover:text-[var(--text-primary)]">
+          <div className="flex h-11 w-11 min-h-[44px] min-w-[44px] items-center justify-center rounded-lg bg-[var(--surface-muted)] text-[var(--text-muted)] transition-colors group-hover:bg-[var(--surface)] group-hover:text-[var(--text-primary)]">
             {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
           </div>
         </div>
@@ -410,6 +394,11 @@ export default function FriendsPageClient() {
   };
 
   const followingIds = useMemo(() => new Set(following.map((user) => user.id)), [following]);
+  const recentlyActiveFriendIds = useMemo(
+    // eslint-disable-next-line react-hooks/purity -- recency badge uses current time as a best-effort heuristic
+    () => new Set(activities.filter((activity) => Date.now() - new Date(activity.updated_at).getTime() <= THREE_DAYS_MS).map((activity) => activity.user_id)),
+    [activities],
+  );
   const normalizedSearch = search.trim();
 
   const [feedTimestamp, setFeedTimestamp] = useState<number | null>(null);
@@ -785,10 +774,10 @@ export default function FriendsPageClient() {
                 }}
                 placeholder="Search username or name"
                 autoComplete="off"
-                className="w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] py-2.5 pl-10 pr-3 text-sm text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)] focus:border-[var(--accent-primary)]"
-              />
+                className="w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] py-2.5 pl-10 pr-10 text-sm text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)] focus:border-[var(--accent-primary)]" />
+              {searching && <LoaderCircle className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-[var(--text-muted)]" aria-hidden="true" />}
             </div>
-            {searching && <p className="mt-3 text-sm text-[var(--text-muted)]">Searching…</p>}
+            {searching && <p className="mt-3 text-sm text-[var(--text-muted)]" role="status">Searching…</p>}
             {!searching && normalizedSearch.replace(/\s/g, '').length >= 2 && results.length === 0 && (
               <p className="mt-3 text-sm text-[var(--text-muted)]">No managers found.</p>
             )}
@@ -854,35 +843,43 @@ export default function FriendsPageClient() {
               <p className="mt-4 text-sm text-[var(--text-muted)]">Loading…</p>
             ) : following.length ? (
               <ul className="mt-3 divide-y divide-[var(--border)]">
-                {following.map((user) => (
-                  <li key={user.id} className="group flex items-center gap-3 py-3 rounded-xl px-1.5 transition-colors hover:bg-[var(--surface)]">
-                    <button
-                      type="button"
-                      onClick={() => setSelectedManager(user)}
-                      className="flex min-w-0 flex-1 cursor-pointer items-center gap-3 text-left rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]"
-                      aria-label={`View ${displayName(user)} progress`}
-                    >
-                      <FriendAvatar user={user} />
-                      <span className="min-w-0">
-                        <span className="block truncate text-sm font-semibold text-[var(--text-primary)] group-hover:text-[var(--accent-primary)] transition-colors">
-                          {displayName(user)}
+                {following.map((user) => {
+                  const isInactive = !loading && !recentlyActiveFriendIds.has(user.id);
+                  return (
+                    <li key={user.id} className={`group flex items-center gap-3 rounded-xl px-1.5 py-3 transition-colors hover:bg-[var(--surface)] ${isInactive ? 'opacity-75' : ''}`}>
+                      <button
+                        type="button"
+                        onClick={() => setSelectedManager(user)}
+                        className="flex min-w-0 flex-1 cursor-pointer items-center gap-3 text-left rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]"
+                        aria-label={`View ${displayName(user)} progress`}
+                      >
+                        <FriendAvatar user={user} />
+                        <span className="min-w-0">
+                          <span className="block truncate text-sm font-semibold text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-primary)]">
+                            {displayName(user)}
+                          </span>
+                          <span className="flex items-center gap-2 truncate text-xs text-[var(--text-muted)]">
+                            @{user.username}
+                            {isInactive && (
+                              <span className="inline-flex shrink-0 rounded-full border border-[var(--border)] bg-[var(--surface-muted)] px-1.5 py-0.5 text-[10px] font-medium text-[var(--text-muted)]">Inactive</span>
+                            )}
+                          </span>
                         </span>
-                        <span className="block truncate text-xs text-[var(--text-muted)]">@{user.username}</span>
-                      </span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => void toggleFollow(user)}
-                      disabled={workingUserId === user.id}
-                      aria-label={`Unfollow ${displayName(user)}`}
-                      className="rounded-lg p-2 text-[var(--text-muted)] transition hover:bg-rose-500/10 hover:text-rose-600 disabled:opacity-60 dark:hover:text-rose-400"
-                    >
-                      {workingUserId === user.id
-                        ? <LoaderCircle className="h-4 w-4 animate-spin" />
-                        : <UserMinus className="h-4 w-4" />}
-                    </button>
-                  </li>
-                ))}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => void toggleFollow(user)}
+                        disabled={workingUserId === user.id}
+                        aria-label={`Unfollow ${displayName(user)}`}
+                        className="rounded-lg p-2 text-[var(--text-muted)] transition hover:bg-rose-500/10 hover:text-rose-600 disabled:opacity-60 dark:hover:text-rose-400"
+                      >
+                        {workingUserId === user.id
+                          ? <LoaderCircle className="h-4 w-4 animate-spin" />
+                          : <UserMinus className="h-4 w-4" />}
+                      </button>
+                    </li>
+                  );
+                })}
               </ul>
             ) : (
               <div className="mt-3 rounded-xl border border-dashed border-[var(--border)] bg-[var(--surface)] px-3 py-5 text-center">
@@ -952,9 +949,11 @@ export default function FriendsPageClient() {
           </section>
         </div>
       )}
-      {selectedManager && (
+            {selectedManager && (
         <FriendProgressModal
           user={selectedManager}
+          isFollowing={followingIds.has(selectedManager.id)}
+          onUnfollow={async () => { await toggleFollow(selectedManager); }}
           onClose={() => setSelectedManager(null)}
         />
       )}

@@ -3,26 +3,13 @@
 import { useCallback, useEffect, useState, useRef } from 'react';
 import { useAccessibleDialog } from './use-accessible-dialog';
 import { useDataFreshness } from '@/context/DataFreshnessContext';
+import { formatRelativeTime } from '@/lib/format-relative-time';
 
 interface DataFreshnessBadgeProps {
   page: string;
   className?: string;
   label?: string;
   variant?: 'badge' | 'detailed' | 'both';
-}
-
-function formatRelativeTime(dateString: string | null): string {
-  if (!dateString) return 'Pending sync';
-  const timestamp = new Date(dateString).getTime();
-  const diffSec = Math.floor((Date.now() - timestamp) / 1000);
-
-  if (diffSec < 60) return 'just now';
-  const diffMin = Math.floor(diffSec / 60);
-  if (diffMin < 60) return `${diffMin}m ago`;
-  const diffHr = Math.floor(diffMin / 60);
-  if (diffHr < 24) return `${diffHr}h ago`;
-  const diffDays = Math.floor(diffHr / 24);
-  return `${diffDays}d ago`;
 }
 
 function formatCountdown(targetString: string | null): string {
@@ -102,7 +89,7 @@ export function DataFreshnessBadge({
     );
   }
 
-  const lastUpdatedText = formatRelativeTime(data?.lastUpdated ?? null);
+  const lastUpdatedText = formatRelativeTime(data?.lastUpdated ?? null, { fallback: 'Pending sync' });
   const nextUpdateText = formatCountdown(data?.nextUpdate ?? null);
   const userTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'local time';
   const nextJobTitle = data?.jobs?.find((job) => job.jobName === data.jobName)?.title ?? data?.jobName;
@@ -292,7 +279,7 @@ export function DataFreshnessBadge({
 
                     <div className="data-freshness-job-footer flex items-center justify-between text-[11px] pt-1.5 border-t">
                       <span>
-                        Last: <strong className="data-freshness-updated-value">{formatRelativeTime(job.lastRun)}</strong>
+                        Last: <strong className="data-freshness-updated-value">{formatRelativeTime(job.lastRun, { fallback: 'Pending sync' })}</strong>
                       </span>
                       <span>
                         Next: <strong className="data-freshness-next-value">{formatCountdown(job.nextRun)}</strong>
