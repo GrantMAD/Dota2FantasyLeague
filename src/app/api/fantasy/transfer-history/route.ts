@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verifyAuth } from '@/lib/auth-utils';
 import { supabaseServer } from '@/lib/supabase';
 import { getOrCreateFantasySeason } from '@/lib/fantasy-season';
-import { buildTransferHistoryAnalytics, type PlayerGameweekPrice, type PlayerGameweekScore, type TransferAnalyticsRecord, type TransferGameweek, type TransferMember } from '@/lib/transfer-history-analytics';
+import { buildTransferHistoryAnalytics, type PlayerGameweekPrice, type PlayerGameweekScore, type PlayerTimestampPrice, type TransferAnalyticsRecord, type TransferGameweek, type TransferMember } from '@/lib/transfer-history-analytics';
 import { withApiTelemetry } from '@/lib/api-telemetry';
 
 
@@ -212,6 +212,10 @@ async function getHandler(request: NextRequest) {
       transfer.moves.flatMap((move) => [move.playerOutId, move.playerInId])
         .filter((id): id is number => id !== null)
     ))];
+    const outgoingPlayerIds = [...new Set(rawTransfers.flatMap((transfer) =>
+      transfer.moves.map((move) => move.playerOutId)
+        .filter((id): id is number => id !== null)
+    ))];
     const allGameweekIds = gameweeks.map((gameweek) => gameweek.id);
     const historicalCurrentSeasonMemberIds = [...new Set(
       members
@@ -222,7 +226,7 @@ async function getHandler(request: NextRequest) {
       .filter((gameweek) => gameweek.seasonId === currentFantasySeason?.season_id)
       .map((gameweek) => gameweek.id);
 
-    const [performanceResult, priceResult] = await Promise.all([
+    const [performanceResult, priceResult, sellPriceResult] = await Promise.all([
       historicalPlayerIds.length > 0 && allGameweekIds.length > 0
         ? supabase.from('player_performances')
             .select('player_id, gameweek_id, fantasy_points_breakdown(total_points)')
@@ -236,9 +240,16 @@ async function getHandler(request: NextRequest) {
             .in('player_id', historicalCurrentSeasonMemberIds)
             .in('gameweek_id', currentSeasonWeekIds)
         : Promise.resolve({ data: [], error: null }),
+      outgoingPlayerIds.length > 0 && allGameweekIds.length > 0
+        ? supabase.from('player_prices')
+            .select('player_id, season_id, gameweek_id, price')
+            .in('player_id', outgoingPlayerIds)
+            .in('gameweek_id', allGameweekIds)
+        : Promise.resolve({ data: [], error: null }),
     ]);
     if (performanceResult.error) throw new Error(`Failed to load transfer performance details: ${performanceResult.error.message}`);
     if (priceResult.error) throw new Error(`Failed to load historical squad prices: ${priceResult.error.message}`);
+    if (sellPriceResult.error) throw new Error(`Failed to load outgoing player sell prices: ${sellPriceResult.error.message}`);
 
     const scores: PlayerGameweekScore[] = ((performanceResult.data ?? []) as PerformanceScoreRow[]).map((row) => {
       const breakdown = Array.isArray(row.fantasy_points_breakdown)
@@ -259,6 +270,19 @@ async function getHandler(request: NextRequest) {
       gameweekId: Number(row.gameweek_id),
       price: Number(row.price),
     }));
+    const gameweekById = new Map(gameweeks.map((gameweek) => [gameweek.id, gameweek]));
+    const sellPrices: PlayerTimestampPrice[] = ((sellPriceResult.data ?? []) as Array<{
+      player_id: number;
+      season_id: number;
+      gameweek_id: number;
+      price: number;
+    }>).map((row) => ({
+      playerId: Number(row.player_id),
+      seasonId: Number(row.season_id),
+      gameweekId: Number(row.gameweek_id),
+      gameweekEndDate: gameweekById.get(Number(row.gameweek_id))?.endDate ?? null,
+      price: Number(row.price),
+    }));
 
     const analytics = buildTransferHistoryAnalytics({
       transfers: rawTransfers,
@@ -266,6 +290,7 @@ async function getHandler(request: NextRequest) {
       gameweeks,
       scores,
       prices,
+      sellPrices,
       currentFantasySeasonId: currentFantasySeason?.id ?? null,
       currentSeasonId: currentFantasySeason?.season_id ?? null,
     });

@@ -537,7 +537,7 @@ export default function SquadsPage() {
               }`}>
                 {transferAnalytics.netBudgetChange === null
                   ? 'Unavailable'
-                  : `${transferAnalytics.netBudgetChange > 0 ? '+$' : transferAnalytics.netBudgetChange < 0 ? '-$' : '$'}${Math.abs(transferAnalytics.netBudgetChange).toFixed(1)}M`}
+                  : `${transferAnalytics.netBudgetChange > 0 ? '+$' : transferAnalytics.netBudgetChange < 0 ? '-$' : '$'}${Math.abs(transferAnalytics.netBudgetChange).toFixed(2)}M`}
               </span>
               <p className="mt-1 text-xs text-[var(--text-muted)]">
                 {transferAnalytics.totalTransactions === 0
@@ -693,7 +693,7 @@ export default function SquadsPage() {
                             <span className="rounded-md border border-[var(--border)] bg-[var(--surface)] px-2.5 py-0.5 text-xs font-medium text-[var(--text-secondary)]">
                               {transfer.budgetImpact === null
                                 ? 'Budget impact unavailable'
-                                : `Budget ${transfer.budgetImpact > 0 ? '+$' : transfer.budgetImpact < 0 ? '-$' : '$'}${Math.abs(transfer.budgetImpact).toFixed(1)}M`}
+                                : `Budget ${transfer.budgetImpact > 0 ? '+$' : transfer.budgetImpact < 0 ? '-$' : '$'}${Math.abs(transfer.budgetImpact).toFixed(2)}M`}
                             </span>
                           </div>
                         </div>

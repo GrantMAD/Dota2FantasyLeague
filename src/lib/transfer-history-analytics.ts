@@ -26,6 +26,15 @@ export interface PlayerGameweekPrice {
   price: number;
 }
 
+export interface PlayerTimestampPrice {
+  playerId: number;
+  /** ISO timestamp of the gameweek this price belongs to (gameweek end_date or deadline). */
+  gameweekEndDate: string | null;
+  price: number;
+  seasonId?: number;
+  gameweekId?: number;
+}
+
 export interface TransferAnalyticsMove {
   playerOutId: number | null;
   playerInId: number | null;
@@ -176,19 +185,58 @@ export function buildTransferHistoryAnalytics(input: {
   gameweeks: TransferGameweek[];
   scores: PlayerGameweekScore[];
   prices: PlayerGameweekPrice[];
+  /** Market sell prices keyed by playerId+gameweekEndDate, used for outgoing player sell value. */
+  sellPrices?: PlayerTimestampPrice[];
   currentFantasySeasonId: number | null;
   currentSeasonId: number | null;
 }): TransferHistoryAnalytics {
   const scoreByPlayerAndGameweek = createScoreMap(input.scores);
+  const sellPrices = input.sellPrices ?? [];
+
+  /**
+   * Find the most recent sell price for a player at or before the transfer timestamp.
+   * Returns null if no eligible price record exists so callers can fall back to membership cost.
+   */
+  function sellPriceAt(
+    playerId: number | null,
+    seasonId: number | null,
+    gameweekId: number | null,
+    transferredAt: string,
+  ): number | null {
+    if (playerId === null) return null;
+    const transferTime = timestamp(transferredAt);
+    if (transferTime === null) return null;
+    let best: PlayerTimestampPrice | null = null;
+    let bestTime: number | null = null;
+    for (const p of sellPrices) {
+      if (p.playerId !== playerId) continue;
+      if (seasonId !== null && p.seasonId !== undefined && p.seasonId !== seasonId) continue;
+      const gwEnd = timestamp(p.gameweekEndDate);
+      if (gwEnd !== null) {
+        if (gwEnd > transferTime) continue;
+      } else if (gameweekId === null || p.gameweekId === undefined || p.gameweekId >= gameweekId) {
+        continue;
+      }
+      const isBetter =
+        best === null ||
+        (gwEnd !== null && bestTime !== null && gwEnd > bestTime) ||
+        (gwEnd !== null && bestTime === null) ||
+        (gwEnd === bestTime && (p.gameweekId ?? -1) > (best.gameweekId ?? -1));
+      if (isBetter) {
+        best = p;
+        bestTime = gwEnd;
+      }
+    }
+    return best ? toFiniteNumber(best.price) : null;
+  }
+
   const transfers = input.transfers.map((transfer) => {
     const moves = transfer.moves.map((move) => {
-      const outCost = membershipCost(
-        input.members,
-        transfer.fantasySeasonId,
-        move.playerOutId,
-        transfer.createdAt,
-        'removed',
-      );
+      // Sell value: market price of outgoing player at time of transfer
+      const outCost = sellPriceAt(move.playerOutId, transfer.seasonId, transfer.gameweekId, transfer.createdAt)
+        // Fall back to acquisition cost if no price record found
+        ?? membershipCost(input.members, transfer.fantasySeasonId, move.playerOutId, transfer.createdAt, 'removed');
+      // Buy price: what was paid for incoming player (stored in fantasy_squad_members.cost)
       const inCost = membershipCost(
         input.members,
         transfer.fantasySeasonId,
