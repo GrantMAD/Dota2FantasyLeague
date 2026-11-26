@@ -6,6 +6,7 @@ import { useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 import { Crown, Medal, RefreshCw, Star } from 'lucide-react';
 import { DataFreshnessBadge } from '@/components/DataFreshnessBadge';
+import { useAccessibleDialog } from '@/components/use-accessible-dialog';
 import type { LeaderboardData } from '@/lib/leaderboard-data';
 import { canOptimizeImage } from '@/lib/optimized-image';
 import { replaceUrlQueryParams } from '@/lib/url-query-state';
@@ -294,6 +295,10 @@ export default function LeaderboardPageClient({ initialData }: LeaderboardPagePr
     setManagerDetailsError(null);
     setManagerDetailsLoading(false);
   };
+  const managerDialogRef = useAccessibleDialog<HTMLDivElement>({
+    open: selectedUser !== null,
+    onClose: closeManagerDetails,
+  });
 
   useEffect(() => {
     let refreshTimeout: number | undefined;
@@ -806,9 +811,11 @@ export default function LeaderboardPageClient({ initialData }: LeaderboardPagePr
           onClick={closeManagerDetails}
         >
           <div
+            ref={managerDialogRef}
             role="dialog"
             aria-modal="true"
             aria-labelledby="leaderboard-manager-title"
+            tabIndex={-1}
             className="relative max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-6 shadow-2xl no-scrollbar"
             onClick={(event) => event.stopPropagation()}
           >

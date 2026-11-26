@@ -28,6 +28,7 @@ import { fetchWithAuth } from '@/lib/fetch-with-auth';
 
 import type { FriendProfile, FriendActivity } from '@/types/friends';
 import { FriendAvatar, FriendProgressModal } from '@/components/friends/FriendProgressModal';
+import { useAccessibleDialog } from '@/components/use-accessible-dialog';
 import { formatRelativeTime } from '@/lib/format-relative-time';
 
 const THREE_DAYS_MS = 3 * 24 * 60 * 60 * 1000;
@@ -378,6 +379,12 @@ export default function FriendsPageClient() {
   const [error, setError] = useState<string | null>(null);
   const [selectedManager, setSelectedManager] = useState<FriendProfile | null>(null);
   const [followPromptManager, setFollowPromptManager] = useState<FriendProfile | null>(null);
+  const followPromptCancelRef = useRef<HTMLButtonElement>(null);
+  const followPromptDialogRef = useAccessibleDialog<HTMLElement>({
+    open: followPromptManager !== null,
+    onClose: () => setFollowPromptManager(null),
+    initialFocusRef: followPromptCancelRef,
+  });
 
   const scrolledRef = useRef(false);
 
@@ -907,9 +914,11 @@ export default function FriendsPageClient() {
           }}
         >
           <section
+            ref={followPromptDialogRef}
             role="dialog"
             aria-modal="true"
             aria-labelledby="follow-manager-prompt-title"
+            tabIndex={-1}
             className="w-full max-w-md rounded-2xl border border-[var(--border)] bg-[var(--surface-raised)] p-6 shadow-2xl"
           >
             <div className="flex items-center gap-3">
@@ -929,6 +938,7 @@ export default function FriendsPageClient() {
             ) : null}
             <div className="mt-6 flex justify-end gap-3">
               <button
+                ref={followPromptCancelRef}
                 type="button"
                 disabled={workingUserId === followPromptManager.id}
                 onClick={() => setFollowPromptManager(null)}

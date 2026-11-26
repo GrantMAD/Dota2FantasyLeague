@@ -1,8 +1,9 @@
 ﻿'use client';
 
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { ArrowLeft, ArrowRight, X } from 'lucide-react';
+import { useAccessibleDialog } from '@/components/use-accessible-dialog';
 
 type GuideContent = { title: string; steps: string[] };
 type TargetRect = { top: number; left: number; width: number; height: number; stepIndex: number };
@@ -202,6 +203,7 @@ export function PageGuideOverlay() {
   const [target, setTarget] = useState<TargetRect | null>(null);
   const [isSettled, setIsSettled] = useState(false);
   const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     if (typeof window === 'undefined' || !window.matchMedia) return;
@@ -221,6 +223,11 @@ export function PageGuideOverlay() {
     const query = params.toString();
     router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
   }, [pathname, router, searchParams]);
+  const dialogRef = useAccessibleDialog<HTMLDivElement>({
+    open: isOpen && !!content && isSettled && target?.stepIndex === stepIndex,
+    onClose: closeGuide,
+    initialFocusRef: closeButtonRef,
+  });
 
   useEffect(() => {
     if (!isOpen || !content) return;
@@ -351,17 +358,6 @@ export function PageGuideOverlay() {
     };
   }, [isOpen, pathname, content, stepIndex]);
 
-  useEffect(() => {
-    if (!isOpen) return;
-    const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        closeGuide();
-      }
-    };
-    document.addEventListener('keydown', closeOnEscape);
-    return () => document.removeEventListener('keydown', closeOnEscape);
-  }, [isOpen, closeGuide]);
-
   if (!isOpen || !content) return null;
 
   // While aligning or waiting for the element to stabilize, do not show any premature highlight
@@ -401,7 +397,7 @@ export function PageGuideOverlay() {
   }
 
   return (
-    <div className="fixed inset-0 z-100" role="dialog" aria-modal="true" aria-labelledby="page-guide-title">
+    <div ref={dialogRef} tabIndex={-1} className="fixed inset-0 z-100" role="dialog" aria-modal="true" aria-labelledby="page-guide-title">
       <div className="absolute inset-0 bg-slate-950/65" />
       {activeTarget && (
         <div
@@ -447,6 +443,7 @@ export function PageGuideOverlay() {
             ))}
           </div>
           <button
+            ref={closeButtonRef}
             type="button"
             onClick={closeGuide}
             aria-label="Close page guide"

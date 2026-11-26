@@ -112,7 +112,10 @@ export function SquadPlayerCard({
         tabIndex={0}
         onClick={() => onOpenDetails(player.id)}
         onKeyDown={(e) => {
-          if (e.key === 'Enter' || e.key === ' ') onOpenDetails(player.id);
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            onOpenDetails(player.id);
+          }
         }}
         className="group flex cursor-pointer items-center justify-between rounded-xl border border-[var(--border)] bg-[var(--surface-raised)] px-4 py-2.5 transition hover:border-teal-500/50 hover:bg-[var(--surface-muted)] focus:outline-none focus:ring-2 focus:ring-teal-400"
       >
@@ -189,7 +192,10 @@ export function SquadPlayerCard({
       tabIndex={0}
       onClick={() => onOpenDetails(player.id)}
       onKeyDown={(e) => {
-        if (e.key === 'Enter' || e.key === ' ') onOpenDetails(player.id);
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onOpenDetails(player.id);
+        }
       }}
       className="group relative flex min-h-24 flex-1 cursor-pointer items-center justify-between rounded-2xl border border-[var(--border)] bg-[var(--surface-raised)] p-4 shadow-sm transition hover:-translate-y-0.5 hover:border-teal-500/60 hover:bg-[var(--surface-muted)] focus:outline-none focus:ring-2 focus:ring-teal-400"
     >

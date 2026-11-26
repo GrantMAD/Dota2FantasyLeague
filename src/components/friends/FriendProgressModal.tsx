@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Award, GitCompareArrows, LoaderCircle, UserMinus, X } from 'lucide-react';
 import { fetchWithAuth } from '@/lib/fetch-with-auth';
+import { useAccessibleDialog } from '@/components/use-accessible-dialog';
 import type { FriendProfile, FriendProgress } from '@/types/friends';
 
 function displayName(user: Pick<FriendProfile, 'username' | 'display_name'>) {
@@ -61,6 +62,11 @@ export function FriendProgressModal({
   const [compareLoading, setCompareLoading] = useState(false);
   const [unfollowLoading, setUnfollowLoading] = useState(false);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const dialogRef = useAccessibleDialog<HTMLElement>({
+    open: true,
+    onClose,
+    initialFocusRef: closeButtonRef,
+  });
 
   const handleCompareWithMe = async () => {
     setCompareLoading(true);
@@ -126,15 +132,6 @@ export function FriendProgressModal({
     return () => controller.abort();
   }, [user.id]);
 
-  useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onClose();
-    };
-    closeButtonRef.current?.focus();
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [onClose]);
-
   return (
     <div
       className="fixed inset-0 z-[120] flex items-start justify-center overflow-y-auto bg-slate-950/75 p-4 py-8 backdrop-blur-sm sm:items-center animate-modal-backdrop"
@@ -143,9 +140,11 @@ export function FriendProgressModal({
       }}
     >
       <section
+        ref={dialogRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby="friend-progress-title"
+        tabIndex={-1}
         className="animate-modal-content my-auto max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-[var(--border)] bg-[var(--surface-raised)] p-5 shadow-2xl sm:p-7"
       >
         <header className="mb-5 flex items-start justify-between gap-4">

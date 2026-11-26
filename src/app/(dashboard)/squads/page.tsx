@@ -18,6 +18,7 @@ import {
 import Link from 'next/link';
 import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { PageSkeleton } from '@/components/PageSkeleton';
+import { useAccessibleDialog } from '@/components/use-accessible-dialog';
 import { fetchWithAuth } from '@/lib/fetch-with-auth';
 import { buildOwnedSquadRoster, type OwnedSquadPlayer } from '@/lib/squad-roster';
 import { canOptimizeImage } from '@/lib/optimized-image';
@@ -76,6 +77,10 @@ export default function SquadsPage() {
   const [gameweek, setGameweek] = useState<Gameweek | null>(null);
   const [budget, setBudget] = useState<number>(0);
   const [selectedPlayer, setSelectedPlayer] = useState<PlayerDetails | null>(null);
+  const playerDialogRef = useAccessibleDialog<HTMLDivElement>({
+    open: selectedPlayer !== null,
+    onClose: () => setSelectedPlayer(null),
+  });
   const [playerLoading, setPlayerLoading] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -139,14 +144,6 @@ export default function SquadsPage() {
       }
     }
     fetchSquad();
-  }, []);
-
-  useEffect(() => {
-    const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setSelectedPlayer(null);
-    };
-    document.addEventListener('keydown', closeOnEscape);
-    return () => document.removeEventListener('keydown', closeOnEscape);
   }, []);
 
   const openPlayerDetails = async (playerId: number) => {
@@ -1187,10 +1184,12 @@ export default function SquadsPage() {
       {/* Player details modal */}
       {selectedPlayer && (
         <div
+          ref={playerDialogRef}
           className="fixed inset-0 z-100 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
           role="dialog"
           aria-modal="true"
           aria-labelledby="squad-player-title"
+          tabIndex={-1}
           onClick={() => setSelectedPlayer(null)}
         >
           <div

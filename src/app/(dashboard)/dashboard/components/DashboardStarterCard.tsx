@@ -187,11 +187,14 @@ export function DashboardStarterCard({ player, onOpenPlayer, index }: DashboardS
         >
           {/* GW Points row */}
           <div
+            aria-live="polite"
+            aria-atomic="true"
             className={`flex items-center justify-between gap-2 px-2.5 py-2 transition-colors ${
               isScorePulsing ? 'animate-score-pulse' : ''
             }`}
             style={{ background: isScorePulsing ? undefined : 'var(--surface-muted)' }}
           >
+            <span className="sr-only">{displayName} gameweek points</span>
             <span className="text-[9px] font-medium uppercase tracking-wide leading-none shrink-0" style={{ color: 'var(--text-muted)' }}>GW Pts</span>
             {player.gw_points != null ? (
               <span

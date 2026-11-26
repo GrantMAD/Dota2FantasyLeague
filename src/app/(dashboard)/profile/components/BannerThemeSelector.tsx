@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Palette, Check, Sparkles } from 'lucide-react';
+import { useAccessibleDialog } from '@/components/use-accessible-dialog';
 import { BANNER_THEMES, type BannerTheme, type BannerThemeId } from './bannerThemes';
 
 interface BannerThemeSelectorProps {
@@ -11,6 +12,12 @@ interface BannerThemeSelectorProps {
 
 export function BannerThemeSelector({ currentTheme, onSelectTheme }: BannerThemeSelectorProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const dialogRef = useAccessibleDialog<HTMLDivElement>({
+    open: isOpen,
+    onClose: () => setIsOpen(false),
+    initialFocusRef: closeButtonRef,
+  });
 
   return (
     <div className="relative">
@@ -33,8 +40,11 @@ export function BannerThemeSelector({ currentTheme, onSelectTheme }: BannerTheme
             aria-hidden="true"
           />
           <div
+            ref={dialogRef}
             role="dialog"
+            aria-modal="true"
             aria-label="Choose Banner Theme"
+            tabIndex={-1}
             className="absolute right-0 top-full z-50 mt-2 w-80 max-w-[90vw] rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3.5 shadow-2xl backdrop-blur-xl sm:w-96"
           >
             <div className="mb-3 flex items-center justify-between border-b border-[var(--border)] pb-2">
@@ -43,6 +53,7 @@ export function BannerThemeSelector({ currentTheme, onSelectTheme }: BannerTheme
                 <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--text-primary)]">Choose Hero Banner Theme</h3>
               </div>
               <button
+                ref={closeButtonRef}
                 type="button"
                 onClick={() => setIsOpen(false)}
                 className="text-xs text-[var(--text-secondary)] transition hover:text-[var(--text-primary)]"

@@ -3,6 +3,7 @@ import { supabaseServer } from '@/lib/supabase';
 import { createErrorResponse, verifyAdminAuth } from '@/lib/auth-utils';
 import { withApiTelemetry } from '@/lib/api-telemetry';
 
+const PUBLIC_CACHE_HEADERS = { 'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=30' };
 
 /**
  * GET /api/teams - Fetch all professional teams
@@ -30,7 +31,10 @@ async function getHandler(request: NextRequest) {
       );
     }
     
-    return NextResponse.json({ data, count: data?.length || 0 });
+    return NextResponse.json(
+      { data, count: data?.length || 0 },
+      { headers: PUBLIC_CACHE_HEADERS },
+    );
   } catch (error) {
     return NextResponse.json(
       { error: 'Internal server error', details: String(error) },

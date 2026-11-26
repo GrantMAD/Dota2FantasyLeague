@@ -5,11 +5,25 @@ import type { NextRequest } from 'next/server';
  * Middleware for checking authentication on protected routes
  */
 export function proxy(request: NextRequest) {
-  // List of protected routes that require authentication
-  const protectedRoutes = ['/dashboard', '/squads', '/lineups', '/leagues', '/account'];
-  
-  const isProtectedRoute = protectedRoutes.some((route) =>
-    request.nextUrl.pathname.startsWith(route)
+  const protectedRoutes = [
+    '/dashboard',
+    '/squads',
+    '/lineups',
+    '/leagues',
+    '/account',
+    '/transfers',
+    '/analytics',
+    '/friends',
+    '/notifications',
+    '/profile',
+    '/season-recap',
+    '/settings',
+    '/gameweeks/planner',
+  ];
+
+  const pathname = request.nextUrl.pathname;
+  const isProtectedRoute = protectedRoutes.some(
+    (route) => pathname === route || pathname.startsWith(`${route}/`),
   );
   
   // List of auth/landing routes where an already authenticated user should be directed to the dashboard

@@ -1,9 +1,10 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Target, Trophy, Edit3, X, Flame, Award } from 'lucide-react';
 import { fetchWithAuth } from '@/lib/fetch-with-auth';
 import { useToast } from '@/components/Toast';
+import { useAccessibleDialog } from '@/components/use-accessible-dialog';
 
 interface DashboardGoalProgressProps {
   initialTargetPoints?: number | null;
@@ -27,6 +28,7 @@ export function DashboardGoalProgress({
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     // Trigger animation from zero on mount
@@ -50,6 +52,11 @@ export function DashboardGoalProgress({
     if (saving) return;
     setIsModalOpen(false);
   };
+  const dialogRef = useAccessibleDialog<HTMLDivElement>({
+    open: isModalOpen,
+    onClose: closeModal,
+    initialFocusRef: closeButtonRef,
+  });
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -382,9 +389,11 @@ export function DashboardGoalProgress({
       {/* Goal Setting Modal */}
       {isModalOpen && (
         <div
+          ref={dialogRef}
           role="dialog"
           aria-modal="true"
           aria-labelledby="goal-modal-title"
+          tabIndex={-1}
           className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-modal-backdrop"
         >
           <div
@@ -410,6 +419,7 @@ export function DashboardGoalProgress({
                 </h3>
               </div>
               <button
+                ref={closeButtonRef}
                 type="button"
                 onClick={closeModal}
                 disabled={saving}

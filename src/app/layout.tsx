@@ -3,9 +3,8 @@ import { Geist, Geist_Mono } from "next/font/google";
 import { Suspense, type ReactNode } from "react";
 import { ThemeProvider } from "@/components/theme/ThemeProvider";
 import { SessionProvider } from "@/components/SessionProvider";
-import { PageTour } from "@/components/PageTour";
-import { PageGuideModal } from "@/components/PageGuideModal";
 import { TourTriggerButton } from "@/components/TourTriggerButton";
+import { TourOverlays } from "@/components/TourOverlays";
 import { TelemetryPageTracker } from "@/components/TelemetryPageTracker";
 import { TourProvider } from "@/context/TourContext";
 import { ToastProvider } from "@/components/Toast/ToastContext";
@@ -51,7 +50,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
           }}
         />
       </head>
-      <body className="min-h-screen bg-linear-to-br from-slate-950 to-slate-900 text-white">
+      <body className="min-h-screen">
         <ThemeProvider>
           <SessionProvider>
             <ToastProvider>
@@ -59,9 +58,8 @@ export default function RootLayout({ children }: { children: ReactNode }) {
                 {children}
                 <Suspense fallback={null}>
                   <TelemetryPageTracker />
-                  <PageTour />
-                  <PageGuideModal />
                   <TourTriggerButton />
+                  <TourOverlays />
                 </Suspense>
               </TourProvider>
               <ToastContainer />

@@ -1,9 +1,11 @@
 ﻿'use client';
 
+import { useRef } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { X } from 'lucide-react';
 import { PriceSparkline } from '@/components/PriceSparkline';
+import { useAccessibleDialog } from '@/components/use-accessible-dialog';
 import { canOptimizeImage } from '@/lib/optimized-image';
 import type { FantasyPlayer as TransferPlayer } from '@/types/fantasy';
 
@@ -22,6 +24,12 @@ export function TransferPlayerDetailsModal({
   onClose,
   onSelect,
 }: TransferPlayerDetailsModalProps) {
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const dialogRef = useAccessibleDialog<HTMLDivElement>({
+    open: true,
+    onClose,
+    initialFocusRef: closeButtonRef,
+  });
   const ownership = player.ownership_percentage == null ? null : Number(player.ownership_percentage);
   const ownershipBadge = ownership === null
     ? null
@@ -33,9 +41,11 @@ export function TransferPlayerDetailsModal({
 
   return (
     <div
+      ref={dialogRef}
       role="dialog"
       aria-modal="true"
       aria-labelledby="transfer-player-detail-title"
+      tabIndex={-1}
       onClick={onClose}
       className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/80 p-4 py-8 backdrop-blur-sm sm:items-center animate-modal-backdrop"
     >
@@ -45,6 +55,7 @@ export function TransferPlayerDetailsModal({
       >
         <div className="relative border-b border-[var(--border)] bg-[var(--surface-raised)] p-6">
           <button
+            ref={closeButtonRef}
             type="button"
             onClick={onClose}
             className="absolute right-4 top-4 z-10 flex h-8 w-8 items-center justify-center rounded-lg border border-[var(--border)] bg-[var(--surface-raised)] text-[var(--text-secondary)] shadow-sm transition-all hover:bg-[var(--surface-muted)] hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"

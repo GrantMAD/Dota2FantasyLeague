@@ -11,6 +11,7 @@ import Link from 'next/link';
 import { canOptimizeImage } from '@/lib/optimized-image';
 import { ArrowRight, Check, CircleAlert, Info, UserCheck, TrendingUp, TrendingDown, Minus, Clock, ShieldCheck, Lock, Sparkles, ChevronDown, Users, Zap } from 'lucide-react';
 import { useToast } from '@/components/Toast';
+import { useAccessibleDialog } from '@/components/use-accessible-dialog';
 import type { ChipType, ChipStatus, FantasyPlayer as LineupPlayer, LineupEntry } from '@/types/fantasy';
 
 interface LineupGameweekOption {
@@ -149,6 +150,12 @@ export default function LineupsPage() {
   const fixtureRequestId = useRef(0);
   const [saving, setSaving] = useState(false);
   const [confirmDeadlineSave, setConfirmDeadlineSave] = useState(false);
+  const deadlineSaveCancelRef = useRef<HTMLButtonElement>(null);
+  const deadlineSaveDialogRef = useAccessibleDialog<HTMLDivElement>({
+    open: confirmDeadlineSave,
+    onClose: () => setConfirmDeadlineSave(false),
+    initialFocusRef: deadlineSaveCancelRef,
+  });
 
   const loadFantasyContext = useCallback(async (requestedGameweekId?: number) => {
     try {
@@ -1191,10 +1198,12 @@ export default function LineupsPage() {
           }}
         >
           <div
+            ref={deadlineSaveDialogRef}
             role="dialog"
             aria-modal="true"
             aria-labelledby="deadline-save-title"
             aria-describedby="deadline-save-description"
+            tabIndex={-1}
             className="w-full max-w-md rounded-2xl border shadow-2xl" style={{ background: "var(--surface)", borderColor: "var(--border)" }}
           >
             <div className="flex items-start gap-3 border-b border-[var(--border)] px-5 py-4">
@@ -1215,6 +1224,7 @@ export default function LineupsPage() {
               </p>
               <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
                 <button
+                  ref={deadlineSaveCancelRef}
                   type="button"
                   onClick={() => setConfirmDeadlineSave(false)}
                   className="rounded-lg border border-[var(--border)] bg-[var(--surface-raised)] px-4 py-2.5 text-sm font-semibold text-[var(--text-primary)] transition-colors hover:bg-[var(--surface-muted)]"
