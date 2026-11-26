@@ -503,21 +503,37 @@ export default function SquadsPage() {
           <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
             <div className="rounded-xl border p-3.5" style={{ background: "var(--surface-raised)", borderColor: "var(--border)" }}>
               <span className="block text-[11px] font-medium uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>Total Transactions</span>
-              <span className="mt-1 font-mono text-xl font-bold" style={{ color: "var(--text-primary)" }}>{historySummary.totalTransfers}</span>
+              {historyLoading ? (
+                <div className="mt-2 h-6 w-12 rounded bg-[var(--surface-muted)] animate-pulse" />
+              ) : (
+                <span className="mt-1 block font-mono text-xl font-bold" style={{ color: "var(--text-primary)" }}>{historySummary.totalTransfers}</span>
+              )}
             </div>
             <div className="rounded-xl border p-3.5" style={{ background: "var(--surface-raised)", borderColor: "var(--border)" }}>
               <span className="block text-[11px] font-medium uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>Total Moves</span>
-              <span className="mt-1 font-mono text-xl font-bold text-cyan-400">{historySummary.totalMoves}</span>
+              {historyLoading ? (
+                <div className="mt-2 h-6 w-12 rounded bg-[var(--surface-muted)] animate-pulse" />
+              ) : (
+                <span className="mt-1 block font-mono text-xl font-bold text-cyan-400">{historySummary.totalMoves}</span>
+              )}
             </div>
             <div className="rounded-xl border p-3.5" style={{ background: "var(--surface-raised)", borderColor: "var(--border)" }}>
               <span className="block text-[11px] font-medium uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>Point Deductions</span>
-              <span className={`mt-1 font-mono text-xl font-bold ${historySummary.totalPenalty > 0 ? 'text-rose-400' : 'text-emerald-400'}`}>
-                {historySummary.totalPenalty > 0 ? `-${historySummary.totalPenalty} pts` : '0 pts'}
-              </span>
+              {historyLoading ? (
+                <div className="mt-2 h-6 w-16 rounded bg-[var(--surface-muted)] animate-pulse" />
+              ) : (
+                <span className={`mt-1 block font-mono text-xl font-bold ${historySummary.totalPenalty > 0 ? 'text-rose-400' : 'text-emerald-400'}`}>
+                  {historySummary.totalPenalty > 0 ? `-${historySummary.totalPenalty} pts` : '0 pts'}
+                </span>
+              )}
             </div>
             <div className="rounded-xl border p-3.5" style={{ background: "var(--surface-raised)", borderColor: "var(--border)" }}>
               <span className="block text-[11px] font-medium uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>Active Gameweeks</span>
-              <span className="mt-1 font-mono text-xl font-bold text-amber-400">{historySummary.totalGameweeks}</span>
+              {historyLoading ? (
+                <div className="mt-2 h-6 w-12 rounded bg-[var(--surface-muted)] animate-pulse" />
+              ) : (
+                <span className="mt-1 block font-mono text-xl font-bold text-amber-400">{historySummary.totalGameweeks}</span>
+              )}
             </div>
           </div>
 
@@ -526,24 +542,33 @@ export default function SquadsPage() {
               <span className="block text-[11px] font-medium uppercase tracking-wider text-[var(--text-muted)]">
                 Net Budget Change
               </span>
-              <span className={`mt-1 block font-mono text-2xl font-bold ${
-                transferAnalytics.netBudgetChange === null
-                  ? 'text-[var(--text-muted)]'
-                  : transferAnalytics.netBudgetChange > 0
-                ? 'text-emerald-600 dark:text-emerald-400'
-                    : transferAnalytics.netBudgetChange < 0
-                  ? 'text-rose-600 dark:text-rose-400'
-                      : 'text-[var(--text-primary)]'
-              }`}>
-                {transferAnalytics.netBudgetChange === null
-                  ? 'Unavailable'
-                  : `${transferAnalytics.netBudgetChange > 0 ? '+$' : transferAnalytics.netBudgetChange < 0 ? '-$' : '$'}${Math.abs(transferAnalytics.netBudgetChange).toFixed(2)}M`}
-              </span>
-              <p className="mt-1 text-xs text-[var(--text-muted)]">
-                {transferAnalytics.totalTransactions === 0
-                  ? 'No transfer transactions are recorded.'
-                  : `Based on ${transferAnalytics.pricedTransactions} of ${transferAnalytics.totalTransactions} fully priced transactions.`}
-              </p>
+              {historyLoading ? (
+                <div className="mt-2 space-y-2 animate-pulse">
+                  <div className="h-7 w-24 rounded bg-[var(--surface-muted)]" />
+                  <div className="h-3.5 w-44 max-w-full rounded bg-[var(--surface-muted)]" />
+                </div>
+              ) : (
+                <>
+                  <span className={`mt-1 block font-mono text-2xl font-bold ${
+                    transferAnalytics.netBudgetChange === null
+                      ? 'text-[var(--text-muted)]'
+                      : transferAnalytics.netBudgetChange > 0
+                    ? 'text-emerald-600 dark:text-emerald-400'
+                        : transferAnalytics.netBudgetChange < 0
+                      ? 'text-rose-600 dark:text-rose-400'
+                          : 'text-[var(--text-primary)]'
+                  }`}>
+                    {transferAnalytics.netBudgetChange === null
+                      ? 'Unavailable'
+                      : `${transferAnalytics.netBudgetChange > 0 ? '+$' : transferAnalytics.netBudgetChange < 0 ? '-$' : '$'}${Math.abs(transferAnalytics.netBudgetChange).toFixed(2)}M`}
+                  </span>
+                  <p className="mt-1 text-xs text-[var(--text-muted)]">
+                    {transferAnalytics.totalTransactions === 0
+                      ? 'No transfer transactions are recorded.'
+                      : `Based on ${transferAnalytics.pricedTransactions} of ${transferAnalytics.totalTransactions} fully priced transactions.`}
+                  </p>
+                </>
+              )}
             </div>
 
             <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-raised)] p-4 xl:col-span-2">
@@ -551,7 +576,9 @@ export default function SquadsPage() {
                 <h3 className="text-sm font-bold text-[var(--text-primary)]">Owned Squad Value</h3>
                 <p className="text-xs text-[var(--text-muted)]">Historical player market value by completed gameweek, excluding bank balance.</p>
               </div>
-              {transferAnalytics.squadValueHistory.some((point) => point.value !== null) ? (
+              {historyLoading ? (
+                <div className="h-52 w-full animate-pulse rounded-xl bg-[var(--surface-muted)]" />
+              ) : transferAnalytics.squadValueHistory.some((point) => point.value !== null) ? (
                 <div className="h-52 w-full" role="img" aria-label="Squad market value history chart">
                   <ResponsiveContainer width="100%" height="100%">
                     <LineChart data={transferAnalytics.squadValueHistory} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
@@ -595,7 +622,7 @@ export default function SquadsPage() {
                   Squad value history is unavailable until completed gameweeks have complete player price records.
                 </p>
               )}
-              {transferAnalytics.squadValueHistory.some((point) => point.value === null) && (
+              {!historyLoading && transferAnalytics.squadValueHistory.some((point) => point.value === null) && (
                 <p className="mt-2 text-xs text-[var(--text-muted)]">Gaps indicate missing price or ownership history for that gameweek.</p>
               )}
             </div>
@@ -608,7 +635,17 @@ export default function SquadsPage() {
             ].map(({ title, insight, positive }) => (
               <div key={title} className="rounded-xl border border-[var(--border)] bg-[var(--surface-raised)] p-4">
                 <h3 className="text-sm font-bold text-[var(--text-primary)]">{title}</h3>
-                {insight ? (
+                {historyLoading ? (
+                  <div className="mt-3 space-y-2.5 animate-pulse">
+                    <div className="flex items-center gap-2">
+                      <div className="h-4 w-20 rounded bg-[var(--surface-muted)]" />
+                      <div className="h-3.5 w-3.5 rounded bg-[var(--surface-muted)]" />
+                      <div className="h-4 w-20 rounded bg-[var(--surface-muted)]" />
+                    </div>
+                    <div className="h-6 w-20 rounded bg-[var(--surface-muted)]" />
+                    <div className="h-3.5 w-44 max-w-full rounded bg-[var(--surface-muted)]" />
+                  </div>
+                ) : insight ? (
                   <>
                     <p className="mt-2 flex flex-wrap items-center gap-2 text-sm">
                       <span className="text-rose-700 dark:text-rose-300">{insight.playerOut}</span>
@@ -639,9 +676,37 @@ export default function SquadsPage() {
           </div>
 
           {historyLoading ? (
-            <div className="py-12">
-              <PageSkeleton label="Loading transfer history" lines={3} className="mx-auto max-w-md" />
-            </div>
+            <PageSkeleton label="Loading transfer history" className="py-2">
+              <div className="relative pl-6 sm:pl-8 before:absolute before:left-3 sm:before:left-4 before:top-3 before:bottom-3 before:w-0.5 before:bg-cyan-500/20">
+                <div className="space-y-6">
+                  {[1, 2, 3].map((item) => (
+                    <div key={item} className="relative">
+                      <div className="absolute -left-6 sm:-left-8 top-3 h-3 w-3 rounded-full border-2 border-cyan-400/50 bg-[var(--surface)]" />
+                      <div
+                        className="rounded-xl border p-4 relative overflow-hidden animate-pulse"
+                        style={{ background: "var(--surface-raised)", borderColor: "var(--border)" }}
+                      >
+                        <div className="flex flex-wrap items-center justify-between gap-2 border-b pb-3 mb-3">
+                          <div className="flex items-center gap-2">
+                            <div className="h-5 w-14 rounded-md bg-[var(--surface-muted)]" />
+                            <div className="h-4 w-32 rounded bg-[var(--surface-muted)]" />
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <div className="h-5 w-24 rounded-md bg-[var(--surface-muted)]" />
+                            <div className="h-5 w-28 rounded-md bg-[var(--surface-muted)]" />
+                          </div>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <div className="h-7 w-28 rounded-lg bg-[var(--surface-muted)]" />
+                          <div className="h-4 w-4 rounded bg-[var(--surface-muted)]" />
+                          <div className="h-7 w-28 rounded-lg bg-[var(--surface-muted)]" />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </PageSkeleton>
           ) : historyError ? (
             <p role="alert" className="rounded-xl border border-rose-500/30 bg-rose-500/10 p-4 text-sm text-rose-800 dark:text-rose-200">
               {historyError}
