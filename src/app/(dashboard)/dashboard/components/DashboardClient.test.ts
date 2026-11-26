@@ -121,3 +121,51 @@ describe('DashboardStarterStrip', () => {
     expect(markup.match(/aria-label="View Player \d player details"/g)).toHaveLength(5);
   });
 });
+
+describe('DashboardTransferredOutBanner', () => {
+  it('shows affected player names and explains future gameweek availability in one banner', async () => {
+    (globalThis as typeof globalThis & { React: typeof React }).React = React;
+    const { DashboardTransferredOutBanner } = await import('./DashboardTransferredOutBanner');
+    const markup = renderToStaticMarkup(
+      React.createElement(DashboardTransferredOutBanner, {
+        players: [
+          {
+            id: 17,
+            slot: 'carry',
+            name: 'Inspiration is coming',
+            primary_role: 'carry',
+            transferred_out: true,
+          },
+          {
+            id: 18,
+            slot: 'mid',
+            name: 'elmo^^',
+            primary_role: 'mid',
+          },
+        ],
+      }),
+    );
+
+    expect(markup).toContain('role="status"');
+    expect(markup).toContain('No longer in your squad: Inspiration is coming');
+    expect(markup).not.toContain('elmo^^');
+    expect(markup).toContain('won&#x27;t be available for the next gameweek.');
+  });
+
+  it('renders nothing when every lineup player is still in the squad', async () => {
+    (globalThis as typeof globalThis & { React: typeof React }).React = React;
+    const { DashboardTransferredOutBanner } = await import('./DashboardTransferredOutBanner');
+    const markup = renderToStaticMarkup(
+      React.createElement(DashboardTransferredOutBanner, {
+        players: [{
+          id: 18,
+          slot: 'mid',
+          name: 'elmo^^',
+          primary_role: 'mid',
+        }],
+      }),
+    );
+
+    expect(markup).toBe('');
+  });
+});

@@ -4,6 +4,7 @@ import { verifyAuth, applyRefreshedTokens, AuthError } from '@/lib/auth-utils';
 import { getOrCreateFantasySeason } from '@/lib/fantasy-season';
 import { aggregatePlayerGameweekBreakdowns } from '@/lib/player-gameweek-breakdown';
 import { getEquivalentProviderIds, getRelatedPlayerIds } from '@/lib/jobs/player-identity';
+import { selectDashboardGameweek } from '@/lib/dashboard/gameweek-selection';
 import { withApiTelemetry } from '@/lib/api-telemetry';
 import { fetchLeagueRankMovements } from '@/lib/dashboard-league-rank-movements';
 import { fetchDashboardStatTrends } from '@/lib/dashboard-stat-trends';
@@ -19,8 +20,8 @@ async function getHandler(request: NextRequest) {
     // Phase 1: Parallel initial queries (fantasy_season, gameweeks, user leagues)
     const [fantasySeason, gameweeksRes, previousClosedGameweekRes, leaguesRes, profileRes] = await Promise.all([
       getOrCreateFantasySeason(supabase, user.userId),
-      // Fetch both active and the first upcoming GW so we can prefer the upcoming one
-      // when the active GW deadline has already passed (it's locked/historical).
+      // Fetch the active and next upcoming gameweeks; the dashboard always shows
+      // the active game's saved lineup, even after its deadline has passed.
       supabase
         .from('gameweeks')
         .select('id, gameweek_number, deadline, status')
@@ -54,23 +55,14 @@ async function getHandler(request: NextRequest) {
     }
 
     const previousClosedGameweek = previousClosedGameweekRes.data?.[0] ?? null;
-    // Pick the best gameweek to display: prefer upcoming over a locked active GW,
-    // so the dashboard always shows the lineup the user can still manage.
-    const now = Date.now();
-    const gwRows = gameweeksRes.data ?? [];
-    const activeGw = gwRows.find((gw) => gw.status === 'active') ?? null;
-    const upcomingGw = gwRows.find((gw) => gw.status === 'upcoming') ?? null;
-    const activeGwIsLocked = activeGw
-      ? Boolean(activeGw.deadline && new Date(activeGw.deadline).getTime() <= now)
-      : true;
-    let gameweek = (activeGwIsLocked ? null : activeGw) ?? upcomingGw ?? activeGw ?? null;
+    const gameweek = selectDashboardGameweek(
+      gameweeksRes.data ?? [],
+      previousClosedGameweek,
+    );
     if (profileRes.error) {
       throw new Error(`Failed to fetch manager profile: ${profileRes.error.message}`);
     }
     const displayName = profileRes.data?.display_name?.trim() || profileRes.data?.username || null;
-
-    // No active/upcoming GW — fall back to the latest closed one so lineup still renders
-    if (!gameweek) gameweek = previousClosedGameweek;
 
     const leagueRows = leaguesRes.data || [];
     const leagueIds = leagueRows
@@ -165,9 +157,7 @@ async function getHandler(request: NextRequest) {
     const starterIds = lineupRow
       ? slots
           .map((s) => (typeof lineupRow[`${s}_id`] === 'number' ? (lineupRow[`${s}_id`] as number) : lineupRow[`${s}_id`] ? Number(lineupRow[`${s}_id`]) : null))
-          // Only include players still actively owned — removed players are skipped so their
-          // slot renders as vacant rather than showing a transferred-out player.
-          .filter((id): id is number => id !== null && squadPlayerSet.has(id))
+          .filter((id): id is number => id !== null)
       : [];
 
     // Collect all player IDs needed for prices and player profiles
@@ -269,6 +259,7 @@ async function getHandler(request: NextRequest) {
               current_price: latestPrices.get(p.id) ?? 0,
               is_captain: lineupRow.captain_player_id === p.id,
               is_vice_captain: lineupRow.vice_captain_player_id === p.id,
+              transferred_out: Boolean(squad && !squadPlayerSet.has(p.id)),
               team_id: p.team_id ?? null,
               team_name: p.professional_teams?.name || null,
               gw_points: null as number | null,

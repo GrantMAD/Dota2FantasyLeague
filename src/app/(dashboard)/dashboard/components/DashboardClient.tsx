@@ -26,6 +26,7 @@ import { DashboardQuickActions } from './DashboardQuickActions';
 import { DashboardOnboardingChecklist } from './DashboardOnboardingChecklist';
 import { DashboardStatCards, STAT_ACCENTS, type DashboardStatCardData } from './DashboardStatCards';
 import { DashboardStarterStrip } from './DashboardStarterStrip';
+import { DashboardTransferredOutBanner } from './DashboardTransferredOutBanner';
 import { EmptySquadState } from './EmptySquadState';
 import { DashboardLiveMatches } from './DashboardLiveMatches';
 import { DashboardWhatsNew, type WhatsNewData } from './DashboardWhatsNew';
@@ -622,6 +623,7 @@ export function DashboardClient({ initialData, initialWhatsNew }: DashboardClien
                   </span>
                 </div>
 
+                <DashboardTransferredOutBanner players={dashboardData.starters ?? []} />
                 <DashboardLineupProgress starterCount={dashboardData.starters?.length ?? 0} />
 
                 {dashboardData.starters && dashboardData.starters.length > 0 ? (

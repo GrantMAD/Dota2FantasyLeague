@@ -5,6 +5,7 @@ import { aggregatePlayerGameweekBreakdowns } from '@/lib/player-gameweek-breakdo
 import { getEquivalentProviderIds, getRelatedPlayerIds } from '@/lib/jobs/player-identity';
 import { getGameweekMatchProgress } from '@/lib/dashboard/gameweek-match-progress';
 import { fetchGameweekTournaments, isGameweekEndingSoon } from '@/lib/dashboard/gameweek-tournaments';
+import { selectDashboardGameweek } from '@/lib/dashboard/gameweek-selection';
 import { fetchLeagueRankMovements } from '@/lib/dashboard-league-rank-movements';
 import { fetchDashboardStatTrends } from '@/lib/dashboard-stat-trends';
 import type { DashboardData } from '@/types/fantasy';
@@ -73,7 +74,7 @@ async function fetchDashboardData(userId: string): Promise<DashboardData | null>
         .select('id, gameweek_number, deadline, status')
         .in('status', ['upcoming', 'active'])
         .order('start_date', { ascending: true })
-        .limit(1),
+        .limit(2),
       supabase
         .from('gameweeks')
         .select('id, gameweek_number, deadline, status')
@@ -93,9 +94,11 @@ async function fetchDashboardData(userId: string): Promise<DashboardData | null>
     ]);
 
     const previousClosedGameweek = previousClosedGameweekRes.data?.[0] ?? null;
-    let gameweek = gameweeksRes.data && gameweeksRes.data.length > 0 ? gameweeksRes.data[0] : null;
+    const gameweek = selectDashboardGameweek(
+      gameweeksRes.data ?? [],
+      previousClosedGameweek,
+    );
     const displayName = profileRes.data?.display_name?.trim() || profileRes.data?.username || null;
-    if (!gameweek) gameweek = previousClosedGameweek;
 
     // Normalise the Supabase join shape to match LeagueStanding[]
     const leagueRows = leaguesRes.data ?? [];
@@ -181,6 +184,7 @@ async function fetchDashboardData(userId: string): Promise<DashboardData | null>
     const squadPlayerIds = (squad?.fantasy_squad_members ?? [])
       .filter((member) => !member.removed_date)
       .map((member) => member.player_id);
+    const squadPlayerSet = new Set(squadPlayerIds);
 
     const lineupRow = lineupRes.data as Record<string, unknown> | null;
     const slots = ['carry', 'mid', 'offlane', 'support', 'hard_support'] as const;
@@ -278,6 +282,7 @@ async function fetchDashboardData(userId: string): Promise<DashboardData | null>
               current_price: latestPrices.get(p.id) ?? 0,
               is_captain: lineupRow.captain_player_id === p.id,
               is_vice_captain: lineupRow.vice_captain_player_id === p.id,
+              transferred_out: Boolean(squad && !squadPlayerSet.has(p.id)),
               team_id: p.team_id ?? null,
               team_name: p.professional_teams?.name || null,
               gw_points: null as number | null,
