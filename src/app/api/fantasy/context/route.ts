@@ -159,7 +159,12 @@ async function getHandler(request: NextRequest) {
     );
     const activeGw = availableGameweeks.find((gw) => gw.status === 'active');
     const upcomingGw = availableGameweeks.find((gw) => gw.status === 'upcoming');
-    const defaultGw = activeGw || upcomingGw || null;
+    // If the active GW's deadline has already passed it is locked — prefer the next upcoming GW
+    // so users see the lineup they can still edit rather than a frozen historical one.
+    const activeGwIsLocked = activeGw
+      ? Boolean(activeGw.deadline && new Date(activeGw.deadline).getTime() <= now)
+      : true;
+    const defaultGw = (activeGwIsLocked ? null : activeGw) ?? upcomingGw ?? activeGw ?? null;
     const targetGw = parsedRequestedGameweekId === null
       ? defaultGw || allGws[allGws.length - 1] || null
       : availableGameweeks.find((gw) => gw.id === parsedRequestedGameweekId) || null;
