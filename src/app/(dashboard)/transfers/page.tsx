@@ -528,7 +528,23 @@ function TransfersPageContent() {
       if (!response.ok) throw new Error(data.error || 'Transfer failed');
       setBudget(Number(data.budget ?? budget));
       setFreeTransfers(Number(data.free_transfers_remaining ?? freeTransfers));
+      // Update owned IDs: remove outgoing, add incoming
       setOwnedPlayerIds((current) => [...current.filter((id) => id !== selectedPlayerOut), selectedPlayerIn]);
+      // Update cost map: remove outgoing, add incoming at its current market price
+      const incomingPlayer = players.find((p) => p.id === selectedPlayerIn);
+      setOwnedPlayerCosts((current) => {
+        const next = new Map(current);
+        next.delete(selectedPlayerOut);
+        if (incomingPlayer?.current_price != null) next.set(selectedPlayerIn, incomingPlayer.current_price);
+        return next;
+      });
+      // Update players map: remove outgoing, add incoming so the new player pins correctly
+      setOwnedPlayersMap((current) => {
+        const next = new Map(current);
+        next.delete(selectedPlayerOut);
+        if (incomingPlayer) next.set(selectedPlayerIn, incomingPlayer);
+        return next;
+      });
       setSelectedPlayerIn(null);
       setSelectedPlayerOut(null);
       if (typeof window !== 'undefined') {
