@@ -929,7 +929,7 @@ function TransfersPageContent() {
                       <div className="mt-3 flex justify-between gap-2 text-xs">
                         <span className="text-[var(--text-muted)]">Current sell value</span>
                         <span className="font-mono font-semibold text-[var(--text-primary)]">
-                          {outgoingPlayerCost !== undefined ? `$${outgoingPlayerCost.toFixed(1)}M` : 'Unavailable'}
+                          {outgoingPlayerCost !== undefined ? formatPlayerPrice(outgoingPlayerCost) : 'Unavailable'}
                         </span>
                       </div>
                       <div className="mt-1 flex justify-between gap-2 text-xs">
