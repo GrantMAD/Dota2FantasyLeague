@@ -19,12 +19,14 @@ async function getHandler(request: NextRequest) {
     // Phase 1: Parallel initial queries (fantasy_season, gameweeks, user leagues)
     const [fantasySeason, gameweeksRes, previousClosedGameweekRes, leaguesRes, profileRes] = await Promise.all([
       getOrCreateFantasySeason(supabase, user.userId),
+      // Fetch both active and the first upcoming GW so we can prefer the upcoming one
+      // when the active GW deadline has already passed (it's locked/historical).
       supabase
         .from('gameweeks')
         .select('id, gameweek_number, deadline, status')
         .in('status', ['upcoming', 'active'])
         .order('start_date', { ascending: true })
-        .limit(1),
+        .limit(2),
       supabase
         .from('gameweeks')
         .select('id, gameweek_number, deadline, status')
@@ -52,7 +54,16 @@ async function getHandler(request: NextRequest) {
     }
 
     const previousClosedGameweek = previousClosedGameweekRes.data?.[0] ?? null;
-    let gameweek = gameweeksRes.data && gameweeksRes.data.length > 0 ? gameweeksRes.data[0] : null;
+    // Pick the best gameweek to display: prefer upcoming over a locked active GW,
+    // so the dashboard always shows the lineup the user can still manage.
+    const now = Date.now();
+    const gwRows = gameweeksRes.data ?? [];
+    const activeGw = gwRows.find((gw) => gw.status === 'active') ?? null;
+    const upcomingGw = gwRows.find((gw) => gw.status === 'upcoming') ?? null;
+    const activeGwIsLocked = activeGw
+      ? Boolean(activeGw.deadline && new Date(activeGw.deadline).getTime() <= now)
+      : true;
+    let gameweek = (activeGwIsLocked ? null : activeGw) ?? upcomingGw ?? activeGw ?? null;
     if (profileRes.error) {
       throw new Error(`Failed to fetch manager profile: ${profileRes.error.message}`);
     }
@@ -147,13 +158,16 @@ async function getHandler(request: NextRequest) {
     const squadPlayerIds = (squad?.fantasy_squad_members ?? [])
       .filter((member) => !member.removed_date)
       .map((member) => member.player_id);
+    const squadPlayerSet = new Set(squadPlayerIds);
 
     const lineupRow = lineupRes.data as Record<string, unknown> | null;
     const slots = ['carry', 'mid', 'offlane', 'support', 'hard_support'] as const;
     const starterIds = lineupRow
       ? slots
           .map((s) => (typeof lineupRow[`${s}_id`] === 'number' ? (lineupRow[`${s}_id`] as number) : lineupRow[`${s}_id`] ? Number(lineupRow[`${s}_id`]) : null))
-          .filter((id): id is number => id !== null)
+          // Only include players still actively owned — removed players are skipped so their
+          // slot renders as vacant rather than showing a transferred-out player.
+          .filter((id): id is number => id !== null && squadPlayerSet.has(id))
       : [];
 
     // Collect all player IDs needed for prices and player profiles
