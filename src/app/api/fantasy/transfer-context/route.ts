@@ -53,6 +53,7 @@ async function getHandler(request: NextRequest) {
       .limit(1)
       .maybeSingle();
     const squad = squadData as {
+      id: number;
       fantasy_squad_members: { player_id: number; cost: number | string | null; removed_date: string | null }[];
     } | null;
     if (squadError) return NextResponse.json({ error: 'Failed to load squad transfer context.' }, { status: 500 });
@@ -60,12 +61,47 @@ async function getHandler(request: NextRequest) {
     const ownedPlayerIds = (squad?.fantasy_squad_members ?? [])
       .filter((member: { removed_date: string | null }) => !member.removed_date)
       .map((member: { player_id: number }) => member.player_id);
-    const ownedPlayerCosts = (squad?.fantasy_squad_members ?? [])
-      .filter((member: { removed_date: string | null }) => !member.removed_date)
-      .map((member: { player_id: number; cost: number | string | null }) => ({
-        playerId: member.player_id,
-        cost: member.cost === null ? null : Number(member.cost),
-      }));
+
+    // Resolve current market prices for owned players using the upcoming/active gameweek.
+    // The sell value must reflect the current market price, not the original acquisition cost.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: upcomingGw } = await (supabase.from('gameweeks') as any)
+      .select('id')
+      .in('status', ['upcoming', 'active'])
+      .gt('deadline', new Date().toISOString())
+      .order('deadline', { ascending: true })
+      .limit(1)
+      .maybeSingle();
+    const upcomingGwId: number | null = upcomingGw?.id ?? null;
+
+    let ownedPlayerCosts: { playerId: number; cost: number | null }[] = [];
+    if (ownedPlayerIds.length > 0 && upcomingGwId !== null) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: priceRows } = await (supabase.from('player_prices') as any)
+        .select('player_id, price')
+        .in('player_id', ownedPlayerIds)
+        .eq('gameweek_id', upcomingGwId);
+      const priceMap = new Map<number, number>(
+        (priceRows ?? []).map((row: { player_id: number; price: number }) => [row.player_id, Number(row.price)])
+      );
+      // Fall back to acquisition cost only when no current price is available.
+      ownedPlayerCosts = (squad?.fantasy_squad_members ?? [])
+        .filter((member: { removed_date: string | null }) => !member.removed_date)
+        .map((member: { player_id: number; cost: number | string | null }) => ({
+          playerId: member.player_id,
+          cost: priceMap.has(member.player_id)
+            ? priceMap.get(member.player_id)!
+            : (member.cost === null ? null : Number(member.cost)),
+        }));
+    } else {
+      // No gameweek found — fall back to acquisition cost as a safety net
+      ownedPlayerCosts = (squad?.fantasy_squad_members ?? [])
+        .filter((member: { removed_date: string | null }) => !member.removed_date)
+        .map((member: { player_id: number; cost: number | string | null }) => ({
+          playerId: member.player_id,
+          cost: member.cost === null ? null : Number(member.cost),
+        }));
+    }
 
     return NextResponse.json({
       fantasySeasonId: fantasySeason.id,

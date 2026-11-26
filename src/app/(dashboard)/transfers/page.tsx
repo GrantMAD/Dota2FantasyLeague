@@ -927,7 +927,7 @@ function TransfersPageContent() {
                         {selectedPlayerOutDetails.primary_role || 'Role unknown'}
                       </p>
                       <div className="mt-3 flex justify-between gap-2 text-xs">
-                        <span className="text-[var(--text-muted)]">Acquisition cost</span>
+                        <span className="text-[var(--text-muted)]">Current sell value</span>
                         <span className="font-mono font-semibold text-[var(--text-primary)]">
                           {outgoingPlayerCost !== undefined ? `$${outgoingPlayerCost.toFixed(1)}M` : 'Unavailable'}
                         </span>
@@ -978,7 +978,7 @@ function TransfersPageContent() {
                     {selectedTransferBudgetAfter !== null ? `$${selectedTransferBudgetAfter.toFixed(1)}M` : '—'}
                   </p>
                   <p className="text-[10px] leading-4 text-[var(--text-muted)]">
-                    Uses the recorded outgoing cost and incoming market price; the server confirms the final balance.
+                    Uses the current market sell value for the outgoing player and incoming market price; the server confirms the final balance.
                   </p>
                 </div>
                 <div className="sm:border-l sm:border-[var(--border)] sm:pl-3">
