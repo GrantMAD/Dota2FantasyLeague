@@ -186,17 +186,17 @@ async function fetchDashboardData(userId: string): Promise<DashboardData | null>
       .map((member) => member.player_id);
     const squadPlayerSet = new Set(squadPlayerIds);
 
+    /** Returns a valid positive-integer player ID, or null for any other value (0, "0", null, undefined, NaN). */
+    function getPositivePlayerId(value: unknown): number | null {
+      const n = typeof value === 'number' ? value : Number(value);
+      return Number.isInteger(n) && n > 0 ? n : null;
+    }
+
     const lineupRow = lineupRes.data as Record<string, unknown> | null;
     const slots = ['carry', 'mid', 'offlane', 'support', 'hard_support'] as const;
     const starterIds = lineupRow
       ? slots
-          .map((s) =>
-            typeof lineupRow[`${s}_id`] === 'number'
-              ? (lineupRow[`${s}_id`] as number)
-              : lineupRow[`${s}_id`]
-              ? Number(lineupRow[`${s}_id`])
-              : null
-          )
+          .map((s) => getPositivePlayerId(lineupRow[`${s}_id`]))
           .filter((id): id is number => id !== null)
       : [];
 
@@ -204,8 +204,8 @@ async function fetchDashboardData(userId: string): Promise<DashboardData | null>
     const allDetailPlayerIds = Array.from(
       new Set([
         ...starterIds,
-        ...(lineupRow?.captain_player_id ? [Number(lineupRow.captain_player_id)] : []),
-        ...(lineupRow?.vice_captain_player_id ? [Number(lineupRow.vice_captain_player_id)] : []),
+        ...(lineupRow?.captain_player_id ? [getPositivePlayerId(lineupRow.captain_player_id)].filter((id): id is number => id !== null) : []),
+        ...(lineupRow?.vice_captain_player_id ? [getPositivePlayerId(lineupRow.vice_captain_player_id)].filter((id): id is number => id !== null) : []),
       ])
     );
 
@@ -218,6 +218,7 @@ async function fetchDashboardData(userId: string): Promise<DashboardData | null>
             .eq('season_id', fantasySeason.season_id)
             .in('player_id', allPricePlayerIds)
             .order('gameweek_id', { ascending: false })
+            .limit(allPricePlayerIds.length * 5)
         : Promise.resolve({ data: [] }),
       allDetailPlayerIds.length > 0
         ? (supabase

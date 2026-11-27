@@ -257,7 +257,8 @@ async function getHandler(request: NextRequest) {
         .select('player_id, price, gameweek_id')
         .eq('season_id', season.season_id)
         .in('player_id', activePlayerIds)
-        .order('gameweek_id', { ascending: false });
+        .order('gameweek_id', { ascending: false })
+        .limit(activePlayerIds.length * 5);
 
       const latestByPlayer = new Map<number, number>();
       for (const row of latestPrices ?? []) {

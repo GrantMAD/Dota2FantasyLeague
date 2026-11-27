@@ -241,6 +241,7 @@ async function getHandler(request: NextRequest) {
             .eq('season_id', fantasySeason.season_id)
             .in('player_id', ownedPlayerIds)
             .order('gameweek_id', { ascending: false })
+            .limit(ownedPlayerIds.length * 5)
         : Promise.resolve({ data: [], error: null }),
       // Player performance scores (up to 5 GWs per player)
       ownedPlayerIds.length > 0

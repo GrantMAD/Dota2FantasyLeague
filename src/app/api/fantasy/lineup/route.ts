@@ -22,7 +22,8 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function getSlotId(row: Record<string, unknown>, slot: Slot): number | null {
   const value = row[`${slot}_id`];
-  return typeof value === 'number' ? value : value ? Number(value) : null;
+  const n = typeof value === 'number' ? value : Number(value);
+  return Number.isInteger(n) && n > 0 ? n : null;
 }
 
 function getLineupAuditSnapshot(row: Record<string, unknown>) {
@@ -85,7 +86,8 @@ async function getHandler(request: NextRequest) {
       .select('player_id, price, gameweek_id')
       .eq('season_id', ownedSeason.season_id)
       .in('player_id', playerIds)
-      .order('gameweek_id', { ascending: false });
+      .order('gameweek_id', { ascending: false })
+      .limit(playerIds.length * 5);
     const latestPrices = new Map<number, number>();
     for (const price of prices ?? []) {
       if (!latestPrices.has(price.player_id)) latestPrices.set(price.player_id, Number(price.price ?? 0));
