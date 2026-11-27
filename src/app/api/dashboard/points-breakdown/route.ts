@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { applyRefreshedTokens, AuthError, verifyAuth } from '@/lib/auth-utils';
+import { applyRefreshedTokens, isAuthError, verifyAuth } from '@/lib/auth-utils';
 import { supabaseServer } from '@/lib/supabase';
 import {
   buildGameweekPointsBreakdown,
@@ -187,9 +187,8 @@ async function getHandler(request: NextRequest) {
     applyRefreshedTokens(response, user);
     return response;
   } catch (error) {
-    const authError = error as AuthError;
-    if (authError.status) {
-      return NextResponse.json({ error: authError.message }, { status: authError.status });
+    if (isAuthError(error)) {
+      return NextResponse.json({ error: error.message }, { status: error.status });
     }
     console.error('Dashboard points breakdown failed:', error);
     return NextResponse.json(

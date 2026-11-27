@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase';
-import { verifyAuth, applyRefreshedTokens, AuthError } from '@/lib/auth-utils';
+import { verifyAuth, applyRefreshedTokens, isAuthError } from '@/lib/auth-utils';
 import { getOrCreateFantasySeason } from '@/lib/fantasy-season';
 import { aggregatePlayerGameweekBreakdowns } from '@/lib/player-gameweek-breakdown';
 import { getEquivalentProviderIds, getRelatedPlayerIds } from '@/lib/jobs/player-identity';
@@ -404,11 +404,10 @@ async function getHandler(request: NextRequest) {
     return response;
 
   } catch (error: unknown) {
-    const authError = error as AuthError;
-    if (authError.status) {
+    if (isAuthError(error)) {
       return NextResponse.json(
-        { error: authError.message },
-        { status: authError.status, headers: PRIVATE_CACHE_HEADERS },
+        { error: error.message },
+        { status: error.status, headers: PRIVATE_CACHE_HEADERS },
       );
     }
     return NextResponse.json(

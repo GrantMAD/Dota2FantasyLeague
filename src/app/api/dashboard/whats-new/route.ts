@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { AuthError, verifyAuth } from '@/lib/auth-utils';
+import { isAuthError, verifyAuth } from '@/lib/auth-utils';
 import { getOrCreateFantasySeason } from '@/lib/fantasy-season';
 import { supabaseServer } from '@/lib/supabase';
 import { withApiTelemetry } from '@/lib/api-telemetry';
@@ -234,10 +234,12 @@ async function getHandler(request: NextRequest) {
     return NextResponse.json({ events, gameweek, updates });
   } catch (error: unknown) {
     console.error('Dashboard What’s New API Error:', error);
-    const authError = error as AuthError;
+    if (isAuthError(error)) {
+      return NextResponse.json({ error: error.message }, { status: error.status });
+    }
     return NextResponse.json(
-      { error: authError.status ? authError.message : 'Unable to load dashboard announcements.' },
-      { status: authError.status || 500 },
+      { error: 'Unable to load dashboard announcements.' },
+      { status: 500 },
     );
   }
 }

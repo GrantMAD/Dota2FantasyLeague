@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase';
-import { verifyAuth, AuthError } from '@/lib/auth-utils';
+import { verifyAuth, isAuthError } from '@/lib/auth-utils';
 import { withApiTelemetry } from '@/lib/api-telemetry';
 
 
@@ -49,9 +49,8 @@ async function putHandler(request: NextRequest, context: RouteContext) {
 
     return NextResponse.json({ message: 'Notification marked as read.', notification: data });
   } catch (error: unknown) {
-    const authError = error as AuthError;
-    if (authError.status) {
-      return NextResponse.json({ error: authError.message }, { status: authError.status });
+    if (isAuthError(error)) {
+      return NextResponse.json({ error: error.message }, { status: error.status });
     }
     return NextResponse.json({ error: 'An unexpected error occurred.' }, { status: 500 });
   }

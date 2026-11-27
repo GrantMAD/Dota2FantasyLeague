@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase';
-import { verifyAuth, AuthError } from '@/lib/auth-utils';
+import { verifyAuth, isAuthError } from '@/lib/auth-utils';
 import { withApiTelemetry } from '@/lib/api-telemetry';
 
 const PUBLIC_CACHE_HEADERS = { 'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=30' };
@@ -21,9 +21,8 @@ async function getHandler(request: NextRequest) {
       const auth = await verifyAuth(request);
       userId = auth.userId;
     } catch (error) {
-      const authError = error as AuthError;
-      if (authError?.status && authError.status !== 401) {
-        console.warn('Failed to authenticate gameweek score request', authError.message);
+      if (isAuthError(error) && error.status !== 401) {
+        console.warn('Failed to authenticate gameweek score request', error.message);
       }
     }
 

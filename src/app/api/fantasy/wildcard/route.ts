@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase';
-import { verifyAuth, AuthError } from '@/lib/auth-utils';
+import { verifyAuth, isAuthError } from '@/lib/auth-utils';
 import { withApiTelemetry } from '@/lib/api-telemetry';
 
 
@@ -73,9 +73,8 @@ async function postHandler(request: NextRequest) {
   } catch (error: unknown) {
     console.error('Wildcard API Error:', error);
 
-    const authError = error as AuthError;
-    if (authError.status) {
-      return NextResponse.json({ error: authError.message }, { status: authError.status });
+    if (isAuthError(error)) {
+      return NextResponse.json({ error: error.message }, { status: error.status });
     }
 
     return NextResponse.json(

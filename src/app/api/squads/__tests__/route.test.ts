@@ -5,6 +5,7 @@ import { GET, POST } from '../route';
 
 jest.mock('@/lib/auth-utils', () => ({
   verifyAuth: jest.fn(),
+  isAuthError: jest.requireActual('@/lib/auth-utils').isAuthError,
 }));
 
 jest.mock('@/lib/supabase', () => ({

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase';
-import { verifyAuth, applyRefreshedTokens, AuthError } from '@/lib/auth-utils';
+import { verifyAuth, applyRefreshedTokens, isAuthError } from '@/lib/auth-utils';
 import { getOrCreateFantasySeason } from '@/lib/fantasy-season';
 import { withApiTelemetry } from '@/lib/api-telemetry';
 
@@ -35,9 +35,8 @@ async function getGoalsHandler(request: NextRequest) {
     applyRefreshedTokens(response, user);
     return response;
   } catch (error: unknown) {
-    const authError = error as AuthError;
-    if (authError.status) {
-      return NextResponse.json({ error: authError.message }, { status: authError.status });
+    if (isAuthError(error)) {
+      return NextResponse.json({ error: error.message }, { status: error.status });
     }
     return NextResponse.json({ error: 'Failed to retrieve season goals.' }, { status: 500 });
   }
@@ -114,9 +113,8 @@ async function putGoalsHandler(request: NextRequest) {
     applyRefreshedTokens(response, user);
     return response;
   } catch (error: unknown) {
-    const authError = error as AuthError;
-    if (authError.status) {
-      return NextResponse.json({ error: authError.message }, { status: authError.status });
+    if (isAuthError(error)) {
+      return NextResponse.json({ error: error.message }, { status: error.status });
     }
     return NextResponse.json({ error: 'Failed to update season goals.' }, { status: 500 });
   }

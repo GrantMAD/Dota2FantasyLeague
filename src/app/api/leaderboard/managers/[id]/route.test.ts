@@ -8,6 +8,7 @@ let mockQueries: Array<{ table: string; filters: Array<[string, unknown]> }> = [
 jest.mock('@/lib/auth-utils', () => ({
   verifyAuth: (...args: unknown[]) => mockVerifyAuth(...args),
   applyRefreshedTokens: jest.fn(),
+  isAuthError: jest.requireActual('@/lib/auth-utils').isAuthError,
 }));
 
 jest.mock('@/lib/supabase', () => ({

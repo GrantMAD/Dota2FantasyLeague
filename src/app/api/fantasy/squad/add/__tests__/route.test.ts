@@ -15,6 +15,7 @@ jest.mock('@/lib/supabase', () => ({
 
 jest.mock('@/lib/auth-utils', () => ({
   verifyAuth: jest.fn(),
+  isAuthError: jest.requireActual('@/lib/auth-utils').isAuthError,
   AuthError: class AuthError extends Error {
     status: number;
     constructor(message: string, status: number) {

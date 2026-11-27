@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { verifyAuth, type AuthError } from '@/lib/auth-utils';
+import { verifyAuth, isAuthError } from '@/lib/auth-utils';
 import { supabaseServer } from '@/lib/supabase';
 import { getOrCreateFantasySeason } from '@/lib/fantasy-season';
 import { withApiTelemetry } from '@/lib/api-telemetry';
@@ -385,10 +385,12 @@ async function getHandler(request: NextRequest) {
     });
   } catch (error: unknown) {
     console.error('[fantasy/context] Unhandled error:', error);
-    const authError = error as AuthError;
+    if (isAuthError(error)) {
+      return NextResponse.json({ error: error.message }, { status: error.status });
+    }
     return NextResponse.json(
-      { error: authError.status ? authError.message : 'Unable to load fantasy context.' },
-      { status: authError.status || 500 }
+      { error: 'Unable to load fantasy context.' },
+      { status: 500 }
     );
   }
 }

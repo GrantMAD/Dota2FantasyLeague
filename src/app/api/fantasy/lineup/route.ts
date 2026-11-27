@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { verifyAuth, type AuthError } from '@/lib/auth-utils';
+import { verifyAuth, isAuthError } from '@/lib/auth-utils';
 import { supabaseServer } from '@/lib/supabase';
 import { logAuditAction } from '@/lib/audit-logger';
 import { withApiTelemetry } from '@/lib/api-telemetry';
@@ -100,8 +100,10 @@ async function getHandler(request: NextRequest) {
     }).filter(Boolean);
     return NextResponse.json({ fantasySeasonId: ownedSeason.id, gameweekId, lineup });
   } catch (error: unknown) {
-    const authError = error as AuthError;
-    return NextResponse.json({ error: authError.status ? authError.message : 'Unable to fetch lineup.' }, { status: authError.status || 500 });
+    if (isAuthError(error)) {
+      return NextResponse.json({ error: error.message }, { status: error.status });
+    }
+    return NextResponse.json({ error: 'Unable to fetch lineup.' }, { status: 500 });
   }
 }
 
@@ -256,8 +258,10 @@ async function putHandler(request: NextRequest) {
     }
     return NextResponse.json({ message: 'Lineup saved successfully.', lineup: data });
   } catch (error: unknown) {
-    const authError = error as AuthError;
-    return NextResponse.json({ error: authError.status ? authError.message : 'Unable to save lineup.' }, { status: authError.status || 500 });
+    if (isAuthError(error)) {
+      return NextResponse.json({ error: error.message }, { status: error.status });
+    }
+    return NextResponse.json({ error: 'Unable to save lineup.' }, { status: 500 });
   }
 }
 

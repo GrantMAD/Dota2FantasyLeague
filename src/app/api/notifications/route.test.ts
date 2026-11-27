@@ -7,6 +7,7 @@ const mockSupabaseServer = jest.fn();
 jest.mock('@/lib/auth-utils', () => ({
   verifyAuth: (...args: unknown[]) => mockVerifyAuth(...args),
   applyRefreshedTokens: jest.fn(),
+  isAuthError: jest.requireActual('@/lib/auth-utils').isAuthError,
 }));
 
 jest.mock('@/lib/supabase', () => ({

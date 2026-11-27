@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import {
   applyRefreshedTokens,
+  createErrorResponse,
+  isAuthError,
   verifyAdminAuth,
   verifyAuth,
 } from './auth-utils';
@@ -274,5 +276,32 @@ describe('auth-utils', () => {
     expect(response.status).toBe(403);
     expect(response.headers.get('set-cookie')).toContain('sb-auth-token=fresh-access');
     expect(response.headers.get('set-cookie')).toContain('sb-refresh-token=fresh-refresh');
+  });
+
+  describe('isAuthError and createErrorResponse', () => {
+    it('accepts valid AuthError objects and rejects primitives, null, and invalid status values', () => {
+      expect(isAuthError({ status: 401, message: 'Unauthorized' })).toBe(true);
+      expect(isAuthError({ status: 403, message: 'Forbidden' })).toBe(true);
+      expect(isAuthError(null)).toBe(false);
+      expect(isAuthError(undefined)).toBe(false);
+      expect(isAuthError('Missing token')).toBe(false);
+      expect(isAuthError({ status: 'ENOENT', message: 'not found' })).toBe(false);
+      expect(isAuthError({ status: 0, message: 'zero' })).toBe(false);
+      expect(isAuthError({ status: 200, message: 'ok' })).toBe(false);
+    });
+
+    it('returns matching HTTP status for AuthError and 500 for non-auth or primitive throws', async () => {
+      const authRes = createErrorResponse({ status: 403, message: 'Admin required' });
+      expect(authRes.status).toBe(403);
+      await expect(authRes.json()).resolves.toEqual({ success: false, error: 'Admin required' });
+
+      const nullRes = createErrorResponse(null);
+      expect(nullRes.status).toBe(500);
+      await expect(nullRes.json()).resolves.toEqual({ success: false, error: 'Internal server error' });
+
+      const customStatusRes = createErrorResponse({ status: 'ECONNRESET', message: 'reset' });
+      expect(customStatusRes.status).toBe(500);
+      await expect(customStatusRes.json()).resolves.toEqual({ success: false, error: 'reset' });
+    });
   });
 });

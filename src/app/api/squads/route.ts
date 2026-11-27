@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { AuthError, verifyAuth } from '@/lib/auth-utils';
+import { isAuthError, verifyAuth } from '@/lib/auth-utils';
 import { supabaseServer } from '@/lib/supabase';
 import { withApiTelemetry } from '@/lib/api-telemetry';
 
@@ -44,9 +44,8 @@ async function getHandler(request: NextRequest) {
 
     return NextResponse.json({ data });
   } catch (error: unknown) {
-    const authError = error as AuthError;
-    if (authError.status) {
-      return NextResponse.json({ error: authError.message }, { status: authError.status });
+    if (isAuthError(error)) {
+      return NextResponse.json({ error: error.message }, { status: error.status });
     }
 
     console.error('Unexpected error fetching fantasy squads:', error);
@@ -115,9 +114,8 @@ async function postHandler(request: NextRequest) {
 
     return NextResponse.json({ data }, { status: 201 });
   } catch (error: unknown) {
-    const authError = error as AuthError;
-    if (authError.status) {
-      return NextResponse.json({ error: authError.message }, { status: authError.status });
+    if (isAuthError(error)) {
+      return NextResponse.json({ error: error.message }, { status: error.status });
     }
 
     console.error('Unexpected error creating fantasy squad:', error);

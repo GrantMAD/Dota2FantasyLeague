@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { applyRefreshedTokens, AuthError, verifyAuth } from '@/lib/auth-utils';
+import { applyRefreshedTokens, isAuthError, verifyAuth } from '@/lib/auth-utils';
 import { supabaseServer } from '@/lib/supabase';
 import { withApiTelemetry } from '@/lib/api-telemetry';
 
@@ -128,9 +128,7 @@ async function getHandler(request: NextRequest, context: RouteContext) {
     applyRefreshedTokens(response, auth);
     return response;
   } catch (error: unknown) {
-    const status = typeof error === 'object' && error !== null && 'status' in error
-      ? Number((error as AuthError).status)
-      : 500;
+    const status = isAuthError(error) ? error.status : 500;
     if (status >= 500) console.error('Leaderboard manager details request failed:', error);
     return NextResponse.json(
       { error: status === 401 ? 'Authentication required.' : 'Unable to load manager details.' },

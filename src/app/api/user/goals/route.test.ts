@@ -8,6 +8,7 @@ const mockSupabaseServer = jest.fn();
 jest.mock('@/lib/auth-utils', () => ({
   verifyAuth: (...args: unknown[]) => mockVerifyAuth(...args),
   applyRefreshedTokens: jest.fn(),
+  isAuthError: jest.requireActual('@/lib/auth-utils').isAuthError,
   AuthError: class AuthError extends Error {
     status: number;
     constructor(message: string, status: number) {

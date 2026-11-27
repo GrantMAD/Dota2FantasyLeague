@@ -154,10 +154,27 @@ export async function verifyAdminAuth(request: Request): Promise<string> {
 }
 
 /**
+ * Type guard for AuthError-shaped objects thrown by verifyAuth/verifyAdminAuth.
+ * Rejects primitives, null, and non-HTTP status values so arbitrary errors
+ * are never misclassified with invalid status codes.
+ */
+export function isAuthError(error: unknown): error is AuthError {
+  if (typeof error !== 'object' || error === null) return false;
+  const candidate = error as { status?: unknown; message?: unknown };
+  return (
+    typeof candidate.status === 'number' &&
+    Number.isInteger(candidate.status) &&
+    candidate.status >= 400 &&
+    candidate.status < 600 &&
+    typeof candidate.message === 'string'
+  );
+}
+
+/**
  * Create a JSON error response
  */
-export function createErrorResponse(error: AuthError | Error): Response {
-  if ('status' in error) {
+export function createErrorResponse(error: unknown): Response {
+  if (isAuthError(error)) {
     return Response.json(
       {
         success: false,
@@ -167,10 +184,17 @@ export function createErrorResponse(error: AuthError | Error): Response {
     );
   }
 
+  const message =
+    error instanceof Error
+      ? error.message
+      : typeof error === 'object' && error !== null && 'message' in error && typeof (error as { message?: unknown }).message === 'string'
+        ? (error as { message: string }).message
+        : 'Internal server error';
+
   return Response.json(
     {
       success: false,
-      error: error.message,
+      error: message,
     },
     { status: 500 }
   );
