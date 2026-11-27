@@ -12,6 +12,18 @@ import { getSupabaseServerClient } from '@/lib/db/supabase-server';
 import { verifyAdminAuth as verifyAdminAuthCentral } from '@/lib/auth-utils';
 import { logAuditAction } from '@/lib/audit-logger';
 
+const ENTITY_TABLE_MAP = {
+  player: 'professional_players',
+  team: 'professional_teams',
+  tournament: 'tournaments',
+  match: 'matches',
+  player_stats: 'player_performances',
+} as const;
+
+type VersionedEntityType = keyof typeof ENTITY_TABLE_MAP;
+
+const NON_UPDATABLE_FIELDS = new Set(['id', 'created_at', 'updated_at']);
+
 const SAFE_CONFLICT_AUDIT_FIELDS = new Set([
   'name', 'country', 'tier', 'status', 'team_id', 'season_id', 'gameweek_id',
   'series_id', 'tournament_id', 'winner_id', 'score', 'scheduled_time',
@@ -168,13 +180,7 @@ export async function resolveConflict(
   let entityWasApplied = false;
   // If requested and status is resolved, also update the entity table directly
   if (applyToEntity && status === 'resolved' && conflict.entity_type && conflict.entity_id && conflict.field_name) {
-    const tableMap: Record<string, string> = {
-      player: 'professional_players',
-      team: 'professional_teams',
-      tournament: 'tournaments',
-      match: 'matches',
-    };
-    const tableName = tableMap[conflict.entity_type];
+    const tableName = ENTITY_TABLE_MAP[conflict.entity_type as VersionedEntityType];
     if (tableName) {
       try {
         let oldValue: unknown;
@@ -243,13 +249,7 @@ export async function resolveConflict(
     const entityId = String(conflict.entity_id);
     const numericEntityId = Number(entityId);
     await logAuditAction({
-      tableName: conflict.entity_type === 'player'
-        ? 'professional_players'
-        : conflict.entity_type === 'team'
-          ? 'professional_teams'
-          : conflict.entity_type === 'tournament'
-            ? 'tournaments'
-            : 'matches',
+      tableName: ENTITY_TABLE_MAP[conflict.entity_type as VersionedEntityType] ?? 'matches',
       recordId: Number.isInteger(numericEntityId) ? numericEntityId : undefined,
       action: 'CORRECTION',
       changedBy: adminUserId,
@@ -331,13 +331,159 @@ export async function getVersionHistory(
   return data || [];
 }
 
+async function getNextVersionNumber(
+  supabase: ReturnType<typeof getSupabaseServerClient>,
+  entityType: VersionedEntityType,
+  entityId: string
+): Promise<number> {
+  const { data, error } = await supabase
+    .from('data_version_history')
+    .select('version_number')
+    .eq('entity_type', entityType)
+    .eq('entity_id', entityId)
+    .order('version_number', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(`Failed to fetch latest version number: ${error.message}`);
+  }
+
+  return (Number(data?.version_number) || 0) + 1;
+}
+
+/**
+ * Applies a field-level update to an entity table and records the previous/new
+ * values as an incremented version entry plus audit log record.
+ */
+async function applyVersionedEntityUpdate(params: {
+  entityType: VersionedEntityType;
+  entityId: string;
+  updates: Record<string, unknown>;
+  adminUserId: string;
+  versionReason: string;
+  auditReason: string;
+  emptyUpdatesError: string;
+}): Promise<{ success: boolean; versionNumber?: number; error?: string }> {
+  const {
+    entityType,
+    entityId,
+    updates,
+    adminUserId,
+    versionReason,
+    auditReason,
+    emptyUpdatesError,
+  } = params;
+  const tableName = ENTITY_TABLE_MAP[entityType];
+  if (!tableName) {
+    return { success: false, error: `Unsupported entity type: ${entityType}` };
+  }
+
+  const fields = Object.keys(updates).filter(
+    (field) => !NON_UPDATABLE_FIELDS.has(field) && updates[field] !== undefined
+  );
+  if (fields.length === 0) {
+    return { success: false, error: emptyUpdatesError };
+  }
+
+  const supabase = getSupabaseServerClient();
+  const { data: currentEntity, error: fetchError } = await supabase
+    .from(tableName)
+    .select(fields.join(', '))
+    .eq('id', entityId)
+    .maybeSingle();
+
+  if (fetchError) {
+    return { success: false, error: fetchError.message };
+  }
+  if (!currentEntity) {
+    return { success: false, error: `${entityType} ${entityId} not found` };
+  }
+
+  const currentRow = currentEntity as Record<string, unknown>;
+  const previousValues: Record<string, unknown> = {};
+  const newValues: Record<string, unknown> = {};
+  const changedFields: string[] = [];
+
+  for (const field of fields) {
+    const oldVal = currentRow[field] ?? null;
+    const newVal = updates[field];
+    if (JSON.stringify(oldVal) !== JSON.stringify(newVal)) {
+      previousValues[field] = oldVal;
+      newValues[field] = newVal;
+      changedFields.push(field);
+    }
+  }
+
+  if (changedFields.length === 0) {
+    return { success: true };
+  }
+
+  let nextVersion: number;
+  try {
+    nextVersion = await getNextVersionNumber(supabase, entityType, entityId);
+  } catch (err) {
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : 'Failed to determine next version number',
+    };
+  }
+
+  const nowIso = new Date().toISOString();
+  const { error: updateError } = await supabase
+    .from(tableName)
+    .update({
+      ...newValues,
+      updated_at: nowIso,
+    })
+    .eq('id', entityId);
+
+  if (updateError) {
+    return { success: false, error: updateError.message };
+  }
+
+  const { error: versionError } = await supabase
+    .from('data_version_history')
+    .insert({
+      entity_type: entityType,
+      entity_id: entityId,
+      version_number: nextVersion,
+      previous_values: previousValues,
+      new_values: newValues,
+      changed_fields: changedFields,
+      change_reason: versionReason,
+      changed_by_user: adminUserId,
+      change_source: 'manual_override',
+      is_approved: true,
+      approved_by: adminUserId,
+      approved_at: nowIso,
+    });
+
+  if (versionError) {
+    return { success: false, error: versionError.message };
+  }
+
+  const numericEntityId = Number(entityId);
+  await logAuditAction({
+    tableName,
+    recordId: Number.isInteger(numericEntityId) ? numericEntityId : undefined,
+    action: 'CORRECTION',
+    changedBy: adminUserId,
+    oldValues: previousValues,
+    newValues,
+    reason: auditReason,
+  });
+
+  return { success: true, versionNumber: nextVersion };
+}
+
 export async function rollbackToVersion(
   entityType: 'player' | 'team' | 'tournament' | 'match' | 'player_stats',
   entityId: string,
   targetVersionNumber: number,
   adminUserId: string,
   reason: string
-): Promise<{ success: boolean; error?: string }> {
+): Promise<{ success: boolean; versionNumber?: number; error?: string }> {
   const supabase = getSupabaseServerClient();
 
   // Get the target version
@@ -353,29 +499,20 @@ export async function rollbackToVersion(
     return { success: false, error: 'Version not found' };
   }
 
-  // Create new version record for the rollback
-  const { error: createError } = await supabase
-    .from('data_version_history')
-    .insert({
-      entity_type: entityType,
-      entity_id: entityId,
-      version_number: targetVersionNumber + 1,
-      previous_values: {}, // Current values
-      new_values: versionData.previous_values, // Rolling back to these
-      changed_fields: Object.keys(versionData.previous_values),
-      change_reason: `Rollback to version ${targetVersionNumber}: ${reason}`,
-      changed_by_user: adminUserId,
-      change_source: 'manual_override',
-      is_approved: true,
-      approved_by: adminUserId,
-      approved_at: new Date().toISOString(),
-    });
-
-  if (createError) {
-    return { success: false, error: createError.message };
+  const previousValues = versionData.previous_values;
+  if (!previousValues || typeof previousValues !== 'object' || Array.isArray(previousValues)) {
+    return { success: false, error: 'Target version has no previous values to restore' };
   }
 
-  return { success: true };
+  return applyVersionedEntityUpdate({
+    entityType,
+    entityId,
+    updates: previousValues as Record<string, unknown>,
+    adminUserId,
+    versionReason: `Rollback to version ${targetVersionNumber}: ${reason}`,
+    auditReason: `Admin rolled back ${entityType} to version ${targetVersionNumber}`,
+    emptyUpdatesError: 'Target version has no previous values to restore',
+  });
 }
 
 export async function approveVersion(
@@ -557,35 +694,22 @@ export async function overrideEntityData(
   overrideData: Record<string, unknown>,
   adminUserId: string,
   reason: string
-): Promise<{ success: boolean; error?: string }> {
-  const supabase = getSupabaseServerClient();
+): Promise<{ success: boolean; versionNumber?: number; error?: string }> {
+  const result = await applyVersionedEntityUpdate({
+    entityType,
+    entityId,
+    updates: overrideData,
+    adminUserId,
+    versionReason: reason,
+    auditReason: 'Admin manually overrode entity data',
+    emptyUpdatesError: 'No updatable override fields provided',
+  });
 
-  // Create version record for audit trail
-  const { error: versionError } = await supabase
-    .from('data_version_history')
-    .insert({
-      entity_type: entityType,
-      entity_id: entityId,
-      version_number: 999, // Placeholder, should be incremented
-      previous_values: {}, // Should fetch current values
-      new_values: overrideData,
-      changed_fields: Object.keys(overrideData),
-      change_reason: reason,
-      changed_by_user: adminUserId,
-      change_source: 'manual_override',
-      is_approved: true,
-      approved_by: adminUserId,
-      approved_at: new Date().toISOString(),
-    });
-
-  if (versionError) {
-    return { success: false, error: versionError.message };
+  if (result.success) {
+    console.log(
+      `[Admin Override] ${entityType} ${entityId} by ${adminUserId}: ${reason}`
+    );
   }
 
-  // Log the override
-  console.log(
-    `[Admin Override] ${entityType} ${entityId} by ${adminUserId}: ${reason}`
-  );
-
-  return { success: true };
+  return result;
 }
