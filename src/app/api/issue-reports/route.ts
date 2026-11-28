@@ -8,6 +8,9 @@ import { withApiTelemetry } from '@/lib/api-telemetry';
 const BUCKET = 'issue-report-screenshots';
 const MAX_SCREENSHOT_SIZE = 5 * 1024 * 1024;
 const REPORT_LIMIT = 50;
+const ISSUE_REPORT_HOURLY_LIMIT = 5;
+const ISSUE_REPORT_WINDOW_SECONDS = 3600;
+const ISSUE_REPORT_LIMIT_MESSAGE = 'You have reached the issue report limit. Please try again later.';
 const categories = ['bug', 'error', 'ui', 'feature_request', 'performance'] as const;
 const severities = ['low', 'medium', 'high', 'critical'] as const;
 const IMAGE_TYPES = {
@@ -73,6 +76,30 @@ async function addScreenshotUrl(
     throw new Error(`Unable to create a private screenshot link: ${error?.message ?? 'Missing signed URL.'}`);
   }
   return { ...report, screenshot_url: data.signedUrl };
+}
+
+function getRetryAfterSeconds(oldestCreatedAt: string | undefined, nowMs = Date.now()): number {
+  if (!oldestCreatedAt) return ISSUE_REPORT_WINDOW_SECONDS;
+  const createdAtMs = Date.parse(oldestCreatedAt);
+  if (!Number.isFinite(createdAtMs)) return ISSUE_REPORT_WINDOW_SECONDS;
+  const remainingSeconds = Math.ceil((createdAtMs + ISSUE_REPORT_WINDOW_SECONDS * 1000 - nowMs) / 1000);
+  return Math.max(1, Math.min(ISSUE_REPORT_WINDOW_SECONDS, remainingSeconds));
+}
+
+function createRateLimitResponse(
+  auth: Awaited<ReturnType<typeof verifyAuth>>,
+  message = ISSUE_REPORT_LIMIT_MESSAGE,
+  retryAfterSeconds = ISSUE_REPORT_WINDOW_SECONDS,
+) {
+  const response = NextResponse.json(
+    { error: message },
+    {
+      status: 429,
+      headers: { 'Retry-After': String(retryAfterSeconds) },
+    },
+  );
+  applyRefreshedTokens(response, auth);
+  return response;
 }
 
 async function getHandler(request: NextRequest) {
@@ -200,6 +227,27 @@ async function postHandler(request: NextRequest) {
       if (!hasValidImageSignature(file.type, bytes)) {
         return NextResponse.json({ error: 'The screenshot content does not match its file type.' }, { status: 400 });
       }
+      // Enforce the hourly per-user cap before writing to Storage so rate-limited
+      // requests don't upload and immediately delete orphan screenshots.
+      const windowStartIso = new Date(Date.now() - ISSUE_REPORT_WINDOW_SECONDS * 1000).toISOString();
+      const { data: recentReports, error: rateCheckError } = await supabase
+        .from('issue_reports')
+        .select('created_at')
+        .eq('user_id', auth.userId)
+        .gte('created_at', windowStartIso)
+        .order('created_at', { ascending: true })
+        .limit(ISSUE_REPORT_HOURLY_LIMIT);
+      if (rateCheckError) {
+        console.warn('[IssueReports] Pre-upload rate check failed; falling back to RPC limit:', rateCheckError.message);
+      } else if ((recentReports?.length ?? 0) >= ISSUE_REPORT_HOURLY_LIMIT) {
+        const oldestCreatedAt = (recentReports?.[0] as { created_at?: string } | undefined)?.created_at;
+        return createRateLimitResponse(
+          auth,
+          ISSUE_REPORT_LIMIT_MESSAGE,
+          getRetryAfterSeconds(oldestCreatedAt),
+        );
+      }
+
       uploadedPath = `${auth.userId}/${randomUUID()}.${IMAGE_TYPES[file.type].extension}`;
       const { error } = await supabase.storage.from(BUCKET).upload(uploadedPath, bytes, {
         contentType: file.type,
@@ -225,9 +273,7 @@ async function postHandler(request: NextRequest) {
           if (cleanupError) console.error('[IssueReports] Failed to remove rate-limited screenshot:', cleanupError);
           uploadedPath = null;
         }
-        const response = NextResponse.json({ error: error.message }, { status: 429 });
-        applyRefreshedTokens(response, auth);
-        return response;
+        return createRateLimitResponse(auth, error.message, ISSUE_REPORT_WINDOW_SECONDS);
       }
       throw new Error(`Unable to save issue report: ${error.message}`);
     }
