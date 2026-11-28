@@ -12,7 +12,10 @@ import type { NextConfig } from "next";
 //  • font-src is 'self' only — next/font/google self-hosts Geist at build
 //    time, so no external font origin is needed.
 //  • connect-src includes wss://*.supabase.co for Supabase Realtime.
-//  • img-src mirrors the remotePatterns list below exactly.
+//  • img-src covers Steam game-asset CDNs (hero images, item icons, team
+//    logos) AND Steam player avatar CDNs (avatars.steamstatic.com and
+//    avatars.akamai.steamstatic.com) which serve profile images returned by
+//    ISteamUser/GetPlayerSummaries.  Supabase covers manager profile avatars.
 // ---------------------------------------------------------------------------
 const ContentSecurityPolicy = [
   "default-src 'self'",
@@ -24,6 +27,9 @@ const ContentSecurityPolicy = [
     "https://steamusercontent-a.akamaihd.net",
     "https://cdn.steamusercontent.com",
     "https://cdn.cloudflare.steamstatic.com",
+    // Player profile avatars returned by ISteamUser/GetPlayerSummaries:
+    "https://avatars.steamstatic.com",
+    "https://avatars.akamai.steamstatic.com",
     "https://*.supabase.co",
   ].join(" "),
   "font-src 'self'",
@@ -100,6 +106,17 @@ const nextConfig: NextConfig = {
       {
         protocol: 'https',
         hostname: 'cdn.cloudflare.steamstatic.com',
+        pathname: '/**',
+      },
+      // Player profile avatars (ISteamUser/GetPlayerSummaries):
+      {
+        protocol: 'https',
+        hostname: 'avatars.steamstatic.com',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'avatars.akamai.steamstatic.com',
         pathname: '/**',
       },
       {
